@@ -52,6 +52,13 @@ export interface SprintTask {
     files_to_create?: string[];
     files_to_modify?: string[];
     validation_criteria?: string[];
+
+    // Chain of Thought fields (Pattern-SPRINT-001, ENORM-010)
+    why?: string;                    // Business justification - why this task matters
+    context?: string;                // Strategic alignment & documentation links
+    reasoning_chain?: string[];      // Step-by-step logical progression
+    success_impact?: string;         // Concrete outcomes when task completed
+    notes?: string;                  // Additional context, warnings, or meta-information
 }
 
 export interface SprintMetadata {
@@ -216,7 +223,14 @@ export class SprintLoader {
                 completed_date: task.completed_date,
                 files_to_create: task.files_to_create,
                 files_to_modify: task.files_to_modify,
-                validation_criteria: task.validation_criteria
+                validation_criteria: task.validation_criteria,
+
+                // Chain of Thought fields (Pattern-SPRINT-001, ENORM-010)
+                why: task.why,
+                context: task.context,
+                reasoning_chain: task.reasoning_chain,
+                success_impact: task.success_impact,
+                notes: task.notes
             });
         }
 

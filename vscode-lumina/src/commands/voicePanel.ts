@@ -1687,6 +1687,78 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 <p>${task.phase}</p>
             </div>
 
+            ${task.why ? `
+            <div class="detail-section cot-section">
+                <h4>💡 Why This Task Matters</h4>
+                <div class="cot-content why-content">
+                    ${this.convertMarkdownToHtml(task.why)}
+                </div>
+            </div>
+            ` : ''}
+
+            ${task.context ? `
+            <div class="detail-section cot-section">
+                <h4>📚 Context & Documentation</h4>
+                <div class="cot-content context-content">
+                    ${this.convertMarkdownToHtml(task.context)}
+                </div>
+            </div>
+            ` : ''}
+
+            ${task.reasoning_chain && task.reasoning_chain.length > 0 ? `
+            <div class="detail-section cot-section">
+                <h4>🧠 Reasoning Chain</h4>
+                <ol class="reasoning-chain">
+                    ${task.reasoning_chain.map(step => `<li>${this.convertMarkdownToHtml(step)}</li>`).join('')}
+                </ol>
+            </div>
+            ` : ''}
+
+            ${task.success_impact ? `
+            <div class="detail-section cot-section">
+                <h4>🎯 Success Impact</h4>
+                <div class="cot-content success-impact-content">
+                    ${this.convertMarkdownToHtml(task.success_impact)}
+                </div>
+            </div>
+            ` : ''}
+
+            ${task.validation_criteria && task.validation_criteria.length > 0 ? `
+            <div class="detail-section cot-section">
+                <h4>✅ Validation Criteria</h4>
+                <ul class="validation-list">
+                    ${task.validation_criteria.map(criteria => `<li>${this.convertMarkdownToHtml(criteria)}</li>`).join('')}
+                </ul>
+            </div>
+            ` : ''}
+
+            ${task.files_to_create && task.files_to_create.length > 0 ? `
+            <div class="detail-section">
+                <h4>📝 Files to Create</h4>
+                <div class="tag-list">
+                    ${task.files_to_create.map(file => `<span class="tag file-tag">${file}</span>`).join('')}
+                </div>
+            </div>
+            ` : ''}
+
+            ${task.files_to_modify && task.files_to_modify.length > 0 ? `
+            <div class="detail-section">
+                <h4>✏️ Files to Modify</h4>
+                <div class="tag-list">
+                    ${task.files_to_modify.map(file => `<span class="tag file-tag">${file}</span>`).join('')}
+                </div>
+            </div>
+            ` : ''}
+
+            ${task.notes ? `
+            <div class="detail-section cot-section notes-section">
+                <h4>📌 Notes</h4>
+                <div class="cot-content notes-content">
+                    ${this.convertMarkdownToHtml(task.notes)}
+                </div>
+            </div>
+            ` : ''}
+
             ${this.selectedTaskDetails ? `
             <div class="detail-section full-task-details">
                 <h4>📄 Full Task Implementation</h4>
@@ -2152,6 +2224,72 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             border-radius: 4px;
             border-left: 3px solid var(--vscode-inputValidation-warningBorder);
             font-family: var(--vscode-editor-font-family);
+        }
+
+        /* Chain of Thought Sections */
+        .cot-section {
+            background: var(--vscode-editor-background);
+            border-left: 3px solid var(--vscode-charts-blue);
+            padding-left: 12px;
+            margin-top: 16px;
+        }
+
+        .cot-content {
+            font-size: 13px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+        }
+
+        .why-content {
+            color: var(--vscode-charts-purple);
+        }
+
+        .context-content {
+            color: var(--vscode-charts-green);
+        }
+
+        .reasoning-chain {
+            list-style: decimal;
+            padding-left: 24px;
+            margin: 8px 0;
+        }
+
+        .reasoning-chain li {
+            margin: 6px 0;
+            line-height: 1.5;
+        }
+
+        .success-impact-content {
+            color: var(--vscode-charts-green);
+            font-weight: 500;
+        }
+
+        .validation-list {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .validation-list li {
+            margin: 6px 0;
+            padding-left: 24px;
+            position: relative;
+        }
+
+        .validation-list li::before {
+            content: '☑️';
+            position: absolute;
+            left: 0;
+        }
+
+        .file-tag {
+            background: var(--vscode-editorWidget-background);
+            color: var(--vscode-editor-foreground);
+            font-family: var(--vscode-editor-font-family);
+            font-size: 11px;
+        }
+
+        .notes-section {
+            border-left-color: var(--vscode-charts-orange);
         }
 
         /* Full Task Details (Markdown Content) */
