@@ -21,14 +21,6 @@
   "bin": {
     "aetherlight": "./bin/aetherlight.js"
   },
-  "files": [
-    "bin/",
-    "out/",
-    "templates/",
-    "README.md",
-    "NPM_README.md",
-    "LICENSE"
-  ],
   "readme": "NPM_README.md",
   "keywords": [
     "voice",

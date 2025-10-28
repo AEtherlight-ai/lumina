@@ -10,7 +10,8 @@
       "Bash(git mv benchmark-search-performance.js check-supabase-status.sh count-patterns.js find-missing-patterns.js find-missing.js install-llvm.ps1 run-ingestion.ps1 run-migration-sdk.ts run-migration.ts run-with-env.bat test-hybrid-search.js test-unified-search.js verify-embedding.js verify-embeddings.js verify-patterns.js ../internal/scripts/)",
       "Bash(git mv:*)",
       "Bash(npm run compile:*)",
-      "Read(//c/Users/Brett/Downloads/**)"
+      "Read(//c/Users/Brett/Downloads/**)",
+      "Bash(npm test:*)"
     ],
     "deny": [],
     "ask": []
