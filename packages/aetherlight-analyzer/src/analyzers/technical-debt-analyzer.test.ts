@@ -184,6 +184,7 @@ async function fetchData() {
       fs.writeFileSync(
         testFile,
         `
+// NOTE: Fake API key placeholder for testing secret detection (not a real Stripe key)
 const API_KEY = 'FAKE_API_KEY_FOR_TESTING_ONLY_DO_NOT_USE';
 function authenticate() {
   return API_KEY;
@@ -322,6 +323,7 @@ function simple() {
 // HACK: Complex file with issues
 // FIXME: Multiple problems
 // TODO: Needs refactoring
+// NOTE: Fake API key placeholder for testing secret detection (not a real Stripe key)
 const API_KEY = 'FAKE_API_KEY_FOR_TESTING_ONLY_DO_NOT_USE';
 async function broken() {
   const data = await fetch('https://hardcoded.url.com');
@@ -345,6 +347,7 @@ async function broken() {
         testFileHigh,
         `
 // HACK: High severity
+// NOTE: Fake secret placeholder for testing detection (not a real Stripe key)
 const SECRET = 'FAKE_SECRET_FOR_TESTING_ONLY_DO_NOT_USE';
       `
       );
