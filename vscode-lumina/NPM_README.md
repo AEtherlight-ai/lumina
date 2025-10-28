@@ -11,10 +11,44 @@ Voice-to-intelligence platform for developers. Capture voice, match patterns, pr
 npm install -g aetherlight
 ```
 
-This installs:
+This installs the complete ÆtherLight toolkit:
 - ✅ **VS Code extension** - Voice capture, pattern matching, AI assistance
+- ✅ **Code Analyzer CLI** (`aetherlight-analyzer`) - Analyze codebases and generate sprint plans
+- ✅ **Native Bindings** (`aetherlight-node`) - High-performance Rust pattern matching engine
 - ✅ **Desktop app** - (Windows/Mac) Standalone voice capture application
 - ✅ **Cursor support** - Automatic installation if Cursor IDE detected
+
+## Package Structure
+
+ÆtherLight is published as multiple npm packages that work together:
+
+### Main Package (All-in-One)
+```bash
+npm install -g aetherlight
+```
+Installs everything you need: VS Code extension, analyzer CLI, and native bindings.
+
+### Standalone Packages (Optional)
+
+You can also install individual components separately:
+
+```bash
+# Just the analyzer CLI
+npm install -g aetherlight-analyzer
+
+# Just the native bindings (for advanced use)
+npm install aetherlight-node
+
+# SDK for app developers (integrate ÆtherLight into your own apps)
+npm install aetherlight-sdk
+```
+
+**When to use standalone packages:**
+- **aetherlight-analyzer** - Use without VS Code, just the CLI tool
+- **aetherlight-node** - Building low-level integrations with the pattern engine
+- **aetherlight-sdk** - Building your own applications with voice control and pattern matching
+
+**For most users:** Just install `aetherlight` and you get everything!
 
 ## What You Get
 
@@ -169,7 +203,7 @@ code --uninstall-extension aetherlight
 
 - **Documentation:** https://github.com/AEtherlight-ai/lumina
 - **Issue Tracker:** https://github.com/AEtherlight-ai/lumina/issues
-- **Discord Community:** [Coming soon]
+- **Discord Community:** https://discord.gg/ExkyhBny
 - **Website:** https://aetherlight.dev
 
 ## License
@@ -189,7 +223,7 @@ MIT License - See [LICENSE](LICENSE) file for details
 
 - 📖 [Documentation](https://github.com/AEtherlight-ai/lumina)
 - 🐛 [Report Issues](https://github.com/AEtherlight-ai/lumina/issues)
-- 💬 [Discord Community](https://discord.gg/aetherlight) *(coming soon)*
+- 💬 [Discord Community](https://discord.gg/ExkyhBny)
 - 📧 Email: support@aetherlight.dev
 
 ---

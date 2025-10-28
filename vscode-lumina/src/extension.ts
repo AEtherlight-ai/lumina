@@ -41,7 +41,9 @@ import { registerStatusBarManager } from './status_bar_manager';
 import { RealtimeSyncManager } from './realtime_sync';
 // TEMPORARILY DISABLED FOR v0.13.1-beta - Phase 4 code has incomplete NAPI bindings
 // import { SprintLoader } from './commands/SprintLoader';
-import { registerAnalyzeWorkspaceCommands } from './commands/analyzeWorkspace';
+// TEMPORARILY DISABLED - Missing @aetherlight/analyzer package
+// import { registerAnalyzeWorkspaceCommands } from './commands/analyzeWorkspace';
+import { UpdateChecker } from './services/updateChecker';
 import * as fs from 'fs';
 
 /**
@@ -692,7 +694,37 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	 * PATTERN: Pattern-ANALYZER-INTEGRATION-001 (Hybrid Bundling)
 	 * RELATED: @aetherlight/analyzer package (packages/aetherlight-analyzer)
 	 */
-	registerAnalyzeWorkspaceCommands(context);
+	// TEMPORARILY DISABLED - Missing @aetherlight/analyzer package
+	// registerAnalyzeWorkspaceCommands(context);
+
+	/**
+	 * DESIGN DECISION: Initialize Update Checker on activation
+	 * WHY: Notify users when new versions are available (respect auto-update preference)
+	 *
+	 * REASONING CHAIN:
+	 * 1. Check npm registry for latest version on activation (after 10s delay)
+	 * 2. Compare with current extension version (from package.json)
+	 * 3. If newer version exists → Show notification with update options
+	 * 4. User can update now, view changes, skip version, or auto-update
+	 * 5. Check every 12 hours in background (configurable)
+	 * 6. Result: Users stay updated without manual checking
+	 *
+	 * PATTERN: Pattern-UPDATE-001 (Auto-Update Detection)
+	 */
+	const updateChecker = new UpdateChecker(context);
+	updateChecker.start();
+
+	// Register manual update check command
+	context.subscriptions.push(
+		vscode.commands.registerCommand('aetherlight.checkForUpdates', () => {
+			updateChecker.checkNow();
+		})
+	);
+
+	// Clean up update checker on deactivation
+	context.subscriptions.push({
+		dispose: () => updateChecker.stop()
+	});
 
 	console.log('Lumina extension activated successfully');
 }

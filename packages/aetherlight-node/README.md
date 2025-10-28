@@ -1,13 +1,13 @@
-# @aetherlight/node
+# aetherlight-node
 
 **Node.js bindings for ÆtherLight Core pattern matching engine**
 
-[![npm version](https://img.shields.io/npm/v/@aetherlight/node.svg)](https://www.npmjs.com/package/@aetherlight/node)
+[![npm version](https://img.shields.io/npm/v/aetherlight-node.svg)](https://www.npmjs.com/package/aetherlight-node)
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](LICENSE)
 
 ## Overview
 
-`@aetherlight/node` provides high-performance Node.js bindings to the ÆtherLight Core pattern matching engine. Built with Rust and NAPI-RS, it enables multi-dimensional pattern matching with <50ms latency for 10,000 patterns.
+`aetherlight-node` provides high-performance Node.js bindings to the ÆtherLight Core pattern matching engine. Built with Rust and NAPI-RS, it enables multi-dimensional pattern matching with <50ms latency for 10,000 patterns.
 
 ### Key Features
 
@@ -20,9 +20,17 @@
 
 ## Installation
 
+### Option 1: Install with main ÆtherLight package (Recommended)
 ```bash
-npm install @aetherlight/node
+npm install -g aetherlight
 ```
+This installs the native bindings along with the VS Code extension and analyzer CLI.
+
+### Option 2: Install bindings only
+```bash
+npm install aetherlight-node
+```
+Use this for low-level integration with the pattern matching engine.
 
 ### Requirements
 
@@ -46,7 +54,7 @@ npm run build
 ## Quick Start
 
 ```typescript
-import { PatternMatcher, Pattern } from '@aetherlight/node';
+import { PatternMatcher, Pattern } from 'aetherlight-node';
 
 // Create a pattern matcher
 const matcher = new PatternMatcher();
@@ -279,7 +287,7 @@ interface MatchResult {
 Returns library version as semantic version string.
 
 ```typescript
-import { version } from '@aetherlight/node';
+import { version } from 'aetherlight-node';
 console.log(`ÆtherLight Core v${version()}`);
 ```
 
@@ -495,7 +503,7 @@ Contributions welcome! Please see [CONTRIBUTING.md](../../CONTRIBUTING.md) for g
 - [Documentation](https://github.com/AEtherlight-ai/lumina/tree/main/docs)
 - [Issue Tracker](https://github.com/AEtherlight-ai/lumina/issues)
 - [Changelog](CHANGELOG.md)
-- [npm Package](https://www.npmjs.com/package/@aetherlight/node)
+- [npm Package](https://www.npmjs.com/package/aetherlight-node)
 
 ---
 

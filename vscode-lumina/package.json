@@ -2,7 +2,7 @@
   "name": "aetherlight",
   "displayName": "ÆtherLight",
   "description": "Voice-to-intelligence platform for developers. Capture voice, match patterns, prevent AI hallucinations.",
-  "version": "0.13.11",
+  "version": "0.13.18",
   "publisher": "aetherlight",
   "repository": {
     "type": "git",
@@ -150,6 +150,10 @@
       {
         "command": "aetherlight.analyzeAndGenerateSprints",
         "title": "ÆtherLight: Analyze Workspace and Generate Sprints"
+      },
+      {
+        "command": "aetherlight.checkForUpdates",
+        "title": "ÆtherLight: Check for Updates"
       }
     ],
     "keybindings": [
@@ -546,6 +550,28 @@
           "type": "boolean",
           "default": true,
           "description": "Automatically select next waiting terminal after command completes (uses Shell Integration API)"
+        },
+        "aetherlight.sprint.filePath": {
+          "type": "string",
+          "default": "sprints/ACTIVE_SPRINT.toml",
+          "description": "Path to the active sprint TOML file relative to workspace root (e.g., 'internal/sprints/ACTIVE_SPRINT.toml' or 'sprints/ACTIVE_SPRINT.toml')"
+        },
+        "aetherlight.updates.autoCheck": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically check for ÆtherLight updates"
+        },
+        "aetherlight.updates.checkIntervalHours": {
+          "type": "number",
+          "default": 1,
+          "minimum": 1,
+          "maximum": 24,
+          "description": "How often to check for updates (in hours). Default: 1 hour"
+        },
+        "aetherlight.updates.autoUpdate": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically update ÆtherLight when new version detected (requires auto-check enabled)"
         }
       }
     }
@@ -560,7 +586,8 @@
     "postinstall": "node -e \"console.log('\\n✅ ÆtherLight installed!\\n\\nNext step: Run \\\"aetherlight\\\" to install VS Code extension + Desktop app\\n')\""
   },
   "dependencies": {
-    "@aetherlight/analyzer": "file:../packages/aetherlight-analyzer",
+    "aetherlight-analyzer": "^0.13.18",
+    "aetherlight-node": "^0.13.18",
     "@iarna/toml": "^2.2.5",
     "@nut-tree-fork/nut-js": "^4.2.6",
     "form-data": "^4.0.4",

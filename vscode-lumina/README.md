@@ -180,7 +180,7 @@ code --uninstall-extension aetherlight
 
 - **Documentation:** https://github.com/AEtherlight-ai/lumina
 - **Issue Tracker:** https://github.com/AEtherlight-ai/lumina/issues
-- **Discord Community:** [Coming soon]
+- **Discord Community:** https://discord.gg/ExkyhBny
 - **Website:** https://aetherlight.dev
 
 ## License
@@ -200,7 +200,7 @@ MIT License - See [LICENSE](LICENSE) file for details
 
 - 📖 [Documentation](https://github.com/AEtherlight-ai/lumina)
 - 🐛 [Report Issues](https://github.com/AEtherlight-ai/lumina/issues)
-- 💬 [Discord Community](https://discord.gg/aetherlight) *(coming soon)*
+- 💬 [Discord Community](https://discord.gg/ExkyhBny)
 - 📧 Email: support@aetherlight.dev
 
 ---

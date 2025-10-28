@@ -35,6 +35,47 @@ Never start from zero state in prompting. Every query builds on validated patter
 
 ---
 
+## 📦 Installation & Packages
+
+ÆtherLight is available on npm as multiple packages that work together:
+
+### For End Users (Recommended)
+```bash
+npm install -g aetherlight
+```
+**This installs everything:**
+- VS Code extension (voice capture, pattern matching, AI assistance)
+- Code analyzer CLI (`aetherlight-analyzer`)
+- Native Rust bindings (`aetherlight-node`)
+
+### For Specific Use Cases
+
+**Just the analyzer CLI:**
+```bash
+npm install -g aetherlight-analyzer
+```
+Use without VS Code - analyze codebases and generate sprint plans from the command line.
+
+**Just the native bindings:**
+```bash
+npm install aetherlight-node
+```
+For low-level integration with the pattern matching engine.
+
+**SDK for app developers:**
+```bash
+npm install aetherlight-sdk
+```
+Build your own applications with ÆtherLight's voice control and pattern matching features.
+
+### NPM Packages
+- **[aetherlight](https://www.npmjs.com/package/aetherlight)** - Main package (all-in-one)
+- **[aetherlight-analyzer](https://www.npmjs.com/package/aetherlight-analyzer)** - Code analyzer CLI
+- **[aetherlight-sdk](https://www.npmjs.com/package/aetherlight-sdk)** - Application integration SDK
+- **[aetherlight-node](https://www.npmjs.com/package/aetherlight-node)** - Native Rust bindings
+
+---
+
 ## Current Development Status
 
 ### ✅ What Exists Now (Code + Tests)

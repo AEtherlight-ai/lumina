@@ -123,8 +123,9 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             return;
         }
 
-        // Watch ACTIVE_SPRINT.toml in sprints directory
-        const pattern = new vscode.RelativePattern(workspaceRoot, 'sprints/ACTIVE_SPRINT.toml');
+        // Watch ACTIVE_SPRINT.toml at discovered location (internal/sprints, sprints, or root)
+        const sprintFilePath = this.sprintLoader.getSprintFilePath();
+        const pattern = new vscode.RelativePattern(workspaceRoot, sprintFilePath);
 
         this.sprintFileWatcher = vscode.workspace.createFileSystemWatcher(pattern);
 
@@ -615,7 +616,8 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                     }
                 }
 
-                vscode.window.showInformationMessage('✅ Sprint data reloaded from CURRENT_SPRINT.md');
+                const sprintFileName = path.basename(this.sprintLoader.getSprintFilePath());
+                vscode.window.showInformationMessage(`✅ Sprint data reloaded from ${sprintFileName}`);
                 break;
 
             case 'selectEngineer':

@@ -1,11 +1,27 @@
-# @aetherlight/analyzer
+# aetherlight-analyzer
 
 > **Code analysis tool to generate ÆtherLight sprint plans from any codebase**
 
 Transform any TypeScript/JavaScript codebase into actionable sprint plans with Chain of Thought reasoning. Built on ÆtherLight's meta-learning philosophy.
 
-[![npm version](https://img.shields.io/npm/v/@aetherlight/analyzer.svg)](https://www.npmjs.com/package/@aetherlight/analyzer)
+[![npm version](https://img.shields.io/npm/v/aetherlight-analyzer.svg)](https://www.npmjs.com/package/aetherlight-analyzer)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+---
+
+## 📦 Installation
+
+### Option 1: Install with main ÆtherLight package (Recommended)
+```bash
+npm install -g aetherlight
+```
+This installs the analyzer along with the VS Code extension and native bindings.
+
+### Option 2: Install analyzer only
+```bash
+npm install -g aetherlight-analyzer
+```
+Use this if you only need the CLI tool without the VS Code extension.
 
 ---
 
@@ -13,7 +29,7 @@ Transform any TypeScript/JavaScript codebase into actionable sprint plans with C
 
 **The Problem:** You inherit a codebase with zero documentation. You need to understand its architecture, identify technical debt, and plan improvements.
 
-**The Solution:** `@aetherlight/analyzer` automates the entire process:
+**The Solution:** `aetherlight-analyzer` automates the entire process:
 
 1. **Analyze:** Parse TypeScript/JS code → extract architecture patterns, complexity metrics, technical debt
 2. **Generate:** Create Phase A/B/C sprint plans with Chain of Thought reasoning
@@ -27,25 +43,25 @@ Transform any TypeScript/JavaScript codebase into actionable sprint plans with C
 ## ⚡ Quick Start
 
 ```bash
-# Install globally
-npm install -g @aetherlight/analyzer
+# Run with npx (no install needed)
+npx aetherlight-analyzer --help
 
-# Or run with npx (no install)
-npx @aetherlight/analyzer --help
+# Or use the installed command
+aetherlight-analyzer --help
 ```
 
 **5-Minute Walkthrough:**
 
 ```bash
 # 1. Initialize ÆtherLight workspace
-npx @aetherlight/analyzer init ./target-codebase
+aetherlight-analyzer init ./target-codebase
 
 # 2. Analyze codebase
 cd target-codebase
-npx @aetherlight/analyzer analyze
+aetherlight-analyzer analyze
 
 # 3. Generate sprint plans
-npx @aetherlight/analyzer generate-sprints
+aetherlight-analyzer generate-sprints
 
 # 4. Execute sprints (dry-run)
 npx @aetherlight/analyzer execute-sprint A --dry-run

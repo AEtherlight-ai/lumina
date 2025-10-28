@@ -81,18 +81,65 @@ export class SprintLoader {
     constructor(private readonly context: vscode.ExtensionContext) {}
 
     /**
+     * Find sprint file by checking multiple locations
+     *
+     * DESIGN DECISION: Check user config → internal/ → sprints/ → root
+     * WHY: Support both ÆtherLight development and user projects
+     */
+    private async findSprintFile(workspaceRoot: string): Promise<string | null> {
+        // Check user-configured path first
+        const config = vscode.workspace.getConfiguration('aetherlight');
+        const userPath = config.get<string>('sprint.filePath');
+        if (userPath) {
+            const fullPath = path.join(workspaceRoot, userPath);
+            if (fs.existsSync(fullPath)) {
+                return fullPath;
+            }
+        }
+
+        // Check common locations
+        const locations = [
+            'internal/sprints/ACTIVE_SPRINT.toml',  // ÆtherLight development
+            'sprints/ACTIVE_SPRINT.toml',           // User projects
+            'ACTIVE_SPRINT.toml'                    // Root level
+        ];
+
+        for (const loc of locations) {
+            const fullPath = path.join(workspaceRoot, loc);
+            if (fs.existsSync(fullPath)) {
+                // Save this path for future use
+                await config.update('sprint.filePath', loc, vscode.ConfigurationTarget.Workspace);
+                return fullPath;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Get the relative path to the sprint file (for display in UI)
+     */
+    public getSprintFilePath(): string {
+        const config = vscode.workspace.getConfiguration('aetherlight');
+        return config.get<string>('sprint.filePath') || 'sprints/ACTIVE_SPRINT.toml';
+    }
+
+    /**
      * Load sprint plan from TOML file
      *
-     * DESIGN DECISION: Read from sprints/ACTIVE_SPRINT.toml
-     * WHY: Single source of truth for autonomous agents + continuous sprint loading
+     * DESIGN DECISION: Check multiple locations for ACTIVE_SPRINT.toml + allow user configuration
+     * WHY: Support both internal/ (ÆtherLight development) and root-level sprints/ (user projects)
      *
      * REASONING CHAIN:
-     * 1. Check if sprints/ACTIVE_SPRINT.toml exists
-     * 2. Parse TOML → extract metadata + tasks (< 5ms)
-     * 3. Check if sprint completed (100% tasks done)
-     * 4. If completed → Archive current → Promote next from backlog
-     * 5. FileSystemWatcher detects change → UI auto-refreshes
-     * 6. Result: Continuous sprint execution, zero manual intervention
+     * 1. Check user-configured path first (workspaceState: aetherlight.sprint.path)
+     * 2. Fallback: Check internal/sprints/ACTIVE_SPRINT.toml (ÆtherLight dev)
+     * 3. Fallback: Check sprints/ACTIVE_SPRINT.toml (user projects)
+     * 4. Fallback: Check ACTIVE_SPRINT.toml (root level)
+     * 5. Parse TOML → extract metadata + tasks (< 5ms)
+     * 6. Check if sprint completed (100% tasks done)
+     * 7. If completed → Archive current → Promote next from backlog
+     * 8. FileSystemWatcher detects change → UI auto-refreshes
+     * 9. Result: Flexible file location, continuous sprint execution
      */
     public async loadSprint(): Promise<{ tasks: SprintTask[], metadata: SprintMetadata | null }> {
         try {
@@ -102,10 +149,18 @@ export class SprintLoader {
                 throw new Error('No workspace open - cannot load sprint plan');
             }
 
-            // 2. Check if TOML sprint file exists
-            const sprintPath = path.join(workspaceRoot, 'sprints', 'ACTIVE_SPRINT.toml');
-            if (!fs.existsSync(sprintPath)) {
-                throw new Error(`Sprint file not found: ${sprintPath}\n\nExpected: sprints/ACTIVE_SPRINT.toml`);
+            // 2. Find sprint file (check multiple locations)
+            const sprintPath = await this.findSprintFile(workspaceRoot);
+            if (!sprintPath) {
+                const locations = [
+                    'internal/sprints/ACTIVE_SPRINT.toml',
+                    'sprints/ACTIVE_SPRINT.toml',
+                    'ACTIVE_SPRINT.toml'
+                ];
+                throw new Error(
+                    `Sprint file not found. Checked:\n${locations.map(l => `  - ${l}`).join('\n')}\n\n` +
+                    `Configure location in Settings: aetherlight.sprint.filePath`
+                );
             }
 
             // 3. Read and parse TOML file

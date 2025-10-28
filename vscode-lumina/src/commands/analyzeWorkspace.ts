@@ -19,14 +19,14 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import { TypeScriptParser } from '@aetherlight/analyzer';
-import { ArchitectureAnalyzer, ComplexityAnalyzer, TechnicalDebtAnalyzer } from '@aetherlight/analyzer';
-import { SprintGenerator } from '@aetherlight/analyzer';
+import { TypeScriptParser } from 'aetherlight-analyzer';
+import { ArchitectureAnalyzer, ComplexityAnalyzer, TechnicalDebtAnalyzer } from 'aetherlight-analyzer';
+import { SprintGenerator } from 'aetherlight-analyzer';
 import type {
 	ArchitectureAnalysis,
 	ComplexityAnalysis,
 	TechnicalDebtAnalysis
-} from '@aetherlight/analyzer';
+} from 'aetherlight-analyzer';
 
 /**
  * Register analyze workspace commands

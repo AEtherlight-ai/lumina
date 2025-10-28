@@ -1,8 +1,20 @@
-# @aetherlight/sdk
+# aetherlight-sdk
 
 **Intelligence infrastructure for any application.**
 
 ÆtherLight SDK enables your application to integrate pattern recognition, architecture analysis, and neural network learning in 30 minutes.
+
+## 📦 Installation
+
+```bash
+npm install aetherlight-sdk
+```
+
+**Note:** This package is for developers who want to integrate ÆtherLight features into their own applications. If you just want to use ÆtherLight in VS Code, install the main package instead:
+
+```bash
+npm install -g aetherlight
+```
 
 ## What This SDK Provides
 
@@ -13,12 +25,8 @@
 
 ## Quick Start
 
-```bash
-npm install @aetherlight/sdk
-```
-
 ```typescript
-import { AetherlightCore } from '@aetherlight/sdk';
+import { AetherlightCore } from 'aetherlight-sdk';
 
 const core = new AetherlightCore({
   domain: 'legal',
