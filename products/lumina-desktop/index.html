@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lumina Desktop</title>
+    <!--
+      DESIGN DECISION: Standard HTML5 entry point for Vite + React + Tauri
+      WHY: Tauri 2.0 uses Vite as build tool, requires index.html at project root
+
+      REASONING CHAIN:
+      1. Tauri serves this HTML file as desktop app window content
+      2. Vite injects React app via <script type="module" src="/src/main.tsx">
+      3. CSP meta tag required for Tauri security (prevents inline scripts)
+      4. Viewport meta enables responsive design
+
+      PATTERN: Pattern-TAURI-001 (Lightweight Desktop App)
+      RELATED: src/main.tsx (React mount), tauri.conf.json (window config)
+      FUTURE: Add app icon, update title dynamically based on status
+    -->
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

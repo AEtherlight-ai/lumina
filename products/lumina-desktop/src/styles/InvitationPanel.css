@@ -1,0 +1,323 @@
+/**
+ * Invitation Panel Styles
+ *
+ * DESIGN DECISION: Visual hierarchy emphasizes storage growth
+ * WHY: Primary CTA = copy invitation link → clear, one-click action
+ *
+ * PATTERN: Pattern-UI-005 (Viral Growth UI Design)
+ */
+
+.invitation-panel {
+    padding: 24px;
+    background: #1a1a1a;
+    border-radius: 12px;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.invitation-panel h2 {
+    font-size: 24px;
+    font-weight: 600;
+    margin-bottom: 20px;
+    color: #ffffff;
+}
+
+/* Storage Stats */
+.storage-stats {
+    margin-bottom: 24px;
+    padding: 16px;
+    background: #2a2a2a;
+    border-radius: 8px;
+}
+
+.storage-bar-container {
+    height: 40px;
+    background: #3a3a3a;
+    border-radius: 20px;
+    overflow: hidden;
+    margin-bottom: 12px;
+    position: relative;
+}
+
+.storage-bar-used {
+    height: 100%;
+    background: linear-gradient(90deg, #6366f1 0%, #8b5cf6 100%);
+    transition: width 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 16px;
+    min-width: 60px;
+}
+
+.storage-bar-label {
+    color: #ffffff;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.storage-breakdown {
+    margin: 0;
+    text-align: center;
+    color: #e0e0e0;
+    font-size: 16px;
+}
+
+.storage-detail {
+    color: #999;
+    font-size: 14px;
+}
+
+/* Upgrade CTA (Free Tier) */
+.upgrade-cta {
+    padding: 20px;
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    border-radius: 8px;
+    text-align: center;
+    margin-bottom: 24px;
+}
+
+.upgrade-cta p {
+    margin: 0 0 16px 0;
+    color: #ffffff;
+    font-size: 16px;
+}
+
+.btn-primary {
+    padding: 12px 24px;
+    background: #ffffff;
+    color: #6366f1;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+}
+
+/* Invitation CTA */
+.invite-cta {
+    padding: 20px;
+    background: #2a2a2a;
+    border-radius: 8px;
+    margin-bottom: 24px;
+}
+
+.invite-bonus-text {
+    margin: 0 0 16px 0;
+    text-align: center;
+    color: #e0e0e0;
+    font-size: 16px;
+}
+
+.bonus-amount {
+    color: #6366f1;
+    font-size: 20px;
+}
+
+.invite-link-box {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.invite-link-input {
+    flex: 1;
+    padding: 12px 16px;
+    background: #1a1a1a;
+    border: 2px solid #3a3a3a;
+    border-radius: 6px;
+    color: #e0e0e0;
+    font-size: 14px;
+    font-family: monospace;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+.invite-link-input:hover,
+.invite-link-input:focus {
+    border-color: #6366f1;
+    outline: none;
+}
+
+.btn-copy {
+    padding: 12px 24px;
+    background: #6366f1;
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.btn-copy:hover {
+    background: #5558e3;
+}
+
+.btn-copy.copied {
+    background: #10b981;
+}
+
+.share-buttons {
+    display: flex;
+    gap: 12px;
+}
+
+.btn-share {
+    padding: 10px 20px;
+    background: #3a3a3a;
+    color: #e0e0e0;
+    border: 1px solid #4a4a4a;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-share:hover {
+    background: #4a4a4a;
+    border-color: #6366f1;
+}
+
+/* Invitation List */
+.invitation-list {
+    margin-bottom: 24px;
+}
+
+.invitation-list h3 {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    color: #ffffff;
+}
+
+.invitation-items {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.invitation-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: #2a2a2a;
+    border-radius: 6px;
+    border: 1px solid #3a3a3a;
+}
+
+.invite-email {
+    color: #e0e0e0;
+    font-size: 14px;
+}
+
+.invite-status {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.status-pending {
+    color: #f59e0b;
+}
+
+.status-accepted {
+    color: #10b981;
+}
+
+.status-expired {
+    color: #ef4444;
+}
+
+/* Potential Bonus */
+.potential-bonus {
+    padding: 16px;
+    background: rgba(99, 102, 241, 0.1);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    border-radius: 8px;
+    margin-bottom: 24px;
+}
+
+.potential-bonus p {
+    margin: 0;
+    color: #e0e0e0;
+    font-size: 14px;
+    text-align: center;
+}
+
+/* K-Factor Stats */
+.k-factor-stats {
+    padding: 20px;
+    background: #2a2a2a;
+    border-radius: 8px;
+    border: 1px solid #3a3a3a;
+}
+
+.k-factor-stats h4 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0 0 16px 0;
+    color: #ffffff;
+}
+
+.stat {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid #3a3a3a;
+}
+
+.stat:last-child {
+    border-bottom: none;
+}
+
+.stat-label {
+    color: #999;
+    font-size: 14px;
+}
+
+.stat-value {
+    color: #e0e0e0;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+/* Loading State */
+.invitation-panel.loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 400px;
+    color: #999;
+    font-size: 16px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .invitation-panel {
+        padding: 16px;
+    }
+
+    .invite-link-box {
+        flex-direction: column;
+    }
+
+    .btn-copy {
+        width: 100%;
+    }
+
+    .share-buttons {
+        flex-direction: column;
+    }
+
+    .btn-share {
+        width: 100%;
+    }
+}

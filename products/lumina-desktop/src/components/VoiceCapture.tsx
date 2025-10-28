@@ -1,0 +1,308 @@
+/**
+ * Voice Capture Component - VoiceTyper Style
+ *
+ * DESIGN DECISION: Mouse-driven recording with configurable hotkeys
+ * WHY: User wants everything controlled via mouse (middle button = record, right click = paste location)
+ *
+ * REASONING CHAIN:
+ * 1. Middle mouse button = start/stop recording (configurable)
+ * 2. Right click in input box = select paste destination (future)
+ * 3. Auto-copy to clipboard when transcription completes
+ * 4. Top ticker bar shows real-time transcription (scrolling right-to-left)
+ * 5. Color-coded: blue/green recording, red/blue secure (future)
+ * 6. Clean, minimal UI (VoiceTyper inspired)
+ *
+ * PATTERN: Pattern-UI-004 (VoiceTyper-Style Voice Capture)
+ * RELATED: useVoiceCapture.ts (state management), TickerBar.tsx (scrolling text)
+ * FUTURE: Configurable hotkeys, secure mode indicator, auto-paste to active input
+ */
+
+import { useEffect, useState } from 'react';
+import { useVoiceCapture } from '../hooks/useVoiceCapture';
+import { writeText } from '@tauri-apps/plugin-clipboard-manager';
+
+export function VoiceCapture() {
+  const { state, isRecording, result, error, startCapture, stopCapture } =
+    useVoiceCapture();
+
+  const [recordingMode, setRecordingMode] = useState<'hold' | 'click'>('click'); // TODO: Make configurable in settings
+  const [isClickRecording, setIsClickRecording] = useState(false);
+
+  /**
+   * DESIGN DECISION: Auto-copy transcription to clipboard
+   * WHY: User wants to paste anywhere (Ctrl+V) without clicking "Send" buttons
+   */
+  useEffect(() => {
+    if (state === 'complete' && result) {
+      // Auto-copy to clipboard
+      writeText(result.text).then(() => {
+        console.log('Transcription copied to clipboard:', result.text);
+      }).catch((err) => {
+        console.error('Failed to copy to clipboard:', err);
+      });
+    }
+  }, [state, result]);
+
+  /**
+   * DESIGN DECISION: Mouse button 3 (middle button) for recording
+   * WHY: User requested mouse-driven workflow (middle = record, right = paste location)
+   *
+   * NOTE: auxclick event captures middle mouse button (button = 1)
+   */
+  useEffect(() => {
+    const handleAuxClick = (e: MouseEvent) => {
+      if (e.button === 1) { // Middle mouse button
+        e.preventDefault();
+
+        if (recordingMode === 'click') {
+          // Click-to-start, click-to-stop
+          if (state === 'idle') {
+            startCapture();
+            setIsClickRecording(true);
+          } else if (isRecording && isClickRecording) {
+            stopCapture();
+            setIsClickRecording(false);
+          }
+        }
+      }
+    };
+
+    const handleMouseDown = (e: MouseEvent) => {
+      if (e.button === 1 && recordingMode === 'hold') { // Middle button hold mode
+        e.preventDefault();
+        if (state === 'idle') {
+          startCapture();
+        }
+      }
+    };
+
+    const handleMouseUp = (e: MouseEvent) => {
+      if (e.button === 1 && recordingMode === 'hold') { // Middle button hold mode
+        e.preventDefault();
+        if (isRecording) {
+          stopCapture();
+        }
+      }
+    };
+
+    window.addEventListener('auxclick', handleAuxClick);
+    window.addEventListener('mousedown', handleMouseDown);
+    window.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      window.removeEventListener('auxclick', handleAuxClick);
+      window.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [state, isRecording, recordingMode, isClickRecording, startCapture, stopCapture]);
+
+  /**
+   * DESIGN DECISION: Clean, minimal UI (VoiceTyper inspired)
+   * WHY: User wants cleaner look, transcription visible, no unnecessary buttons
+   */
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100vh',
+        backgroundColor: '#ffffff',
+        overflow: 'hidden',
+      }}
+    >
+      {/* Top ticker bar - shows recording status and transcription in real-time */}
+      {/* Thin recording indicator bar at very top - pulses while recording */}
+      {isRecording && (
+        <div
+          style={{
+            height: '2px',
+            backgroundColor: '#10b981',
+            position: 'relative',
+            overflow: 'hidden',
+          }}
+        >
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.3) 0%, rgba(16, 185, 129, 1) 50%, rgba(16, 185, 129, 0.3) 100%)',
+              animation: 'pulse-bar 1.5s ease-in-out infinite',
+            }}
+          />
+        </div>
+      )}
+
+      {(isRecording || state === 'processing' || (state === 'complete' && result)) && (
+        <div
+          style={{
+            height: '48px',
+            backgroundColor: isRecording ? '#10b981' : '#3b82f6', // green when recording, blue otherwise
+            display: 'flex',
+            alignItems: 'center',
+            padding: '0 16px',
+            overflow: 'hidden',
+            position: 'relative',
+          }}
+        >
+          <div
+            style={{
+              color: 'white',
+              fontSize: '18px',
+              fontWeight: '500',
+              whiteSpace: 'nowrap',
+              animation: result && result.text.length > 50 ? 'scroll-left 15s linear infinite' : 'none',
+            }}
+          >
+            {isRecording && !result && '🎤 Recording...'}
+            {state === 'processing' && 'Transcribing...'}
+            {result && result.text}
+          </div>
+        </div>
+      )}
+
+      {/* Main content area */}
+      <div
+        style={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '32px',
+          gap: '24px',
+        }}
+      >
+        {/* Record button */}
+        <button
+          onClick={() => {
+            if (recordingMode === 'click') {
+              if (state === 'idle') {
+                startCapture();
+                setIsClickRecording(true);
+              } else if (isRecording && isClickRecording) {
+                stopCapture();
+                setIsClickRecording(false);
+              }
+            }
+          }}
+          disabled={state === 'processing'}
+          style={{
+            width: '80px',
+            height: '80px',
+            borderRadius: '50%',
+            border: 'none',
+            backgroundColor: isRecording ? '#ef4444' : '#3b82f6',
+            color: 'white',
+            fontSize: '32px',
+            cursor: state === 'processing' ? 'not-allowed' : 'pointer',
+            transition: 'all 0.2s',
+            boxShadow: isRecording
+              ? '0 0 30px rgba(239, 68, 68, 0.6)'
+              : '0 2px 8px rgba(0, 0, 0, 0.15)',
+          }}
+        >
+          {state === 'idle' && '🎤'}
+          {state === 'recording' && '⏸'}
+          {state === 'processing' && '⚡'}
+          {state === 'complete' && '✓'}
+          {state === 'error' && '✗'}
+        </button>
+
+        {/* Status text */}
+        <div style={{ textAlign: 'center', maxWidth: '600px' }}>
+          {state === 'idle' && (
+            <p style={{ color: '#6b7280', fontSize: '16px' }}>
+              Click the button or use middle mouse button to record
+            </p>
+          )}
+
+          {state === 'recording' && (
+            <p style={{ color: '#ef4444', fontWeight: '600', fontSize: '18px' }}>
+              Recording...
+            </p>
+          )}
+
+          {state === 'processing' && (
+            <p style={{ color: '#3b82f6', fontWeight: '600', fontSize: '18px' }}>
+              Transcribing...
+            </p>
+          )}
+
+          {state === 'complete' && result && (
+            <div>
+              <p style={{ fontSize: '20px', fontWeight: '500', marginBottom: '12px', color: '#1f2937' }}>
+                {result.text}
+              </p>
+              <p style={{ color: '#6b7280', fontSize: '14px' }}>
+                ✅ Copied to clipboard • Confidence: {(result.confidence * 100).toFixed(0)}% • {(result.duration_ms / 1000).toFixed(1)}s
+              </p>
+              <p style={{ color: '#9ca3af', fontSize: '13px', marginTop: '8px' }}>
+                Press Ctrl+V to paste anywhere
+              </p>
+            </div>
+          )}
+
+          {state === 'error' && (
+            <p style={{ color: '#ef4444', fontSize: '16px' }}>Error: {error}</p>
+          )}
+        </div>
+
+        {/* Recording mode toggle */}
+        <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+          <button
+            onClick={() => setRecordingMode('click')}
+            style={{
+              padding: '8px 16px',
+              borderRadius: '6px',
+              border: recordingMode === 'click' ? '2px solid #3b82f6' : '2px solid #e5e7eb',
+              backgroundColor: recordingMode === 'click' ? '#eff6ff' : 'white',
+              color: recordingMode === 'click' ? '#3b82f6' : '#6b7280',
+              fontSize: '14px',
+              cursor: 'pointer',
+            }}
+          >
+            Click to Start/Stop
+          </button>
+          <button
+            onClick={() => setRecordingMode('hold')}
+            style={{
+              padding: '8px 16px',
+              borderRadius: '6px',
+              border: recordingMode === 'hold' ? '2px solid #3b82f6' : '2px solid #e5e7eb',
+              backgroundColor: recordingMode === 'hold' ? '#eff6ff' : 'white',
+              color: recordingMode === 'hold' ? '#3b82f6' : '#6b7280',
+              fontSize: '14px',
+              cursor: 'pointer',
+            }}
+          >
+            Hold to Record
+          </button>
+        </div>
+      </div>
+
+      {/* CSS animation for scrolling ticker */}
+      <style>{`
+        @keyframes scroll-left {
+          0% {
+            transform: translateX(100%);
+          }
+          100% {
+            transform: translateX(-100%);
+          }
+        }
+
+        @keyframes pulse-bar {
+          0% {
+            transform: translateX(-100%);
+          }
+          100% {
+            transform: translateX(100%);
+          }
+        }
+      `}</style>
+    </div>
+  );
+}

@@ -1,0 +1,24 @@
+{
+  /**
+   * DESIGN DECISION: Separate TypeScript config for Node.js files (Vite config)
+   * WHY: Vite config runs in Node.js environment, needs different compiler options
+   *
+   * REASONING CHAIN:
+   * 1. composite: true enables project references (links to main tsconfig.json)
+   * 2. skipLibCheck: true speeds up compilation (don't check node_modules types)
+   * 3. module: "ESNext" for modern ES modules in Node.js
+   * 4. moduleResolution: "bundler" optimized for Vite
+   * 5. allowSyntheticDefaultImports: true for better CommonJS interop
+   *
+   * PATTERN: Pattern-TAURI-001 (Lightweight Desktop App)
+   * RELATED: tsconfig.json (main config), vite.config.ts (Vite configuration)
+   */
+  "compilerOptions": {
+    "composite": true,
+    "skipLibCheck": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowSyntheticDefaultImports": true
+  },
+  "include": ["vite.config.ts"]
+}

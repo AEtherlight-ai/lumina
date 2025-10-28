@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rm:*)",
+      "Bash(cargo build:*)",
+      "Bash(git log:*)",
+      "Bash(cat:*)",
+      "Bash(cargo test:*)",
+      "Bash(awk:*)",
+      "Bash(git mv benchmark-search-performance.js check-supabase-status.sh count-patterns.js find-missing-patterns.js find-missing.js install-llvm.ps1 run-ingestion.ps1 run-migration-sdk.ts run-migration.ts run-with-env.bat test-hybrid-search.js test-unified-search.js verify-embedding.js verify-embeddings.js verify-patterns.js ../internal/scripts/)",
+      "Bash(git mv:*)",
+      "Bash(npm run compile:*)",
+      "Read(//c/Users/Brett/Downloads/**)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

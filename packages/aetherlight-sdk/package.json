@@ -1,0 +1,58 @@
+{
+  "name": "@aetherlight/sdk",
+  "version": "0.1.0",
+  "description": "ÆtherLight Application Integration SDK - Add voice control to any application with natural language function calling",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist/",
+    "docs/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "test": "jest",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "aetherlight",
+    "voice",
+    "ai",
+    "function-calling",
+    "integration",
+    "sdk",
+    "websocket",
+    "json-rpc",
+    "natural-language"
+  ],
+  "author": "ÆtherLight Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AEtherlight-ai/lumina.git",
+    "directory": "packages/aetherlight-sdk"
+  },
+  "bugs": {
+    "url": "https://github.com/AEtherlight-ai/lumina/issues"
+  },
+  "homepage": "https://aetherlight.network",
+  "peerDependencies": {
+    "reflect-metadata": "^0.1.13"
+  },
+  "dependencies": {
+    "ws": "^8.14.2",
+    "reflect-metadata": "^0.1.13"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/ws": "^8.5.8",
+    "typescript": "^5.3.0",
+    "jest": "^29.0.0",
+    "@types/jest": "^29.5.7"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

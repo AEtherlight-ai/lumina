@@ -1,0 +1,6 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Simple Lumina icon: A stylized light bulb representing intelligence/ideas -->
+  <circle cx="256" cy="256" r="240" fill="#6366f1"/>
+  <path d="M256 96 C200 96 160 136 160 192 C160 232 180 268 212 288 L212 352 C212 368 224 380 240 380 L272 380 C288 380 300 368 300 352 L300 288 C332 268 352 232 352 192 C352 136 312 96 256 96 Z" fill="#ffffff"/>
+  <rect x="240" y="392" width="32" height="24" rx="4" fill="#ffffff"/>
+</svg>

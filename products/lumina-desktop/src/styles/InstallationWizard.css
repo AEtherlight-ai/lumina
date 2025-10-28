@@ -1,0 +1,476 @@
+/**
+ * Installation Wizard Styles
+ *
+ * DESIGN DECISION: Clean, modern onboarding UI
+ * WHY: First impressions matter - professional wizard increases user confidence
+ */
+
+.installation-wizard {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 40px;
+  box-sizing: border-box;
+}
+
+.wizard-step {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  max-width: 700px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* Welcome Step */
+.welcome-step {
+  align-items: center;
+  text-align: center;
+}
+
+.wizard-icon {
+  font-size: 80px;
+  margin-bottom: 20px;
+  animation: bounce 2s infinite;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.welcome-step h1 {
+  font-size: 48px;
+  margin: 0 0 10px 0;
+  font-weight: 700;
+}
+
+.subtitle {
+  font-size: 20px;
+  opacity: 0.9;
+  margin-bottom: 40px;
+}
+
+.feature-list {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin-bottom: 40px;
+  text-align: left;
+}
+
+.feature-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 20px;
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+}
+
+.feature-icon {
+  font-size: 32px;
+  flex-shrink: 0;
+}
+
+.feature-item h3 {
+  margin: 0 0 8px 0;
+  font-size: 18px;
+}
+
+.feature-item p {
+  margin: 0;
+  opacity: 0.9;
+  font-size: 14px;
+}
+
+/* Storage Configuration Step */
+.storage-step h2,
+.domain-step h2,
+.confirmation-step h2,
+.provisioning-step h2 {
+  font-size: 32px;
+  margin: 0 0 10px 0;
+  font-weight: 600;
+}
+
+.step-description {
+  font-size: 16px;
+  opacity: 0.9;
+  margin-bottom: 32px;
+}
+
+.storage-visual {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 24px;
+  border-radius: 12px;
+  margin-bottom: 24px;
+}
+
+.storage-bar {
+  height: 12px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.storage-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
+  transition: width 0.3s ease;
+  border-radius: 6px;
+}
+
+.storage-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.storage-size {
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.storage-patterns {
+  font-size: 14px;
+  opacity: 0.8;
+}
+
+.storage-tiers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.tier-button {
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid transparent;
+  padding: 16px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: white;
+  font-family: inherit;
+}
+
+.tier-button:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.tier-button.active {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.5);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.tier-label {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.tier-patterns {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.storage-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 32px;
+}
+
+.info-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.storage-info p {
+  margin: 0;
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+/* Domain Selection Step */
+.domain-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.domain-card {
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid transparent;
+  padding: 20px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+  color: white;
+  font-family: inherit;
+  position: relative;
+}
+
+.domain-card:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.domain-card.selected {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.5);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.domain-checkbox {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 24px;
+  height: 24px;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.domain-card.selected .domain-checkbox {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: white;
+}
+
+.domain-card h3 {
+  margin: 0 0 8px 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.domain-card p {
+  margin: 0;
+  font-size: 13px;
+  opacity: 0.8;
+  line-height: 1.4;
+}
+
+.domain-warning {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(255, 193, 7, 0.2);
+  border: 1px solid rgba(255, 193, 7, 0.5);
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 24px;
+}
+
+.warning-icon {
+  font-size: 20px;
+}
+
+.domain-warning p {
+  margin: 0;
+  font-size: 14px;
+}
+
+/* Confirmation Step */
+.config-summary {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 24px;
+  border-radius: 12px;
+  margin-bottom: 24px;
+}
+
+.summary-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.summary-item:last-child {
+  border-bottom: none;
+}
+
+.summary-label {
+  font-size: 14px;
+  opacity: 0.8;
+}
+
+.summary-value {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.selected-domains {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 32px;
+}
+
+.selected-domain-tag {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 13px;
+}
+
+/* Provisioning Step */
+.progress-container {
+  margin-bottom: 32px;
+}
+
+.progress-bar {
+  height: 16px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
+  transition: width 0.5s ease;
+  border-radius: 8px;
+}
+
+.progress-label {
+  text-align: center;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.provisioning-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.provision-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.provision-step.complete {
+  background: rgba(76, 175, 80, 0.2);
+}
+
+.step-icon {
+  font-size: 20px;
+  width: 24px;
+  text-align: center;
+}
+
+/* Buttons */
+.wizard-buttons {
+  display: flex;
+  gap: 12px;
+  margin-top: auto;
+}
+
+.wizard-button {
+  flex: 1;
+  padding: 14px 24px;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.wizard-button.primary {
+  background: white;
+  color: #667eea;
+}
+
+.wizard-button.primary:hover:not(:disabled) {
+  background: #f0f0f0;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.wizard-button.secondary {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.wizard-button.secondary:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.wizard-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Error Message */
+.error-message {
+  background: rgba(244, 67, 54, 0.2);
+  border: 1px solid rgba(244, 67, 54, 0.5);
+  padding: 16px;
+  border-radius: 8px;
+  margin-top: 24px;
+  text-align: center;
+}
+
+.error-icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+
+.error-message p {
+  margin: 0 0 16px 0;
+  font-size: 14px;
+}
+
+/* Footer */
+.wizard-footer {
+  margin-top: 40px;
+  text-align: center;
+}
+
+.step-indicator {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.step-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transition: all 0.3s ease;
+}
+
+.step-dot.active {
+  width: 24px;
+  border-radius: 5px;
+  background: white;
+}
+
+.step-dot.complete {
+  background: rgba(76, 175, 80, 0.8);
+}

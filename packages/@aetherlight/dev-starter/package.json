@@ -1,0 +1,55 @@
+{
+  "name": "@aetherlight/dev-starter",
+  "version": "0.1.0",
+  "description": "ÆtherLight Development Starter Kit - Collective Intelligence Infrastructure",
+  "license": "MIT",
+  "author": "ÆtherLight Team",
+  "homepage": "https://lumina.ai",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aetherlight/dev-starter.git"
+  },
+  "bugs": {
+    "url": "https://github.com/aetherlight/dev-starter/issues"
+  },
+  "keywords": [
+    "aetherlight",
+    "neural-network",
+    "pattern-matching",
+    "collective-intelligence",
+    "ai",
+    "machine-learning",
+    "developer-tools",
+    "chain-of-thought"
+  ],
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release": "turbo run build && changeset publish"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.27.1",
+    "@typescript-eslint/eslint-plugin": "^6.19.0",
+    "@typescript-eslint/parser": "^6.19.0",
+    "eslint": "^8.56.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.2.4",
+    "turbo": "^1.11.3",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "packageManager": "npm@9.8.1"
+}

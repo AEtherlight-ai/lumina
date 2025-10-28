@@ -1,0 +1,26 @@
+# Source files (not needed in npm package)
+src/
+build.rs
+Cargo.toml
+target/
+
+# Development files
+test/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Only include final artifacts
+!index.js
+!index.d.ts
+!*.node

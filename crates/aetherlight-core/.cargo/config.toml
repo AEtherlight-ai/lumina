@@ -1,0 +1,14 @@
+# WORKAROUND: DXCORE.lib missing from Windows SDK
+# This file tells the linker to ignore the missing DXCORE.lib
+# which is required by the ort (ONNX Runtime) crate but not actually needed
+# for our use case since we only use CPU inference.
+#
+# Multiple attempts needed because link order matters
+
+[target.x86_64-pc-windows-msvc]
+rustflags = [
+    "-C", "link-arg=/NODEFAULTLIB:DXCORE.lib",
+    "-C", "link-arg=/NODEFAULTLIB:DXGI.lib",
+    "-C", "link-arg=/NODEFAULTLIB:D3D12.lib",
+    "-C", "link-arg=/NODEFAULTLIB:DirectML.lib"
+]

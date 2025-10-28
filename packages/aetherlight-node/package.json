@@ -1,0 +1,58 @@
+{
+  "name": "@aetherlight/node",
+  "version": "0.1.0",
+  "description": "Node.js bindings for ÆtherLight Core pattern matching engine",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AEtherlight-ai/lumina.git"
+  },
+  "keywords": [
+    "pattern-matching",
+    "ai",
+    "reasoning",
+    "confidence-scoring",
+    "napi",
+    "rust"
+  ],
+  "author": "ÆtherLight Team",
+  "license": "MIT OR Apache-2.0",
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "napi": {
+    "name": "aetherlight-node",
+    "triples": {
+      "defaults": true,
+      "additional": [
+        "x86_64-pc-windows-msvc",
+        "x86_64-apple-darwin",
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu"
+      ]
+    }
+  },
+  "scripts": {
+    "artifacts": "napi artifacts",
+    "build": "napi build --platform --release",
+    "build:debug": "napi build --platform",
+    "prepublishOnly": "napi prepublish -t npm",
+    "test": "node --test test/*.test.js",
+    "universal": "napi universal",
+    "version": "napi version"
+  },
+  "devDependencies": {
+    "@napi-rs/cli": "^2.18.0"
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
+}

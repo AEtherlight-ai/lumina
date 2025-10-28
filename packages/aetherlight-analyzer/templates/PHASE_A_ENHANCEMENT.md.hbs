@@ -1,0 +1,257 @@
+# Phase A: Enhancement - Add ÆtherLight Features
+
+**VERSION:** 1.0
+**CREATED:** {{timestamp}}
+**STATUS:** Planning
+**ESTIMATED DURATION:** {{estimatedWeeks}} weeks
+**PATTERN:** Pattern-ANALYZER-002 (Incremental Sprint Generation)
+
+---
+
+## 🎯 Executive Summary
+
+**DESIGN DECISION:** {{designDecision}}
+**WHY:** {{why}}
+
+**REASONING CHAIN:**
+{{#each reasoningChain}}
+{{add @index 1}}. {{this}}
+{{/each}}
+
+**THE INSIGHT:** {{insight}}
+
+---
+
+## 📋 Phase Overview
+
+### Purpose
+Add ÆtherLight features to existing {{repositoryName}} codebase:
+{{#each features}}
+- {{this}}
+{{/each}}
+
+### Success Criteria
+{{#each successCriteria}}
+- ✅ {{this}}
+{{/each}}
+
+---
+
+## 🏗️ Architecture Context
+
+**Detected Architecture:** {{architecture.pattern}} (Confidence: {{formatPercent architecture.confidence}})
+
+**Layers:**
+{{#each architecture.layers}}
+- **{{name}}:** {{files.length}} files ({{complexity}} complexity)
+{{/each}}
+
+**Components:**
+{{#each architecture.components}}
+- {{name}} ({{type}})
+{{/each}}
+
+---
+
+## 📊 Task Breakdown
+
+{{#each tasks}}
+### Task {{id}}: {{title}}
+
+**Agent:** {{agent}}
+**Duration:** {{duration}} hours
+**Dependencies:** {{#if dependencies}}{{#each dependencies}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}{{else}}None{{/if}}
+**Priority:** {{priority}}
+
+**DESIGN DECISION:** {{designDecision}}
+**WHY:** {{why}}
+
+**REASONING CHAIN:**
+{{#each reasoningChain}}
+{{add @index 1}}. {{this}}
+{{/each}}
+
+**Implementation Steps:**
+{{#each implementationSteps}}
+{{add @index 1}}. {{this}}
+{{/each}}
+
+**Validation Criteria:**
+{{#each validationCriteria}}
+- [ ] {{this}}
+{{/each}}
+
+**Files to Modify:**
+{{#each filesToModify}}
+- `{{this}}`
+{{/each}}
+
+**PATTERN:** {{pattern}}
+**RELATED:** {{related}}
+
+{{#if performanceTarget}}
+**Performance Target:** {{performanceTarget}}
+{{/if}}
+
+{{#if securityConsiderations}}
+**Security Considerations:**
+{{#each securityConsiderations}}
+- {{this}}
+{{/each}}
+{{/if}}
+
+---
+
+{{/each}}
+
+## 📊 Task Dependencies Visualization
+
+```mermaid
+graph TD
+{{#each taskDependencies}}
+  {{from}} --> {{to}}
+{{/each}}
+```
+
+---
+
+## 🎯 Success Metrics
+
+### Phase A Completion Criteria:
+{{#each phaseCompletionCriteria}}
+- [ ] {{this}}
+{{/each}}
+
+### Expected Outcomes:
+{{#each expectedOutcomes}}
+- {{this}}
+{{/each}}
+
+### Performance Targets:
+{{#each performanceTargets}}
+- {{metric}}: {{target}} (Current: {{current}})
+{{/each}}
+
+---
+
+## 🚦 Risk Analysis
+
+{{#each risks}}
+### Risk {{add @index 1}}: {{title}}
+**Severity:** {{severity}}
+**Probability:** {{probability}}
+
+**Scenario:** {{scenario}}
+
+**Mitigation:**
+{{#each mitigation}}
+- {{this}}
+{{/each}}
+
+**Contingency Plan:**
+{{contingency}}
+
+---
+
+{{/each}}
+
+## 🗓️ Timeline
+
+**Estimated Start:** {{estimatedStart}}
+**Estimated Completion:** {{estimatedCompletion}}
+
+**Week-by-Week Breakdown:**
+{{#each weeklyBreakdown}}
+### Week {{week}}
+{{#each tasks}}
+- **Day {{day}}:** {{taskId}} - {{taskTitle}} ({{hours}} hours)
+{{/each}}
+{{/each}}
+
+---
+
+## 📚 References
+
+**Related Documents:**
+{{#each relatedDocuments}}
+- {{this}}
+{{/each}}
+
+**ÆtherLight Patterns:**
+{{#each aetherlightPatterns}}
+- {{this}}
+{{/each}}
+
+**External Resources:**
+{{#each externalResources}}
+- {{this}}
+{{/each}}
+
+---
+
+## 🎨 Integration Points
+
+{{#each integrationPoints}}
+### {{name}}
+**Type:** {{type}}
+**Location:** {{location}}
+**Description:** {{description}}
+
+**Implementation:**
+{{#each implementation}}
+- {{this}}
+{{/each}}
+
+---
+
+{{/each}}
+
+## 📝 Chain of Thought Documentation
+
+**Analysis Decisions:**
+
+{{#each analysisDecisions}}
+### {{title}}
+
+**DESIGN DECISION:** {{designDecision}}
+**WHY:** {{why}}
+
+**REASONING CHAIN:**
+{{#each reasoningChain}}
+{{add @index 1}}. {{this}}
+{{/each}}
+
+**EVIDENCE:**
+{{#each evidence}}
+- {{this}}
+{{/each}}
+
+---
+
+{{/each}}
+
+## ✅ Pre-Sprint Checklist
+
+Before starting Phase A execution:
+
+- [ ] Review all tasks with team
+- [ ] Verify dependencies are correct
+- [ ] Validate effort estimates
+- [ ] Ensure OTEL tracking enabled
+- [ ] Create execution log: `logs/phase-a/PHASE_A-execution.md`
+- [ ] Set up test environment
+- [ ] Review security considerations
+- [ ] Confirm all team members have access to required tools
+
+---
+
+**STATUS:** Planning complete, ready for execution
+**NEXT:** Begin Task {{firstTaskId}}
+**OWNER:** {{owner}}
+**CLASSIFICATION:** 🔐 INTERNAL
+
+---
+
+**Built with ❤️ using Chain of Thought methodology**
+
+**Phase A: Incremental enhancement with zero breaking changes.**

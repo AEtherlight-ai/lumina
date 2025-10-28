@@ -1,0 +1,287 @@
+[package]
+name = "aetherlight-core"
+version = "0.1.0"
+authors = ["ÆtherLight Team"]
+edition = "2021"
+description = "Core pattern matching and confidence scoring engine for ÆtherLight reasoning infrastructure"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/AEtherlight-ai/lumina"
+keywords = ["pattern-matching", "confidence-scoring", "ai", "reasoning", "embeddings"]
+categories = ["algorithms", "data-structures"]
+
+# DESIGN DECISION: Rust 2021 edition for latest language features
+# WHY: Improved const generics, better diagnostics, IntoIterator for arrays
+#
+# REASONING CHAIN:
+# 1. Rust 2021 provides enhanced const generics for compile-time optimization
+# 2. Better error diagnostics improve developer experience
+# 3. IntoIterator for arrays enables cleaner iterator patterns
+# 4. Stable feature set suitable for production use
+# 5. Compatible with Tauri 2.0 and flutter_rust_bridge requirements
+#
+# PATTERN: Pattern-001 (Rust Core + Language Bindings)
+# RELATED: aetherlight-node (NAPI-RS bindings), aetherlight-mobile (Flutter FFI)
+# FUTURE: Consider Rust 2024 when stable for additional performance improvements
+
+[dependencies]
+# Serialization framework (required for FFI and pattern storage)
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# TOML configuration parsing (CONFIG-001)
+toml = "0.8"
+
+# Timestamp handling for pattern metadata
+chrono = { version = "0.4", features = ["serde"] }
+
+# UUID generation for pattern IDs
+uuid = { version = "1.6", features = ["v4", "serde"] }
+
+# Error handling with derive macros
+thiserror = "1.0"
+
+# SQLite for local vector storage (P2-005)
+rusqlite = { version = "0.31", features = ["bundled"] }
+
+# Tree-sitter for AST parsing and code chunking (P3-001)
+# TEMPORARILY DISABLED FOR WEEK 0 LAUNCH: Requires C compiler (MSVC on Windows)
+# WHY: tree-sitter build fails on Windows without Visual Studio Build Tools
+# REASONING CHAIN:
+# 1. tree-sitter parsers require C compilation during cargo build
+# 2. Windows: Requires Visual Studio 2019+ Build Tools (cl.exe compiler)
+# 3. macOS/Linux: Works with system compiler (clang/gcc)
+# 4. Code intelligence is Phase 3 feature, not required for Week 0
+# 5. Result: Comment out for Week 0, re-enable in Phase 3 with CI/CD pre-built artifacts
+# PATTERN: Pattern-PLACEHOLDER-001 (Defer non-critical dependencies)
+# FUTURE: Re-enable in Phase 3 with pre-compiled tree-sitter parsers from CI/CD
+# tree-sitter = "0.20"
+# tree-sitter-rust = "0.20"
+# tree-sitter-typescript = "0.20"
+# tree-sitter-python = "0.20"
+
+# Parallel processing for codebase indexing (P3-002)
+rayon = "1.8"
+
+# Walkdir for recursive file traversal
+walkdir = "2.4"
+
+# SHA-256 hashing for DHT node IDs and pattern content addressing (P3-010)
+sha2 = "0.10"
+
+# Hex encoding for pattern IDs and DHT node IDs (P3-010)
+hex = "0.4"
+
+# Shamir Secret Sharing for catastrophe recovery (P3-011)
+sharks = "0.5"
+
+# Random number generation for master key generation (P3-011)
+rand = "0.8"
+
+# Base64 encoding for QR code / manual shard entry (P3-011)
+base64 = "0.21"
+
+# Whisper.cpp bindings for local voice transcription (P2-001)
+# OPTIONAL DEPENDENCY: Requires additional system setup
+# REQUIREMENTS:
+#   - CMake (https://cmake.org/download/)
+#   - Visual Studio Build Tools with C++ Desktop Development workload
+#   - Windows SDK (included with VS Build Tools)
+# STATUS: Placeholder implementation active (functional API, mock results)
+# TO ENABLE: Uncomment line below after installing requirements, run cargo build
+# whisper-rs = "0.15"
+
+# Directory utilities for finding user home directory
+dirs = "5.0"
+
+# Async trait support for domain agent trait (P3.5-001)
+async-trait = "0.1"
+
+# Async runtime for network, domain agents, and viral modules
+# DESIGN DECISION: Add tokio to production dependencies (not just dev-dependencies)
+# WHY: network::HierarchicalDHTClient, domain_agent async methods, viral::InvitationManager all require async runtime
+# REASONING CHAIN:
+# 1. domain_agent.rs uses #[async_trait] with async fn methods
+# 2. network/dht_client.rs uses tokio::spawn and async networking
+# 3. viral/invitation_manager.rs uses async database operations
+# 4. These are production code, not just tests
+# 5. Result: tokio needed in [dependencies], not just [dev-dependencies]
+# PATTERN: Pattern-ASYNC-001 (Tokio for production async code)
+# PERFORMANCE: Minimal overhead (tokio runtime reused across all async operations)
+tokio = { version = "1.35", features = ["rt-multi-thread", "macros", "net", "time", "sync", "fs"] }
+
+# Regex for claim parsing in verification system (AI-002)
+# DESIGN DECISION: Add regex to dependencies for ClaimParser
+# WHY: ClaimParser extracts structured claims from natural language text
+# REASONING CHAIN:
+# 1. Agent responses contain verifiable claims ("Test coverage is 85%")
+# 2. Regex patterns extract: file refs, function names, test metrics, performance data
+# 3. Parsed claims validated by specialized verifiers
+# 4. Result: Hallucination detection for agent output
+# PATTERN: Pattern-VERIFICATION-001 (Claim Validation)
+# PERFORMANCE: <10ms per text block (regex compiled once at initialization)
+regex = "1.10"
+
+# WebSocket server dependencies for real-time sync (RTC-001)
+# DESIGN DECISION: Actix-web + tokio-tungstenite
+# WHY: Actix-web = fastest Rust framework, tokio-tungstenite = async WebSocket
+# REASONING CHAIN:
+# 1. Need <50ms WebSocket latency for real-time collaboration
+# 2. Actix-web achieves 600k req/sec (fastest Rust framework)
+# 3. Actor model isolates state (no shared locks)
+# 4. tokio-tungstenite integrates with actix runtime
+# 5. Result: High-performance real-time sync
+# PATTERN: Pattern-WEBSOCKET-001 (Real-Time Sync Server)
+# PERFORMANCE: <50ms latency, 50 concurrent connections, <10MB memory
+actix = "0.13"
+actix-web = "4.4"
+actix-web-actors = "4.2"
+tokio-tungstenite = "0.21"
+
+# JWT authentication for WebSocket connections (RTC-001)
+# DESIGN DECISION: JWT (JSON Web Tokens) for stateless auth
+# WHY: No session storage, <5ms validation
+# REASONING CHAIN:
+# 1. Each terminal needs per-project authentication
+# 2. JWT = stateless (no DB lookup per request)
+# 3. HS256 signature with secret key
+# 4. 5-minute expiration, auto-refresh
+# 5. Result: Secure, fast, scalable auth
+# PATTERN: Pattern-AUTH-JWT-001 (Stateless WebSocket Auth)
+# PERFORMANCE: <5ms token generation/validation
+jsonwebtoken = "9.2"
+
+# YAML parsing for sprint plans (AS-001)
+# DESIGN DECISION: Add serde_yaml for sprint plan parsing in Phase 4
+# WHY: Human + Planning Agent create sprint plans in YAML (readable, git-friendly)
+# REASONING CHAIN:
+# 1. Sprint plans define tasks, dependencies, acceptance criteria
+# 2. YAML: Human-readable, supports comments, version-controllable
+# 3. Parse to strongly-typed Rust structs for validation
+# 4. Enables autonomous multi-agent execution
+# 5. Result: Structured sprint definition with compile-time safety
+# PATTERN: Pattern-SPRINT-PLAN-001 (Structured Sprint Definition)
+# PERFORMANCE: <1s to parse 50-task sprint
+serde_yaml = "0.9"
+
+# Bincode for DHT RPC serialization (P3-010)
+# DESIGN DECISION: Bincode over JSON for DHT network communication
+# WHY: 3× smaller payloads, 10× faster serialization than JSON
+# REASONING CHAIN:
+# 1. DHT RPC requires high-performance serialization (<5ms per message)
+# 2. JSON: Human-readable but verbose, ~500 bytes per PING
+# 3. Bincode: Binary format, ~150 bytes per PING (3× smaller)
+# 4. Bincode serialize: <1ms, JSON: ~10ms (10× faster)
+# 5. Result: Lower latency, reduced bandwidth usage
+# PATTERN: Pattern-DHT-001 (Kademlia RPC Protocol)
+# PERFORMANCE: <5ms serialization, <200 bytes per message (avg)
+bincode = "1.3"
+
+# ONNX Runtime for local embeddings (all-MiniLM-L6-v2, 384 dimensions)
+# TEMPORARILY DISABLED FOR DESKTOP APP COMPILATION: Requires DirectML libraries
+# WHY: ort crate links against DirectML (DXCORE.lib) which requires Windows SDK with DirectX components
+# REASONING CHAIN:
+# 1. ort crate downloads ONNX Runtime binaries that include DirectML providers
+# 2. DirectML requires: DXCORE.lib, DXGI.lib, D3D12.lib, DirectML.lib
+# 3. These libraries require Windows 10 SDK (not available in current build environment)
+# 4. Embeddings are Phase 3 feature (semantic search), not required for core desktop app
+# 5. Result: Comment out for now, re-enable when Windows SDK is available or use cloud embeddings
+# PATTERN: Pattern-PLACEHOLDER-001 (Defer non-critical dependencies for Week 0 launch)
+# FUTURE: Re-enable with Windows SDK installed OR switch to cloud-based embeddings (Voyage AI API)
+# ort = { version = "2.0.0-rc.10", default-features = false, features = ["half", "download-binaries", "copy-dylibs", "load-dynamic"] }
+# ndarray = "0.15"  # For tensor operations with embeddings
+# tokenizers = { version = "0.20", default-features = false, features = ["onig"] }  # For text tokenization
+anyhow = "1.0.100"
+notify = "8.2.0"
+
+# DESIGN DECISION: Minimal dependency tree for core library
+# WHY: Reduce binary size, improve compilation time, minimize security surface
+#
+# REASONING CHAIN:
+# 1. Core library should be dependency-lean (<3MB binary target)
+# 2. serde/serde_json: Required for FFI serialization across language boundaries
+# 3. chrono: Timestamp handling for pattern creation/modification tracking
+# 4. uuid: Unique pattern IDs for distributed pattern network (Phase 5)
+# 5. thiserror: Ergonomic error handling without boilerplate
+# 6. Embedding library (rust-bert vs OpenAI API) deferred to P1-007
+#
+# PATTERN: Pattern-001 (Rust Core + Language Bindings)
+# PERFORMANCE: <3MB binary size target
+# FUTURE: Add rust-bert or ort (ONNX Runtime) for local embeddings (P1-007)
+
+[build-dependencies]
+# Regex for scanning @ADDRESS references in build script
+regex = "1.10"
+
+# JSON serialization for cross-reference index
+serde_json = "1.0"
+
+# DESIGN DECISION: Build dependencies for cross-reference index generation
+# WHY: Build cross-reference index at compile time (Pattern-CONTEXT-002)
+# REASONING CHAIN:
+# 1. Scan codebase for @ADDRESS references during cargo build
+# 2. Build inverted index: address → [dependents]
+# 3. Save to .lumina/cross-ref-index.json
+# 4. Enables ripple effect notification when content changes
+# 5. Zero runtime overhead (index pre-built)
+# PATTERN: Pattern-CONTEXT-002 (Content-Addressable Context System)
+# PERFORMANCE: <2s build time for 100k LOC
+
+[dev-dependencies]
+# Benchmarking framework for performance validation
+criterion = { version = "0.5", features = ["html_reports"] }
+
+# Property-based testing for algorithm validation
+proptest = "1.4"
+
+# Temporary file handling for integration tests (P3-002, P3-008)
+tempfile = "3.8"
+
+# Async runtime for integration tests (P3-008)
+tokio = { version = "1.35", features = ["full", "test-util"] }
+
+# DESIGN DECISION: Separate dev dependencies for testing/benchmarking
+# WHY: Keep production binary small while enabling comprehensive testing
+#
+# REASONING CHAIN:
+# 1. criterion: Benchmark pattern matching (<50ms for 10k patterns target)
+# 2. proptest: Property-based testing for confidence scoring algorithms
+# 3. Dev dependencies excluded from production builds automatically
+# 4. HTML reports for criterion enable visual performance tracking
+#
+# PERFORMANCE: <50ms pattern matching target validated via criterion
+# RELATED: SOP-003 (Test-Driven Development), SOP-004 (Performance Targets)
+
+[[bench]]
+name = "pattern_matching"
+harness = false
+
+# DESIGN DECISION: Custom benchmark harness for pattern matching
+# WHY: Validate <50ms performance target with criterion's statistical analysis
+#
+# REASONING CHAIN:
+# 1. harness = false enables criterion's custom benchmark runner
+# 2. Statistical analysis provides confidence intervals for performance
+# 3. HTML reports track performance regression over time
+# 4. Validates SOP-004 performance targets before production deployment
+#
+# PATTERN: Pattern-005 (Multi-Dimensional Matching)
+# PERFORMANCE: <50ms for 10k patterns (p50 latency)
+# STATUS: Implemented in benches/pattern_matching.rs (P1-006 COMPLETE)
+
+[lib]
+crate-type = ["lib", "staticlib", "cdylib"]
+
+# DESIGN DECISION: Multiple crate types for flexible FFI deployment
+# WHY: Support both static linking (Tauri) and dynamic linking (Flutter, Node.js)
+#
+# REASONING CHAIN:
+# 1. "lib" (rlib): Standard Rust library for Rust-to-Rust dependencies
+# 2. "staticlib": Static linking for Tauri desktop app (smaller binaries)
+# 3. "cdylib": Dynamic linking for NAPI-RS (Node.js) and flutter_rust_bridge
+# 4. Enables same core library to serve all three platforms
+# 5. Zero code duplication across platform bindings
+#
+# PATTERN: Pattern-001 (Rust Core + Language Bindings)
+# PATTERN: Pattern-007 (Language Bindings via NAPI)
+# RELATED: aetherlight-node (P1-009), aetherlight-mobile (Phase 4)
+# PERFORMANCE: <3MB binary size for Tauri, <5ms FFI latency for Node.js

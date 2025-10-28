@@ -1,0 +1,123 @@
+# NAPI-RS Bindings for ÆtherLight Core
+#
+# DESIGN DECISION: Separate crate for Node.js FFI bindings using NAPI-RS
+# WHY: Enables type-safe, zero-copy FFI with automatic TypeScript definition generation
+#
+# REASONING CHAIN:
+# 1. NAPI-RS provides best-in-class Node.js ↔ Rust FFI with minimal overhead
+# 2. Automatic TypeScript definition generation ensures type safety
+# 3. Zero-copy transfers where possible (strings, buffers) minimize latency
+# 4. Cross-compilation support for Windows, macOS, Linux, ARM targets
+# 5. cdylib crate type required for dynamic linking by Node.js
+# 6. Separate crate prevents aetherlight-core from depending on NAPI
+#
+# PATTERN: Pattern-007 (Language Bindings via NAPI)
+# PATTERN: Pattern-001 (Rust Core + Language Bindings)
+# RELATED: aetherlight-core (core library), VS Code extension (P1-009)
+# PERFORMANCE: <5ms FFI latency target
+# FUTURE: Add worker thread support for async operations (P1-011)
+
+[package]
+name = "aetherlight-node"
+version = "0.1.0"
+authors = ["ÆtherLight Team"]
+edition = "2021"
+description = "Node.js bindings for ÆtherLight Core pattern matching engine"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/AEtherlight-ai/lumina"
+keywords = ["napi", "node", "pattern-matching", "ffi", "bindings"]
+categories = ["api-bindings"]
+
+# DESIGN DECISION: cdylib crate type for Node.js dynamic linking
+# WHY: Node.js requires dynamic library (.node file on Windows)
+#
+# REASONING CHAIN:
+# 1. cdylib produces platform-specific dynamic libraries
+# 2. .node extension on Windows, .dylib on macOS, .so on Linux
+# 3. Node.js native addons use N-API for stable ABI across versions
+# 4. NAPI-RS generates bindings compatible with Node.js 10+
+# 5. Single binary works across Node.js versions (no recompilation)
+#
+# PATTERN: Pattern-007 (Language Bindings via NAPI)
+# PERFORMANCE: <3MB binary size target
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+# Core library (local dependency)
+aetherlight-core = { path = "../../crates/aetherlight-core" }
+
+# NAPI-RS framework (latest stable)
+napi = { version = "2.16", default-features = false, features = ["napi8"] }
+napi-derive = "2.16"
+
+# Serialization (for complex type conversions)
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# UUID support (for pattern IDs)
+uuid = { version = "1.6", features = ["v4", "serde"] }
+
+# DESIGN DECISION: Minimal NAPI-RS dependencies with napi8 feature
+# WHY: napi8 provides stable ABI for Node.js 16+ (95%+ adoption as of 2025)
+#
+# REASONING CHAIN:
+# 1. napi8 provides all features needed for pattern matching FFI
+# 2. default-features = false reduces binary size (~500KB savings)
+# 3. napi-derive provides proc macros for automatic binding generation
+# 4. serde/serde_json enables JSON serialization for complex types
+# 5. aetherlight-core as local path dependency for tight integration
+#
+# PATTERN: Pattern-007 (Language Bindings via NAPI)
+# PERFORMANCE: <3MB binary size, <5ms FFI latency
+# RELATED: package.json (build scripts), tsconfig.json (TypeScript config)
+
+[build-dependencies]
+# Build script dependencies (auto-generates TypeScript definitions)
+napi-build = "2.1"
+
+# DESIGN DECISION: napi-build for automated TypeScript generation
+# WHY: Auto-generated .d.ts files ensure FFI type safety at compile time
+#
+# REASONING CHAIN:
+# 1. napi-build runs at compile time (build.rs)
+# 2. Generates TypeScript definitions from Rust types
+# 3. Ensures JavaScript/TypeScript consumers have correct types
+# 4. Reduces manual maintenance burden (single source of truth)
+# 5. Catches type mismatches at build time, not runtime
+#
+# PATTERN: Pattern-007 (Language Bindings via NAPI)
+# RELATED: build.rs, index.d.ts
+
+[profile.release]
+# DESIGN DECISION: Aggressive optimization for production builds
+# WHY: FFI latency sensitive; every microsecond counts (<5ms target)
+#
+# REASONING CHAIN:
+# 1. opt-level = 3: Maximum optimization (slower compile, faster runtime)
+# 2. lto = "fat": Link-time optimization across all crates (~10% faster)
+# 3. codegen-units = 1: Single codegen unit for better optimization
+# 4. strip = true: Remove debug symbols (~30% smaller binaries)
+# 5. panic = "abort": Smaller binaries, faster unwinding
+#
+# PATTERN: Pattern-004 (Performance Targets)
+# PERFORMANCE: <5ms FFI latency, <3MB binary size
+# TRADE-OFF: Slower compilation (~2x) for 10-15% runtime speedup
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+strip = true
+panic = "abort"
+
+# DESIGN DECISION: Debug profile with reasonable optimization
+# WHY: Fast compilation for development, but not completely unoptimized
+#
+# REASONING CHAIN:
+# 1. opt-level = 1: Basic optimization for reasonable debug performance
+# 2. Enables faster development iteration while maintaining usability
+# 3. Full optimization (opt-level = 3) too slow for rapid iteration
+# 4. Zero optimization (opt-level = 0) makes FFI unusably slow
+#
+# PATTERN: Development workflow optimization
+[profile.dev]
+opt-level = 1

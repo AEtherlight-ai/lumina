@@ -1,0 +1,588 @@
+{
+  "name": "aetherlight",
+  "displayName": "ÆtherLight",
+  "description": "Voice-to-intelligence platform for developers. Capture voice, match patterns, prevent AI hallucinations.",
+  "version": "0.13.11",
+  "publisher": "aetherlight",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AEtherlight-ai/lumina"
+  },
+  "engines": {
+    "vscode": "^1.99.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "bin": {
+    "aetherlight": "./bin/aetherlight.js"
+  },
+  "files": [
+    "bin/",
+    "out/",
+    "templates/",
+    "README.md",
+    "NPM_README.md",
+    "LICENSE"
+  ],
+  "readme": "NPM_README.md",
+  "keywords": [
+    "voice",
+    "ai",
+    "assistant",
+    "vscode",
+    "cursor",
+    "transcription",
+    "whisper",
+    "pattern-matching",
+    "developer-tools"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "aetherlight.quickVoice",
+        "title": "ÆtherLight: Quick Voice (Record → Whisper → Type)"
+      },
+      {
+        "command": "lumina.captureVoice",
+        "title": "Lumina: Capture Voice (IPC - requires desktop app)"
+      },
+      {
+        "command": "aetherlight.simpleVoiceCapture",
+        "title": "Lumina: Capture Voice (Simple)"
+      },
+      {
+        "command": "aetherlight.captureVoiceGlobal",
+        "title": "ÆtherLight: Capture Voice Global (Type at Cursor)"
+      },
+      {
+        "command": "lumina.focusAgentTerminal",
+        "title": "Lumina: Focus Agent Terminal"
+      },
+      {
+        "command": "lumina.openAgentCoordination",
+        "title": "Lumina: Open Agent Coordination View"
+      },
+      {
+        "command": "lumina.enhanceAndSend",
+        "title": "Lumina: Enhance and Send to Terminal"
+      },
+      {
+        "command": "lumina.enhanceSelection",
+        "title": "Lumina: Enhance Selection"
+      },
+      {
+        "command": "lumina.quickSend",
+        "title": "Lumina: Quick Send"
+      },
+      {
+        "command": "lumina.toggle",
+        "title": "Lumina: Toggle Middleware"
+      },
+      {
+        "command": "lumina.openControlPanel",
+        "title": "Lumina: Open Control Panel"
+      },
+      {
+        "command": "lumina.switchModel",
+        "title": "Lumina: Switch AI Model"
+      },
+      {
+        "command": "lumina.togglePrivacy",
+        "title": "Lumina: Toggle Privacy Mode"
+      },
+      {
+        "command": "lumina.syncNow",
+        "title": "Lumina: Sync Now"
+      },
+      {
+        "command": "aetherlight.toggleVoice",
+        "title": "ÆtherLight: Toggle Voice Capture"
+      },
+      {
+        "command": "aetherlight.createTerminal",
+        "title": "ÆtherLight: Create Terminal"
+      },
+      {
+        "command": "aetherlight.enhanceTerminalInput",
+        "title": "ÆtherLight: Enhance Terminal Input"
+      },
+      {
+        "command": "aetherlight.openTerminal",
+        "title": "ÆtherLight: Open Terminal"
+      },
+      {
+        "command": "aetherlight.openVoicePanel",
+        "title": "ÆtherLight: Open Voice Panel"
+      },
+      {
+        "command": "lumina.showEventDetails",
+        "title": "Lumina: Show Event Details"
+      },
+      {
+        "command": "lumina.refreshActivityFeed",
+        "title": "Lumina: Refresh Activity Feed"
+      },
+      {
+        "command": "lumina.clearActivityFeed",
+        "title": "Lumina: Clear Activity Feed"
+      },
+      {
+        "command": "lumina.disconnectRealtimeSync",
+        "title": "Lumina: Disconnect Real-Time Sync"
+      },
+      {
+        "command": "lumina.reconnectRealtimeSync",
+        "title": "Lumina: Reconnect Real-Time Sync"
+      },
+      {
+        "command": "lumina.showRealtimeSyncStatus",
+        "title": "Lumina: Show Real-Time Sync Status"
+      },
+      {
+        "command": "aetherlight.clearSprintCache",
+        "title": "ÆtherLight: Clear Sprint Cache (Force TOML Reload)"
+      },
+      {
+        "command": "aetherlight.resetTabState",
+        "title": "ÆtherLight: Reset Tab State (Debug)"
+      },
+      {
+        "command": "aetherlight.analyzeWorkspace",
+        "title": "ÆtherLight: Analyze Workspace"
+      },
+      {
+        "command": "aetherlight.analyzeAndGenerateSprints",
+        "title": "ÆtherLight: Analyze Workspace and Generate Sprints"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "aetherlight.quickVoice",
+        "key": "f13",
+        "mac": "f13",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "aetherlight.openVoicePanel",
+        "key": "`",
+        "mac": "`"
+      },
+      {
+        "command": "aetherlight.captureVoiceGlobal",
+        "key": "shift+`",
+        "mac": "shift+`"
+      },
+      {
+        "command": "lumina.captureVoice",
+        "key": "ctrl+shift+v",
+        "mac": "cmd+shift+v",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "lumina.toggle",
+        "key": "ctrl+shift+l",
+        "mac": "cmd+shift+l",
+        "when": "terminalFocus"
+      }
+    ],
+    "terminal": {
+      "profiles": [
+        {
+          "id": "aetherlight.claudeWrapper",
+          "title": "ÆtherLight Claude",
+          "icon": "$(sparkle)"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "aetherlight-sidebar",
+          "title": "ÆtherLight",
+          "icon": "resources/aetherlight-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "aetherlight-sidebar": [
+        {
+          "type": "webview",
+          "id": "aetherlightVoiceView",
+          "name": "Voice",
+          "icon": "resources/aetherlight-icon.svg"
+        }
+      ],
+      "explorer": [
+        {
+          "id": "luminaSprintProgress",
+          "name": "Sprint Progress",
+          "when": "lumina.sprintActive"
+        },
+        {
+          "type": "webview",
+          "id": "luminaAgentCoordination",
+          "name": "Agent Coordination",
+          "when": "lumina.sprintActive"
+        },
+        {
+          "id": "luminaActivityFeed",
+          "name": "Activity Feed",
+          "when": "aetherlight.sync.enabled"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "luminaSprintProgress",
+        "contents": "No sprint currently active.\n[Start Sprint](command:lumina.startSprintPlanning)"
+      }
+    ],
+    "configuration": {
+      "title": "ÆtherLight Configuration",
+      "properties": {
+        "aetherlight.sync.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable real-time context sync"
+        },
+        "aetherlight.sync.serverUrl": {
+          "type": "string",
+          "default": "ws://localhost:43216",
+          "description": "WebSocket server URL"
+        },
+        "aetherlight.sync.privacyMode": {
+          "type": "string",
+          "enum": [
+            "full_sync",
+            "decisions_only",
+            "blockers_only",
+            "disabled"
+          ],
+          "default": "decisions_only",
+          "description": "Privacy mode for context sharing",
+          "enumDescriptions": [
+            "Share all context (design decisions, code snippets, blockers)",
+            "Share design decisions only (no code snippets)",
+            "Share blockers only (minimal context)",
+            "No sync (local-only mode)"
+          ]
+        },
+        "aetherlight.sync.autoReconnect": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically reconnect on disconnect"
+        },
+        "aetherlight.sync.reconnectDelayMs": {
+          "type": "number",
+          "default": 1000,
+          "minimum": 100,
+          "description": "Initial reconnect delay in milliseconds"
+        },
+        "aetherlight.sync.token": {
+          "type": "string",
+          "default": "",
+          "description": "Authentication token for real-time sync (optional for local development)"
+        },
+        "aetherlight.sync.user": {
+          "type": "string",
+          "default": "",
+          "description": "User identifier for real-time sync (defaults to system username)"
+        },
+        "aetherlight.sync.terminalId": {
+          "type": "string",
+          "default": "",
+          "description": "Terminal identifier for real-time sync (auto-generated if empty)"
+        },
+        "aetherlight.sync.maxReconnectAttempts": {
+          "type": "number",
+          "default": 0,
+          "description": "Maximum reconnect attempts (0 = infinite)"
+        },
+        "aetherlight.openaiApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "OpenAI API key for voice transcription (Whisper API)"
+        },
+        "aetherlight.sync.maxReconnectDelayMs": {
+          "type": "number",
+          "default": 30000,
+          "minimum": 1000,
+          "maximum": 300000,
+          "description": "Maximum reconnect delay in milliseconds (5 minutes max)"
+        },
+        "aetherlight.sync.showNotifications": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show desktop notifications for sync events"
+        },
+        "aetherlight.sync.notificationSound": {
+          "type": "boolean",
+          "default": false,
+          "description": "Play sound on notifications"
+        },
+        "aetherlight.sync.eventTypes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "design_decision",
+              "blocker",
+              "discovery"
+            ]
+          },
+          "default": [
+            "design_decision",
+            "blocker",
+            "discovery"
+          ],
+          "description": "Event types to subscribe to"
+        },
+        "aetherlight.sync.tlsEnabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable TLS for secure connections (required for production)"
+        },
+        "aetherlight.terminal.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable terminal middleware"
+        },
+        "aetherlight.terminal.voice.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable voice capture in terminal"
+        },
+        "aetherlight.terminal.voice.hotkey": {
+          "type": "string",
+          "default": "`",
+          "description": "Hotkey for voice capture. Default: ` (backtick) opens voice panel. You can change this in VS Code Keyboard Shortcuts (Ctrl+K Ctrl+S) by searching for 'Open Voice Panel'."
+        },
+        "aetherlight.terminal.voice.autoTranscribe": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically transcribe voice after capture using OpenAI Whisper API"
+        },
+        "aetherlight.terminal.voice.openaiModel": {
+          "type": "string",
+          "enum": [
+            "whisper-1"
+          ],
+          "default": "whisper-1",
+          "description": "OpenAI Whisper model for transcription (currently only whisper-1 available via API)"
+        },
+        "aetherlight.terminal.voice.language": {
+          "type": "string",
+          "default": "en",
+          "description": "Language code for transcription"
+        },
+        "aetherlight.terminal.typing.autoEnhance": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically enhance typed prompts"
+        },
+        "aetherlight.terminal.typing.showPreview": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show preview of enhanced prompt"
+        },
+        "aetherlight.terminal.typing.previewDelayMs": {
+          "type": "number",
+          "default": 500,
+          "minimum": 0,
+          "maximum": 5000,
+          "description": "Delay before showing preview (milliseconds)"
+        },
+        "aetherlight.terminal.enhancement.includePatterns": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include pattern matching in enhancement"
+        },
+        "aetherlight.terminal.enhancement.includeFileContext": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include file context in enhancement"
+        },
+        "aetherlight.terminal.enhancement.includeProjectState": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include project state in enhancement"
+        },
+        "aetherlight.terminal.enhancement.includeErrorContext": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include error context in enhancement"
+        },
+        "aetherlight.terminal.enhancement.includeHistory": {
+          "type": "boolean",
+          "default": false,
+          "description": "Include command history in enhancement"
+        },
+        "aetherlight.terminal.enhancement.confidenceThreshold": {
+          "type": "number",
+          "default": 0.75,
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Minimum confidence threshold for pattern matching"
+        },
+        "aetherlight.terminal.enhancement.maxContextTokens": {
+          "type": "number",
+          "default": 5000,
+          "minimum": 1000,
+          "maximum": 10000,
+          "description": "Maximum context tokens to include"
+        },
+        "aetherlight.terminal.enhancement.maxHistoryMessages": {
+          "type": "number",
+          "default": 5,
+          "minimum": 1,
+          "maximum": 20,
+          "description": "Maximum history messages to include"
+        },
+        "aetherlight.terminal.patterns.showInline": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show patterns inline in editor"
+        },
+        "aetherlight.terminal.patterns.showSidebar": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show patterns in sidebar"
+        },
+        "aetherlight.terminal.patterns.confidenceThreshold": {
+          "type": "number",
+          "default": 0.75,
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Minimum confidence threshold for displaying patterns"
+        },
+        "aetherlight.terminal.patterns.maxPatternsShown": {
+          "type": "number",
+          "default": 5,
+          "minimum": 1,
+          "maximum": 10,
+          "description": "Maximum number of patterns to show"
+        },
+        "aetherlight.terminal.performance.maxEnhancementTimeMs": {
+          "type": "number",
+          "default": 500,
+          "minimum": 100,
+          "maximum": 10000,
+          "description": "Maximum time for enhancement (milliseconds)"
+        },
+        "aetherlight.terminal.performance.cacheEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable caching for faster enhancement"
+        },
+        "aetherlight.api.baseUrl": {
+          "type": "string",
+          "default": "https://api.aetherlight.dev",
+          "description": "ÆtherLight API base URL for pattern queries (uses secure server-side Supabase credentials)"
+        },
+        "aetherlight.openai.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "OpenAI API key for Whisper voice transcription (F4 hotkey). Get your key at https://platform.openai.com/api-keys"
+        },
+        "aetherlight.desktop.whisperModel": {
+          "type": "string",
+          "enum": [
+            "base.en",
+            "small.en",
+            "medium.en",
+            "large"
+          ],
+          "default": "base.en",
+          "description": "Whisper model for voice transcription (base.en is fastest, large is most accurate)"
+        },
+        "aetherlight.desktop.offlineMode": {
+          "type": "boolean",
+          "default": true,
+          "description": "Use offline mode (local Whisper.cpp) instead of OpenAI API"
+        },
+        "aetherlight.desktop.recordingHotkey": {
+          "type": "string",
+          "default": "",
+          "description": "Custom global hotkey for desktop app voice recording (optional). Built-in hotkeys: ` (open panel) or ~ (transcribe at cursor). Leave empty to use defaults."
+        },
+        "aetherlight.desktop.codenetEndpoint": {
+          "type": "string",
+          "default": "https://api.code.net/v1",
+          "description": "Code.NET pattern network endpoint for pattern sync"
+        },
+        "aetherlight.desktop.selectedDomains": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Selected domains for pattern sync (e.g., ['marketing', 'legal'])"
+        },
+        "aetherlight.preview.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show live file preview below terminals"
+        },
+        "aetherlight.preview.defaultHeight": {
+          "type": "number",
+          "default": 40,
+          "minimum": 10,
+          "maximum": 80,
+          "description": "File preview height as percentage of panel (10-80%)"
+        },
+        "aetherlight.preview.autoDetectFile": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically detect which file to preview from context"
+        },
+        "aetherlight.preview.showDiffOnChange": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show diff view when file changes during agent work"
+        },
+        "aetherlight.preview.transitionAnimation": {
+          "type": "boolean",
+          "default": true,
+          "description": "Animate file transitions (fade out/in)"
+        },
+        "aetherlight.voicePanel.autoSelectTerminal": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically select next waiting terminal after command completes (uses Shell Integration API)"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile",
+    "test": "node ./out/test/runTest.js",
+    "package": "npm run compile && vsce package",
+    "postinstall": "node -e \"console.log('\\n✅ ÆtherLight installed!\\n\\nNext step: Run \\\"aetherlight\\\" to install VS Code extension + Desktop app\\n')\""
+  },
+  "dependencies": {
+    "@aetherlight/analyzer": "file:../packages/aetherlight-analyzer",
+    "@iarna/toml": "^2.2.5",
+    "@nut-tree-fork/nut-js": "^4.2.6",
+    "form-data": "^4.0.4",
+    "node-fetch": "^2.7.0",
+    "ws": "^8.14.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/node": "^20.10.0",
+    "@types/uuid": "^10.0.0",
+    "@types/vscode": "^1.99.0",
+    "@types/ws": "^8.5.9",
+    "@vscode/test-electron": "^2.3.8",
+    "@vscode/vsce": "^2.22.0",
+    "typescript": "^5.3.0"
+  }
+}

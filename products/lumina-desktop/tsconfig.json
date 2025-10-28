@@ -1,0 +1,42 @@
+{
+  /**
+   * DESIGN DECISION: TypeScript configuration for React + Vite + Tauri
+   * WHY: Strict type checking improves code quality and catches errors at compile time
+   *
+   * REASONING CHAIN:
+   * 1. target: "ES2020" for modern JavaScript features
+   * 2. jsx: "react-jsx" enables React 18 JSX transform (no need to import React)
+   * 3. strict: true enables all strict type checking options
+   * 4. moduleResolution: "bundler" optimized for Vite
+   * 5. allowImportingTsExtensions: true allows importing .ts files directly
+   * 6. noEmit: true because Vite handles compilation (TSC only for type checking)
+   *
+   * PATTERN: Pattern-TAURI-001 (Lightweight Desktop App)
+   * RELATED: vite.config.ts (build tool), package.json (TypeScript version)
+   * FUTURE: Add path aliases (@/ for src/), stricter type checking options
+   */
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["src"],
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/tests/**/*"],
+  "references": [{ "path": "./tsconfig.node.json" }]
+}

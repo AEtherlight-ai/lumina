@@ -1,0 +1,692 @@
+/**
+ * Pattern Extractor Tests
+ *
+ * DESIGN DECISION: Comprehensive test coverage for pattern extraction logic
+ * WHY: Pattern extraction is core to code analyzer - must be reliable
+ */
+
+import * as fs from 'fs';
+import * as path from 'path';
+import { PatternExtractor, PatternCategory, ExtractedPattern } from './pattern-extractor';
+import { AnalysisResult, ArchitecturePattern } from '../analyzers/types';
+import { ParseResult, ElementType, FunctionElement, ClassElement, InterfaceElement } from '../parsers/types';
+
+describe('PatternExtractor', () => {
+  let outputDir: string;
+
+  beforeEach(() => {
+    // Create temp output directory
+    outputDir = path.join(__dirname, '__pattern_test_output__');
+    if (fs.existsSync(outputDir)) {
+      fs.rmSync(outputDir, { recursive: true });
+    }
+  });
+
+  afterEach(() => {
+    // Clean up temp directory
+    if (fs.existsSync(outputDir)) {
+      fs.rmSync(outputDir, { recursive: true });
+    }
+  });
+
+  describe('Pattern ID Generation', () => {
+    it('should generate sequential pattern IDs', () => {
+      const extractor = new PatternExtractor({
+        repositoryName: 'TestRepo',
+        outputDir,
+      });
+
+      const id1 = (extractor as any).generatePatternId();
+      const id2 = (extractor as any).generatePatternId();
+      const id3 = (extractor as any).generatePatternId();
+
+      expect(id1).toBe('Pattern-TESTREPO-001');
+      expect(id2).toBe('Pattern-TESTREPO-002');
+      expect(id3).toBe('Pattern-TESTREPO-003');
+    });
+
+    it('should uppercase repository name in pattern IDs', () => {
+      const extractor = new PatternExtractor({
+        repositoryName: 'my-cool-repo',
+        outputDir,
+      });
+
+      const id = (extractor as any).generatePatternId();
+      expect(id).toBe('Pattern-MY-COOL-REPO-001');
+    });
+  });
+
+  describe('Pattern Name Generation', () => {
+    it('should convert camelCase to Title Case', () => {
+      const extractor = new PatternExtractor({
+        repositoryName: 'TestRepo',
+        outputDir,
+      });
+
+      expect((extractor as any).generatePatternName('fetchUserData')).toBe('Fetch User Data');
+      expect((extractor as any).generatePatternName('validateEmailAddress')).toBe('Validate Email Address');
+    });
+
+    it('should convert PascalCase to Title Case', () => {
+      const extractor = new PatternExtractor({
+        repositoryName: 'TestRepo',
+        outputDir,
+      });
+
+      expect((extractor as any).generatePatternName('UserController')).toBe('User Controller');
+      expect((extractor as any).generatePatternName('DatabaseRepository')).toBe('Database Repository');
+    });
+  });
+
+  describe('Category Detection', () => {
+    let extractor: PatternExtractor;
+
+    beforeEach(() => {
+      extractor = new PatternExtractor({
+        repositoryName: 'TestRepo',
+        outputDir,
+      });
+    });
+
+    it('should detect API category from function names', () => {
+      expect((extractor as any).detectFunctionCategory('handleApiRequest')).toBe(PatternCategory.API);
+      expect((extractor as any).detectFunctionCategory('sendResponse')).toBe(PatternCategory.API);
+    });
+
+    it('should detect ERROR_HANDLING category from function names', () => {
+      expect((extractor as any).detectFunctionCategory('validateInput')).toBe(PatternCategory.ERROR_HANDLING);
+      expect((extractor as any).detectFunctionCategory('checkPermissions')).toBe(PatternCategory.ERROR_HANDLING);
+    });
+
+    it('should detect DATABASE category from function names', () => {
+      expect((extractor as any).detectFunctionCategory('queryUsers')).toBe(PatternCategory.DATABASE);
+      expect((extractor as any).detectFunctionCategory('saveToDb')).toBe(PatternCategory.DATABASE);
+    });
+
+    it('should detect UI category from function names', () => {
+      expect((extractor as any).detectFunctionCategory('renderComponent')).toBe(PatternCategory.UI);
+      expect((extractor as any).detectFunctionCategory('displayModal')).toBe(PatternCategory.UI);
+    });
+
+    it('should detect PERFORMANCE category from function names', () => {
+      expect((extractor as any).detectFunctionCategory('cacheResults')).toBe(PatternCategory.PERFORMANCE);
+      expect((extractor as any).detectFunctionCategory('optimizeQuery')).toBe(PatternCategory.PERFORMANCE);
+    });
+
+    it('should detect SECURITY category from function names', () => {
+      expect((extractor as any).detectFunctionCategory('authenticateUser')).toBe(PatternCategory.SECURITY);
+      expect((extractor as any).detectFunctionCategory('encryptPassword')).toBe(PatternCategory.SECURITY);
+    });
+
+    it('should default to UTILITY for unknown function names', () => {
+      expect((extractor as any).detectFunctionCategory('doSomething')).toBe(PatternCategory.UTILITY);
+    });
+  });
+
+  describe('Architecture Pattern Extraction', () => {
+    it('should extract MVC architecture pattern', async () => {
+      const extractor = new PatternExtractor({
+        repositoryName: 'TestRepo',
+        outputDir,
+      });
+
+      const analysis: AnalysisResult = {
+        name: 'test-analysis',
+        version: '1.0.0',
+        executionTimeMs: 100,
+        data: {},
+        architecture: {
+          pattern: ArchitecturePattern.MVC,
+          confidence: 0.92,
+          layers: [
+            { name: 'Controllers', files: 10 },
+            { name: 'Models', files: 8 },
+            { name: 'Views', files: 20 },
+          ],
+          components: [],
+          diagram: 'graph TD',
+        },
+      };
+
+      const patterns = await extractor.extractPatterns(analysis);
+
+      expect(patterns.length).toBeGreaterThan(0);
+      const mvcPattern = patterns.find((p) => p.name.includes('MVC'));
+      expect(mvcPattern).toBeDefined();
+      expect(mvcPattern!.category).toBe(PatternCategory.ARCHITECTURE);
+      expect(mvcPattern!.confidence).toBe(0.92);
+      expect(mvcPattern!.designDecision).toBe('Use MVC pattern');
+    });
+
+    it('should extract REST API pattern', async () => {
+      const extractor = new PatternExtractor({
+        repositoryName: 'TestRepo',
+        outputDir,
+      });
+
+      const analysis: AnalysisResult = {
+        name: 'test-analysis',
+        version: '1.0.0',
+        executionTimeMs: 100,
+        data: {},
+        architecture: {
+          pattern: ArchitecturePattern.REST_API,
+          confidence: 0.85,
+          layers: [{ name: 'API', files: 15 }],
+          components: [],
+          diagram: 'graph TD',
+        },
+      };
+
+      const patterns = await extractor.extractPatterns(analysis);
+
+      const apiPattern = patterns.find((p) => p.name.includes('REST'));
+      expect(apiPattern).toBeDefined();
+      expect(apiPattern!.category).toBe(PatternCategory.API);
+    });
+  });
+
+  describe('Function Pattern Extraction', () => {
+    it('should extract function pattern with low complexity', async () => {
+      const extractor = new PatternExtractor({
+        repositoryName: 'TestRepo',
+        outputDir,
+        minConfidence: 0.5,
+      });
+
+      const parseResult: ParseResult = {
+        files: [
+          {
+            filePath: 'src/utils.ts',
+            elements: [
+              {
+                type: ElementType.FUNCTION,
+                name: 'validateEmail',
+                parameters: [{ name: 'email', type: 'string' }],
+                returnType: 'boolean',
+                location: { line: 10, column: 0 },
+                complexity: 5, // Low complexity
+              } as FunctionElement,
+            ],
+          },
+        ],
+      };
+
+      const analysis: AnalysisResult = {
+        name: 'test-analysis',
+        version: '1.0.0',
+        executionTimeMs: 100,
+        data: {},
+        parseResult,
+      };
+
+      const patterns = await extractor.extractPatterns(analysis);
+
+      expect(patterns.length).toBeGreaterThan(0);
+      const funcPattern = patterns.find((p) => p.name.includes('Validate Email'));
+      expect(funcPattern).toBeDefined();
+      expect(funcPattern!.category).toBe(PatternCategory.ERROR_HANDLING);
+      expect(funcPattern!.confidence).toBeGreaterThan(0.7);
+    });
+
+    it('should skip functions with high complexity', async () => {
+      const extractor = new PatternExtractor({
+        repositoryName: 'TestRepo',
+        outputDir,
+      });
+
+      const parseResult: ParseResult = {
+        files: [
+          {
+            filePath: 'src/utils.ts',
+            elements: [
+              {
+                type: ElementType.FUNCTION,
+                name: 'complexFunction',
+                parameters: [],
+                returnType: 'void',
+                location: { line: 10, column: 0 },
+                complexity: 25, // High complexity - should be skipped
+              } as FunctionElement,
+            ],
+          },
+        ],
+      };
+
+      const analysis: AnalysisResult = {
+        name: 'test-analysis',
+        version: '1.0.0',
+        executionTimeMs: 100,
+        data: {},
+        parseResult,
+      };
+
+      const patterns = await extractor.extractPatterns(analysis);
+
+      const complexPattern = patterns.find((p) => p.name.includes('Complex Function'));
+      expect(complexPattern).toBeUndefined();
+    });
+
+    it('should skip test functions', async () => {
+      const extractor = new PatternExtractor({
+        repositoryName: 'TestRepo',
+        outputDir,
+      });
+
+      const parseResult: ParseResult = {
+        files: [
+          {
+            filePath: 'src/utils.test.ts',
+            elements: [
+              {
+                type: ElementType.FUNCTION,
+                name: 'testValidateEmail',
+                parameters: [],
+                returnType: 'void',
+                location: { line: 10, column: 0 },
+                complexity: 3,
+              } as FunctionElement,
+            ],
+          },
+        ],
+      };
+
+      const analysis: AnalysisResult = {
+        name: 'test-analysis',
+        version: '1.0.0',
+        executionTimeMs: 100,
+        data: {},
+        parseResult,
+      };
+
+      const patterns = await extractor.extractPatterns(analysis);
+
+      const testPattern = patterns.find((p) => p.name.toLowerCase().includes('test'));
+      expect(testPattern).toBeUndefined();
+    });
+  });
+
+  describe('Class Pattern Extraction', () => {
+    it('should extract class pattern', async () => {
+      const extractor = new PatternExtractor({
+        repositoryName: 'TestRepo',
+        outputDir,
+      });
+
+      const parseResult: ParseResult = {
+        files: [
+          {
+            filePath: 'src/controllers/user-controller.ts',
+            elements: [
+              {
+                type: ElementType.CLASS,
+                name: 'UserController',
+                methods: [
+                  { name: 'getUser', parameters: [], returnType: 'User', location: { line: 12, column: 2 } },
+                  { name: 'createUser', parameters: [], returnType: 'User', location: { line: 18, column: 2 } },
+                ],
+                properties: [],
+                location: { line: 10, column: 0 },
+              } as ClassElement,
+            ],
+          },
+        ],
+      };
+
+      const analysis: AnalysisResult = {
+        name: 'test-analysis',
+        version: '1.0.0',
+        executionTimeMs: 100,
+        data: {},
+        parseResult,
+      };
+
+      const patterns = await extractor.extractPatterns(analysis);
+
+      const classPattern = patterns.find((p) => p.name.includes('User Controller'));
+      expect(classPattern).toBeDefined();
+      expect(classPattern!.category).toBe(PatternCategory.API);
+      expect(classPattern!.confidence).toBe(0.75);
+    });
+
+    it('should skip god classes (>15 methods)', async () => {
+      const extractor = new PatternExtractor({
+        repositoryName: 'TestRepo',
+        outputDir,
+      });
+
+      const methods = Array.from({ length: 20 }, (_, i) => ({
+        name: `method${i}`,
+        parameters: [],
+        returnType: 'void',
+        location: { line: 10 + i * 3, column: 2 },
+      }));
+
+      const parseResult: ParseResult = {
+        files: [
+          {
+            filePath: 'src/god-class.ts',
+            elements: [
+              {
+                type: ElementType.CLASS,
+                name: 'GodClass',
+                methods,
+                properties: [],
+                location: { line: 10, column: 0 },
+              } as ClassElement,
+            ],
+          },
+        ],
+      };
+
+      const analysis: AnalysisResult = {
+        name: 'test-analysis',
+        version: '1.0.0',
+        executionTimeMs: 100,
+        data: {},
+        parseResult,
+      };
+
+      const patterns = await extractor.extractPatterns(analysis);
+
+      const godPattern = patterns.find((p) => p.name.includes('God Class'));
+      expect(godPattern).toBeUndefined();
+    });
+  });
+
+  describe('Interface Pattern Extraction', () => {
+    it('should extract interface pattern', async () => {
+      const extractor = new PatternExtractor({
+        repositoryName: 'TestRepo',
+        outputDir,
+      });
+
+      const parseResult: ParseResult = {
+        files: [
+          {
+            filePath: 'src/types/user.ts',
+            elements: [
+              {
+                type: ElementType.INTERFACE,
+                name: 'User',
+                properties: [
+                  { name: 'id', type: 'string' },
+                  { name: 'email', type: 'string' },
+                  { name: 'name', type: 'string' },
+                ],
+                location: { line: 10, column: 0 },
+              } as InterfaceElement,
+            ],
+          },
+        ],
+      };
+
+      const analysis: AnalysisResult = {
+        name: 'test-analysis',
+        version: '1.0.0',
+        executionTimeMs: 100,
+        data: {},
+        parseResult,
+      };
+
+      const patterns = await extractor.extractPatterns(analysis);
+
+      const interfacePattern = patterns.find((p) => p.name === 'User');
+      expect(interfacePattern).toBeDefined();
+      expect(interfacePattern!.category).toBe(PatternCategory.UTILITY);
+      expect(interfacePattern!.confidence).toBe(0.7);
+    });
+  });
+
+  describe('Confidence Filtering', () => {
+    it('should filter patterns below min confidence', async () => {
+      const extractor = new PatternExtractor({
+        repositoryName: 'TestRepo',
+        outputDir,
+        minConfidence: 0.8, // High threshold
+      });
+
+      const parseResult: ParseResult = {
+        files: [
+          {
+            filePath: 'src/utils.ts',
+            elements: [
+              {
+                type: ElementType.FUNCTION,
+                name: 'lowConfidenceFunction',
+                parameters: [],
+                returnType: 'void',
+                location: { line: 10, column: 0 },
+                complexity: 8, // Results in ~0.6 confidence
+              } as FunctionElement,
+            ],
+          },
+        ],
+      };
+
+      const analysis: AnalysisResult = {
+        name: 'test-analysis',
+        version: '1.0.0',
+        executionTimeMs: 100,
+        data: {},
+        parseResult,
+      };
+
+      const patterns = await extractor.extractPatterns(analysis);
+
+      // Should be filtered out due to confidence < 0.8
+      expect(patterns.length).toBe(0);
+    });
+  });
+
+  describe('Max Patterns Limit', () => {
+    it('should limit patterns to maxPatterns', async () => {
+      const extractor = new PatternExtractor({
+        repositoryName: 'TestRepo',
+        outputDir,
+        maxPatterns: 2, // Only return top 2
+      });
+
+      const elements: FunctionElement[] = Array.from({ length: 5 }, (_, i) => ({
+        type: ElementType.FUNCTION,
+        name: `function${i}`,
+        parameters: [],
+        returnType: 'void',
+        location: { line: 10 + i * 5, column: 0 },
+        complexity: i + 1, // Varying complexity
+      }));
+
+      const parseResult: ParseResult = {
+        files: [
+          {
+            filePath: 'src/utils.ts',
+            elements,
+          },
+        ],
+      };
+
+      const analysis: AnalysisResult = {
+        name: 'test-analysis',
+        version: '1.0.0',
+        executionTimeMs: 100,
+        data: {},
+        parseResult,
+      };
+
+      const patterns = await extractor.extractPatterns(analysis);
+
+      // Should be limited to 2 highest confidence patterns
+      expect(patterns.length).toBe(2);
+    });
+  });
+
+  describe('Pattern File Generation', () => {
+    it('should generate pattern markdown file', async () => {
+      const extractor = new PatternExtractor({
+        repositoryName: 'TestRepo',
+        outputDir,
+      });
+
+      const pattern: ExtractedPattern = {
+        id: 'Pattern-TESTREPO-001',
+        name: 'Validate Email',
+        category: PatternCategory.ERROR_HANDLING,
+        context: 'Function validateEmail in utils.ts',
+        problem: 'How to validate email addresses',
+        solution: 'Use regex pattern for email validation',
+        designDecision: 'Regex-based validation',
+        why: 'Provides reliable email format checking',
+        reasoningChain: [
+          'Analyzed email validation requirements',
+          'Selected regex pattern approach',
+          'Tested against common email formats',
+        ],
+        codeExample: 'function validateEmail(email: string): boolean {\n  return /^[^@]+@[^@]+\\.[^@]+$/.test(email);\n}',
+        language: 'typescript',
+        relatedPatterns: ['Pattern-ERROR-001'],
+        confidence: 0.85,
+        metadata: {
+          filePath: 'src/utils.ts',
+          lineStart: 10,
+          lineEnd: 15,
+          complexity: 3,
+        },
+      };
+
+      const filePath = await extractor.generatePatternFile(pattern);
+
+      expect(fs.existsSync(filePath)).toBe(true);
+
+      const content = fs.readFileSync(filePath, 'utf-8');
+      expect(content).toContain('Pattern-TESTREPO-001');
+      expect(content).toContain('Validate Email');
+      expect(content).toContain('ERROR_HANDLING');
+      expect(content).toContain('DESIGN DECISION:');
+      expect(content).toContain('WHY:');
+      expect(content).toContain('REASONING CHAIN:');
+      expect(content).toContain('```typescript');
+    });
+
+    it('should generate pattern index file', async () => {
+      const extractor = new PatternExtractor({
+        repositoryName: 'TestRepo',
+        outputDir,
+      });
+
+      const patterns: ExtractedPattern[] = [
+        {
+          id: 'Pattern-TESTREPO-001',
+          name: 'Validate Email',
+          category: PatternCategory.ERROR_HANDLING,
+          context: 'Test context',
+          problem: 'Test problem',
+          solution: 'Test solution',
+          designDecision: 'Test decision',
+          why: 'Test why',
+          reasoningChain: ['Step 1'],
+          codeExample: 'code',
+          language: 'typescript',
+          relatedPatterns: [],
+          confidence: 0.85,
+          metadata: {
+            filePath: 'test.ts',
+            lineStart: 1,
+            lineEnd: 10,
+          },
+        },
+        {
+          id: 'Pattern-TESTREPO-002',
+          name: 'User Controller',
+          category: PatternCategory.API,
+          context: 'Test context',
+          problem: 'Test problem',
+          solution: 'Test solution',
+          designDecision: 'Test decision',
+          why: 'Test why',
+          reasoningChain: ['Step 1'],
+          codeExample: 'code',
+          language: 'typescript',
+          relatedPatterns: [],
+          confidence: 0.75,
+          metadata: {
+            filePath: 'test.ts',
+            lineStart: 1,
+            lineEnd: 10,
+          },
+        },
+      ];
+
+      await extractor.generateAllPatternFiles(patterns);
+
+      const indexPath = path.join(outputDir, 'README.md');
+      expect(fs.existsSync(indexPath)).toBe(true);
+
+      const content = fs.readFileSync(indexPath, 'utf-8');
+      expect(content).toContain('TestRepo Pattern Library');
+      expect(content).toContain('Total Patterns: 2');
+      expect(content).toContain('ERROR_HANDLING (1)');
+      expect(content).toContain('API (1)');
+      expect(content).toContain('Pattern-TESTREPO-001');
+      expect(content).toContain('Pattern-TESTREPO-002');
+    });
+  });
+
+  describe('Integration: Extract and Generate', () => {
+    it('should extract patterns and generate files end-to-end', async () => {
+      const extractor = new PatternExtractor({
+        repositoryName: 'TestRepo',
+        outputDir,
+        maxPatterns: 10,
+      });
+
+      const parseResult: ParseResult = {
+        files: [
+          {
+            filePath: 'src/utils.ts',
+            elements: [
+              {
+                type: ElementType.FUNCTION,
+                name: 'validateEmail',
+                parameters: [{ name: 'email', type: 'string' }],
+                returnType: 'boolean',
+                location: { line: 10, column: 0 },
+                complexity: 5,
+              } as FunctionElement,
+              {
+                type: ElementType.CLASS,
+                name: 'UserController',
+                methods: [
+                  { name: 'getUser', parameters: [], returnType: 'User', location: { line: 20, column: 2 } },
+                ],
+                properties: [],
+                location: { line: 18, column: 0 },
+              } as ClassElement,
+            ],
+          },
+        ],
+      };
+
+      const analysis: AnalysisResult = {
+        name: 'test-analysis',
+        version: '1.0.0',
+        executionTimeMs: 100,
+        data: {},
+        parseResult,
+        architecture: {
+          pattern: ArchitecturePattern.MVC,
+          confidence: 0.92,
+          layers: [{ name: 'Controllers', files: 10 }],
+          components: [],
+          diagram: 'graph TD',
+        },
+      };
+
+      const result = await extractor.extractAndGenerate(analysis);
+
+      expect(result.patterns.length).toBeGreaterThan(0);
+      expect(result.files.length).toBeGreaterThan(0);
+      expect(fs.existsSync(outputDir)).toBe(true);
+      expect(fs.existsSync(path.join(outputDir, 'README.md'))).toBe(true);
+    });
+  });
+});

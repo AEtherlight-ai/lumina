@@ -1,0 +1,201 @@
+{
+  "configuration": {
+    "title": "ÆtherLight Configuration",
+    "properties": {
+      "aetherlight.sync.enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable real-time context sync"
+      },
+      "aetherlight.sync.serverUrl": {
+        "type": "string",
+        "default": "ws://localhost:43216",
+        "description": "WebSocket server URL"
+      },
+      "aetherlight.sync.privacyMode": {
+        "type": "string",
+        "enum": ["full_sync", "decisions_only", "blockers_only", "disabled"],
+        "default": "decisions_only",
+        "description": "Privacy mode for context sharing",
+        "enumDescriptions": [
+          "Share all context (design decisions, code snippets, blockers)",
+          "Share design decisions only (no code snippets)",
+          "Share blockers only (minimal context)",
+          "No sync (local-only mode)"
+        ]
+      },
+      "aetherlight.sync.autoReconnect": {
+        "type": "boolean",
+        "default": true,
+        "description": "Automatically reconnect on disconnect"
+      },
+      "aetherlight.sync.reconnectDelayMs": {
+        "type": "number",
+        "default": 1000,
+        "minimum": 100,
+        "description": "Initial reconnect delay in milliseconds"
+      },
+      "aetherlight.sync.maxReconnectDelayMs": {
+        "type": "number",
+        "default": 30000,
+        "minimum": 1000,
+        "maximum": 300000,
+        "description": "Maximum reconnect delay in milliseconds (5 minutes max)"
+      },
+      "aetherlight.sync.showNotifications": {
+        "type": "boolean",
+        "default": true,
+        "description": "Show desktop notifications for sync events"
+      },
+      "aetherlight.sync.notificationSound": {
+        "type": "boolean",
+        "default": false,
+        "description": "Play sound on notifications"
+      },
+      "aetherlight.sync.eventTypes": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": ["design_decision", "blocker", "discovery"]
+        },
+        "default": ["design_decision", "blocker", "discovery"],
+        "description": "Event types to subscribe to"
+      },
+      "aetherlight.sync.tlsEnabled": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable TLS for secure connections (required for production)"
+      },
+      "aetherlight.terminal.enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable terminal middleware"
+      },
+      "aetherlight.terminal.voice.enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable voice capture in terminal"
+      },
+      "aetherlight.terminal.voice.hotkey": {
+        "type": "string",
+        "default": "",
+        "description": "Custom hotkey for desktop app voice recording (optional). Built-in hotkeys: ` (open panel) or ~ (transcribe at cursor). Leave empty to use defaults."
+      },
+      "aetherlight.terminal.voice.autoTranscribe": {
+        "type": "boolean",
+        "default": true,
+        "description": "Automatically transcribe voice after capture"
+      },
+      "aetherlight.terminal.voice.whisperModel": {
+        "type": "string",
+        "enum": ["tiny.en", "base.en", "small.en", "medium.en", "large"],
+        "default": "base.en",
+        "description": "Whisper model for transcription"
+      },
+      "aetherlight.terminal.voice.language": {
+        "type": "string",
+        "default": "en",
+        "description": "Language code for transcription"
+      },
+      "aetherlight.terminal.typing.autoEnhance": {
+        "type": "boolean",
+        "default": true,
+        "description": "Automatically enhance typed prompts"
+      },
+      "aetherlight.terminal.typing.showPreview": {
+        "type": "boolean",
+        "default": true,
+        "description": "Show preview of enhanced prompt"
+      },
+      "aetherlight.terminal.typing.previewDelayMs": {
+        "type": "number",
+        "default": 500,
+        "minimum": 0,
+        "maximum": 5000,
+        "description": "Delay before showing preview (milliseconds)"
+      },
+      "aetherlight.terminal.enhancement.includePatterns": {
+        "type": "boolean",
+        "default": true,
+        "description": "Include pattern matching in enhancement"
+      },
+      "aetherlight.terminal.enhancement.includeFileContext": {
+        "type": "boolean",
+        "default": true,
+        "description": "Include file context in enhancement"
+      },
+      "aetherlight.terminal.enhancement.includeProjectState": {
+        "type": "boolean",
+        "default": true,
+        "description": "Include project state in enhancement"
+      },
+      "aetherlight.terminal.enhancement.includeErrorContext": {
+        "type": "boolean",
+        "default": true,
+        "description": "Include error context in enhancement"
+      },
+      "aetherlight.terminal.enhancement.includeHistory": {
+        "type": "boolean",
+        "default": false,
+        "description": "Include command history in enhancement"
+      },
+      "aetherlight.terminal.enhancement.confidenceThreshold": {
+        "type": "number",
+        "default": 0.75,
+        "minimum": 0,
+        "maximum": 1,
+        "description": "Minimum confidence threshold for pattern matching"
+      },
+      "aetherlight.terminal.enhancement.maxContextTokens": {
+        "type": "number",
+        "default": 5000,
+        "minimum": 1000,
+        "maximum": 10000,
+        "description": "Maximum context tokens to include"
+      },
+      "aetherlight.terminal.enhancement.maxHistoryMessages": {
+        "type": "number",
+        "default": 5,
+        "minimum": 1,
+        "maximum": 20,
+        "description": "Maximum history messages to include"
+      },
+      "aetherlight.terminal.patterns.showInline": {
+        "type": "boolean",
+        "default": true,
+        "description": "Show patterns inline in editor"
+      },
+      "aetherlight.terminal.patterns.showSidebar": {
+        "type": "boolean",
+        "default": true,
+        "description": "Show patterns in sidebar"
+      },
+      "aetherlight.terminal.patterns.confidenceThreshold": {
+        "type": "number",
+        "default": 0.75,
+        "minimum": 0,
+        "maximum": 1,
+        "description": "Minimum confidence threshold for displaying patterns"
+      },
+      "aetherlight.terminal.patterns.maxPatternsShown": {
+        "type": "number",
+        "default": 5,
+        "minimum": 1,
+        "maximum": 10,
+        "description": "Maximum number of patterns to show"
+      },
+      "aetherlight.terminal.performance.maxEnhancementTimeMs": {
+        "type": "number",
+        "default": 500,
+        "minimum": 100,
+        "maximum": 10000,
+        "description": "Maximum time for enhancement (milliseconds)"
+      },
+      "aetherlight.terminal.performance.cacheEnabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable caching for faster enhancement"
+      }
+    }
+  }
+}

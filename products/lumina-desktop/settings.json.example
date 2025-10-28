@@ -1,0 +1,33 @@
+{
+  "_comment": "ÆtherLight Configuration - Three-Tier Architecture",
+  "_architecture": "Local Node (primary) → Hosted Node (optional backup) → Global Network (pattern sharing)",
+
+  "storage_mb": 200,
+  "max_patterns": 200,
+
+  "local_node": {
+    "_comment": "Primary storage on your local machine (required)",
+    "type": "postgres",
+    "postgres_url": "postgresql://localhost:5432/lumina",
+    "sqlite_path": "~/.lumina/patterns.db"
+  },
+
+  "hosted_node": {
+    "_comment": "Optional cloud backup/sync (your own Supabase, Postgres, etc.)",
+    "enabled": false,
+    "provider": "supabase",
+    "url": "",
+    "anon_key": "",
+    "_setup_instructions": "See docs/guides/HOSTED_NODE_SETUP.md"
+  },
+
+  "global_network": {
+    "_comment": "ÆtherLight pattern network - accessed via API only (no credentials needed)",
+    "enabled": true,
+    "api_endpoint": "https://api.aetherlight.ai",
+    "sync_to_global": false,
+    "_sync_note": "Set to true to contribute your patterns back to the global network"
+  },
+
+  "selected_domains": ["Marketing", "Legal"]
+}
