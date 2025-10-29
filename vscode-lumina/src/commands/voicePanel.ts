@@ -147,12 +147,12 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
                 // Refresh all active webviews
                 if (this._view) {
-                    this._view.webview.html = await this._getHtmlForWebview(this._view.webview);
+                    this._view.webview.html = this._getHtmlForWebview(this._view.webview);
                 }
 
                 // Refresh all popped-out panels
                 for (const panel of this.poppedOutPanels) {
-                    panel.webview.html = await this._getHtmlForWebview(panel.webview);
+                    panel.webview.html = this._getHtmlForWebview(panel.webview);
                 }
 
                 console.log('[ÆtherLight] Sprint panel auto-refreshed');
@@ -389,23 +389,23 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
         // Refresh all active webviews
         if (this._view) {
-            this._view.webview.html = await this._getHtmlForWebview(this._view.webview);
+            this._view.webview.html = this._getHtmlForWebview(this._view.webview);
         }
 
         for (const panel of this.poppedOutPanels) {
             if (panel.visible) {
-                panel.webview.html = await this._getHtmlForWebview(panel.webview);
+                panel.webview.html = this._getHtmlForWebview(panel.webview);
             }
         }
 
         vscode.window.showInformationMessage('✅ Tab state reset. All tabs should now be visible.');
     }
 
-    public async resolveWebviewView(
+    public resolveWebviewView(
         webviewView: vscode.WebviewView,
         context: vscode.WebviewViewResolveContext,
         _token: vscode.CancellationToken,
-    ): Promise<void> {
+    ) {
         this._view = webviewView;
 
         webviewView.webview.options = {
@@ -448,7 +448,7 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
          */
         const requestedAction = this._context.workspaceState.get<{ tab: string; action: string; target?: string }>('aetherlight.requestedAction');
 
-        webviewView.webview.html = await this._getHtmlForWebview(webviewView.webview);
+        webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
 
         // Handle messages from the webview
         webviewView.webview.onDidReceiveMessage(async message => {
@@ -493,7 +493,7 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                         tabContent = getVoicePanelBodyContent();
                         break;
                     case TabId.Sprint:
-                        tabContent = await this.getSprintTabContent();
+                        tabContent = this.getSprintTabContent();
                         break;
                     case TabId.Planning:
                         tabContent = this.getPlanningTabPlaceholder();
@@ -578,18 +578,18 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                     await this.sprintLoader.saveTaskStatuses(this.sprintTasks);
 
                     // Refresh the webview that sent the message (could be sidebar or popped-out panel)
-                    webview.html = await this._getHtmlForWebview(webview);
+                    webview.html = this._getHtmlForWebview(webview);
 
                     // Also refresh the sidebar view if it exists and is different from the sender
                     if (this._view && this._view.webview !== webview) {
-                        this._view.webview.html = await this._getHtmlForWebview(this._view.webview);
+                        this._view.webview.html = this._getHtmlForWebview(this._view.webview);
                     }
                 }
 
                 // Refresh all popped-out panels that are different from the sender
                 for (const poppedPanel of this.poppedOutPanels) {
                     if (poppedPanel.webview !== webview) {
-                        poppedPanel.webview.html = await this._getHtmlForWebview(poppedPanel.webview);
+                        poppedPanel.webview.html = this._getHtmlForWebview(poppedPanel.webview);
                     }
                 }
                 break;
@@ -635,11 +635,11 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
                         // Refresh all webviews
                         if (this._view) {
-                            this._view.webview.html = await this._getHtmlForWebview(this._view.webview);
+                            this._view.webview.html = this._getHtmlForWebview(this._view.webview);
                         }
 
                         for (const panel of this.poppedOutPanels) {
-                            panel.webview.html = await this._getHtmlForWebview(panel.webview);
+                            panel.webview.html = this._getHtmlForWebview(panel.webview);
                         }
 
                         vscode.window.showInformationMessage(`✅ Switched to: ${newSprintPath}`);
@@ -655,17 +655,17 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 await this.loadSprintTasks();
 
                 // Refresh the webview that sent the message
-                webview.html = await this._getHtmlForWebview(webview);
+                webview.html = this._getHtmlForWebview(webview);
 
                 // Also refresh the sidebar view if it exists and is different from the sender
                 if (this._view && this._view.webview !== webview) {
-                    this._view.webview.html = await this._getHtmlForWebview(this._view.webview);
+                    this._view.webview.html = this._getHtmlForWebview(this._view.webview);
                 }
 
                 // Refresh all popped-out panels
                 for (const poppedPanel of this.poppedOutPanels) {
                     if (poppedPanel.webview !== webview) {
-                        poppedPanel.webview.html = await this._getHtmlForWebview(poppedPanel.webview);
+                        poppedPanel.webview.html = this._getHtmlForWebview(poppedPanel.webview);
                     }
                 }
 
@@ -682,17 +682,17 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 this.selectedEngineerId = message.engineerId;
 
                 // Refresh the webview that sent the message (could be sidebar or popped-out panel)
-                webview.html = await this._getHtmlForWebview(webview);
+                webview.html = this._getHtmlForWebview(webview);
 
                 // Also refresh the sidebar view if it exists and is different from the sender
                 if (this._view && this._view.webview !== webview) {
-                    this._view.webview.html = await this._getHtmlForWebview(this._view.webview);
+                    this._view.webview.html = this._getHtmlForWebview(this._view.webview);
                 }
 
                 // Refresh all popped-out panels that are different from the sender
                 for (const poppedPanel of this.poppedOutPanels) {
                     if (poppedPanel.webview !== webview) {
-                        poppedPanel.webview.html = await this._getHtmlForWebview(poppedPanel.webview);
+                        poppedPanel.webview.html = this._getHtmlForWebview(poppedPanel.webview);
                     }
                 }
                 break;
@@ -749,7 +749,7 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 this.poppedOutPanels.push(panel);
 
                 // Clone current sprint view HTML into the panel
-                panel.webview.html = await this._getHtmlForWebview(panel.webview);
+                panel.webview.html = this._getHtmlForWebview(panel.webview);
 
                 // Handle messages from the popped-out panel
                 panel.webview.onDidReceiveMessage(async message => {
@@ -1037,7 +1037,7 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
         }
     }
 
-    private async _getHtmlForWebview(webview: vscode.Webview): Promise<string> {
+    private _getHtmlForWebview(webview: vscode.Webview): string {
         /**
          * A-002: Use TabManager for HTML generation
          * REASONING:
@@ -1059,7 +1059,7 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 tabContent = getVoicePanelBodyContent();
                 break;
             case TabId.Sprint:
-                tabContent = await this.getSprintTabContent();
+                tabContent = this.getSprintTabContent();
                 break;
             case TabId.Planning:
                 tabContent = this.getPlanningTabPlaceholder();
@@ -1609,30 +1609,17 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
         return !docExists || !sprintExists;
     }
 
-    private async getSprintTabContent(): Promise<string> {
+    private getSprintTabContent(): string {
         /**
-         * DESIGN DECISION: Automatically discover sprint files when tab loads
-         * WHY: Show all available sprint files in dropdown immediately
+         * DESIGN DECISION: Sprint file discovery happens on-demand
+         * WHY: _getHtmlForWebview must be synchronous for proper webview rendering
          *
          * REASONING CHAIN:
-         * 1. User opens Sprint tab
-         * 2. Automatically discover all ACTIVE_SPRINT.toml files in workspace
-         * 3. Populate dropdown with all discovered files
-         * 4. Highlight currently active file
-         * 5. User can see and switch between sprint files immediately
-         * 6. Result: Clear visibility of which file is being viewed
+         * 1. User opens Sprint tab - shows current sprint file immediately
+         * 2. User clicks "Discover Sprint Files" button - triggers async discovery
+         * 3. Dropdown populates with all found files
+         * 4. Result: Fast initial render, discovery happens when needed
          */
-
-        // Discover all sprint files for the dropdown
-        const workspaceRoot = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
-        let discoveredSprintFiles: string[] = [];
-        if (workspaceRoot) {
-            try {
-                discoveredSprintFiles = await this.sprintLoader.discoverAllSprintFiles(workspaceRoot);
-            } catch (error) {
-                console.error('[ÆtherLight] Failed to discover sprint files:', error);
-            }
-        }
 
         /**
          * DESIGN DECISION: Automatically run setup if files don't exist
@@ -1698,23 +1685,14 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             <div class="sprint-file-selector">
                 <label for="sprint-file-dropdown">Sprint File:</label>
                 <select id="sprint-file-dropdown" onchange="switchSprintFile(this.value)" title="Select which sprint file to view">
-                    ${discoveredSprintFiles.length > 0
-                        ? discoveredSprintFiles.map(filePath =>
-                            `<option value="${filePath}" ${filePath === currentSprintPath ? 'selected' : ''}>${filePath}</option>`
-                        ).join('\n                    ')
-                        : `<option value="${currentSprintPath}" selected>${currentSprintPath}</option>`
-                    }
+                    <option value="${currentSprintPath}" selected>${currentSprintPath}</option>
                 </select>
-                <button class="icon-btn" onclick="discoverSprintFiles()" title="Refresh sprint file list">
+                <button class="icon-btn" onclick="discoverSprintFiles()" title="Discover all sprint files in workspace">
                     <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
                         <path d="M15.7 13.3l-3.81-3.83A5.93 5.93 0 0 0 13 6c0-3.31-2.69-6-6-6S1 2.69 1 6s2.69 6 6 6c1.3 0 2.48-.41 3.47-1.11l3.83 3.81c.19.2.45.3.7.3.25 0 .52-.09.7-.3a.996.996 0 0 0 0-1.41v.01zM7 10.7c-2.59 0-4.7-2.11-4.7-4.7 0-2.59 2.11-4.7 4.7-4.7 2.59 0 4.7 2.11 4.7 4.7 0 2.59-2.11 4.7-4.7 4.7z"/>
                     </svg>
                     🔍
                 </button>
-                ${discoveredSprintFiles.length > 1
-                    ? `<span style="font-size: 11px; color: var(--vscode-descriptionForeground); margin-left: 8px;">(${discoveredSprintFiles.length} files found)</span>`
-                    : ''
-                }
             </div>
 
             <div class="progress-section">
@@ -2016,12 +1994,12 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
             // Refresh the webview to show normal Sprint Tab content
             if (this._view) {
-                this._view.webview.html = await this._getHtmlForWebview(this._view.webview);
+                this._view.webview.html = this._getHtmlForWebview(this._view.webview);
             }
 
             // Also refresh popped-out panels
             for (const panel of this.poppedOutPanels) {
-                panel.webview.html = await this._getHtmlForWebview(panel.webview);
+                panel.webview.html = this._getHtmlForWebview(panel.webview);
             }
 
             console.log('[ÆtherLight] First-run setup complete! Sprint Tab ready.');
