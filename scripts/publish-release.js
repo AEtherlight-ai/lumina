@@ -336,8 +336,33 @@ Then reload VS Code to see the update.
 
   fs.writeFileSync('.release-notes.tmp', releaseNotes);
 
+  // Find desktop app installers
+  const desktopFiles = [];
+  const vscodeLuminaPath = path.join(process.cwd(), 'vscode-lumina');
+  const exeFile = path.join(vscodeLuminaPath, 'Lumina_0.1.0_x64-setup.exe');
+  const msiFile = path.join(vscodeLuminaPath, 'Lumina_0.1.0_x64_en-US.msi');
+
+  if (fs.existsSync(exeFile)) {
+    desktopFiles.push(`"${exeFile}"`);
+    log(`   Found desktop installer: Lumina_0.1.0_x64-setup.exe`, 'blue');
+  }
+  if (fs.existsSync(msiFile)) {
+    desktopFiles.push(`"${msiFile}"`);
+    log(`   Found desktop installer: Lumina_0.1.0_x64_en-US.msi`, 'blue');
+  }
+
+  if (desktopFiles.length === 0) {
+    log('⚠️  Warning: No desktop installers found', 'yellow');
+    log('   Desktop app will not be available for this release', 'yellow');
+  } else {
+    log(`✓ Found ${desktopFiles.length} desktop installer(s)`, 'green');
+  }
+
+  // Create release with .vsix and desktop installers
+  const allFiles = [`"vscode-lumina/aetherlight-${newVersion}.vsix"`, ...desktopFiles].join(' ');
+
   try {
-    exec(`gh release create v${newVersion} --title "v${newVersion}" --notes-file .release-notes.tmp "vscode-lumina/aetherlight-${newVersion}.vsix"`);
+    exec(`gh release create v${newVersion} --title "v${newVersion}" --notes-file .release-notes.tmp ${allFiles}`);
   } catch (error) {
     log('✗ Failed to create GitHub release', 'red');
     log('This is CRITICAL - users install from GitHub releases', 'red');
@@ -349,17 +374,42 @@ Then reload VS Code to see the update.
     }
   }
 
-  log('✓ GitHub Release created', 'green');
+  log('✓ GitHub Release created with .vsix and desktop installers', 'green');
 
-  // Step 14: Verify GitHub release exists and has the .vsix file
-  log('\n📋 Step 14: Verify GitHub Release', 'yellow');
-  const releaseCheck = execSilent(`gh release view v${newVersion} --json assets -q '.assets[] | select(.name | endswith(".vsix")) | .name'`);
-  if (!releaseCheck || !releaseCheck.includes(`aetherlight-${newVersion}.vsix`)) {
+  // Step 14: Verify GitHub release exists and has all required files
+  log('\n📋 Step 14: Verify GitHub Release Assets', 'yellow');
+
+  // Check for .vsix file
+  const vsixCheck = execSilent(`gh release view v${newVersion} --json assets -q '.assets[] | select(.name | endswith(".vsix")) | .name'`);
+  if (!vsixCheck || !vsixCheck.includes(`aetherlight-${newVersion}.vsix`)) {
     log('✗ GitHub release verification failed - .vsix not found', 'red');
     log('This is CRITICAL - users will get wrong version on update', 'red');
     process.exit(1);
   }
-  log(`✓ Verified: ${releaseCheck} exists on GitHub`, 'green');
+  log(`✓ Verified: ${vsixCheck} exists on GitHub`, 'green');
+
+  // Check for desktop installers
+  const allAssets = execSilent(`gh release view v${newVersion} --json assets -q '.assets[].name'`);
+  if (allAssets) {
+    const hasExe = allAssets.includes('Lumina_0.1.0_x64-setup.exe');
+    const hasMsi = allAssets.includes('Lumina_0.1.0_x64_en-US.msi');
+
+    if (hasExe) {
+      log('✓ Verified: Lumina_0.1.0_x64-setup.exe exists on GitHub', 'green');
+    } else {
+      log('⚠️  Warning: Lumina_0.1.0_x64-setup.exe not found in release', 'yellow');
+    }
+
+    if (hasMsi) {
+      log('✓ Verified: Lumina_0.1.0_x64_en-US.msi exists on GitHub', 'green');
+    } else {
+      log('⚠️  Warning: Lumina_0.1.0_x64_en-US.msi not found in release', 'yellow');
+    }
+
+    if (!hasExe && !hasMsi) {
+      log('⚠️  Warning: No desktop installers found - desktop app will not be available', 'yellow');
+    }
+  }
 
   // Summary
   log('\n✅ Release Complete!', 'green');

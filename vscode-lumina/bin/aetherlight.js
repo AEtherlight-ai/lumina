@@ -179,8 +179,56 @@ function installCursorExtension(vsixPath) {
   }
 }
 
-function installDesktopApp(filePath, osType) {
-  log('\n🖥️  Installing Desktop app...', 'blue');
+function getInstalledDesktopVersion(osType) {
+  try {
+    if (osType === 'windows') {
+      // Check Windows registry or Program Files
+      const programFiles = process.env['ProgramFiles'] || 'C:\\Program Files';
+      const luminaPath = path.join(programFiles, 'Lumina');
+      const versionFile = path.join(luminaPath, 'version.txt');
+
+      if (fs.existsSync(versionFile)) {
+        return fs.readFileSync(versionFile, 'utf8').trim();
+      }
+    } else if (osType === 'mac') {
+      // Check /Applications/Lumina.app
+      const appPath = '/Applications/Lumina.app/Contents/Info.plist';
+      if (fs.existsSync(appPath)) {
+        // Parse plist for version (simple approach)
+        const plist = fs.readFileSync(appPath, 'utf8');
+        const versionMatch = plist.match(/<key>CFBundleShortVersionString<\/key>\s*<string>(.*?)<\/string>/);
+        if (versionMatch) {
+          return versionMatch[1];
+        }
+      }
+    }
+  } catch (err) {
+    // If we can't determine version, assume not installed
+    return null;
+  }
+  return null;
+}
+
+function installDesktopApp(filePath, osType, releaseVersion) {
+  log('\n🖥️  Checking Desktop app...', 'blue');
+
+  // Check if desktop app is already installed
+  const installedVersion = getInstalledDesktopVersion(osType);
+
+  if (installedVersion) {
+    log(`   Found installed version: ${installedVersion}`, 'blue');
+
+    // Compare versions (simple string comparison for now)
+    if (installedVersion === releaseVersion) {
+      log('✅ Desktop app is already up to date!', 'green');
+      log(`   Version ${installedVersion} is the latest version.`, 'green');
+      return true;
+    } else {
+      log(`   Updating from ${installedVersion} to ${releaseVersion}...`, 'yellow');
+    }
+  } else {
+    log('   Desktop app not found, installing...', 'blue');
+  }
 
   try {
     if (osType === 'windows') {
@@ -191,8 +239,14 @@ function installDesktopApp(filePath, osType) {
       return true;
     } else if (osType === 'mac') {
       // Install Mac app to /Applications
-      const appName = path.basename(filePath);
+      const appName = path.basename(filePath).replace('.zip', '');
       const targetPath = `/Applications/${appName}`;
+
+      // Remove old version if exists
+      if (fs.existsSync(targetPath)) {
+        log('   Removing old version...', 'blue');
+        execSync(`rm -rf "${targetPath}"`, { stdio: 'inherit' });
+      }
 
       log('   Installing to /Applications...', 'blue');
       execSync(`cp -R "${filePath}" "${targetPath}"`, { stdio: 'inherit' });
@@ -263,7 +317,7 @@ async function main() {
 
   // Install Desktop app (if available)
   if (desktopPath) {
-    installDesktopApp(desktopPath, osType);
+    installDesktopApp(desktopPath, osType, release.tag_name.replace('v', ''));
   }
 
   // Cleanup

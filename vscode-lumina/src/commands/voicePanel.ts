@@ -1150,7 +1150,7 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; media-src * blob: data: mediastream:; img-src ${webview.cspSource} https: data: blob:; font-src ${webview.cspSource} data:; connect-src https://api.openai.com;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}' 'unsafe-hashes' 'unsafe-inline'; media-src * blob: data: mediastream:; img-src ${webview.cspSource} https: data: blob:; font-src ${webview.cspSource} data:; connect-src https://api.openai.com;">
     <title>ÆtherLight</title>
     <style>
         ${this.tabManager.getTabStyles()}
@@ -1825,6 +1825,14 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             font-family: var(--vscode-font-family);
         }
 
+        /* Chain of Thought: Fix white-on-white dropdown text issue */
+        /* WHY: User reported dropdowns have white text on white background */
+        /* REASONING: option elements inside select need explicit color styling */
+        .settings-select option {
+            background-color: var(--vscode-dropdown-background);
+            color: var(--vscode-dropdown-foreground);
+        }
+
         .settings-input:focus,
         .settings-select:focus {
             outline: none;
@@ -2081,6 +2089,139 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 </div>
             </div>
 
+            <!-- Chain of Thought: Sprint Configuration Section -->
+            <!-- WHY: User requested Sprint Planning and Code Analyzer settings moved from Settings Tab to Sprint Tab -->
+            <!-- REASONING: These settings are sprint-specific and should be configured where sprints are managed -->
+            <!-- PATTERN: Settings collocated with the feature they configure -->
+            <div class="sprint-config-section">
+                <details open>
+                    <summary><h3>📋 Sprint Planning Configuration</h3></summary>
+                    <div class="config-content">
+                        <div class="settings-group">
+                            <label for="teamSize">Team Size</label>
+                            <input type="number" id="teamSize" min="1" max="999" value="1" class="settings-input">
+                            <span class="settings-hint">Number of engineers (1-999, no artificial limit)</span>
+                        </div>
+
+                        <div class="settings-group">
+                            <label for="sprintStructure">Structure Terminology</label>
+                            <select id="sprintStructure" class="settings-select">
+                                <option value="phases">Phases (ÆtherLight default)</option>
+                                <option value="epics">Epics</option>
+                                <option value="user-stories">User Stories</option>
+                                <option value="sprints">Sprints</option>
+                                <option value="kanban">Kanban</option>
+                                <option value="milestones">Milestones</option>
+                            </select>
+                            <span class="settings-hint">Choose terminology that matches your workflow</span>
+                        </div>
+
+                        <div class="settings-group">
+                            <label for="sprintType">Sprint Type</label>
+                            <select id="sprintType" class="settings-select">
+                                <option value="feature">Feature Development</option>
+                                <option value="bugfix">Bug Fix Sprint</option>
+                                <option value="research">Research & Design</option>
+                                <option value="refactor">Refactoring</option>
+                                <option value="mixed">Mixed (Feature + Bugs)</option>
+                                <option value="maintenance">Maintenance</option>
+                            </select>
+                            <span class="settings-hint">Type of work for sprint planning context</span>
+                        </div>
+
+                        <div class="settings-group">
+                            <label for="docFormat">Documentation Format</label>
+                            <select id="docFormat" class="settings-select">
+                                <option value="toml">TOML (ÆtherLight default)</option>
+                                <option value="markdown">Markdown</option>
+                                <option value="json">JSON</option>
+                                <option value="yaml">YAML</option>
+                                <option value="xml">XML</option>
+                            </select>
+                            <span class="settings-hint">Sprint plan output format</span>
+                        </div>
+                    </div>
+                </details>
+
+                <details open>
+                    <summary><h3>🔍 Code Analyzer Configuration</h3></summary>
+                    <div class="config-content">
+                        <div class="settings-group">
+                            <label for="analyzerGoals">Analysis Goals</label>
+                            <textarea id="analyzerGoals" class="settings-textarea" rows="3" placeholder="e.g., Identify technical debt, Find missing tests, Review security vulnerabilities"></textarea>
+                            <span class="settings-hint">Define what you want to analyze (one per line or comma-separated)</span>
+                        </div>
+
+                        <div class="settings-group">
+                            <label>Focus Areas</label>
+                            <div class="settings-checkboxes">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="focus-bugs" value="bugs" checked>
+                                    <span>🐛 Bugs</span>
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="focus-features" value="features" checked>
+                                    <span>✨ Features</span>
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="focus-debt" value="debt">
+                                    <span>⚠️ Technical Debt</span>
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="focus-tests" value="tests">
+                                    <span>🧪 Tests</span>
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="focus-docs" value="docs">
+                                    <span>📚 Documentation</span>
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="focus-security" value="security">
+                                    <span>🔒 Security</span>
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="focus-performance" value="performance">
+                                    <span>⚡ Performance</span>
+                                </label>
+                            </div>
+                            <span class="settings-hint">Select areas to focus analysis on</span>
+                        </div>
+
+                        <div class="settings-group">
+                            <label for="analyzerDepth">Analysis Depth</label>
+                            <select id="analyzerDepth" class="settings-select">
+                                <option value="quick">Quick (5 min - surface level)</option>
+                                <option value="standard" selected>Standard (15 min - thorough)</option>
+                                <option value="deep">Deep (30+ min - comprehensive)</option>
+                            </select>
+                            <span class="settings-hint">Deeper analysis takes longer but finds more issues</span>
+                        </div>
+
+                        <div class="settings-group">
+                            <label for="analyzerOutput">Output Format</label>
+                            <select id="analyzerOutput" class="settings-select">
+                                <option value="sprint-toml">Sprint TOML (ÆtherLight format)</option>
+                                <option value="markdown">Markdown Report</option>
+                                <option value="github-issues">GitHub Issues JSON</option>
+                                <option value="csv">CSV Export</option>
+                            </select>
+                            <span class="settings-hint">How analysis results should be formatted</span>
+                        </div>
+
+                        <div class="settings-group">
+                            <label for="analyzerExclusions">Exclusions (paths to skip)</label>
+                            <textarea id="analyzerExclusions" class="settings-textarea" rows="2" placeholder="e.g., node_modules/, dist/, *.test.ts"></textarea>
+                            <span class="settings-hint">Files/folders to exclude from analysis (one per line)</span>
+                        </div>
+                    </div>
+                </details>
+
+                <div class="settings-actions">
+                    <button onclick="saveSprintSettings()" class="settings-button primary">💾 Save Sprint Settings</button>
+                    <button onclick="resetSprintSettings()" class="settings-button">↩️ Reset to Defaults</button>
+                </div>
+            </div>
+
             <div class="sprint-file-selector">
                 <label for="sprint-file-dropdown">Sprint File:</label>
                 <select id="sprint-file-dropdown" onchange="switchSprintFile(this.value)" title="Select which sprint file to view">
@@ -2129,9 +2270,13 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 html += `
                 <div class="task-item ${statusClass} ${selectedClass}" data-task-id="${task.id}" onclick="selectTask('${task.id}')" title="Click to view task details">
                     <span class="task-status-icon" onclick="event.stopPropagation(); toggleStatus('${task.id}')" title="Click to toggle status">${statusIcon}</span>
-                    <span class="task-id">${task.id}</span>
-                    <span class="task-name">${task.name}</span>
-                    <span class="task-time">${task.estimated_time}</span>
+                    <div class="task-content">
+                        <div class="task-header">
+                            <span class="task-id">${task.id}</span>
+                            <span class="task-time">${task.estimated_time}</span>
+                        </div>
+                        <div class="task-description">${task.name}</div>
+                    </div>
                 </div>
                 `;
             }
@@ -2145,6 +2290,106 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
         html += this.getTaskDetailPanel();
 
         html += `</div></div>`; // End sprint-content and sprint-panel
+
+        // Chain of Thought: Add Sprint Settings JavaScript
+        // WHY: Need to load/save Sprint Planning and Code Analyzer settings in Sprint Tab
+        // REASONING: Settings moved from Settings Tab, need persistence functions here
+        html += `
+        <script>
+            // SPRINT-SETTINGS: Load and save sprint-specific settings
+            (function() {
+                // Load saved settings from workspace state
+                const savedSettings = vscode.getState()?.sprintSettings || {};
+
+                // Load sprint planning settings
+                if (savedSettings.teamSize) document.getElementById('teamSize').value = savedSettings.teamSize;
+                if (savedSettings.sprintStructure) document.getElementById('sprintStructure').value = savedSettings.sprintStructure;
+                if (savedSettings.sprintType) document.getElementById('sprintType').value = savedSettings.sprintType;
+                if (savedSettings.docFormat) document.getElementById('docFormat').value = savedSettings.docFormat;
+
+                // Load code analyzer settings
+                if (savedSettings.analyzerGoals) document.getElementById('analyzerGoals').value = savedSettings.analyzerGoals;
+                if (savedSettings.analyzerDepth) document.getElementById('analyzerDepth').value = savedSettings.analyzerDepth;
+                if (savedSettings.analyzerOutput) document.getElementById('analyzerOutput').value = savedSettings.analyzerOutput;
+                if (savedSettings.analyzerExclusions) document.getElementById('analyzerExclusions').value = savedSettings.analyzerExclusions;
+
+                // Restore focus area checkboxes
+                if (savedSettings.focusAreas) {
+                    savedSettings.focusAreas.forEach(area => {
+                        const checkbox = document.getElementById('focus-' + area);
+                        if (checkbox) checkbox.checked = true;
+                    });
+                }
+
+                // Save sprint settings function
+                window.saveSprintSettings = function() {
+                    // Collect focus areas
+                    const focusAreas = [];
+                    ['bugs', 'features', 'debt', 'tests', 'docs', 'security', 'performance'].forEach(area => {
+                        if (document.getElementById('focus-' + area)?.checked) {
+                            focusAreas.push(area);
+                        }
+                    });
+
+                    const settings = {
+                        // Sprint Planning
+                        teamSize: parseInt(document.getElementById('teamSize').value),
+                        sprintStructure: document.getElementById('sprintStructure').value,
+                        sprintType: document.getElementById('sprintType').value,
+                        docFormat: document.getElementById('docFormat').value,
+
+                        // Code Analyzer
+                        analyzerGoals: document.getElementById('analyzerGoals').value,
+                        focusAreas: focusAreas,
+                        analyzerDepth: document.getElementById('analyzerDepth').value,
+                        analyzerOutput: document.getElementById('analyzerOutput').value,
+                        analyzerExclusions: document.getElementById('analyzerExclusions').value
+                    };
+
+                    // Save to webview state
+                    const state = vscode.getState() || {};
+                    state.sprintSettings = settings;
+                    vscode.setState(state);
+
+                    // Send to backend for workspace state persistence
+                    vscode.postMessage({
+                        type: 'saveSprintSettings',
+                        settings: settings
+                    });
+
+                    // Show confirmation
+                    alert('✅ Sprint settings saved successfully!');
+                };
+
+                // Reset sprint settings function
+                window.resetSprintSettings = function() {
+                    // Sprint Planning defaults
+                    document.getElementById('teamSize').value = 1;
+                    document.getElementById('sprintStructure').value = 'phases';
+                    document.getElementById('sprintType').value = 'feature';
+                    document.getElementById('docFormat').value = 'toml';
+
+                    // Code Analyzer defaults
+                    document.getElementById('analyzerGoals').value = '';
+                    document.getElementById('analyzerDepth').value = 'standard';
+                    document.getElementById('analyzerOutput').value = 'sprint-toml';
+                    document.getElementById('analyzerExclusions').value = 'node_modules/\\ndist/\\n*.min.js';
+
+                    // Reset checkboxes (bugs and features checked by default)
+                    document.getElementById('focus-bugs').checked = true;
+                    document.getElementById('focus-features').checked = true;
+                    document.getElementById('focus-debt').checked = false;
+                    document.getElementById('focus-tests').checked = false;
+                    document.getElementById('focus-docs').checked = false;
+                    document.getElementById('focus-security').checked = false;
+                    document.getElementById('focus-performance').checked = false;
+
+                    window.saveSprintSettings();
+                };
+            })();
+        </script>
+        `;
+
         return html;
     }
 
@@ -2586,9 +2831,10 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             gap: 4px;
         }
 
+        /* UI-COMPACT-001: Compact task list layout */
         .task-item {
             display: flex;
-            align-items: center;
+            align-items: flex-start; /* Changed from center to support two-row layout */
             padding: 8px;
             margin: 2px 0;
             border-radius: 4px;
@@ -2617,23 +2863,47 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
         .task-status-icon {
             margin-right: 8px;
             font-size: 14px;
+            flex-shrink: 0; /* Prevent checkbox from shrinking */
+            width: 20px; /* Fixed width for alignment */
+        }
+
+        /* UI-COMPACT-001: Container for task content (two rows) */
+        .task-content {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            flex: 1;
+        }
+
+        /* UI-COMPACT-001: First row - ID and time */
+        .task-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
 
         .task-id {
             font-weight: bold;
-            margin-right: 12px;
-            min-width: 60px;
             font-family: var(--vscode-editor-font-family);
-        }
-
-        .task-name {
-            flex: 1;
+            white-space: nowrap;
         }
 
         .task-time {
             color: var(--vscode-descriptionForeground);
             font-size: 11px;
             white-space: nowrap;
+            margin-left: auto; /* Push to right side of header */
+        }
+
+        /* UI-COMPACT-001: Second row - description */
+        .task-description {
+            color: var(--vscode-foreground);
+            line-height: 1.4;
+        }
+
+        /* DEPRECATED: Old .task-name style - replaced by .task-description */
+        .task-name {
+            flex: 1;
         }
 
         /* Sprint Content Layout */
@@ -3757,240 +4027,223 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
      * WHY: Users need configurable sprint planning that matches their terminology
      * REASONING: No artificial limits on team size, 6 structure terminology options
      */
+    /**
+     * Chain of Thought: Settings Tab now contains ONLY global ÆtherLight settings
+     * WHY: User requested Sprint Planning and Code Analyzer settings moved to Sprint Tab
+     * REASONING: Settings Tab should be for global extension configuration, not sprint-specific settings
+     * PATTERN: Separation of concerns - global vs. sprint-specific configuration
+     */
     private getSettingsTabPlaceholder(): string {
         return `
         <div class="settings-panel">
             <div class="settings-header">
-                <h2>⚙️ ÆtherLight Settings</h2>
-                <p class="settings-subtitle">Configure sprint planning and analyzer behavior</p>
+                <h2>⚙️ ÆtherLight Global Settings</h2>
+                <p class="settings-subtitle">Configure global extension behavior</p>
+                <p class="settings-note"><em>Note: Sprint Planning and Code Analyzer settings are in the Sprint Tab</em></p>
             </div>
 
-            <!-- SETTINGS-001: Sprint Planning Configuration -->
+            <!-- GLOBAL-SETTINGS-001: Voice Input Configuration -->
             <div class="settings-section">
-                <h3 class="settings-section-title">📋 Sprint Planning</h3>
+                <h3 class="settings-section-title">🎤 Voice Input</h3>
 
                 <div class="settings-group">
-                    <label for="teamSize">Team Size</label>
-                    <input type="number" id="teamSize" min="1" max="999" value="1" class="settings-input">
-                    <span class="settings-hint">Number of engineers (1-999, no artificial limit)</span>
-                </div>
-
-                <div class="settings-group">
-                    <label for="sprintStructure">Structure Terminology</label>
-                    <select id="sprintStructure" class="settings-select">
-                        <option value="phases">Phases (ÆtherLight default)</option>
-                        <option value="epics">Epics</option>
-                        <option value="user-stories">User Stories</option>
-                        <option value="sprints">Sprints</option>
-                        <option value="kanban">Kanban</option>
-                        <option value="milestones">Milestones</option>
+                    <label for="whisperModel">Whisper Model</label>
+                    <select id="whisperModel" class="settings-select">
+                        <option value="whisper-1">Whisper-1 (OpenAI default)</option>
                     </select>
-                    <span class="settings-hint">Choose terminology that matches your workflow</span>
+                    <span class="settings-hint">Voice transcription model (OpenAI Whisper API)</span>
                 </div>
 
                 <div class="settings-group">
-                    <label for="sprintType">Sprint Type</label>
-                    <select id="sprintType" class="settings-select">
-                        <option value="feature">Feature Development</option>
-                        <option value="bugfix">Bug Fix Sprint</option>
-                        <option value="research">Research & Design</option>
-                        <option value="refactor">Refactoring</option>
-                        <option value="mixed">Mixed (Feature + Bugs)</option>
-                        <option value="maintenance">Maintenance</option>
+                    <label for="voiceLanguage">Language</label>
+                    <select id="voiceLanguage" class="settings-select">
+                        <option value="auto">Auto-Detect</option>
+                        <option value="en">English</option>
+                        <option value="es">Spanish</option>
+                        <option value="fr">French</option>
+                        <option value="de">German</option>
+                        <option value="it">Italian</option>
+                        <option value="pt">Portuguese</option>
+                        <option value="nl">Dutch</option>
+                        <option value="pl">Polish</option>
+                        <option value="ru">Russian</option>
+                        <option value="ja">Japanese</option>
+                        <option value="zh">Chinese</option>
+                        <option value="ko">Korean</option>
                     </select>
-                    <span class="settings-hint">Type of work for sprint planning context</span>
+                    <span class="settings-hint">Primary language for voice recognition</span>
                 </div>
 
                 <div class="settings-group">
-                    <label for="docFormat">Documentation Format</label>
-                    <select id="docFormat" class="settings-select">
-                        <option value="toml">TOML (ÆtherLight default)</option>
-                        <option value="markdown">Markdown</option>
-                        <option value="json">JSON</option>
-                        <option value="yaml">YAML</option>
-                        <option value="xml">XML</option>
-                    </select>
-                    <span class="settings-hint">Sprint plan output format</span>
-                </div>
-
-                <div class="settings-status">
-                    <strong>Current Sprint Status:</strong>
-                    <span id="currentSprintStatus" class="status-badge">No active sprint</span>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="autoSendEnabled" checked>
+                        <span>Auto-send transcription to active editor</span>
+                    </label>
+                    <span class="settings-hint">Automatically insert transcribed text without manual confirmation</span>
                 </div>
             </div>
 
-            <!-- SETTINGS-002: Code Analyzer Configuration -->
+            <!-- GLOBAL-SETTINGS-002: Pattern Matching Configuration -->
             <div class="settings-section">
-                <h3 class="settings-section-title">🔍 Code Analyzer</h3>
+                <h3 class="settings-section-title">🔍 Pattern Matching</h3>
 
                 <div class="settings-group">
-                    <label for="analyzerGoals">Analysis Goals</label>
-                    <textarea id="analyzerGoals" class="settings-textarea" rows="3" placeholder="e.g., Identify technical debt, Find missing tests, Review security vulnerabilities"></textarea>
-                    <span class="settings-hint">Define what you want to analyze (one per line or comma-separated)</span>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="patternMatchingEnabled" checked>
+                        <span>Enable pattern matching (hallucination prevention)</span>
+                    </label>
+                    <span class="settings-hint">Verify AI suggestions against known code patterns</span>
                 </div>
 
                 <div class="settings-group">
-                    <label>Focus Areas</label>
-                    <div class="settings-checkboxes">
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="focus-bugs" value="bugs" checked>
-                            <span>🐛 Bugs</span>
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="focus-features" value="features" checked>
-                            <span>✨ Features</span>
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="focus-debt" value="debt">
-                            <span>⚠️ Technical Debt</span>
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="focus-tests" value="tests">
-                            <span>🧪 Tests</span>
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="focus-docs" value="docs">
-                            <span>📚 Documentation</span>
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="focus-security" value="security">
-                            <span>🔒 Security</span>
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="focus-performance" value="performance">
-                            <span>⚡ Performance</span>
-                        </label>
-                    </div>
-                    <span class="settings-hint">Select areas to focus analysis on</span>
+                    <label for="patternThreshold">Match Threshold</label>
+                    <input type="range" id="patternThreshold" min="0" max="100" value="85" class="settings-slider">
+                    <span class="settings-hint">Pattern confidence threshold: <strong id="thresholdValue">85%</strong></span>
+                </div>
+            </div>
+
+            <!-- GLOBAL-SETTINGS-003: Update & Sync Configuration -->
+            <div class="settings-section">
+                <h3 class="settings-section-title">🔄 Updates & Sync</h3>
+
+                <div class="settings-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="autoUpdateCheck" checked>
+                        <span>Automatically check for updates</span>
+                    </label>
+                    <span class="settings-hint">Check for new ÆtherLight versions hourly</span>
                 </div>
 
                 <div class="settings-group">
-                    <label for="analyzerDepth">Analysis Depth</label>
-                    <select id="analyzerDepth" class="settings-select">
-                        <option value="quick">Quick (5 min - surface level)</option>
-                        <option value="standard" selected>Standard (15 min - thorough)</option>
-                        <option value="deep">Deep (30+ min - comprehensive)</option>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="realtimeSyncEnabled">
+                        <span>Enable real-time collaboration sync</span>
+                    </label>
+                    <span class="settings-hint">Sync sprint progress with team members (requires Supabase)</span>
+                </div>
+            </div>
+
+            <!-- GLOBAL-SETTINGS-004: Appearance -->
+            <div class="settings-section">
+                <h3 class="settings-section-title">🎨 Appearance</h3>
+
+                <div class="settings-group">
+                    <label for="uiDensity">UI Density</label>
+                    <select id="uiDensity" class="settings-select">
+                        <option value="compact">Compact</option>
+                        <option value="standard" selected>Standard</option>
+                        <option value="comfortable">Comfortable</option>
                     </select>
-                    <span class="settings-hint">Deeper analysis takes longer but finds more issues</span>
+                    <span class="settings-hint">Spacing and sizing of UI elements</span>
                 </div>
 
                 <div class="settings-group">
-                    <label for="analyzerOutput">Output Format</label>
-                    <select id="analyzerOutput" class="settings-select">
-                        <option value="sprint-toml">Sprint TOML (ÆtherLight format)</option>
-                        <option value="markdown">Markdown Report</option>
-                        <option value="github-issues">GitHub Issues JSON</option>
-                        <option value="csv">CSV Export</option>
-                    </select>
-                    <span class="settings-hint">How analysis results should be formatted</span>
-                </div>
-
-                <div class="settings-group">
-                    <label for="analyzerExclusions">Exclusions (paths to skip)</label>
-                    <textarea id="analyzerExclusions" class="settings-textarea" rows="2" placeholder="e.g., node_modules/, dist/, *.test.ts"></textarea>
-                    <span class="settings-hint">Files/folders to exclude from analysis (one per line)</span>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="showTimestamps" checked>
+                        <span>Show timestamps on tasks</span>
+                    </label>
+                    <span class="settings-hint">Display creation/modification times in Sprint view</span>
                 </div>
             </div>
 
             <div class="settings-actions">
-                <button onclick="saveSettings()" class="settings-button primary">💾 Save Settings</button>
-                <button onclick="resetSettings()" class="settings-button">↩️ Reset to Defaults</button>
+                <button onclick="saveGlobalSettings()" class="settings-button primary">💾 Save Settings</button>
+                <button onclick="resetGlobalSettings()" class="settings-button">↩️ Reset to Defaults</button>
             </div>
 
             <div class="settings-footer">
-                <em>More settings coming soon: Code Analyzer Goals, Voice Input, Pattern Matching</em>
+                <p><strong>Version:</strong> ${require('../../package.json').version}</p>
+                <p><em>Sprint-specific settings (Sprint Planning, Code Analyzer) are in the Sprint Tab</em></p>
             </div>
         </div>
         <script>
-            // SETTINGS-001 & SETTINGS-002: Settings Tab JavaScript
+            // GLOBAL-SETTINGS: Load and save global settings
             (function() {
                 // Load saved settings from workspace state
-                const savedSettings = vscode.getState()?.sprintSettings || {};
+                const savedSettings = vscode.getState()?.globalSettings || {};
 
-                // SETTINGS-001: Load sprint planning settings
-                if (savedSettings.teamSize) document.getElementById('teamSize').value = savedSettings.teamSize;
-                if (savedSettings.sprintStructure) document.getElementById('sprintStructure').value = savedSettings.sprintStructure;
-                if (savedSettings.sprintType) document.getElementById('sprintType').value = savedSettings.sprintType;
-                if (savedSettings.docFormat) document.getElementById('docFormat').value = savedSettings.docFormat;
+                // Load voice settings
+                if (savedSettings.whisperModel) document.getElementById('whisperModel').value = savedSettings.whisperModel;
+                if (savedSettings.voiceLanguage) document.getElementById('voiceLanguage').value = savedSettings.voiceLanguage;
+                if (savedSettings.autoSendEnabled !== undefined) document.getElementById('autoSendEnabled').checked = savedSettings.autoSendEnabled;
 
-                // SETTINGS-002: Load code analyzer settings
-                if (savedSettings.analyzerGoals) document.getElementById('analyzerGoals').value = savedSettings.analyzerGoals;
-                if (savedSettings.analyzerDepth) document.getElementById('analyzerDepth').value = savedSettings.analyzerDepth;
-                if (savedSettings.analyzerOutput) document.getElementById('analyzerOutput').value = savedSettings.analyzerOutput;
-                if (savedSettings.analyzerExclusions) document.getElementById('analyzerExclusions').value = savedSettings.analyzerExclusions;
-
-                // Restore focus area checkboxes
-                if (savedSettings.focusAreas) {
-                    savedSettings.focusAreas.forEach(area => {
-                        const checkbox = document.getElementById('focus-' + area);
-                        if (checkbox) checkbox.checked = true;
-                    });
+                // Load pattern matching settings
+                if (savedSettings.patternMatchingEnabled !== undefined) document.getElementById('patternMatchingEnabled').checked = savedSettings.patternMatchingEnabled;
+                if (savedSettings.patternThreshold) {
+                    document.getElementById('patternThreshold').value = savedSettings.patternThreshold;
+                    document.getElementById('thresholdValue').textContent = savedSettings.patternThreshold + '%';
                 }
 
+                // Load update/sync settings
+                if (savedSettings.autoUpdateCheck !== undefined) document.getElementById('autoUpdateCheck').checked = savedSettings.autoUpdateCheck;
+                if (savedSettings.realtimeSyncEnabled !== undefined) document.getElementById('realtimeSyncEnabled').checked = savedSettings.realtimeSyncEnabled;
+
+                // Load appearance settings
+                if (savedSettings.uiDensity) document.getElementById('uiDensity').value = savedSettings.uiDensity;
+                if (savedSettings.showTimestamps !== undefined) document.getElementById('showTimestamps').checked = savedSettings.showTimestamps;
+
+                // Update threshold display on slider change
+                document.getElementById('patternThreshold').addEventListener('input', function(e) {
+                    document.getElementById('thresholdValue').textContent = e.target.value + '%';
+                });
+
                 // Global save settings function
-                window.saveSettings = function() {
-                    // Collect focus areas
-                    const focusAreas = [];
-                    ['bugs', 'features', 'debt', 'tests', 'docs', 'security', 'performance'].forEach(area => {
-                        if (document.getElementById('focus-' + area)?.checked) {
-                            focusAreas.push(area);
-                        }
-                    });
-
+                window.saveGlobalSettings = function() {
                     const settings = {
-                        // Sprint Planning
-                        teamSize: parseInt(document.getElementById('teamSize').value),
-                        sprintStructure: document.getElementById('sprintStructure').value,
-                        sprintType: document.getElementById('sprintType').value,
-                        docFormat: document.getElementById('docFormat').value,
+                        // Voice Input
+                        whisperModel: document.getElementById('whisperModel').value,
+                        voiceLanguage: document.getElementById('voiceLanguage').value,
+                        autoSendEnabled: document.getElementById('autoSendEnabled').checked,
 
-                        // Code Analyzer
-                        analyzerGoals: document.getElementById('analyzerGoals').value,
-                        focusAreas: focusAreas,
-                        analyzerDepth: document.getElementById('analyzerDepth').value,
-                        analyzerOutput: document.getElementById('analyzerOutput').value,
-                        analyzerExclusions: document.getElementById('analyzerExclusions').value
+                        // Pattern Matching
+                        patternMatchingEnabled: document.getElementById('patternMatchingEnabled').checked,
+                        patternThreshold: parseInt(document.getElementById('patternThreshold').value),
+
+                        // Updates & Sync
+                        autoUpdateCheck: document.getElementById('autoUpdateCheck').checked,
+                        realtimeSyncEnabled: document.getElementById('realtimeSyncEnabled').checked,
+
+                        // Appearance
+                        uiDensity: document.getElementById('uiDensity').value,
+                        showTimestamps: document.getElementById('showTimestamps').checked
                     };
 
                     // Save to webview state
                     const state = vscode.getState() || {};
-                    state.sprintSettings = settings;
+                    state.globalSettings = settings;
                     vscode.setState(state);
 
                     // Send to backend for workspace state persistence
                     vscode.postMessage({
-                        type: 'saveSettings',
+                        type: 'saveGlobalSettings',
                         settings: settings
                     });
 
                     // Show confirmation
-                    alert('✅ Settings saved successfully!');
+                    alert('✅ Global settings saved successfully!');
                 };
 
                 // Global reset settings function
-                window.resetSettings = function() {
-                    // Sprint Planning defaults
-                    document.getElementById('teamSize').value = 1;
-                    document.getElementById('sprintStructure').value = 'phases';
-                    document.getElementById('sprintType').value = 'feature';
-                    document.getElementById('docFormat').value = 'toml';
+                window.resetGlobalSettings = function() {
+                    // Voice Input defaults
+                    document.getElementById('whisperModel').value = 'whisper-1';
+                    document.getElementById('voiceLanguage').value = 'auto';
+                    document.getElementById('autoSendEnabled').checked = true;
 
-                    // Code Analyzer defaults
-                    document.getElementById('analyzerGoals').value = '';
-                    document.getElementById('analyzerDepth').value = 'standard';
-                    document.getElementById('analyzerOutput').value = 'sprint-toml';
-                    document.getElementById('analyzerExclusions').value = 'node_modules/\ndist/\n*.min.js';
+                    // Pattern Matching defaults
+                    document.getElementById('patternMatchingEnabled').checked = true;
+                    document.getElementById('patternThreshold').value = 85;
+                    document.getElementById('thresholdValue').textContent = '85%';
 
-                    // Reset checkboxes (bugs and features checked by default)
-                    document.getElementById('focus-bugs').checked = true;
-                    document.getElementById('focus-features').checked = true;
-                    document.getElementById('focus-debt').checked = false;
-                    document.getElementById('focus-tests').checked = false;
-                    document.getElementById('focus-docs').checked = false;
-                    document.getElementById('focus-security').checked = false;
-                    document.getElementById('focus-performance').checked = false;
+                    // Updates & Sync defaults
+                    document.getElementById('autoUpdateCheck').checked = true;
+                    document.getElementById('realtimeSyncEnabled').checked = false;
 
-                    window.saveSettings();
+                    // Appearance defaults
+                    document.getElementById('uiDensity').value = 'standard';
+                    document.getElementById('showTimestamps').checked = true;
+
+                    window.saveGlobalSettings();
                 };
             })();
         </script>
