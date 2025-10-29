@@ -14,3 +14,5 @@ node_modules/@types/**
 node_modules/@vscode/test-electron/**
 node_modules/@vscode/vsce/**
 node_modules/typescript/**
+# Exclude local package symlinks (vsce can't handle them)
+../packages/**
