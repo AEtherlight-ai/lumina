@@ -1,0 +1,253 @@
+# ÆtherLight Sprint Phase Zero
+# Feature: Consolidate Configuration to Voice Tab Slide-Down Panels
+# Version: 0.13.27
+# Created: 2025-10-29
+
+[metadata]
+sprint_name = "Configuration UI Consolidation"
+version = "0.13.27"
+team_size = 1
+created_date = "2025-10-29"
+structure = "phases"
+
+[goals]
+primary = "Remove duplicate configuration UI from Sprint tab and complete Voice tab slide-down panels"
+secondary = [
+    "Improve UX by having single source of configuration",
+    "Generate natural language prompts from configuration forms",
+    "Maintain settings persistence across panel opens"
+]
+
+# Phase 0: Sprint Tab Cleanup
+# Remove duplicate configuration UI from Sprint tab
+[[phases]]
+name = "Phase 0: Sprint Tab Cleanup"
+description = "Remove configuration sections from Sprint tab that are now in Voice tab"
+status = "in_progress"
+
+[[phases.tasks]]
+id = "TASK-001"
+title = "Remove Sprint Planning and Code Analyzer configuration UI sections"
+description = """
+Delete lines 2157-2288 in voicePanel.ts:
+- Sprint Planning Configuration section (team size, structure, sprint type, doc format)
+- Code Analyzer Configuration section (goals, focus areas, depth, output, exclusions)
+- Save/Reset buttons
+"""
+status = "in_progress"
+priority = "high"
+file = "vscode-lumina/src/commands/voicePanel.ts"
+lines = "2157-2288"
+assignee = "engineer_1"
+
+[[phases.tasks]]
+id = "TASK-002"
+title = "Remove configuration JavaScript functions"
+description = """
+Delete lines 2359-2456 in voicePanel.ts:
+- saveSprintSettings() function
+- loadSprintSettings() function
+- resetSprintSettings() function
+- Settings persistence code
+"""
+status = "pending"
+priority = "high"
+file = "vscode-lumina/src/commands/voicePanel.ts"
+lines = "2359-2456"
+assignee = "engineer_1"
+
+[[phases.tasks]]
+id = "TASK-003"
+title = "Add redirect message to Sprint tab"
+description = """
+Add helpful message in Sprint tab where config used to be:
+'Configure Sprint Planner and Code Analyzer using the 🔍 and 📋 buttons in the Voice tab'
+"""
+status = "pending"
+priority = "medium"
+file = "vscode-lumina/src/commands/voicePanel.ts"
+lines = "~2161"
+assignee = "engineer_1"
+
+# Phase 1: Voice Tab Panel Implementation
+# Complete the slide-down panel functionality
+[[phases]]
+name = "Phase 1: Voice Tab Panel Implementation"
+description = "Implement event handlers and prompt generation for slide-down panels"
+status = "pending"
+
+[[phases.tasks]]
+id = "TASK-004"
+title = "Add event listeners for Code Analyzer panel buttons"
+description = """
+Add event listeners after line 3507:
+- Close button (×) - close panel
+- Cancel button - close panel
+- Generate Prompt button - collect form data, generate prompt, insert into text area
+"""
+status = "pending"
+priority = "high"
+file = "vscode-lumina/src/commands/voicePanel.ts"
+lines = "~3507"
+assignee = "engineer_1"
+
+[[phases.tasks]]
+id = "TASK-005"
+title = "Add event listeners for Sprint Planner panel buttons"
+description = """
+Add event listeners after line 3507:
+- Close button (×) - close panel
+- Cancel button - close panel
+- Generate Prompt button - collect form data, generate prompt, insert into text area
+"""
+status = "pending"
+priority = "high"
+file = "vscode-lumina/src/commands/voicePanel.ts"
+lines = "~3507"
+assignee = "engineer_1"
+
+[[phases.tasks]]
+id = "TASK-006"
+title = "Implement generateCodeAnalyzerPrompt() function"
+description = """
+Create function that:
+1. Reads Code Analyzer form values (goals, focus areas, depth, output, exclusions)
+2. Generates natural language prompt like:
+   'Analyze the codebase focusing on [bugs, features, etc.]. Goals: [user goals].
+    Use [quick/standard/deep] analysis and output as [format]. Exclude: [paths].'
+3. Saves settings to vscode.setState() for persistence
+4. Inserts prompt into transcription text area
+5. Closes the panel
+6. Enables Send button
+"""
+status = "pending"
+priority = "high"
+file = "vscode-lumina/src/commands/voicePanel.ts"
+lines = "~3900"
+assignee = "engineer_1"
+
+[[phases.tasks]]
+id = "TASK-007"
+title = "Implement generateSprintPrompt() function"
+description = """
+Create function that:
+1. Reads Sprint Planner form values (team size, structure, sprint type, doc format)
+2. Generates natural language prompt like:
+   'Create a sprint plan for a team of [size] developers using [structure] terminology.
+    Focus on [type] work. Output as [format].'
+3. Saves settings to vscode.setState() for persistence
+4. Inserts prompt into transcription text area
+5. Closes the panel
+6. Enables Send button
+"""
+status = "pending"
+priority = "high"
+file = "vscode-lumina/src/commands/voicePanel.ts"
+lines = "~3950"
+assignee = "engineer_1"
+
+# Phase 2: Testing & Verification
+# Ensure everything works end-to-end
+[[phases]]
+name = "Phase 2: Testing & Verification"
+description = "Test all functionality and verify no regressions"
+status = "pending"
+
+[[phases.tasks]]
+id = "TASK-008"
+title = "Compile TypeScript"
+description = """
+Run: cd vscode-lumina && npm run compile
+Verify no TypeScript errors
+"""
+status = "pending"
+priority = "high"
+file = "vscode-lumina/"
+assignee = "engineer_1"
+
+[[phases.tasks]]
+id = "TASK-009"
+title = "Test Code Analyzer panel in Extension Development Host"
+description = """
+1. Launch Extension Development Host (F5)
+2. Open Voice panel (backtick key)
+3. Click 🔍 Code Analyzer button
+4. Verify panel slides down smoothly
+5. Fill out form (goals, focus areas, depth, output, exclusions)
+6. Click Generate Prompt
+7. Verify prompt appears in text area
+8. Verify panel closes
+9. Verify Send button is enabled
+10. Open panel again - verify settings persisted
+"""
+status = "pending"
+priority = "high"
+file = "vscode-lumina/"
+assignee = "engineer_1"
+
+[[phases.tasks]]
+id = "TASK-010"
+title = "Test Sprint Planner panel in Extension Development Host"
+description = """
+1. Launch Extension Development Host (F5)
+2. Open Voice panel (backtick key)
+3. Click 📋 Sprint Planner button
+4. Verify panel slides down smoothly
+5. Fill out form (team size, structure, sprint type, doc format)
+6. Click Generate Prompt
+7. Verify prompt appears in text area
+8. Verify panel closes
+9. Verify Send button is enabled
+10. Open panel again - verify settings persisted
+"""
+status = "pending"
+priority = "high"
+file = "vscode-lumina/"
+assignee = "engineer_1"
+
+[[phases.tasks]]
+id = "TASK-011"
+title = "Verify Sprint tab shows redirect message"
+description = """
+1. Launch Extension Development Host (F5)
+2. Open Voice panel and switch to Sprint tab
+3. Verify configuration sections are removed
+4. Verify redirect message is shown
+5. Verify sprint file selector still works
+6. Verify task list still works
+"""
+status = "pending"
+priority = "medium"
+file = "vscode-lumina/"
+assignee = "engineer_1"
+
+[[phases.tasks]]
+id = "TASK-012"
+title = "Verify no CSP violations in console"
+description = """
+1. Open Developer Tools (Help > Toggle Developer Tools)
+2. Check Console for any CSP (Content Security Policy) errors
+3. Verify no 'Trusted Types' violations
+4. Verify no inline event handler warnings
+"""
+status = "pending"
+priority = "high"
+file = "vscode-lumina/"
+assignee = "engineer_1"
+
+[success_criteria]
+all_tests_pass = true
+no_csp_violations = true
+settings_persist = true
+prompts_generate_correctly = true
+sprint_tab_simplified = true
+
+[notes]
+technical_debt = []
+blockers = []
+dependencies = []
+
+[retrospective]
+what_went_well = []
+what_to_improve = []
+action_items = []
