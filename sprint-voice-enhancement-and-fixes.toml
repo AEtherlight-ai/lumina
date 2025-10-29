@@ -1,0 +1,570 @@
+# ÆtherLight Sprint: Voice Tab Enhancement + Critical Bug Fixes
+# Created: 2025-10-29
+# Priority: CRITICAL - User-blocking issues + core feature enhancement
+#
+# EXECUTIVE SUMMARY:
+# User reported Sprint tab completely broken - tasks show "undefined", clicking does nothing.
+# Root cause analysis revealed two interconnected bugs:
+#   1. Async race condition: loadSprintTasks() not awaited in constructor
+#   2. CSP violations: innerHTML assignments blocked by browser security
+#
+# Additionally, user wants prompt enhancement - current Code Analyzer/Sprint Planner prompts
+# are too shallow ("user could type that themselves"). Need AI-powered context analysis that
+# combines user intent + codebase structure + ÆtherLight SOPs to generate expert-level prompts.
+#
+# Three phases:
+#   Phase 0: Fix critical bugs (6 hours total)
+#   Phase 1: Implement prompt enhancement (12 hours)
+#   Phase 2: Add active phase widget to Voice tab (6 hours)
+
+[metadata]
+sprint_name = "Voice Tab Enhancement + Sprint Tab Fixes"
+version = "0.13.28"
+created_date = "2025-10-29"
+structure = "phases"
+team_size = 1
+estimated_total_time = "24 hours (3 days)"
+
+[goals]
+primary = "Fix critical Sprint tab bugs and enhance prompt generation for Code Analyzer and Sprint Planner"
+secondary = [
+    "Add active phase widget to Voice tab bottom",
+    "Implement deep context prompt enhancement",
+    "Fix CSP violations causing TrustedScript errors"
+]
+
+[root_cause_analysis]
+bug_1_undefined_tasks = """
+SYMPTOM: Tasks show as "undefined" in Sprint tab
+ROOT CAUSE: voicePanel.ts:79 calls loadSprintTasks() without await
+IMPACT: sprintTasks[] is empty when webview first renders
+FIX: Add loading state + postMessage update when tasks load
+"""
+
+bug_2_csp_violations = """
+SYMPTOM: TrustedScript errors in console, UI elements fail to update
+ROOT CAUSE: innerHTML/outerHTML assignments blocked by VS Code CSP
+LOCATIONS: Lines 1261, 1278, 1296, 3597-3613, 3881-3883
+FIX: Use DOMParser to parse HTML safely, replaceChildren() to insert
+"""
+
+bug_3_no_task_details = """
+SYMPTOM: Clicking tasks doesn't show detail panel
+ROOT CAUSE: Combination of bugs 1 & 2 (no tasks + CSP blocking HTML injection)
+DEPENDENCIES: Automatically fixed when bugs 1 & 2 are resolved
+FIX: Verify after fixing bugs 1 & 2
+"""
+
+# Phase 0: Critical Bug Fixes
+[[phases]]
+name = "Phase 0: Critical Bug Fixes"
+description = "Fix Sprint tab parsing and CSP violations"
+status = "in_progress"
+
+[[phases.tasks]]
+id = "BUG-001"
+title = "Fix TrustedScript CSP violations in Sprint tab"
+description = """
+Replace all innerHTML/outerHTML assignments with proper DOM manipulation to fix CSP violations.
+
+ERROR MESSAGE:
+"This document requires 'TrustedScript' assignment."
+
+ROOT CAUSE:
+VS Code enforces strict Content Security Policy (CSP) to prevent XSS attacks.
+innerHTML/outerHTML assignments are blocked because they can execute malicious scripts.
+
+VIOLATIONS FOUND:
+1. voicePanel.ts:1261
+   contentArea.innerHTML = message.content
+   → Used when switching tabs, inserting full tab HTML
+
+2. voicePanel.ts:1278
+   detailPanel.outerHTML = message.detailHtml
+   → Used when showing task details
+
+3. voicePanel.ts:1296
+   dropdown.innerHTML = ''
+   → Clearing sprint file dropdown
+
+4. voicePanel.ts:3597-3600
+   list.innerHTML = '' and list.innerHTML = '<div>...</div>'
+   → Rendering terminal list
+
+5. voicePanel.ts:3613
+   item.innerHTML = `<span>...</span>`
+   → Terminal item with icons
+
+6. voicePanel.ts:3881-3883
+   container.innerHTML = window.getCodeAnalyzerPanel()
+   → Loading config panels
+
+SOLUTION PATTERN:
+Instead of:
+```typescript
+element.innerHTML = htmlString;
+```
+
+Use:
+```typescript
+// Option A: DOMParser for complex HTML
+const parser = new DOMParser();
+const doc = parser.parseFromString(htmlString, 'text/html');
+element.replaceChildren(...doc.body.childNodes);
+
+// Option B: createElement for simple elements
+const newElement = document.createElement('div');
+newElement.textContent = textContent;
+element.appendChild(newElement);
+
+// Option C: For clearing
+while (element.firstChild) {
+    element.removeChild(element.firstChild);
+}
+```
+
+IMPLEMENTATION STEPS:
+1. Create helper function parseSafeHTML(htmlString) using DOMParser
+2. Replace all innerHTML assignments with parseSafeHTML()
+3. Test each violation point to ensure functionality unchanged
+4. Verify no CSP errors in dev console
+"""
+status = "pending"
+priority = "critical"
+file = "vscode-lumina/src/commands/voicePanel.ts"
+lines = "1261, 1278, 1296, 3597-3613, 3881-3883"
+estimated_time = "3 hours"
+assignee = "engineer_1"
+why = """
+CSP violations prevent Sprint tab from functioning correctly.
+Users see console errors and UI elements fail to update.
+This is a security requirement - can't ship extension with CSP violations.
+"""
+reasoning_chain = [
+    "1. VS Code webviews have strict CSP to prevent XSS attacks",
+    "2. innerHTML/outerHTML can execute inline scripts from untrusted strings",
+    "3. Extension uses innerHTML for dynamic UI updates (tabs, task details, terminal list)",
+    "4. Browser blocks these assignments with TrustedScript errors",
+    "5. UI elements fail to render or update",
+    "6. Solution: Use DOMParser to parse HTML safely without executing scripts",
+    "7. DOMParser creates inert DOM nodes that are safe to insert"
+]
+success_impact = """
+When BUG-001 fixed:
+✅ No more TrustedScript CSP errors in console
+✅ Tab switching works smoothly
+✅ Task details render when clicked
+✅ Terminal list updates correctly
+✅ Config panels load without errors
+✅ Extension is CSP-compliant (required for marketplace)
+"""
+
+[[phases.tasks]]
+id = "BUG-002"
+title = "Fix Sprint tab task parsing showing 'undefined'"
+description = """
+Tasks display as 'undefined' in Sprint tab even though SprintLoader parseTomlTasks() looks correct.
+
+ROOT CAUSE FOUND:
+voicePanel.ts:79 calls `this.loadSprintTasks()` without await in constructor.
+loadSprintTasks() is async, so `this.sprintTasks = []` when webview first renders.
+Tasks load AFTER first render, but UI doesn't update.
+
+The bug:
+```typescript
+constructor() {
+    this.loadSprintTasks();  // ← Called but not awaited!
+}
+
+private async loadSprintTasks(): Promise<void> {
+    const { tasks } = await this.sprintLoader.loadSprint();  // ← Async!
+    this.sprintTasks = tasks;  // ← Happens AFTER first render
+}
+
+private getSprintTabContent(): string {
+    const filteredTasks = this.getFilteredTasks();  // ← Returns empty []
+    // ... renders with empty tasks
+}
+```
+
+Solution:
+1. Option A: Make resolveWebviewView() wait for tasks before rendering
+2. Option B: Add loading state + re-render when tasks load
+3. Option C: Load tasks synchronously (not recommended)
+
+Preferred: Option B - Show loading spinner, then update when tasks arrive.
+"""
+status = "pending"
+priority = "critical"
+file = "vscode-lumina/src/commands/voicePanel.ts"
+lines = "79, 250-257, 2047-2051, 2116"
+estimated_time = "2 hours"
+assignee = "engineer_1"
+why = """
+Users can't see their sprint tasks, blocking entire sprint workflow.
+Without task visibility, users can't track progress or click tasks for details.
+This is a race condition bug - works in dev with slow loading but fails in production.
+"""
+reasoning_chain = [
+    "1. Constructor calls loadSprintTasks() without await",
+    "2. loadSprintTasks() is async, takes ~100-500ms to parse TOML",
+    "3. resolveWebviewView() renders immediately with empty sprintTasks[]",
+    "4. Tasks load successfully but UI never updates",
+    "5. User sees empty/undefined task list",
+    "6. File watcher exists but doesn't trigger on initial load",
+    "7. Solution: Add loading state + postMessage update when tasks load"
+]
+success_impact = """
+When BUG-002 fixed:
+✅ Sprint tab shows all tasks immediately
+✅ No more 'undefined' in task list
+✅ Phases properly grouped with tasks
+✅ User can click tasks to see details
+✅ Sprint workflow fully functional
+"""
+
+[[phases.tasks]]
+id = "BUG-003"
+title = "Fix task detail view not showing when clicking tasks"
+description = """
+Clicking on tasks in Sprint tab doesn't show the task detail panel with Chain of Thought content.
+
+LIKELY ROOT CAUSES (in order of probability):
+1. **Tasks not loaded (BUG-002)**: If sprintTasks[] is empty, clicking does nothing
+2. **CSP violation (BUG-001)**: detailPanel.outerHTML blocked by CSP at line 1278
+3. **Event handlers not attached**: selectTask() window function not defined
+
+DEPENDENCIES:
+This bug likely resolves automatically when BUG-001 and BUG-002 are fixed.
+
+VERIFICATION STEPS:
+1. Fix BUG-002 first (ensure tasks load)
+2. Fix BUG-001 CSP violations (especially line 1278)
+3. Test clicking task in Sprint tab
+4. Verify detail panel appears with Chain of Thought content
+
+EVENT FLOW:
+voicePanel.ts:2268 - Task item click detected
+  ↓
+voicePanel.ts:2271 - window.selectTask(taskId) called
+  ↓
+voicePanel.ts:612 - Message sent to extension: { type: 'selectTask', taskId }
+  ↓
+voicePanel.ts:589-598 - Extension finds task, calls getTaskDetailPanel(task)
+  ↓
+voicePanel.ts:2343-2400 - HTML generated for detail panel
+  ↓
+voicePanel.ts:1278 - detailPanel.outerHTML = detailHtml ← CSP VIOLATION HERE
+  ↓
+Browser blocks assignment, detail panel never renders
+
+If tasks aren't loaded (BUG-002), the find at line 589 returns undefined,
+so getTaskDetailPanel() never gets called.
+"""
+status = "pending"
+priority = "high"
+file = "vscode-lumina/src/commands/voicePanel.ts"
+lines = "589-598, 1278, 2268-2271, 2343-2400"
+estimated_time = "1 hour (after BUG-001 and BUG-002 fixed)"
+assignee = "engineer_1"
+dependencies = ["BUG-001", "BUG-002"]
+why = """
+Users need to see task details (description, Chain of Thought, files) to understand work.
+Without detail view, Sprint tab is just a list with no actionable information.
+Chain of Thought context is critical for understanding WHY and HOW of each task.
+"""
+reasoning_chain = [
+    "1. User clicks task in Sprint tab",
+    "2. Event delegation calls window.selectTask(taskId)",
+    "3. Extension searches sprintTasks[] for matching task",
+    "4. If tasks not loaded (BUG-002), search returns undefined → stops here",
+    "5. If task found, extension generates detail HTML",
+    "6. Extension sends HTML back via postMessage",
+    "7. Webview tries to inject HTML with outerHTML assignment",
+    "8. CSP blocks assignment (BUG-001) → detail panel never appears",
+    "9. Fix both bugs → detail panel works"
+]
+success_impact = """
+When BUG-003 fixed (via BUG-001 + BUG-002):
+✅ Clicking task shows detail panel immediately
+✅ Chain of Thought content visible (why, context, reasoning)
+✅ User can see files to modify and validation criteria
+✅ Status toggle button works in detail panel
+✅ Full sprint workflow restored
+"""
+
+# Phase 1: Prompt Enhancement
+[[phases]]
+name = "Phase 1: Deep Context Prompt Enhancement"
+description = "Enhance Code Analyzer and Sprint Planner to generate high-quality prompts with codebase context"
+status = "pending"
+
+[[phases.tasks]]
+id = "ENHANCE-001"
+title = "Design prompt enhancement system architecture"
+description = """
+Design how Code Analyzer and Sprint Planner will generate deep, context-aware prompts.
+
+USER'S VISION (from voice notes):
+"The whole goal is prompt enhancement. I don't think 'as the prompt you prepared' does us justice -
+a user could easily type that. Your goal is to enhance the prompt. Let's create an input box where
+they can actually communicate what they're wanting, and then let's really analyze what they say
+versus our standard operating procedures of ÆtherLight, how we're going to analyze the code,
+what we need to know to run a sprint plan, and create a really in-depth quality prompt with their
+structure of configurations, what they want, and relevance to the code base. I think that's really
+what this app is supposed to bring - normalizing what their intent is with normalization of what
+you expect as an AI agent inside of the system, utilizing hooks and validations and so forth."
+
+CURRENT PROBLEM:
+Code Analyzer and Sprint Planner show basic dropdowns/options.
+User selects a few options → system generates simple prompt like:
+  "Analyze the codebase. Focus on bugs. Output as markdown."
+
+This is too shallow! A user could type that themselves. We need AI-powered enhancement.
+
+DESIRED OUTCOME:
+User types natural description → system generates comprehensive prompt with:
+1. User's intent (normalized and clarified)
+2. Codebase structure analysis
+3. Relevant ÆtherLight patterns and SOPs
+4. Validation hooks to use
+5. Performance targets
+6. File context and dependencies
+7. Success criteria
+
+ARCHITECTURE COMPONENTS:
+
+A. **User Input Collection**
+   - Replace current dropdowns with large multiline textarea
+   - Placeholder: "Describe what you want to analyze/plan..."
+   - User types freeform text explaining their goal
+
+B. **Context Gathering Service** (new file: PromptEnhancer.ts)
+   - Analyze workspace structure (aetherlight-analyzer)
+   - Detect existing patterns in code
+   - Load ÆtherLight SOPs from .vscode/aetherlight.md
+   - Scan for CLAUDE.md project instructions
+   - Find relevant TOML files (sprints, configs)
+
+C. **Intent Normalization**
+   - Parse user's natural language input
+   - Extract: goal, scope, constraints, preferences
+   - Map to ÆtherLight terminology (phases, patterns, hooks)
+
+D. **Prompt Generation**
+   - Combine user intent + codebase context + SOPs
+   - Structure as comprehensive prompt for Claude Code
+   - Include all relevant hooks, patterns, validations
+   - Add success criteria and expected output format
+
+E. **Review & Edit**
+   - Insert generated prompt into Voice tab textarea
+   - User can review and edit before sending
+   - Maintains transparency (user sees full prompt)
+
+EXAMPLE FLOW:
+User types: "I want to add dark mode to the app"
+  ↓
+System analyzes:
+  - Workspace structure: React components in src/
+  - Existing patterns: Pattern-UI-006 (UI consistency)
+  - SOPs: Always include Chain of Thought comments
+  - Files: src/App.tsx, src/styles/, src/components/
+  ↓
+System generates prompt:
+  "Add dark mode theme to the application.
+
+   Context:
+   - Project structure: React app with components in src/
+   - Current theme system: CSS variables in src/styles/theme.css
+   - UI patterns: Follow Pattern-UI-006 (consistent theming)
+   - Related files: src/App.tsx (root), src/styles/*.css
+
+   Implementation approach:
+   1. Add dark theme CSS variables to theme.css
+   2. Create ThemeProvider context in src/contexts/
+   3. Add theme toggle button to header
+   4. Persist theme preference to localStorage
+   5. Include Chain of Thought comments explaining decisions
+
+   Validation:
+   - Test theme switching without page reload
+   - Ensure all components respect theme variables
+   - Verify localStorage persistence
+
+   Success criteria:
+   ✅ User can toggle between light/dark modes
+   ✅ Theme persists across sessions
+   ✅ All UI elements properly themed
+   ✅ No CSS conflicts or flashing
+
+   Follow Pattern-UI-006 for consistent theming across components."
+
+OUTPUT: Comprehensive, actionable prompt that Claude Code can execute.
+"""
+status = "pending"
+priority = "high"
+estimated_time = "4 hours"
+assignee = "engineer_1"
+deliverables = [
+    "PromptEnhancer.ts service with context gathering",
+    "Intent parsing algorithm",
+    "Prompt template generation",
+    "Integration with Code Analyzer and Sprint Planner panels"
+]
+why = """
+Current prompts are too shallow - users could type them manually.
+The value of ÆtherLight is intelligent enhancement: user intent + codebase analysis + SOPs.
+Without this, the extension doesn't justify its existence versus manual prompting.
+"""
+reasoning_chain = [
+    "1. User knows what they want but doesn't know how to structure it for AI",
+    "2. ÆtherLight has deep codebase knowledge (structure, patterns, SOPs)",
+    "3. Combining user intent + codebase context = powerful prompts",
+    "4. AI agent (Claude) needs specific hooks, patterns, validation criteria",
+    "5. Users shouldn't have to memorize all these details",
+    "6. System should inject context automatically",
+    "7. Result: User describes goal → system generates expert-level prompt"
+]
+success_impact = """
+When ENHANCE-001 complete:
+✅ Clear architecture for prompt enhancement
+✅ PromptEnhancer service designed
+✅ Intent normalization approach defined
+✅ Example prompts demonstrate value
+✅ Ready to implement Code Analyzer enhancement (ENHANCE-002)
+"""
+
+[[phases.tasks]]
+id = "ENHANCE-002"
+title = "Implement Code Analyzer deep prompt generation"
+description = """
+Add textarea input + context analysis for Code Analyzer.
+
+Steps:
+1. Add textarea to Code Analyzer panel: "Describe what you want to analyze..."
+2. On "Generate Prompt", analyze:
+   - User's description
+   - Workspace file structure (use aetherlight-analyzer)
+   - Existing patterns in codebase
+   - ÆtherLight validation SOPs
+3. Generate prompt like:
+   "Analyze the codebase with focus on [user intent].
+
+    Context:
+    - Project structure: [analyzed structure]
+    - Existing patterns: [detected patterns]
+    - Validation hooks: [relevant hooks]
+    - Performance targets: [from SOPs]
+
+    Goals: [user goals]
+    Output format: [user preference]
+
+    Ensure all changes follow Pattern-[relevant] and include Chain of Thought comments."
+
+4. Insert generated prompt into Voice tab textarea
+5. User can edit before sending
+"""
+status = "pending"
+priority = "high"
+file = "vscode-lumina/src/commands/voicePanel.ts"
+assignee = "engineer_1"
+
+[[phases.tasks]]
+id = "ENHANCE-003"
+title = "Implement Sprint Planner deep prompt generation"
+description = """
+Add textarea input + context analysis for Sprint Planner.
+
+Similar to ENHANCE-002 but for sprint planning:
+1. Add textarea: "Describe the feature or project you want to plan..."
+2. Analyze user input + workspace
+3. Generate prompt with:
+   - Feature breakdown into phases
+   - Task dependencies
+   - Required expertise
+   - Performance targets
+   - Validation criteria
+   - TOML structure example
+4. Reference existing sprint patterns from /internal/sprints/
+5. Insert into textarea for user review
+"""
+status = "pending"
+priority = "high"
+file = "vscode-lumina/src/commands/voicePanel.ts"
+assignee = "engineer_1"
+
+# Phase 2: Voice Tab Active Phase Widget
+[[phases]]
+name = "Phase 2: Voice Tab Active Phase Widget"
+description = "Add active sprint phase display to Voice tab bottom"
+status = "pending"
+
+[[phases.tasks]]
+id = "WIDGET-001"
+title = "Add active phase widget to Voice tab bottom"
+description = """
+Display currently active phase from ACTIVE_SPRINT.toml at bottom of Voice tab.
+
+UI Design:
+- Widget shows: Phase name + in_progress tasks only
+- Compact view: Just task IDs and names
+- Click task to expand details below widget
+- When phase complete, widget updates to next phase automatically
+
+Layout:
+```
+[Voice Tab Content]
+[Textarea]
+[Terminal Selector]
+
+─────────────────────────
+📋 Active Phase: Phase 0 - UI Redesign
+  ☐ UI-005: Fix Terminal Selector
+  ☐ UI-006: Add Skills Builder
+─────────────────────────
+```
+
+Data source: SprintLoader.getTasks() filtered by phase and status
+Auto-update: FileSystemWatcher on ACTIVE_SPRINT.toml
+"""
+status = "pending"
+priority = "medium"
+file = "vscode-lumina/src/commands/voicePanel.ts"
+assignee = "engineer_1"
+
+[[phases.tasks]]
+id = "WIDGET-002"
+title = "Implement expandable task details in widget"
+description = """
+When user clicks task in active phase widget, show details below it.
+
+Details to show:
+- Task description
+- Why (business justification)
+- Context (strategic alignment)
+- Reasoning chain (step-by-step logic)
+- Success impact
+- Files to modify
+- Validation criteria
+
+Make details editable so user can update Chain of Thought directly in Voice tab.
+Save changes back to ACTIVE_SPRINT.toml.
+
+This keeps user in Voice tab instead of switching to Sprint tab.
+"""
+status = "pending"
+priority = "medium"
+file = "vscode-lumina/src/commands/voicePanel.ts"
+assignee = "engineer_1"
+
+[success_criteria]
+all_bugs_fixed = true
+prompts_enhanced = true
+active_phase_visible = true
+no_csp_violations = true
+
+[notes]
+technical_debt = []
+blockers = []
+dependencies = []
