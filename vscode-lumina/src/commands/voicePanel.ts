@@ -577,19 +577,30 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                     this.sprintLoader.toggleTaskStatus(task);
                     await this.sprintLoader.saveTaskStatuses(this.sprintTasks);
 
-                    // Refresh the webview that sent the message (could be sidebar or popped-out panel)
-                    webview.html = this._getHtmlForWebview(webview);
+                    // CRITICAL FIX: Use postMessage instead of HTML regeneration
+                    // WHY: Regenerating HTML causes script redeclaration errors
+                    // PATTERN: Pattern-UPDATE-003 (Targeted Content Updates)
+                    const sprintContent = this.getSprintTabContent();
+                    const updateMessage = {
+                        type: 'updateTabContent',
+                        tabId: TabId.Sprint,
+                        content: sprintContent,
+                        needsVoiceScripts: false
+                    };
 
-                    // Also refresh the sidebar view if it exists and is different from the sender
+                    // Update the webview that sent the message
+                    webview.postMessage(updateMessage);
+
+                    // Update sidebar if different
                     if (this._view && this._view.webview !== webview) {
-                        this._view.webview.html = this._getHtmlForWebview(this._view.webview);
+                        this._view.webview.postMessage(updateMessage);
                     }
-                }
 
-                // Refresh all popped-out panels that are different from the sender
-                for (const poppedPanel of this.poppedOutPanels) {
-                    if (poppedPanel.webview !== webview) {
-                        poppedPanel.webview.html = this._getHtmlForWebview(poppedPanel.webview);
+                    // Update all popped-out panels
+                    for (const poppedPanel of this.poppedOutPanels) {
+                        if (poppedPanel.webview !== webview) {
+                            poppedPanel.webview.postMessage(updateMessage);
+                        }
                     }
                 }
                 break;
@@ -633,13 +644,23 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                         // Reload sprint data from new file
                         await this.loadSprintTasks();
 
-                        // Refresh all webviews
+                        // CRITICAL FIX: Use postMessage instead of HTML regeneration
+                        // WHY: Regenerating HTML causes script redeclaration errors
+                        const sprintContent = this.getSprintTabContent();
+                        const updateMessage = {
+                            type: 'updateTabContent',
+                            tabId: TabId.Sprint,
+                            content: sprintContent,
+                            needsVoiceScripts: false
+                        };
+
+                        // Update all webviews
                         if (this._view) {
-                            this._view.webview.html = this._getHtmlForWebview(this._view.webview);
+                            this._view.webview.postMessage(updateMessage);
                         }
 
                         for (const panel of this.poppedOutPanels) {
-                            panel.webview.html = this._getHtmlForWebview(panel.webview);
+                            panel.webview.postMessage(updateMessage);
                         }
 
                         vscode.window.showInformationMessage(`✅ Switched to: ${newSprintPath}`);
@@ -654,45 +675,69 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 // Reload sprint data from TOML file (refresh after file changes)
                 await this.loadSprintTasks();
 
-                // Refresh the webview that sent the message
-                webview.html = this._getHtmlForWebview(webview);
+                // CRITICAL FIX: Use postMessage instead of HTML regeneration
+                // WHY: Regenerating HTML causes script redeclaration errors
+                {
+                    const sprintContent = this.getSprintTabContent();
+                    const updateMessage = {
+                        type: 'updateTabContent',
+                        tabId: TabId.Sprint,
+                        content: sprintContent,
+                        needsVoiceScripts: false
+                    };
 
-                // Also refresh the sidebar view if it exists and is different from the sender
-                if (this._view && this._view.webview !== webview) {
-                    this._view.webview.html = this._getHtmlForWebview(this._view.webview);
-                }
+                    // Update the webview that sent the message
+                    webview.postMessage(updateMessage);
 
-                // Refresh all popped-out panels
-                for (const poppedPanel of this.poppedOutPanels) {
-                    if (poppedPanel.webview !== webview) {
-                        poppedPanel.webview.html = this._getHtmlForWebview(poppedPanel.webview);
+                    // Update sidebar if different
+                    if (this._view && this._view.webview !== webview) {
+                        this._view.webview.postMessage(updateMessage);
                     }
-                }
 
-                // Show full relative path to clarify which sprint file was loaded
-                const sprintFilePath = this.sprintLoader.getSprintFilePath();
-                const stats = this.sprintLoader.getProgressStats();
-                vscode.window.showInformationMessage(
-                    `✅ Sprint data reloaded from ${sprintFilePath} (${stats.total} tasks, ${stats.completed} completed)`
-                );
+                    // Update all popped-out panels
+                    for (const poppedPanel of this.poppedOutPanels) {
+                        if (poppedPanel.webview !== webview) {
+                            poppedPanel.webview.postMessage(updateMessage);
+                        }
+                    }
+
+                    // Show full relative path to clarify which sprint file was loaded
+                    const sprintFilePath = this.sprintLoader.getSprintFilePath();
+                    const stats = this.sprintLoader.getProgressStats();
+                    vscode.window.showInformationMessage(
+                        `✅ Sprint data reloaded from ${sprintFilePath} (${stats.total} tasks, ${stats.completed} completed)`
+                    );
+                }
                 break;
 
             case 'selectEngineer':
                 // Switch engineer view
                 this.selectedEngineerId = message.engineerId;
 
-                // Refresh the webview that sent the message (could be sidebar or popped-out panel)
-                webview.html = this._getHtmlForWebview(webview);
+                // CRITICAL FIX: Use postMessage instead of HTML regeneration
+                // WHY: Regenerating HTML causes script redeclaration errors
+                {
+                    const sprintContent = this.getSprintTabContent();
+                    const updateMessage = {
+                        type: 'updateTabContent',
+                        tabId: TabId.Sprint,
+                        content: sprintContent,
+                        needsVoiceScripts: false
+                    };
 
-                // Also refresh the sidebar view if it exists and is different from the sender
-                if (this._view && this._view.webview !== webview) {
-                    this._view.webview.html = this._getHtmlForWebview(this._view.webview);
-                }
+                    // Update the webview that sent the message
+                    webview.postMessage(updateMessage);
 
-                // Refresh all popped-out panels that are different from the sender
-                for (const poppedPanel of this.poppedOutPanels) {
-                    if (poppedPanel.webview !== webview) {
-                        poppedPanel.webview.html = this._getHtmlForWebview(poppedPanel.webview);
+                    // Update sidebar if different
+                    if (this._view && this._view.webview !== webview) {
+                        this._view.webview.postMessage(updateMessage);
+                    }
+
+                    // Update all popped-out panels
+                    for (const poppedPanel of this.poppedOutPanels) {
+                        if (poppedPanel.webview !== webview) {
+                            poppedPanel.webview.postMessage(updateMessage);
+                        }
                     }
                 }
                 break;
@@ -1112,10 +1157,10 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 console.log('[ÆtherLight WebView] Click event fired on button', index);
 
                 // Save voice tab text before switching tabs
-                const transcriptionText = document.getElementById('transcriptionText');
-                if (transcriptionText) {
+                const textAreaEl = document.getElementById('transcriptionText');
+                if (textAreaEl) {
                     const state = vscode.getState() || {};
-                    state.voiceTextContent = transcriptionText.value;
+                    state.voiceTextContent = textAreaEl.value;
                     vscode.setState(state);
                 }
 
@@ -1252,15 +1297,45 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
         });
 
         // Voice Tab initialization function (called on load and tab switch)
+        // CRITICAL FIX: Scripts MUST be inside initializeVoiceTab(), not at global scope
+        // WHY: Global scripts get re-executed on every HTML update (updateTabContent)
+        // PATTERN: Pattern-UPDATE-004 (Idempotent Script Initialization)
         window.initializeVoiceTab = function() {
+            console.log('[ÆtherLight] Initializing Voice tab...');
+
+            // Guard: Skip if already initialized to prevent double-initialization
+            if (window.voiceTabInitialized) {
+                console.log('[ÆtherLight] Voice tab already initialized, skipping...');
+
+                // Still request terminal list and focus text area on tab switch
+                vscode.postMessage({ type: 'getTerminals' });
+                const voiceTextArea = document.getElementById('transcriptionText');
+                if (voiceTextArea) {
+                    voiceTextArea.focus();
+                }
+                return;
+            }
+
+            window.voiceTabInitialized = true;
+            console.log('[ÆtherLight] First-time Voice tab initialization...');
+
+            // Inject all voice tab scripts (functions, event handlers, etc.)
             ${this.getVoiceTabScripts()}
+
+            // Request terminal list on Voice tab activation
+            vscode.postMessage({ type: 'getTerminals' });
+
+            // Auto-focus text area when Voice tab shows
+            const voiceTextArea = document.getElementById('transcriptionText');
+            if (voiceTextArea) {
+                voiceTextArea.focus();
+            }
 
             // Restore saved text from webview state (if any)
             const state = vscode.getState() || {};
             const savedText = state.voiceTextContent || '';
-            const transcriptionText = document.getElementById('transcriptionText');
-            if (transcriptionText && savedText) {
-                transcriptionText.value = savedText;
+            if (voiceTextArea && savedText) {
+                voiceTextArea.value = savedText;
                 // Trigger auto-resize if the function exists
                 if (typeof autoResizeTextarea === 'function') {
                     autoResizeTextarea();
@@ -2693,20 +2768,15 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
     private getVoiceTabScripts(): string {
         return `
-            // Recording state (declared once at top)
-            let mediaRecorder = null;
-            let audioChunks = [];
-            let isRecording = false;
-            let selectedTerminal = null;
-
-            // Request terminal list on Voice tab activation
-            vscode.postMessage({ type: 'getTerminals' });
-
-            // Auto-focus text area when Voice tab shows
-            const transcriptionText = document.getElementById('transcriptionText');
-            if (transcriptionText) {
-                transcriptionText.focus();
-            }
+            // Recording state stored in window object to survive tab switches and avoid re-declaration
+            // CRITICAL FIX: Variables were re-declared on every tab switch, causing errors
+            // WHY: Initialize once globally, persist across tab switches
+            window.voiceTabState = window.voiceTabState || {
+                mediaRecorder: null,
+                audioChunks: [],
+                isRecording: false,
+                selectedTerminal: null
+            };
 
             /**
              * B-005: Auto-resize textarea from 60px to max 120px
@@ -2733,11 +2803,15 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             }
 
             // Attach auto-resize to textarea
-            if (transcriptionText) {
-                transcriptionText.addEventListener('input', autoResizeTextarea);
-                // Initial resize in case there's pre-filled content
-                autoResizeTextarea();
-            }
+            // CRITICAL FIX: Don't use const/let/var to avoid redeclaration error on tab switch
+            (function() {
+                const textarea = document.getElementById('transcriptionText');
+                if (textarea) {
+                    textarea.addEventListener('input', autoResizeTextarea);
+                    // Initial resize in case there's pre-filled content
+                    autoResizeTextarea();
+                }
+            })();
 
             window.refreshTerminals = function() {
                 vscode.postMessage({ type: 'getTerminals' });
@@ -2759,10 +2833,10 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                  * PATTERN: Pattern-VOICE-003 (In-Panel Recording)
                  */
 
-                if (isRecording) {
+                if (window.voiceTabState.isRecording) {
                     // Stop recording
-                    if (mediaRecorder && mediaRecorder.state === 'recording') {
-                        mediaRecorder.stop();
+                    if (window.voiceTabState.mediaRecorder && window.voiceTabState.mediaRecorder.state === 'recording') {
+                        window.voiceTabState.mediaRecorder.stop();
                     }
                     return;
                 }
@@ -2773,22 +2847,22 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
                     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-                    mediaRecorder = new MediaRecorder(stream);
-                    audioChunks = [];
+                    window.voiceTabState.mediaRecorder = new MediaRecorder(stream);
+                    window.voiceTabState.audioChunks = [];
 
-                    mediaRecorder.ondataavailable = (event) => {
+                    window.voiceTabState.mediaRecorder.ondataavailable = (event) => {
                         if (event.data.size > 0) {
-                            audioChunks.push(event.data);
+                            window.voiceTabState.audioChunks.push(event.data);
                         }
                     };
 
-                    mediaRecorder.onstop = async () => {
-                        isRecording = false;
+                    window.voiceTabState.mediaRecorder.onstop = async () => {
+                        window.voiceTabState.isRecording = false;
                         document.getElementById('recordBtn').textContent = '🎤 Record';
                         showStatus('🎵 Processing audio...', 'info');
 
                         // Create audio blob
-                        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                        const audioBlob = new Blob(window.voiceTabState.audioChunks, { type: 'audio/webm' });
 
                         // Convert to base64
                         const reader = new FileReader();
@@ -2808,8 +2882,8 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                     };
 
                     // Start recording
-                    mediaRecorder.start();
-                    isRecording = true;
+                    window.voiceTabState.mediaRecorder.start();
+                    window.voiceTabState.isRecording = true;
                     document.getElementById('recordBtn').textContent = '⏹️ Stop';
                     showStatus('🎤 Recording... Click Stop when done!', 'info');
 
@@ -2840,9 +2914,9 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                         break;
                     case 'transcriptionChunk':
                         // Append transcription chunk to text area
-                        const textArea = document.getElementById('transcriptionText');
-                        if (textArea) {
-                            textArea.value += (textArea.value ? ' ' : '') + message.text;
+                        const chunkTextArea = document.getElementById('transcriptionText');
+                        if (chunkTextArea) {
+                            chunkTextArea.value += (chunkTextArea.value ? ' ' : '') + message.text;
                             autoResizeTextarea(); // B-005: Auto-resize after chunk
                         }
                         showStatus('🎤 Transcribing...', 'info');
@@ -3036,18 +3110,18 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 }
 
                 // Auto-selection logic
-                if (!selectedTerminal && terminals.length > 0) {
+                if (!window.voiceTabState.selectedTerminal && terminals.length > 0) {
                     // No terminal selected yet - find Review terminal
                     const reviewTerminal = findReviewTerminal();
                     if (reviewTerminal) {
                         selectTerminal(reviewTerminal);
                     }
-                } else if (selectedTerminal) {
+                } else if (window.voiceTabState.selectedTerminal) {
                     // Check if previously selected terminal still exists
-                    const stillExists = terminals.find(t => t.name === selectedTerminal);
+                    const stillExists = terminals.find(t => t.name === window.voiceTabState.selectedTerminal);
                     if (stillExists) {
                         // Restore previous selection
-                        selectTerminal(selectedTerminal);
+                        selectTerminal(window.voiceTabState.selectedTerminal);
                     } else {
                         // Previous terminal closed - find Review terminal
                         const reviewTerminal = findReviewTerminal();
@@ -3059,7 +3133,7 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             }
 
             function selectTerminal(terminalName) {
-                selectedTerminal = terminalName;
+                window.voiceTabState.selectedTerminal = terminalName;
 
                 // Update UI
                 document.querySelectorAll('.terminal-item').forEach(item => {
@@ -3076,7 +3150,7 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             window.sendToTerminal = function() {
                 const text = document.getElementById('transcriptionText').value;
 
-                if (!selectedTerminal) {
+                if (!window.voiceTabState.selectedTerminal) {
                     showStatus('⚠️ Please select a terminal', 'error');
                     return;
                 }
@@ -3088,7 +3162,7 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
                 vscode.postMessage({
                     type: 'sendToTerminal',
-                    terminalName: selectedTerminal,
+                    terminalName: window.voiceTabState.selectedTerminal,
                     text
                 });
 
@@ -3101,7 +3175,7 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 state.voiceTextContent = '';
                 vscode.setState(state);
 
-                showStatus('📤 Sent to ' + selectedTerminal + ' ✓', 'info');
+                showStatus('📤 Sent to ' + window.voiceTabState.selectedTerminal + ' ✓', 'info');
             };
 
             window.clearText = function() {
@@ -3115,20 +3189,20 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             };
 
             // Support Ctrl+Enter to send
-            const textArea = document.getElementById('transcriptionText');
-            if (textArea) {
-                textArea.addEventListener('keydown', (e) => {
+            const mainTextArea = document.getElementById('transcriptionText');
+            if (mainTextArea) {
+                mainTextArea.addEventListener('keydown', (e) => {
                     if (e.ctrlKey && e.key === 'Enter') {
                         window.sendToTerminal();
                     }
                 });
 
                 // Update send button when text changes AND save text to state
-                textArea.addEventListener('input', () => {
+                mainTextArea.addEventListener('input', () => {
                     updateSendButton();
                     // Save text to webview state for persistence
                     const state = vscode.getState() || {};
-                    state.voiceTextContent = textArea.value;
+                    state.voiceTextContent = mainTextArea.value;
                     vscode.setState(state);
                 });
             }
@@ -3138,7 +3212,7 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 const sendBtn = document.getElementById('sendBtn');
                 const enhanceBtn = document.getElementById('enhanceBtn');
 
-                if (sendBtn) sendBtn.disabled = !text.trim() || !selectedTerminal;
+                if (sendBtn) sendBtn.disabled = !text.trim() || !window.voiceTabState.selectedTerminal;
                 if (enhanceBtn) enhanceBtn.disabled = !text.trim();
             }
 
