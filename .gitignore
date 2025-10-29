@@ -205,3 +205,5 @@ sprints/
 vscode-lumina/resources/
 .claude/commands/
 .claude/skills/
+.claude/commands/
+.claude/skills/

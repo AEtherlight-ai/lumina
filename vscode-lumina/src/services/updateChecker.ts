@@ -205,7 +205,7 @@ export class UpdateChecker {
   }
 
   /**
-   * Perform the update via npm
+   * Perform the update via npm and reinstall VS Code extension
    */
   private async performUpdate(): Promise<void> {
     const terminal = vscode.window.createTerminal({
@@ -214,10 +214,23 @@ export class UpdateChecker {
     });
 
     terminal.show(true);
-    terminal.sendText('npm update -g aetherlight', true);
 
+    // DESIGN DECISION: Run full install cycle to properly update VS Code extension
+    // WHY: npm update alone doesn't update the VS Code extension in ~/.vscode/extensions/
+    // REASONING CHAIN:
+    // 1. npm install -g aetherlight@latest downloads latest package
+    // 2. aetherlight command runs the installer which:
+    //    - Compiles TypeScript
+    //    - Packages .vsix file
+    //    - Installs into VS Code extensions directory via code --install-extension
+    // 3. VS Code reload picks up new version from extensions directory
+    // PATTERN: Pattern-UPDATE-002 (VS Code Extension Update Flow)
+    terminal.sendText('npm install -g aetherlight@latest && aetherlight && echo "✅ Update complete! Please reload VS Code."', true);
+
+    // Show a toast that stays visible until user clicks reload
     vscode.window.showInformationMessage(
-      'Updating ÆtherLight... Please reload VS Code after installation completes.',
+      'Updating ÆtherLight... Watch the terminal for completion, then reload VS Code.',
+      { modal: false },
       'Reload Now'
     ).then(action => {
       if (action === 'Reload Now') {

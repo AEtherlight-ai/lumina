@@ -7,5 +7,10 @@ tsconfig.json
 **/test/**
 **/*.ts
 !out/**/*.js
-../**
-node_modules/**/@aetherlight/analyzer/node_modules/**
+# Include node_modules for runtime dependencies
+!node_modules/**
+# Exclude dev dependencies
+node_modules/@types/**
+node_modules/@vscode/test-electron/**
+node_modules/@vscode/vsce/**
+node_modules/typescript/**
