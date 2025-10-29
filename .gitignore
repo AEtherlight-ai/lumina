@@ -188,3 +188,20 @@ PRE_RELEASE_CLEANUP_PLAN.md
 .env.local
 config.local.*
 .lumina/
+
+# VS Code workspace settings (local)
+.vscode/
+
+# Temporary build artifacts
+*.vsix
+
+# Utility scripts (local)
+cleanup-old-extensions.ps1
+
+# Sprint files (workspace-specific)
+sprints/
+
+# Extension resources (included via package)
+vscode-lumina/resources/
+.claude/commands/
+.claude/skills/
