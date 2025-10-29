@@ -4,7 +4,7 @@ import * as path from 'path';
 import { SprintLoader, SprintTask, Engineer } from './SprintLoader';
 import { TabManager, TabId } from './TabManager';
 import { recordVoiceWithWebview } from './voiceRecorder';
-import { keyboard } from '@nut-tree-fork/nut-js';
+// Removed @nut-tree-fork/nut-js - using VS Code APIs instead (Chain of Thought: native deps don't package well)
 import { IPCClient } from '../ipc/client';
 import { AutoTerminalSelector } from './AutoTerminalSelector';
 import { checkAndSetupUserDocumentation } from '../firstRunSetup';
@@ -275,21 +275,28 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
      * PERFORMANCE: ~50ms per character (adjustable via config)
      */
     private async simulateTyping(text: string, delayMs: number = 50): Promise<void> {
-        // Split text into characters (handle Unicode properly)
-        const chars = Array.from(text);
+        // Chain of Thought: Replaced keyboard.type() with VS Code APIs
+        // Reason: @nut-tree-fork/nut-js has native deps that don't package well
 
-        for (const char of chars) {
-            try {
-                // Type the character using robotjs
-                await keyboard.type(char);
-
-                // Add delay between characters for realistic typing
-                await new Promise(resolve => setTimeout(resolve, delayMs));
-            } catch (error) {
-                console.error(`[ÆtherLight] Failed to type character '${char}':`, error);
-                // Continue with next character even if one fails
-            }
+        // Try to insert in active text editor first
+        const editor = vscode.window.activeTextEditor;
+        if (editor) {
+            await editor.edit(editBuilder => {
+                editBuilder.insert(editor.selection.active, text);
+            });
+            return;
         }
+
+        // Try to send to active terminal
+        const terminal = vscode.window.activeTerminal;
+        if (terminal) {
+            terminal.sendText(text, false); // false = don't add newline
+            return;
+        }
+
+        // Fallback: Copy to clipboard and notify user
+        await vscode.env.clipboard.writeText(text);
+        vscode.window.showInformationMessage('Transcription copied to clipboard (no active editor/terminal)');
     }
 
     /**

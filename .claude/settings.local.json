@@ -12,7 +12,8 @@
       "Bash(npm run compile:*)",
       "Read(//c/Users/Brett/Downloads/**)",
       "Bash(npm test:*)",
-      "Bash(npm pack:*)"
+      "Bash(npm pack:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []
