@@ -136,6 +136,71 @@ async function main() {
   }
   log('✓ TypeScript compiled successfully', 'green');
 
+  // Step 4.5: Check for native dependencies (CRITICAL - prevents v0.13.23 bug)
+  log('\n📋 Step 4.5: Check for native dependencies', 'yellow');
+  log('⚠️  This check prevents the 9-hour v0.13.23 bug where native deps broke the extension', 'yellow');
+
+  const vscodeLuminaPath = path.join(process.cwd(), 'vscode-lumina');
+  const packageJson = readPackageJson('vscode-lumina');
+
+  // List of known problematic native dependencies
+  const nativeDeps = [
+    '@nut-tree-fork/nut-js',
+    'robotjs',
+    'node-hid',
+    'serialport',
+    'usb',
+    'ffi-napi',
+    'ref-napi',
+    'keyboard',
+    'node-gyp'
+  ];
+
+  // Check package.json dependencies
+  const allDeps = {
+    ...packageJson.dependencies,
+    ...packageJson.devDependencies
+  };
+
+  const foundNativeDeps = nativeDeps.filter(dep => allDeps[dep]);
+
+  if (foundNativeDeps.length > 0) {
+    log('✗ CRITICAL: Native dependencies found in package.json:', 'red');
+    foundNativeDeps.forEach(dep => log(`  - ${dep}`, 'red'));
+    log('\n⚠️  Native dependencies cause extension activation failures!', 'red');
+    log('See .claude/CLAUDE.md "Known Issues" section for details', 'yellow');
+    log('Remove these dependencies and use VS Code APIs instead', 'yellow');
+    process.exit(1);
+  }
+
+  // Run npm ls to check for native bindings in dependency tree
+  try {
+    const npmLsOutput = execSilent('npm ls --all --long', vscodeLuminaPath);
+    const nativeIndicators = ['node-gyp', 'bindings', 'prebuild', '.node'];
+    const foundIndicators = nativeIndicators.filter(indicator =>
+      npmLsOutput.toLowerCase().includes(indicator)
+    );
+
+    if (foundIndicators.length > 0) {
+      log('⚠️  Warning: Potential native dependencies detected in dependency tree:', 'yellow');
+      foundIndicators.forEach(indicator => log(`  - ${indicator}`, 'yellow'));
+      log('\nPlease verify these are not in the production bundle', 'yellow');
+
+      const proceed = await confirmAction(
+        '\nContinue with publish despite native dependency warnings? (type "yes" to continue): '
+      );
+
+      if (!proceed) {
+        log('✗ Publish cancelled', 'red');
+        process.exit(1);
+      }
+    }
+  } catch (error) {
+    log('⚠️  Could not check dependency tree (non-critical)', 'yellow');
+  }
+
+  log('✓ No problematic native dependencies found in package.json', 'green');
+
   // Step 5: Run tests (optional - skip if not available)
   log('\n📋 Step 5: Run tests', 'yellow');
   const testResult = execSilent('npm test', path.join(process.cwd(), 'vscode-lumina'));

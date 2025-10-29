@@ -157,6 +157,78 @@ lumina-clean/
 3. Verifies the .vsix exists in the release after creation
 4. All checks happen BEFORE "Release Complete!" message
 
+### Issue: Extension fails to activate - Cannot find module @nut-tree-fork/nut-js (v0.13.22-0.13.23)
+**Status:** FIXED in v0.13.24
+**Time to Fix:** 9 hours
+**Severity:** CRITICAL - Extension completely non-functional for all users
+**Cause:** Native dependency (@nut-tree-fork/nut-js) added to package.json that doesn't package correctly in VS Code extensions
+**Impact:** Extension failed to activate on install, showing error: "Cannot find module '@nut-tree-fork/nut-js'"
+**Root Cause Analysis:**
+- Native Node.js modules (C++ addons via NAPI) require compilation for each platform
+- VS Code extension packaging (via vsce) doesn't handle native dependencies reliably
+- The dependency was used for `keyboard.type()` to simulate typing transcribed text
+- Native binaries weren't included in .vsix package, causing module load failures
+**Fix:** Removed native dependency and replaced with VS Code native APIs
+**Files Changed:**
+- `vscode-lumina/src/commands/voicePanel.ts:278-300` - Replaced keyboard.type() with VS Code APIs
+- `vscode-lumina/package.json:592` - Removed @nut-tree-fork/nut-js from dependencies
+**Solution Details:**
+```typescript
+// BEFORE (v0.13.22-0.13.23): Used native keyboard library
+await keyboard.type(char); // Native C++ addon - doesn't package
+
+// AFTER (v0.13.24): Use VS Code APIs
+const editor = vscode.window.activeTextEditor;
+if (editor) {
+    await editor.edit(editBuilder => {
+        editBuilder.insert(editor.selection.active, text);
+    });
+}
+```
+**Why This Took 9 Hours:**
+1. Extension loaded fine in development (Extension Development Host) where node_modules exists
+2. Only failed in packaged .vsix where native deps weren't included
+3. Required testing full package → install → reload cycle to reproduce
+4. Initially tried fixing packaging, but proper solution was removing the dependency
+**Prevention Rules (CRITICAL - MUST FOLLOW):**
+1. **NEVER add native Node.js dependencies to VS Code extensions**
+   - No packages with native bindings (NAPI, node-gyp, C++ addons)
+   - Common culprits: robotjs, nut-js, keyboard, mouse libraries, native audio/video
+2. **Always use VS Code APIs instead:**
+   - Text insertion: `editor.edit()` API
+   - Terminal: `terminal.sendText()` API
+   - Clipboard: `vscode.env.clipboard` API
+3. **Test packaged extension before publishing:**
+   ```bash
+   cd vscode-lumina
+   npm run compile
+   vsce package
+   code --install-extension aetherlight-0.13.24.vsix
+   # Reload VS Code and test ALL commands
+   ```
+4. **Check for native dependencies before publish:**
+   - Review package.json dependencies for native modules
+   - Run `npm ls` and look for packages with "bindings", "node-gyp", or "prebuild"
+5. **Move native functionality to separate processes if needed:**
+   - Use desktop app (Tauri) for native OS features
+   - Communicate via IPC, WebSocket, or HTTP
+   - Keep VS Code extension pure TypeScript/JavaScript
+
+**Red Flags - Dependencies to Avoid:**
+- `@nut-tree-fork/nut-js` ❌ (keyboard/mouse automation)
+- `robotjs` ❌ (desktop automation)
+- `node-hid` ❌ (USB device access)
+- `serialport` ❌ (serial port access)
+- `usb` ❌ (USB access)
+- `ffi-napi`, `ref-napi` ❌ (native library bindings)
+- Any package requiring `node-gyp` to install ❌
+
+**Safe Alternatives:**
+- VS Code APIs: `vscode.window`, `vscode.workspace`, `vscode.env` ✅
+- Pure JavaScript/TypeScript libraries ✅
+- External processes via child_process (if necessary) ✅
+- IPC to desktop app for native features ✅
+
 ---
 
 ## Design Patterns
@@ -191,16 +263,60 @@ All releases go through:
 
 ---
 
-## Testing Checklist
+## Pre-Publish Checklist
 
-Before publishing:
-- [ ] Extension compiles without errors
-- [ ] All commands work in test environment
-- [ ] Version numbers are correct
+**CRITICAL: Complete ALL steps before publishing to prevent repeat of 9-hour v0.13.23 bug**
+
+### 1. Code Quality Checks
+- [ ] Extension compiles without errors: `cd vscode-lumina && npm run compile`
+- [ ] No TypeScript errors in output
+- [ ] Version numbers are synced (use `node scripts/bump-version.js`)
 - [ ] Git working directory is clean
-- [ ] Logged in to npm as `aelor`
+- [ ] Logged in to npm as `aelor` (check: `npm whoami`)
 
-The automated script checks most of these automatically.
+### 2. Native Dependency Check (CRITICAL)
+**This prevents the v0.13.23 bug that took 9 hours to fix**
+
+Run these commands and verify NO native dependencies:
+```bash
+cd vscode-lumina
+npm ls | grep -E "(node-gyp|bindings|prebuild|napi|\.node)"
+```
+
+Check package.json for red flag dependencies:
+- [ ] NO `@nut-tree-fork/nut-js` or similar keyboard/mouse libraries
+- [ ] NO `robotjs`, `node-hid`, `serialport`, `usb`
+- [ ] NO `ffi-napi`, `ref-napi`, or native binding libraries
+- [ ] NO packages requiring C++ compilation
+
+**If ANY native deps found:** Remove them and use VS Code APIs instead
+
+### 3. Package and Test (MANDATORY)
+**Test the packaged .vsix BEFORE publishing - v0.13.23 worked in dev but failed when packaged**
+
+```bash
+cd vscode-lumina
+npm run compile
+vsce package
+code --install-extension aetherlight-[VERSION].vsix
+# Reload VS Code (Ctrl+R in Extension Host)
+```
+
+Test ALL critical commands in PACKAGED extension:
+- [ ] Extension activates without errors (check Output → ÆtherLight)
+- [ ] Voice panel opens (backtick key)
+- [ ] Voice recording works
+- [ ] Transcription inserts into editor
+- [ ] Terminal commands work
+- [ ] Sprint loader works (if applicable)
+
+### 4. Publish
+Only after ALL checks pass:
+```bash
+node scripts/publish-release.js [patch|minor|major]
+```
+
+The automated script checks most items automatically, but YOU must verify native deps manually.
 
 ---
 

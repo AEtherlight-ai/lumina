@@ -1086,6 +1086,17 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             case 'error':
                 vscode.window.showErrorMessage(message.message);
                 break;
+
+            case 'openUrl':
+                // UI-003: Handle opening URLs (bug reports, feature requests)
+                vscode.env.openExternal(vscode.Uri.parse(message.url));
+                break;
+
+            case 'saveSettings':
+                // SETTINGS-001: Save sprint planning settings to workspace state
+                await this._context.workspaceState.update('aetherlight.sprintSettings', message.settings);
+                console.log('[ÆtherLight] Settings saved:', message.settings);
+                break;
         }
     }
 
@@ -1129,12 +1140,17 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 tabContent = `<div class="placeholder-error">Unknown Tab: ${activeTab}</div>`;
         }
 
+        // Chain of Thought: Generate nonce for script-src CSP to prevent TrustedScript violations
+        // WHY: VS Code webviews now enforce Trusted Types policy, 'unsafe-inline' causes security errors
+        // REASONING: Using webview.cspSource and nonce is the recommended VS Code pattern
+        const nonce = this.getNonce();
+
         return `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; media-src * blob: data: mediastream:; img-src * blob: data:; font-src * data:; connect-src https://api.openai.com;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; media-src * blob: data: mediastream:; img-src ${webview.cspSource} https: data: blob:; font-src ${webview.cspSource} data:; connect-src https://api.openai.com;">
     <title>ÆtherLight</title>
     <style>
         ${this.tabManager.getTabStyles()}
@@ -1147,7 +1163,7 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
     <div class="tab-content active">
         ${tabContent}
     </div>
-    <script>
+    <script nonce="${nonce}">
         const vscode = acquireVsCodeApi();
 
         // DIAGNOSTIC: Log script execution
@@ -1341,12 +1357,31 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             // Restore saved text from webview state (if any)
             const state = vscode.getState() || {};
             const savedText = state.voiceTextContent || '';
+            const savedHeight = state.textareaHeight || 200; // UI-001: Default 200px
+
             if (voiceTextArea && savedText) {
                 voiceTextArea.value = savedText;
-                // Trigger auto-resize if the function exists
-                if (typeof autoResizeTextarea === 'function') {
-                    autoResizeTextarea();
-                }
+            }
+
+            // UI-001: Restore saved textarea height
+            if (voiceTextArea && savedHeight) {
+                voiceTextArea.style.height = savedHeight + 'px';
+            }
+
+            // UI-001: ResizeObserver to persist textarea height
+            if (voiceTextArea && typeof ResizeObserver !== 'undefined') {
+                const resizeObserver = new ResizeObserver((entries) => {
+                    for (const entry of entries) {
+                        const newHeight = entry.contentRect.height;
+                        // Only save if height changed significantly (> 5px)
+                        if (Math.abs(newHeight - savedHeight) > 5) {
+                            const currentState = vscode.getState() || {};
+                            currentState.textareaHeight = newHeight;
+                            vscode.setState(currentState);
+                        }
+                    }
+                });
+                resizeObserver.observe(voiceTextArea);
             }
         };
 
@@ -1357,6 +1392,21 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
     </script>
 </body>
 </html>`;
+    }
+
+    /**
+     * Generate a cryptographically secure nonce for Content Security Policy
+     * Chain of Thought: Required for script-src CSP to prevent TrustedScript violations
+     * WHY: VS Code enforces Trusted Types, inline scripts need nonce verification
+     * PATTERN: Standard VS Code webview security pattern
+     */
+    private getNonce(): string {
+        let text = '';
+        const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        for (let i = 0; i < 32; i++) {
+            text += possible.charAt(Math.floor(Math.random() * possible.length));
+        }
+        return text;
     }
 
     private getVoicePanelStyles(): string {
@@ -1520,8 +1570,9 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
         .transcription-editor textarea {
             width: 100%;
-            height: 60px; /* B-005: Default 60px height */
-            max-height: 120px; /* B-005: Auto-resize max */
+            height: 200px; /* UI-001: Default 200px (user-draggable) */
+            min-height: 100px; /* UI-001: Prevent collapse */
+            max-height: 600px; /* UI-001: Prevent takeover */
             padding: 8px;
             background-color: var(--vscode-input-background);
             color: var(--vscode-input-foreground);
@@ -1529,8 +1580,8 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             border-radius: 4px;
             font-family: var(--vscode-editor-font-family);
             font-size: 13px;
-            resize: none; /* B-005: Disable manual resize, use auto-resize */
-            overflow-y: auto; /* B-005: Scrollbar when exceeds max */
+            resize: vertical; /* UI-001: User-draggable resize */
+            overflow-y: auto;
             box-sizing: border-box;
         }
 
@@ -1539,13 +1590,103 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             border-color: var(--vscode-focusBorder);
         }
 
-        .controls {
+        /* B-001: Icon bar for compact Voice tab (replaces .controls) */
+        .icon-bar {
             display: flex;
-            gap: 8px;
-            margin-bottom: 16px;
+            gap: 4px;
+            padding: 4px;
+            margin-bottom: 12px;
+            background-color: var(--vscode-sideBar-background);
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 4px;
+            height: 32px;
+            align-items: center;
         }
 
-        button {
+        .icon-button {
+            flex: 0 0 auto;
+            width: 32px;
+            height: 24px;
+            padding: 0;
+            background-color: transparent;
+            color: var(--vscode-button-foreground);
+            border: 1px solid transparent;
+            border-radius: 3px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .icon-button .icon {
+            display: inline-block;
+            line-height: 1;
+        }
+
+        .icon-button:hover:not(:disabled) {
+            background-color: var(--vscode-button-hoverBackground);
+            border-color: var(--vscode-button-border);
+            transform: scale(1.05); /* UI-002: Hover scale effect */
+        }
+
+        .icon-button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .icon-button.primary {
+            background-color: rgba(0, 120, 212, 0.1);
+        }
+
+        .icon-button.primary:hover:not(:disabled) {
+            background-color: #0078D4;
+        }
+
+        /* UI-003: Secondary toolbar styling (smaller, bottom placement) */
+        .secondary-toolbar {
+            margin-top: 12px;
+            margin-bottom: 8px;
+            height: 28px;
+            justify-content: center;
+            opacity: 0.8;
+        }
+
+        .secondary-toolbar:hover {
+            opacity: 1;
+        }
+
+        .icon-button-small {
+            flex: 0 0 auto;
+            width: 28px;
+            height: 20px;
+            padding: 0;
+            background-color: transparent;
+            color: var(--vscode-button-foreground);
+            border: 1px solid transparent;
+            border-radius: 3px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .icon-button-small .icon {
+            display: inline-block;
+            line-height: 1;
+        }
+
+        .icon-button-small:hover {
+            background-color: var(--vscode-button-hoverBackground);
+            border-color: var(--vscode-button-border);
+            transform: scale(1.05);
+        }
+
+        /* Legacy button styles (still used in Sprint tab) */
+        button:not(.icon-button) {
             padding: 8px 16px;
             background-color: var(--vscode-button-background);
             color: var(--vscode-button-foreground);
@@ -1556,21 +1697,21 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             transition: background-color 0.2s;
         }
 
-        button:hover {
+        button:not(.icon-button):hover {
             background-color: var(--vscode-button-hoverBackground);
         }
 
-        button:disabled {
+        button:not(.icon-button):disabled {
             opacity: 0.5;
             cursor: not-allowed;
         }
 
-        button.primary {
+        button:not(.icon-button).primary {
             background-color: #0078D4;
             color: white;
         }
 
-        button.primary:hover {
+        button:not(.icon-button).primary:hover {
             background-color: #005a9e;
         }
 
@@ -1620,6 +1761,182 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             color: var(--vscode-descriptionForeground);
             opacity: 0.5;
             margin: 0 4px;
+        }
+
+        /* SETTINGS-001: Settings Panel Styling */
+        .settings-panel {
+            padding: 16px;
+            max-width: 800px;
+        }
+
+        .settings-header {
+            margin-bottom: 24px;
+            border-bottom: 1px solid var(--vscode-panel-border);
+            padding-bottom: 12px;
+        }
+
+        .settings-header h2 {
+            margin: 0 0 8px 0;
+            color: var(--vscode-foreground);
+        }
+
+        .settings-subtitle {
+            margin: 0;
+            color: var(--vscode-descriptionForeground);
+            font-size: 12px;
+        }
+
+        .settings-section {
+            margin-bottom: 32px;
+            padding: 16px;
+            background-color: var(--vscode-sideBar-background);
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 4px;
+        }
+
+        .settings-section-title {
+            margin: 0 0 16px 0;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--vscode-foreground);
+        }
+
+        .settings-group {
+            margin-bottom: 20px;
+        }
+
+        .settings-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--vscode-foreground);
+        }
+
+        .settings-input,
+        .settings-select {
+            width: 100%;
+            padding: 6px 8px;
+            background-color: var(--vscode-input-background);
+            color: var(--vscode-input-foreground);
+            border: 1px solid var(--vscode-input-border);
+            border-radius: 3px;
+            font-size: 13px;
+            font-family: var(--vscode-font-family);
+        }
+
+        .settings-input:focus,
+        .settings-select:focus {
+            outline: none;
+            border-color: var(--vscode-focusBorder);
+        }
+
+        .settings-hint {
+            display: block;
+            margin-top: 4px;
+            font-size: 11px;
+            color: var(--vscode-descriptionForeground);
+            font-style: italic;
+        }
+
+        .settings-status {
+            margin-top: 16px;
+            padding: 12px;
+            background-color: var(--vscode-editor-background);
+            border-radius: 3px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            margin-left: 8px;
+            padding: 2px 8px;
+            background-color: var(--vscode-badge-background);
+            color: var(--vscode-badge-foreground);
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .settings-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .settings-button {
+            padding: 8px 16px;
+            background-color: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+            border: none;
+            border-radius: 4px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .settings-button:hover {
+            background-color: var(--vscode-button-hoverBackground);
+        }
+
+        .settings-button.primary {
+            background-color: #0078D4;
+            color: white;
+        }
+
+        .settings-button.primary:hover {
+            background-color: #005a9e;
+        }
+
+        .settings-footer {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid var(--vscode-panel-border);
+            font-size: 11px;
+            color: var(--vscode-descriptionForeground);
+            text-align: center;
+        }
+
+        /* SETTINGS-002: Code Analyzer Settings Styling */
+        .settings-textarea {
+            width: 100%;
+            padding: 8px;
+            background-color: var(--vscode-input-background);
+            color: var(--vscode-input-foreground);
+            border: 1px solid var(--vscode-input-border);
+            border-radius: 3px;
+            font-size: 13px;
+            font-family: var(--vscode-editor-font-family);
+            resize: vertical;
+            min-height: 60px;
+        }
+
+        .settings-textarea:focus {
+            outline: none;
+            border-color: var(--vscode-focusBorder);
+        }
+
+        .settings-checkboxes {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 8px;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--vscode-foreground);
+        }
+
+        .checkbox-label input[type="checkbox"] {
+            cursor: pointer;
+        }
+
+        .checkbox-label span {
+            user-select: none;
         }
         `;
     }
@@ -3185,6 +3502,61 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 showStatus('📤 Sent to ' + window.voiceTabState.selectedTerminal + ' ✓', 'info');
             };
 
+            // UI-002 & SKILLS-002: Insert skill invocation with parameters from settings
+            window.insertSkill = function(skillCommand) {
+                const textarea = document.getElementById('transcriptionText');
+                if (!textarea) return;
+
+                // Get saved settings
+                const state = vscode.getState() || {};
+                const settings = state.sprintSettings || {};
+
+                let fullCommand = skillCommand;
+
+                // SKILLS-002: Auto-populate parameters based on skill type
+                if (skillCommand === '/code-analyzer') {
+                    const params = [];
+                    if (settings.teamSize) params.push('--engineers=' + settings.teamSize);
+                    if (settings.focusAreas && settings.focusAreas.length > 0) {
+                        params.push('--focus=' + settings.focusAreas.join(','));
+                    }
+                    if (settings.analyzerDepth) params.push('--depth=' + settings.analyzerDepth);
+                    if (settings.analyzerOutput) params.push('--output=' + settings.analyzerOutput);
+                    if (settings.analyzerGoals) {
+                        const goals = settings.analyzerGoals.replace(/\\n/g, ', ');
+                        params.push('--goals="' + goals + '"');
+                    }
+                    fullCommand = skillCommand + (params.length > 0 ? ' ' + params.join(' ') : '');
+                }
+                else if (skillCommand === '/sprint-planner') {
+                    const params = [];
+                    if (settings.teamSize) params.push('--engineers=' + settings.teamSize);
+                    if (settings.sprintStructure) params.push('--structure=' + settings.sprintStructure);
+                    if (settings.sprintType) params.push('--type=' + settings.sprintType);
+                    if (settings.docFormat) params.push('--format=' + settings.docFormat);
+                    fullCommand = skillCommand + (params.length > 0 ? ' ' + params.join(' ') : '');
+                }
+
+                // Insert skill command at cursor position
+                const cursorPos = textarea.selectionStart;
+                const currentText = textarea.value;
+                const beforeCursor = currentText.substring(0, cursorPos);
+                const afterCursor = currentText.substring(cursorPos);
+
+                textarea.value = beforeCursor + fullCommand + ' ' + afterCursor;
+
+                // Move cursor after inserted skill
+                const newCursorPos = cursorPos + fullCommand.length + 1;
+                textarea.setSelectionRange(newCursorPos, newCursorPos);
+                textarea.focus();
+
+                updateSendButton();
+
+                // Save to state
+                state.voiceTextContent = textarea.value;
+                vscode.setState(state);
+            };
+
             window.clearText = function() {
                 document.getElementById('transcriptionText').value = '';
                 updateSendButton();
@@ -3193,6 +3565,26 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 const state = vscode.getState() || {};
                 state.voiceTextContent = '';
                 vscode.setState(state);
+            };
+
+            // UI-003: Secondary toolbar functions
+            window.reportBug = function() {
+                vscode.postMessage({
+                    type: 'openUrl',
+                    url: 'https://github.com/AEtherlight-ai/lumina/issues/new?labels=bug&template=bug_report.md'
+                });
+            };
+
+            window.requestFeature = function() {
+                vscode.postMessage({
+                    type: 'openUrl',
+                    url: 'https://github.com/AEtherlight-ai/lumina/issues/new?labels=enhancement&template=feature_request.md'
+                });
+            };
+
+            window.manageSkills = function() {
+                // TODO: Open skills management panel
+                showStatus('📦 Skills Management coming soon!', 'info');
             };
 
             // Support Ctrl+Enter to send
@@ -3359,37 +3751,249 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
     }
 
     /**
-     * A-003: Settings Tab Placeholder
+     * SETTINGS-001: Settings Tab with Sprint Planning Configuration
      *
-     * DESIGN DECISION: Show skeleton UI for ÆtherLight configuration
-     * WHY: Give users clear expectations of available settings
-     * FUTURE: Will show 66+ settings organized in 10 collapsible sections (Phase 4)
+     * DESIGN DECISION: Real settings UI replacing placeholder
+     * WHY: Users need configurable sprint planning that matches their terminology
+     * REASONING: No artificial limits on team size, 6 structure terminology options
      */
     private getSettingsTabPlaceholder(): string {
         return `
-        <div class="placeholder-panel">
-            <div class="placeholder-header">
-                <span class="placeholder-icon">⚙️</span>
-                <h2>ÆtherLight Settings</h2>
+        <div class="settings-panel">
+            <div class="settings-header">
+                <h2>⚙️ ÆtherLight Settings</h2>
+                <p class="settings-subtitle">Configure sprint planning and analyzer behavior</p>
             </div>
-            <div class="placeholder-description">
-                <p>Configure ÆtherLight behavior and preferences</p>
+
+            <!-- SETTINGS-001: Sprint Planning Configuration -->
+            <div class="settings-section">
+                <h3 class="settings-section-title">📋 Sprint Planning</h3>
+
+                <div class="settings-group">
+                    <label for="teamSize">Team Size</label>
+                    <input type="number" id="teamSize" min="1" max="999" value="1" class="settings-input">
+                    <span class="settings-hint">Number of engineers (1-999, no artificial limit)</span>
+                </div>
+
+                <div class="settings-group">
+                    <label for="sprintStructure">Structure Terminology</label>
+                    <select id="sprintStructure" class="settings-select">
+                        <option value="phases">Phases (ÆtherLight default)</option>
+                        <option value="epics">Epics</option>
+                        <option value="user-stories">User Stories</option>
+                        <option value="sprints">Sprints</option>
+                        <option value="kanban">Kanban</option>
+                        <option value="milestones">Milestones</option>
+                    </select>
+                    <span class="settings-hint">Choose terminology that matches your workflow</span>
+                </div>
+
+                <div class="settings-group">
+                    <label for="sprintType">Sprint Type</label>
+                    <select id="sprintType" class="settings-select">
+                        <option value="feature">Feature Development</option>
+                        <option value="bugfix">Bug Fix Sprint</option>
+                        <option value="research">Research & Design</option>
+                        <option value="refactor">Refactoring</option>
+                        <option value="mixed">Mixed (Feature + Bugs)</option>
+                        <option value="maintenance">Maintenance</option>
+                    </select>
+                    <span class="settings-hint">Type of work for sprint planning context</span>
+                </div>
+
+                <div class="settings-group">
+                    <label for="docFormat">Documentation Format</label>
+                    <select id="docFormat" class="settings-select">
+                        <option value="toml">TOML (ÆtherLight default)</option>
+                        <option value="markdown">Markdown</option>
+                        <option value="json">JSON</option>
+                        <option value="yaml">YAML</option>
+                        <option value="xml">XML</option>
+                    </select>
+                    <span class="settings-hint">Sprint plan output format</span>
+                </div>
+
+                <div class="settings-status">
+                    <strong>Current Sprint Status:</strong>
+                    <span id="currentSprintStatus" class="status-badge">No active sprint</span>
+                </div>
             </div>
-            <div class="placeholder-features">
-                <h3>Coming Soon:</h3>
-                <ul>
-                    <li>🎨 Terminal layout configuration</li>
-                    <li>🔔 Notification preferences</li>
-                    <li>🎤 Voice input settings</li>
-                    <li>🧩 Pattern matching thresholds</li>
-                    <li>⚡ Performance tuning</li>
-                    <li>🔧 Advanced options</li>
-                </ul>
+
+            <!-- SETTINGS-002: Code Analyzer Configuration -->
+            <div class="settings-section">
+                <h3 class="settings-section-title">🔍 Code Analyzer</h3>
+
+                <div class="settings-group">
+                    <label for="analyzerGoals">Analysis Goals</label>
+                    <textarea id="analyzerGoals" class="settings-textarea" rows="3" placeholder="e.g., Identify technical debt, Find missing tests, Review security vulnerabilities"></textarea>
+                    <span class="settings-hint">Define what you want to analyze (one per line or comma-separated)</span>
+                </div>
+
+                <div class="settings-group">
+                    <label>Focus Areas</label>
+                    <div class="settings-checkboxes">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="focus-bugs" value="bugs" checked>
+                            <span>🐛 Bugs</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="focus-features" value="features" checked>
+                            <span>✨ Features</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="focus-debt" value="debt">
+                            <span>⚠️ Technical Debt</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="focus-tests" value="tests">
+                            <span>🧪 Tests</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="focus-docs" value="docs">
+                            <span>📚 Documentation</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="focus-security" value="security">
+                            <span>🔒 Security</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="focus-performance" value="performance">
+                            <span>⚡ Performance</span>
+                        </label>
+                    </div>
+                    <span class="settings-hint">Select areas to focus analysis on</span>
+                </div>
+
+                <div class="settings-group">
+                    <label for="analyzerDepth">Analysis Depth</label>
+                    <select id="analyzerDepth" class="settings-select">
+                        <option value="quick">Quick (5 min - surface level)</option>
+                        <option value="standard" selected>Standard (15 min - thorough)</option>
+                        <option value="deep">Deep (30+ min - comprehensive)</option>
+                    </select>
+                    <span class="settings-hint">Deeper analysis takes longer but finds more issues</span>
+                </div>
+
+                <div class="settings-group">
+                    <label for="analyzerOutput">Output Format</label>
+                    <select id="analyzerOutput" class="settings-select">
+                        <option value="sprint-toml">Sprint TOML (ÆtherLight format)</option>
+                        <option value="markdown">Markdown Report</option>
+                        <option value="github-issues">GitHub Issues JSON</option>
+                        <option value="csv">CSV Export</option>
+                    </select>
+                    <span class="settings-hint">How analysis results should be formatted</span>
+                </div>
+
+                <div class="settings-group">
+                    <label for="analyzerExclusions">Exclusions (paths to skip)</label>
+                    <textarea id="analyzerExclusions" class="settings-textarea" rows="2" placeholder="e.g., node_modules/, dist/, *.test.ts"></textarea>
+                    <span class="settings-hint">Files/folders to exclude from analysis (one per line)</span>
+                </div>
             </div>
-            <div class="placeholder-status">
-                <em>Implementation: Task A-003 → Phase 1 | Full functionality: Phase 4 (Task D-001)</em>
+
+            <div class="settings-actions">
+                <button onclick="saveSettings()" class="settings-button primary">💾 Save Settings</button>
+                <button onclick="resetSettings()" class="settings-button">↩️ Reset to Defaults</button>
+            </div>
+
+            <div class="settings-footer">
+                <em>More settings coming soon: Code Analyzer Goals, Voice Input, Pattern Matching</em>
             </div>
         </div>
+        <script>
+            // SETTINGS-001 & SETTINGS-002: Settings Tab JavaScript
+            (function() {
+                // Load saved settings from workspace state
+                const savedSettings = vscode.getState()?.sprintSettings || {};
+
+                // SETTINGS-001: Load sprint planning settings
+                if (savedSettings.teamSize) document.getElementById('teamSize').value = savedSettings.teamSize;
+                if (savedSettings.sprintStructure) document.getElementById('sprintStructure').value = savedSettings.sprintStructure;
+                if (savedSettings.sprintType) document.getElementById('sprintType').value = savedSettings.sprintType;
+                if (savedSettings.docFormat) document.getElementById('docFormat').value = savedSettings.docFormat;
+
+                // SETTINGS-002: Load code analyzer settings
+                if (savedSettings.analyzerGoals) document.getElementById('analyzerGoals').value = savedSettings.analyzerGoals;
+                if (savedSettings.analyzerDepth) document.getElementById('analyzerDepth').value = savedSettings.analyzerDepth;
+                if (savedSettings.analyzerOutput) document.getElementById('analyzerOutput').value = savedSettings.analyzerOutput;
+                if (savedSettings.analyzerExclusions) document.getElementById('analyzerExclusions').value = savedSettings.analyzerExclusions;
+
+                // Restore focus area checkboxes
+                if (savedSettings.focusAreas) {
+                    savedSettings.focusAreas.forEach(area => {
+                        const checkbox = document.getElementById('focus-' + area);
+                        if (checkbox) checkbox.checked = true;
+                    });
+                }
+
+                // Global save settings function
+                window.saveSettings = function() {
+                    // Collect focus areas
+                    const focusAreas = [];
+                    ['bugs', 'features', 'debt', 'tests', 'docs', 'security', 'performance'].forEach(area => {
+                        if (document.getElementById('focus-' + area)?.checked) {
+                            focusAreas.push(area);
+                        }
+                    });
+
+                    const settings = {
+                        // Sprint Planning
+                        teamSize: parseInt(document.getElementById('teamSize').value),
+                        sprintStructure: document.getElementById('sprintStructure').value,
+                        sprintType: document.getElementById('sprintType').value,
+                        docFormat: document.getElementById('docFormat').value,
+
+                        // Code Analyzer
+                        analyzerGoals: document.getElementById('analyzerGoals').value,
+                        focusAreas: focusAreas,
+                        analyzerDepth: document.getElementById('analyzerDepth').value,
+                        analyzerOutput: document.getElementById('analyzerOutput').value,
+                        analyzerExclusions: document.getElementById('analyzerExclusions').value
+                    };
+
+                    // Save to webview state
+                    const state = vscode.getState() || {};
+                    state.sprintSettings = settings;
+                    vscode.setState(state);
+
+                    // Send to backend for workspace state persistence
+                    vscode.postMessage({
+                        type: 'saveSettings',
+                        settings: settings
+                    });
+
+                    // Show confirmation
+                    alert('✅ Settings saved successfully!');
+                };
+
+                // Global reset settings function
+                window.resetSettings = function() {
+                    // Sprint Planning defaults
+                    document.getElementById('teamSize').value = 1;
+                    document.getElementById('sprintStructure').value = 'phases';
+                    document.getElementById('sprintType').value = 'feature';
+                    document.getElementById('docFormat').value = 'toml';
+
+                    // Code Analyzer defaults
+                    document.getElementById('analyzerGoals').value = '';
+                    document.getElementById('analyzerDepth').value = 'standard';
+                    document.getElementById('analyzerOutput').value = 'sprint-toml';
+                    document.getElementById('analyzerExclusions').value = 'node_modules/\ndist/\n*.min.js';
+
+                    // Reset checkboxes (bugs and features checked by default)
+                    document.getElementById('focus-bugs').checked = true;
+                    document.getElementById('focus-features').checked = true;
+                    document.getElementById('focus-debt').checked = false;
+                    document.getElementById('focus-tests').checked = false;
+                    document.getElementById('focus-docs').checked = false;
+                    document.getElementById('focus-security').checked = false;
+                    document.getElementById('focus-performance').checked = false;
+
+                    window.saveSettings();
+                };
+            })();
+        </script>
         `;
     }
 }
@@ -3405,16 +4009,40 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
  * WHY: Enables embedding in tabbed interface without nested HTML documents
  */
 function getVoicePanelBodyContent(): string {
+    // Chain of Thought: Redesigned Voice tab for compactness (B-001)
+    // WHY: Reduce height from 500px to ~200px by using icon bar instead of buttons
+    // REASONING: Icon bar (32px) + terminal list (72px) + textarea (60px) + hints (20px) = ~200px
     return `
     <div class="header">
         <h2>
             <span class="status-indicator" id="statusIndicator"></span>
             ÆtherLight Voice
         </h2>
-        <button id="refreshTerminals" onclick="refreshTerminals()">🔄 Refresh</button>
     </div>
 
     <div id="statusMessage"></div>
+
+    <!-- UI-002: Primary icon toolbar (6 icons, 32px height) -->
+    <div class="icon-bar primary-toolbar">
+        <button id="recordBtn" class="icon-button" onclick="toggleRecording()" title="🎤 Record - Click or hit Backtick (\`)">
+            <span class="icon">🎤</span>
+        </button>
+        <button id="codeAnalyzerBtn" class="icon-button" onclick="insertSkill('/code-analyzer')" title="🔍 Code Analyzer - Analyze codebase structure">
+            <span class="icon">🔍</span>
+        </button>
+        <button id="sprintPlannerBtn" class="icon-button" onclick="insertSkill('/sprint-planner')" title="📋 Sprint Planner - Generate sprint plans">
+            <span class="icon">📋</span>
+        </button>
+        <button id="enhanceBtn" class="icon-button" onclick="enhanceText()" disabled title="✨ Enhance with Patterns - Coming Soon">
+            <span class="icon">✨</span>
+        </button>
+        <button id="sendBtn" class="icon-button primary" onclick="sendToTerminal()" disabled title="📤 Send to Terminal - Ctrl+Enter">
+            <span class="icon">📤</span>
+        </button>
+        <button class="icon-button" onclick="clearText()" title="🗑️ Clear Transcription">
+            <span class="icon">🗑️</span>
+        </button>
+    </div>
 
     <div class="terminal-selector">
         <div id="terminalList" class="terminal-list">
@@ -3423,34 +4051,27 @@ function getVoicePanelBodyContent(): string {
     </div>
 
     <div class="transcription-editor">
-        <label for="transcriptionText">
-            Command / Transcription:
-            <button id="recordBtn" onclick="toggleRecording()" style="margin-left: 8px; background-color: #d13438;">🎤 Record</button>
-        </label>
+        <label for="transcriptionText">Command / Transcription:</label>
         <textarea
             id="transcriptionText"
-            placeholder="Click '🎤 Record' to start voice capture, or type directly..."
+            placeholder="Click 🎤 to record, or type directly..."
         ></textarea>
     </div>
 
-    <div class="controls">
-        <button id="enhanceBtn" onclick="enhanceText()" disabled style="background-color: #6b4ea3;">✨ ÆtherLight Enhance</button>
-        <button id="sendBtn" class="primary" onclick="sendToTerminal()" disabled>📤 Send to Terminal</button>
-        <button onclick="clearText()">🗑️ Clear</button>
-    </div>
-
-    <div class="tips">
-        <h3>💡 How to Use:</h3>
-        <ul>
-            <li><strong>Click 🎤 Record</strong> → Speak your command → Click Stop</li>
-            <li><strong>(Optional) Click ✨ ÆtherLight Enhance</strong> → AI enhances command with context</li>
-            <li><strong>Click 📤 Send to Terminal</strong> → Executes command in selected terminal</li>
-            <li>Tab through terminals to select target (ÆtherLight terminal created automatically)</li>
-            <li>Ctrl+Enter also sends to terminal</li>
-        </ul>
-        <p style="margin-top: 8px; font-size: 11px; color: var(--vscode-descriptionForeground);">
-            <strong>Note:</strong> First time recording will ask for microphone permission.
-        </p>
+    <!-- UI-003: Secondary icon toolbar (4 icons, 28px height, bottom placement) -->
+    <div class="icon-bar secondary-toolbar">
+        <button class="icon-button-small" onclick="reportBug()" title="🐛 Report Bug">
+            <span class="icon">🐛</span>
+        </button>
+        <button class="icon-button-small" onclick="requestFeature()" title="🔧 Request Feature">
+            <span class="icon">🔧</span>
+        </button>
+        <button class="icon-button-small" onclick="manageSkills()" title="📦 Skill Management">
+            <span class="icon">📦</span>
+        </button>
+        <button class="icon-button-small" onclick="switchTab('settings')" title="⚙️ Settings">
+            <span class="icon">⚙️</span>
+        </button>
     </div>
 
     <div class="keyboard-hints">
