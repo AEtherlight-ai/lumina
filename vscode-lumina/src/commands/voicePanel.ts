@@ -1685,6 +1685,71 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             transform: scale(1.05);
         }
 
+        /* SLIDE-DOWN-002: Configuration panel container styling */
+        /* Chain of Thought: Smooth slide-down animation for config panels */
+        /* WHY: User requested configs appear below toolbar with smooth transition */
+        /* REASONING: Use max-height for slide animation, padding for spacing */
+        .config-panel-container {
+            overflow: hidden;
+            max-height: 0;
+            opacity: 0;
+            transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out, padding 0.3s ease-in-out;
+            background-color: var(--vscode-editor-background);
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 4px;
+            margin: 12px 0;
+        }
+
+        .config-panel-container.open {
+            max-height: 800px;
+            opacity: 1;
+            padding: 16px;
+        }
+
+        .config-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--vscode-panel-border);
+        }
+
+        .config-panel-header h3 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--vscode-foreground);
+        }
+
+        .config-panel-close {
+            background: transparent;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            color: var(--vscode-descriptionForeground);
+            padding: 0 8px;
+            line-height: 1;
+        }
+
+        .config-panel-close:hover {
+            color: var(--vscode-foreground);
+        }
+
+        .config-panel-body {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .config-panel-actions {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid var(--vscode-panel-border);
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+
         /* Legacy button styles (still used in Sprint tab) */
         button:not(.icon-button) {
             padding: 8px 16px;
@@ -1955,7 +2020,7 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
         let html = `
         <div class="engineer-tabs">
             <button class="engineer-tab ${this.selectedEngineerId === 'all' ? 'active' : ''}"
-                    onclick="selectEngineer('all')">
+                    data-engineer-id="all">
                 📊 All Engineers
             </button>
         `;
@@ -1968,7 +2033,7 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
             html += `
             <button class="engineer-tab ${isActive ? 'active' : ''}"
-                    onclick="selectEngineer('${engineer.id}')"
+                    data-engineer-id="${engineer.id}"
                     title="${engineer.expertise.join(', ')}">
                 👤 ${engineer.name} (${completedTasks}/${totalTasks})
             </button>
@@ -2068,20 +2133,20 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             <div class="sprint-header">
                 <h2>Sprint</h2>
                 <div class="sprint-header-actions">
-                    <button class="icon-btn" onclick="reloadSprint()" title="Refresh Sprint Data">
+                    <button class="icon-btn" data-action="reloadSprint" title="Refresh Sprint Data">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                             <path d="M13.5 2.5a1 1 0 011 1v9a1 1 0 01-1 1h-11a1 1 0 01-1-1v-9a1 1 0 011-1h11zM8 12a4 4 0 100-8 4 4 0 000 8zm0-1.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5z"/>
                             <path d="M10 8a.5.5 0 01-.5.5h-1v1a.5.5 0 01-1 0v-1h-1a.5.5 0 010-1h1v-1a.5.5 0 011 0v1h1a.5.5 0 01.5.5z"/>
                         </svg>
                         🔄
                     </button>
-                    <button class="icon-btn" onclick="openSprintSettings()" title="Sprint Settings">
+                    <button class="icon-btn" data-action="openSprintSettings" title="Sprint Settings">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                             <path d="M8 10.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z"/>
                             <path d="M14 8a1.5 1.5 0 01-1.5 1.5h-.39a.5.5 0 00-.48.36l-.12.45a.5.5 0 00.11.54l.27.27a1.5 1.5 0 010 2.12l-.71.71a1.5 1.5 0 01-2.12 0l-.27-.27a.5.5 0 00-.54-.11l-.45.12a.5.5 0 00-.36.48v.39A1.5 1.5 0 016 16H5.5a1.5 1.5 0 01-1.5-1.5v-.39a.5.5 0 00-.36-.48l-.45-.12a.5.5 0 00-.54.11l-.27.27a1.5 1.5 0 01-2.12 0l-.71-.71a1.5 1.5 0 010-2.12l.27-.27a.5.5 0 00.11-.54l-.12-.45a.5.5 0 00-.48-.36H1.5A1.5 1.5 0 010 8v-.5a1.5 1.5 0 011.5-1.5h.39a.5.5 0 00.48-.36l.12-.45a.5.5 0 00-.11-.54L2.11 4.38a1.5 1.5 0 010-2.12l.71-.71a1.5 1.5 0 012.12 0l.27.27a.5.5 0 00.54.11l.45-.12a.5.5 0 00.36-.48V1.5A1.5 1.5 0 017.5 0H8a1.5 1.5 0 011.5 1.5v.39a.5.5 0 00.36.48l.45.12a.5.5 0 00.54-.11l.27-.27a1.5 1.5 0 012.12 0l.71.71a1.5 1.5 0 010 2.12l-.27.27a.5.5 0 00-.11.54l.12.45a.5.5 0 00.48.36h.39A1.5 1.5 0 0116 7.5V8z"/>
                         </svg>
                     </button>
-                    <button class="icon-btn" onclick="popOutSprint()" title="Pop Out Sprint View">
+                    <button class="icon-btn" data-action="popOutSprint" title="Pop Out Sprint View">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                             <path d="M9 2h5v5l-1.5-1.5L9 9 7 7l3.5-3.5L9 2zM2 7v7h7V7H2z"/>
                         </svg>
@@ -2089,145 +2154,29 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 </div>
             </div>
 
-            <!-- Chain of Thought: Sprint Configuration Section -->
-            <!-- WHY: User requested Sprint Planning and Code Analyzer settings moved from Settings Tab to Sprint Tab -->
-            <!-- REASONING: These settings are sprint-specific and should be configured where sprints are managed -->
-            <!-- PATTERN: Settings collocated with the feature they configure -->
-            <div class="sprint-config-section">
-                <details open>
-                    <summary><h3>📋 Sprint Planning Configuration</h3></summary>
-                    <div class="config-content">
-                        <div class="settings-group">
-                            <label for="teamSize">Team Size</label>
-                            <input type="number" id="teamSize" min="1" max="999" value="1" class="settings-input">
-                            <span class="settings-hint">Number of engineers (1-999, no artificial limit)</span>
-                        </div>
-
-                        <div class="settings-group">
-                            <label for="sprintStructure">Structure Terminology</label>
-                            <select id="sprintStructure" class="settings-select">
-                                <option value="phases">Phases (ÆtherLight default)</option>
-                                <option value="epics">Epics</option>
-                                <option value="user-stories">User Stories</option>
-                                <option value="sprints">Sprints</option>
-                                <option value="kanban">Kanban</option>
-                                <option value="milestones">Milestones</option>
-                            </select>
-                            <span class="settings-hint">Choose terminology that matches your workflow</span>
-                        </div>
-
-                        <div class="settings-group">
-                            <label for="sprintType">Sprint Type</label>
-                            <select id="sprintType" class="settings-select">
-                                <option value="feature">Feature Development</option>
-                                <option value="bugfix">Bug Fix Sprint</option>
-                                <option value="research">Research & Design</option>
-                                <option value="refactor">Refactoring</option>
-                                <option value="mixed">Mixed (Feature + Bugs)</option>
-                                <option value="maintenance">Maintenance</option>
-                            </select>
-                            <span class="settings-hint">Type of work for sprint planning context</span>
-                        </div>
-
-                        <div class="settings-group">
-                            <label for="docFormat">Documentation Format</label>
-                            <select id="docFormat" class="settings-select">
-                                <option value="toml">TOML (ÆtherLight default)</option>
-                                <option value="markdown">Markdown</option>
-                                <option value="json">JSON</option>
-                                <option value="yaml">YAML</option>
-                                <option value="xml">XML</option>
-                            </select>
-                            <span class="settings-hint">Sprint plan output format</span>
-                        </div>
-                    </div>
-                </details>
-
-                <details open>
-                    <summary><h3>🔍 Code Analyzer Configuration</h3></summary>
-                    <div class="config-content">
-                        <div class="settings-group">
-                            <label for="analyzerGoals">Analysis Goals</label>
-                            <textarea id="analyzerGoals" class="settings-textarea" rows="3" placeholder="e.g., Identify technical debt, Find missing tests, Review security vulnerabilities"></textarea>
-                            <span class="settings-hint">Define what you want to analyze (one per line or comma-separated)</span>
-                        </div>
-
-                        <div class="settings-group">
-                            <label>Focus Areas</label>
-                            <div class="settings-checkboxes">
-                                <label class="checkbox-label">
-                                    <input type="checkbox" id="focus-bugs" value="bugs" checked>
-                                    <span>🐛 Bugs</span>
-                                </label>
-                                <label class="checkbox-label">
-                                    <input type="checkbox" id="focus-features" value="features" checked>
-                                    <span>✨ Features</span>
-                                </label>
-                                <label class="checkbox-label">
-                                    <input type="checkbox" id="focus-debt" value="debt">
-                                    <span>⚠️ Technical Debt</span>
-                                </label>
-                                <label class="checkbox-label">
-                                    <input type="checkbox" id="focus-tests" value="tests">
-                                    <span>🧪 Tests</span>
-                                </label>
-                                <label class="checkbox-label">
-                                    <input type="checkbox" id="focus-docs" value="docs">
-                                    <span>📚 Documentation</span>
-                                </label>
-                                <label class="checkbox-label">
-                                    <input type="checkbox" id="focus-security" value="security">
-                                    <span>🔒 Security</span>
-                                </label>
-                                <label class="checkbox-label">
-                                    <input type="checkbox" id="focus-performance" value="performance">
-                                    <span>⚡ Performance</span>
-                                </label>
-                            </div>
-                            <span class="settings-hint">Select areas to focus analysis on</span>
-                        </div>
-
-                        <div class="settings-group">
-                            <label for="analyzerDepth">Analysis Depth</label>
-                            <select id="analyzerDepth" class="settings-select">
-                                <option value="quick">Quick (5 min - surface level)</option>
-                                <option value="standard" selected>Standard (15 min - thorough)</option>
-                                <option value="deep">Deep (30+ min - comprehensive)</option>
-                            </select>
-                            <span class="settings-hint">Deeper analysis takes longer but finds more issues</span>
-                        </div>
-
-                        <div class="settings-group">
-                            <label for="analyzerOutput">Output Format</label>
-                            <select id="analyzerOutput" class="settings-select">
-                                <option value="sprint-toml">Sprint TOML (ÆtherLight format)</option>
-                                <option value="markdown">Markdown Report</option>
-                                <option value="github-issues">GitHub Issues JSON</option>
-                                <option value="csv">CSV Export</option>
-                            </select>
-                            <span class="settings-hint">How analysis results should be formatted</span>
-                        </div>
-
-                        <div class="settings-group">
-                            <label for="analyzerExclusions">Exclusions (paths to skip)</label>
-                            <textarea id="analyzerExclusions" class="settings-textarea" rows="2" placeholder="e.g., node_modules/, dist/, *.test.ts"></textarea>
-                            <span class="settings-hint">Files/folders to exclude from analysis (one per line)</span>
-                        </div>
-                    </div>
-                </details>
-
-                <div class="settings-actions">
-                    <button onclick="saveSprintSettings()" class="settings-button primary">💾 Save Sprint Settings</button>
-                    <button onclick="resetSprintSettings()" class="settings-button">↩️ Reset to Defaults</button>
+            <!-- CONFIG-CONSOLIDATION: Configuration moved to Voice tab slide-down panels -->
+            <!-- WHY: Single source of configuration improves UX and generates prompts -->
+            <!-- REASONING: Voice tab panels allow inline configuration → prompt generation → send to terminal -->
+            <div class="sprint-config-redirect">
+                <div class="info-box">
+                    <h3>⚙️ Configuration</h3>
+                    <p>Sprint Planning and Code Analyzer configuration has been moved to the <strong>Voice tab</strong> for a better workflow.</p>
+                    <p>Click the 🔍 <strong>Code Analyzer</strong> or 📋 <strong>Sprint Planner</strong> buttons in the Voice tab to:</p>
+                    <ul>
+                        <li>Configure your settings</li>
+                        <li>Generate a natural language prompt</li>
+                        <li>Send to terminal to execute</li>
+                    </ul>
+                    <p><em>This allows you to review and edit prompts before execution.</em></p>
                 </div>
             </div>
 
             <div class="sprint-file-selector">
                 <label for="sprint-file-dropdown">Sprint File:</label>
-                <select id="sprint-file-dropdown" onchange="switchSprintFile(this.value)" title="Select which sprint file to view">
+                <select id="sprint-file-dropdown" title="Select which sprint file to view">
                     <option value="${currentSprintPath}" selected>${currentSprintPath}</option>
                 </select>
-                <button class="icon-btn" onclick="discoverSprintFiles()" title="Discover all sprint files in workspace">
+                <button class="icon-btn" data-action="discoverSprintFiles" title="Discover all sprint files in workspace">
                     <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
                         <path d="M15.7 13.3l-3.81-3.83A5.93 5.93 0 0 0 13 6c0-3.31-2.69-6-6-6S1 2.69 1 6s2.69 6 6 6c1.3 0 2.48-.41 3.47-1.11l3.83 3.81c.19.2.45.3.7.3.25 0 .52-.09.7-.3a.996.996 0 0 0 0-1.41v.01zM7 10.7c-2.59 0-4.7-2.11-4.7-4.7 0-2.59 2.11-4.7 4.7-4.7 2.59 0 4.7 2.11 4.7 4.7 0 2.59-2.11 4.7-4.7 4.7z"/>
                     </svg>
@@ -2268,8 +2217,8 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 const selectedClass = this.selectedTaskId === task.id ? 'selected' : '';
 
                 html += `
-                <div class="task-item ${statusClass} ${selectedClass}" data-task-id="${task.id}" onclick="selectTask('${task.id}')" title="Click to view task details">
-                    <span class="task-status-icon" onclick="event.stopPropagation(); toggleStatus('${task.id}')" title="Click to toggle status">${statusIcon}</span>
+                <div class="task-item ${statusClass} ${selectedClass}" data-task-id="${task.id}" title="Click to view task details">
+                    <span class="task-status-icon" title="Click to toggle status">${statusIcon}</span>
                     <div class="task-content">
                         <div class="task-header">
                             <span class="task-id">${task.id}</span>
@@ -2291,101 +2240,78 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
         html += `</div></div>`; // End sprint-content and sprint-panel
 
-        // Chain of Thought: Add Sprint Settings JavaScript
-        // WHY: Need to load/save Sprint Planning and Code Analyzer settings in Sprint Tab
-        // REASONING: Settings moved from Settings Tab, need persistence functions here
+        // CSP-FIX-003: Sprint Tab Event Listeners with Event Delegation
+        // Chain of Thought: Sprint tab has many dynamically generated elements with onclick handlers
+        // WHY: CSP blocks inline onclick handlers, must use event listeners
+        // REASONING: Use event delegation on container for dynamic task elements
         html += `
         <script>
-            // SPRINT-SETTINGS: Load and save sprint-specific settings
             (function() {
-                // Load saved settings from workspace state
-                const savedSettings = vscode.getState()?.sprintSettings || {};
+                // Event delegation for task list (dynamic elements)
+                const sprintContent = document.querySelector('.sprint-content');
+                if (sprintContent) {
+                    sprintContent.addEventListener('click', function(e) {
+                        const target = e.target;
 
-                // Load sprint planning settings
-                if (savedSettings.teamSize) document.getElementById('teamSize').value = savedSettings.teamSize;
-                if (savedSettings.sprintStructure) document.getElementById('sprintStructure').value = savedSettings.sprintStructure;
-                if (savedSettings.sprintType) document.getElementById('sprintType').value = savedSettings.sprintType;
-                if (savedSettings.docFormat) document.getElementById('docFormat').value = savedSettings.docFormat;
+                        // Task status icon click
+                        if (target.classList.contains('task-status-icon')) {
+                            e.stopPropagation();
+                            const taskItem = target.closest('.task-item');
+                            if (taskItem) {
+                                const taskId = taskItem.dataset.taskId;
+                                if (taskId) window.toggleStatus(taskId);
+                            }
+                            return;
+                        }
 
-                // Load code analyzer settings
-                if (savedSettings.analyzerGoals) document.getElementById('analyzerGoals').value = savedSettings.analyzerGoals;
-                if (savedSettings.analyzerDepth) document.getElementById('analyzerDepth').value = savedSettings.analyzerDepth;
-                if (savedSettings.analyzerOutput) document.getElementById('analyzerOutput').value = savedSettings.analyzerOutput;
-                if (savedSettings.analyzerExclusions) document.getElementById('analyzerExclusions').value = savedSettings.analyzerExclusions;
+                        // Task item click (select task)
+                        if (target.classList.contains('task-item') || target.closest('.task-item')) {
+                            const taskItem = target.classList.contains('task-item') ? target : target.closest('.task-item');
+                            const taskId = taskItem.dataset.taskId;
+                            if (taskId) window.selectTask(taskId);
+                            return;
+                        }
 
-                // Restore focus area checkboxes
-                if (savedSettings.focusAreas) {
-                    savedSettings.focusAreas.forEach(area => {
-                        const checkbox = document.getElementById('focus-' + area);
-                        if (checkbox) checkbox.checked = true;
+                        // Status toggle button in detail panel
+                        if (target.classList.contains('status-toggle-btn') || target.closest('.status-toggle-btn')) {
+                            const btn = target.classList.contains('status-toggle-btn') ? target : target.closest('.status-toggle-btn');
+                            const taskId = btn.getAttribute('data-task-id');
+                            if (taskId) window.toggleStatus(taskId);
+                            return;
+                        }
                     });
                 }
 
-                // Save sprint settings function
-                window.saveSprintSettings = function() {
-                    // Collect focus areas
-                    const focusAreas = [];
-                    ['bugs', 'features', 'debt', 'tests', 'docs', 'security', 'performance'].forEach(area => {
-                        if (document.getElementById('focus-' + area)?.checked) {
-                            focusAreas.push(area);
+                // Static button event listeners
+                const reloadBtn = document.querySelector('[data-action="reloadSprint"]');
+                const settingsBtn = document.querySelector('[data-action="openSprintSettings"]');
+                const popOutBtn = document.querySelector('[data-action="popOutSprint"]');
+                const discoverBtn = document.querySelector('[data-action="discoverSprintFiles"]');
+                const engineerTabsContainer = document.querySelector('.engineer-tabs');
+
+                if (reloadBtn) reloadBtn.addEventListener('click', () => window.reloadSprint());
+                if (settingsBtn) settingsBtn.addEventListener('click', () => window.openSprintSettings());
+                if (popOutBtn) popOutBtn.addEventListener('click', () => window.popOutSprint());
+                if (discoverBtn) discoverBtn.addEventListener('click', () => window.discoverSprintFiles());
+
+                // Engineer tab clicks
+                if (engineerTabsContainer) {
+                    engineerTabsContainer.addEventListener('click', function(e) {
+                        const tab = e.target.closest('[data-engineer-id]');
+                        if (tab) {
+                            const engineerId = tab.dataset.engineerId;
+                            if (engineerId) window.selectEngineer(engineerId);
                         }
                     });
+                }
 
-                    const settings = {
-                        // Sprint Planning
-                        teamSize: parseInt(document.getElementById('teamSize').value),
-                        sprintStructure: document.getElementById('sprintStructure').value,
-                        sprintType: document.getElementById('sprintType').value,
-                        docFormat: document.getElementById('docFormat').value,
-
-                        // Code Analyzer
-                        analyzerGoals: document.getElementById('analyzerGoals').value,
-                        focusAreas: focusAreas,
-                        analyzerDepth: document.getElementById('analyzerDepth').value,
-                        analyzerOutput: document.getElementById('analyzerOutput').value,
-                        analyzerExclusions: document.getElementById('analyzerExclusions').value
-                    };
-
-                    // Save to webview state
-                    const state = vscode.getState() || {};
-                    state.sprintSettings = settings;
-                    vscode.setState(state);
-
-                    // Send to backend for workspace state persistence
-                    vscode.postMessage({
-                        type: 'saveSprintSettings',
-                        settings: settings
+                // Sprint file dropdown
+                const sprintDropdown = document.getElementById('sprint-file-dropdown');
+                if (sprintDropdown) {
+                    sprintDropdown.addEventListener('change', function(e) {
+                        window.switchSprintFile(e.target.value);
                     });
-
-                    // Show confirmation
-                    alert('✅ Sprint settings saved successfully!');
-                };
-
-                // Reset sprint settings function
-                window.resetSprintSettings = function() {
-                    // Sprint Planning defaults
-                    document.getElementById('teamSize').value = 1;
-                    document.getElementById('sprintStructure').value = 'phases';
-                    document.getElementById('sprintType').value = 'feature';
-                    document.getElementById('docFormat').value = 'toml';
-
-                    // Code Analyzer defaults
-                    document.getElementById('analyzerGoals').value = '';
-                    document.getElementById('analyzerDepth').value = 'standard';
-                    document.getElementById('analyzerOutput').value = 'sprint-toml';
-                    document.getElementById('analyzerExclusions').value = 'node_modules/\\ndist/\\n*.min.js';
-
-                    // Reset checkboxes (bugs and features checked by default)
-                    document.getElementById('focus-bugs').checked = true;
-                    document.getElementById('focus-features').checked = true;
-                    document.getElementById('focus-debt').checked = false;
-                    document.getElementById('focus-tests').checked = false;
-                    document.getElementById('focus-docs').checked = false;
-                    document.getElementById('focus-security').checked = false;
-                    document.getElementById('focus-performance').checked = false;
-
-                    window.saveSprintSettings();
-                };
+                }
             })();
         </script>
         `;
@@ -2420,7 +2346,7 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
         <div class="task-detail-panel">
             <div class="detail-header">
                 <h3>${statusIcon} ${task.id}: ${task.name}</h3>
-                <button class="status-toggle-btn" onclick="toggleStatus('${task.id}')" title="Toggle status">
+                <button class="status-toggle-btn" data-task-id="${task.id}" title="Toggle status">
                     ${statusIcon} ${statusText}
                 </button>
             </div>
@@ -2774,6 +2700,44 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
         .sprint-panel h2 {
             margin: 0 0 16px 0;
             font-size: 16px;
+        }
+
+        .sprint-config-redirect {
+            margin: 16px 0 24px 0;
+        }
+
+        .info-box {
+            background-color: var(--vscode-textBlockQuote-background);
+            border-left: 4px solid var(--vscode-textLink-foreground);
+            border-radius: 4px;
+            padding: 16px;
+            color: var(--vscode-foreground);
+        }
+
+        .info-box h3 {
+            margin: 0 0 12px 0;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--vscode-textLink-foreground);
+        }
+
+        .info-box p {
+            margin: 8px 0;
+            line-height: 1.5;
+        }
+
+        .info-box ul {
+            margin: 12px 0;
+            padding-left: 20px;
+        }
+
+        .info-box li {
+            margin: 4px 0;
+        }
+
+        .info-box em {
+            color: var(--vscode-descriptionForeground);
+            font-size: 12px;
         }
 
         .progress-section {
@@ -3407,9 +3371,89 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 }
             })();
 
+            // CSP-FIX-002: Define functions BEFORE attaching event listeners
+            // Chain of Thought: Event listeners were calling undefined functions
+            // WHY: Functions must exist before event listeners can reference them
+            // REASONING: JavaScript function expressions (not declarations) aren't hoisted
+
             window.refreshTerminals = function() {
                 vscode.postMessage({ type: 'getTerminals' });
             };
+
+            window.sendToTerminal = function() {
+                const text = document.getElementById('transcriptionText').value;
+
+                if (!window.voiceTabState.selectedTerminal) {
+                    showStatus('⚠️ Please select a terminal', 'error');
+                    return;
+                }
+
+                if (!text.trim()) {
+                    showStatus('⚠️ Nothing to send', 'error');
+                    return;
+                }
+
+                vscode.postMessage({
+                    type: 'sendToTerminal',
+                    terminalName: window.voiceTabState.selectedTerminal,
+                    text
+                });
+
+                // Clear input box after sending
+                document.getElementById('transcriptionText').value = '';
+                updateSendButton();
+
+                // Clear saved state after sending to terminal
+                const state = vscode.getState() || {};
+                state.voiceTextContent = '';
+                vscode.setState(state);
+
+                showStatus('📤 Sent to ' + window.voiceTabState.selectedTerminal + ' ✓', 'info');
+            };
+
+            window.clearText = function() {
+                document.getElementById('transcriptionText').value = '';
+                updateSendButton();
+
+                // Clear saved state when manually clearing text
+                const state = vscode.getState() || {};
+                state.voiceTextContent = '';
+                vscode.setState(state);
+            };
+
+            // CSP-FIX-001: Attach event listeners to buttons (no onclick allowed)
+            // Chain of Thought: CSP Trusted Types blocks onclick handlers, must use addEventListener
+            // WHY: VS Code webview CSP policy blocks inline event handlers for security
+            // REASONING: Add listeners after DOM loads AND after functions are defined
+            (function() {
+                // Primary toolbar buttons
+                const recordBtn = document.getElementById('recordBtn');
+                const codeAnalyzerBtn = document.getElementById('codeAnalyzerBtn');
+                const sprintPlannerBtn = document.getElementById('sprintPlannerBtn');
+                const enhanceBtn = document.getElementById('enhanceBtn');
+                const sendBtn = document.getElementById('sendBtn');
+                const clearBtn = document.getElementById('clearBtn');
+
+                // Secondary toolbar buttons
+                const reportBugBtn = document.getElementById('reportBugBtn');
+                const requestFeatureBtn = document.getElementById('requestFeatureBtn');
+                const manageSkillsBtn = document.getElementById('manageSkillsBtn');
+                const settingsBtn = document.getElementById('settingsBtn');
+
+                if (recordBtn) recordBtn.addEventListener('click', () => window.toggleRecording());
+                if (codeAnalyzerBtn) codeAnalyzerBtn.addEventListener('click', () => window.toggleConfigPanel('code-analyzer'));
+                if (sprintPlannerBtn) sprintPlannerBtn.addEventListener('click', () => window.toggleConfigPanel('sprint-planner'));
+                if (enhanceBtn) enhanceBtn.addEventListener('click', () => window.enhanceText());
+                if (sendBtn) sendBtn.addEventListener('click', () => window.sendToTerminal());
+                if (clearBtn) clearBtn.addEventListener('click', () => window.clearText());
+
+                if (reportBugBtn) reportBugBtn.addEventListener('click', () => window.reportBug());
+                if (requestFeatureBtn) requestFeatureBtn.addEventListener('click', () => window.requestFeature());
+                if (manageSkillsBtn) manageSkillsBtn.addEventListener('click', () => window.manageSkills());
+                if (settingsBtn) settingsBtn.addEventListener('click', () => {
+                    vscode.postMessage({ type: 'switchTab', tabId: 'settings' });
+                });
+            })();
 
             // Toggle recording
             window.toggleRecording = async function() {
@@ -3741,37 +3785,6 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 updateSendButton();
             }
 
-            window.sendToTerminal = function() {
-                const text = document.getElementById('transcriptionText').value;
-
-                if (!window.voiceTabState.selectedTerminal) {
-                    showStatus('⚠️ Please select a terminal', 'error');
-                    return;
-                }
-
-                if (!text.trim()) {
-                    showStatus('⚠️ Nothing to send', 'error');
-                    return;
-                }
-
-                vscode.postMessage({
-                    type: 'sendToTerminal',
-                    terminalName: window.voiceTabState.selectedTerminal,
-                    text
-                });
-
-                // Clear input box after sending
-                document.getElementById('transcriptionText').value = '';
-                updateSendButton();
-
-                // Clear saved state after sending to terminal
-                const state = vscode.getState() || {};
-                state.voiceTextContent = '';
-                vscode.setState(state);
-
-                showStatus('📤 Sent to ' + window.voiceTabState.selectedTerminal + ' ✓', 'info');
-            };
-
             // UI-002 & SKILLS-002: Insert skill invocation with parameters from settings
             window.insertSkill = function(skillCommand) {
                 const textarea = document.getElementById('transcriptionText');
@@ -3827,16 +3840,6 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 vscode.setState(state);
             };
 
-            window.clearText = function() {
-                document.getElementById('transcriptionText').value = '';
-                updateSendButton();
-
-                // Clear saved state when manually clearing text
-                const state = vscode.getState() || {};
-                state.voiceTextContent = '';
-                vscode.setState(state);
-            };
-
             // UI-003: Secondary toolbar functions
             window.reportBug = function() {
                 vscode.postMessage({
@@ -3855,6 +3858,376 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             window.manageSkills = function() {
                 // TODO: Open skills management panel
                 showStatus('📦 Skills Management coming soon!', 'info');
+            };
+
+            // SLIDE-DOWN-003: Toggle configuration panel for Code Analyzer or Sprint Planner
+            // Chain of Thought: Shows/hides config panel with smooth animation
+            // WHY: User requested inline configuration that generates prompts
+            // REASONING: Toggle panel visibility, load config form, handle save → prompt generation
+            window.toggleConfigPanel = function(panelType) {
+                const container = document.getElementById('configPanelContainer');
+                if (!container) return;
+
+                // If clicking same panel, close it
+                if (container.dataset.activePanel === panelType && container.classList.contains('open')) {
+                    container.classList.remove('open');
+                    container.style.display = 'none';
+                    delete container.dataset.activePanel;
+                    return;
+                }
+
+                // Load panel content based on type
+                if (panelType === 'code-analyzer') {
+                    container.innerHTML = window.getCodeAnalyzerPanel();
+                } else if (panelType === 'sprint-planner') {
+                    container.innerHTML = window.getSprintPlannerPanel();
+                }
+
+                // Show panel with animation
+                container.dataset.activePanel = panelType;
+                container.style.display = 'block';
+                // Force reflow for animation
+                container.offsetHeight;
+                container.classList.add('open');
+
+                // CONFIG-PANEL-001: Attach event listeners to dynamically added panel buttons
+                // Chain of Thought: Panel HTML is dynamically inserted, need to attach listeners after insertion
+                // WHY: Buttons don't exist until panel is opened, must attach listeners each time
+                // REASONING: Use setTimeout to ensure DOM is updated before attaching listeners
+                setTimeout(() => {
+                    if (panelType === 'code-analyzer') {
+                        const closeBtn = document.getElementById('closeCodeAnalyzerPanel');
+                        const cancelBtn = document.getElementById('cancelCodeAnalyzer');
+                        const generateBtn = document.getElementById('generateCodeAnalyzerPrompt');
+
+                        if (closeBtn) closeBtn.addEventListener('click', () => window.toggleConfigPanel(panelType));
+                        if (cancelBtn) cancelBtn.addEventListener('click', () => window.toggleConfigPanel(panelType));
+                        if (generateBtn) generateBtn.addEventListener('click', () => window.generateCodeAnalyzerPrompt());
+                    } else if (panelType === 'sprint-planner') {
+                        const closeBtn = document.getElementById('closeSprintPlannerPanel');
+                        const cancelBtn = document.getElementById('cancelSprintPlanner');
+                        const generateBtn = document.getElementById('generateSprintPrompt');
+
+                        if (closeBtn) closeBtn.addEventListener('click', () => window.toggleConfigPanel(panelType));
+                        if (cancelBtn) cancelBtn.addEventListener('click', () => window.toggleConfigPanel(panelType));
+                        if (generateBtn) generateBtn.addEventListener('click', () => window.generateSprintPlannerPrompt());
+                    }
+                }, 0);
+            };
+
+            // CONFIG-PANEL-002: Generate prompt from Code Analyzer configuration
+            // Chain of Thought: Collect form values → generate natural language prompt → insert into textarea
+            // WHY: User configures settings, we generate a reviewable/editable prompt
+            // REASONING: Natural language prompts are easier to modify than config UI
+            window.generateCodeAnalyzerPrompt = function() {
+                // Collect all form values
+                const goals = document.getElementById('analyzerGoals').value.trim();
+                const depth = document.getElementById('analyzerDepth').value;
+                const output = document.getElementById('analyzerOutput').value;
+                const exclusions = document.getElementById('analyzerExclusions').value.trim();
+
+                // Collect checked focus areas
+                const focusAreas = [];
+                ['bugs', 'features', 'debt', 'tests', 'docs', 'security', 'performance'].forEach(area => {
+                    if (document.getElementById('focus-' + area)?.checked) {
+                        focusAreas.push(area);
+                    }
+                });
+
+                // Map focus areas to readable names
+                const focusNames = {
+                    'bugs': 'bugs',
+                    'features': 'features',
+                    'debt': 'technical debt',
+                    'tests': 'missing tests',
+                    'docs': 'documentation',
+                    'security': 'security vulnerabilities',
+                    'performance': 'performance issues'
+                };
+
+                // Generate natural language prompt
+                let prompt = 'Analyze the codebase';
+
+                if (focusAreas.length > 0) {
+                    const focusText = focusAreas.map(a => focusNames[a]).join(', ');
+                    prompt += ' focusing on ' + focusText;
+                }
+
+                prompt += '.';
+
+                if (goals) {
+                    const goalsList = goals.split('\\n').filter(g => g.trim()).join(', ');
+                    prompt += ' Goals: ' + goalsList + '.';
+                }
+
+                const depthText = {
+                    'quick': 'quick (surface-level)',
+                    'standard': 'standard (thorough)',
+                    'deep': 'deep (comprehensive)'
+                };
+                prompt += ' Use ' + (depthText[depth] || 'standard') + ' analysis';
+
+                const outputText = {
+                    'sprint-toml': 'Sprint TOML (ÆtherLight format)',
+                    'markdown': 'Markdown report',
+                    'github-issues': 'GitHub Issues JSON',
+                    'csv': 'CSV export'
+                };
+                prompt += ' and output as ' + (outputText[output] || 'Sprint TOML') + '.';
+
+                if (exclusions) {
+                    const exclusionsList = exclusions.split('\\n').filter(e => e.trim()).join(', ');
+                    prompt += ' Exclude: ' + exclusionsList + '.';
+                }
+
+                // Save settings to state for next time
+                const state = vscode.getState() || {};
+                state.sprintSettings = state.sprintSettings || {};
+                state.sprintSettings.analyzerGoals = goals;
+                state.sprintSettings.focusAreas = focusAreas;
+                state.sprintSettings.analyzerDepth = depth;
+                state.sprintSettings.analyzerOutput = output;
+                state.sprintSettings.analyzerExclusions = exclusions;
+                vscode.setState(state);
+
+                // Insert prompt into text area
+                const textarea = document.getElementById('transcriptionText');
+                if (textarea) {
+                    textarea.value = prompt;
+                    textarea.focus();
+                    autoResizeTextarea(); // Resize textarea for new content
+                    updateSendButton(); // Enable send button
+
+                    // Save to state
+                    state.voiceTextContent = prompt;
+                    vscode.setState(state);
+                }
+
+                // Close panel
+                window.toggleConfigPanel('code-analyzer');
+
+                showStatus('📋 Prompt generated! Review and send to terminal.', 'info');
+            };
+
+            // CONFIG-PANEL-003: Generate prompt from Sprint Planner configuration
+            // Chain of Thought: Collect form values → generate natural language prompt → insert into textarea
+            // WHY: User configures settings, we generate a reviewable/editable prompt
+            // REASONING: Natural language prompts are easier to modify than config UI
+            window.generateSprintPlannerPrompt = function() {
+                // Collect all form values
+                const teamSize = document.getElementById('teamSize').value;
+                const structure = document.getElementById('sprintStructure').value;
+                const sprintType = document.getElementById('sprintType').value;
+                const docFormat = document.getElementById('docFormat').value;
+
+                // Map values to readable names
+                const structureNames = {
+                    'phases': 'phases',
+                    'epics': 'epics',
+                    'user-stories': 'user stories',
+                    'sprints': 'sprints',
+                    'kanban': 'kanban',
+                    'milestones': 'milestones'
+                };
+
+                const typeNames = {
+                    'feature': 'feature development',
+                    'bugfix': 'bug fixes',
+                    'research': 'research and design',
+                    'refactor': 'refactoring',
+                    'mixed': 'mixed (features + bugs)',
+                    'maintenance': 'maintenance'
+                };
+
+                const formatNames = {
+                    'toml': 'TOML',
+                    'markdown': 'Markdown',
+                    'json': 'JSON',
+                    'yaml': 'YAML',
+                    'xml': 'XML'
+                };
+
+                // Generate natural language prompt
+                let prompt = 'Create a sprint plan for a team of ' + teamSize + ' developer' + (teamSize > 1 ? 's' : '');
+                prompt += ' using ' + (structureNames[structure] || 'phases') + ' terminology.';
+                prompt += ' Focus on ' + (typeNames[sprintType] || 'feature development') + ' work.';
+                prompt += ' Output as ' + (formatNames[docFormat] || 'TOML') + ' format.';
+
+                // Save settings to state for next time
+                const state = vscode.getState() || {};
+                state.sprintSettings = state.sprintSettings || {};
+                state.sprintSettings.teamSize = parseInt(teamSize);
+                state.sprintSettings.sprintStructure = structure;
+                state.sprintSettings.sprintType = sprintType;
+                state.sprintSettings.docFormat = docFormat;
+                vscode.setState(state);
+
+                // Insert prompt into text area
+                const textarea = document.getElementById('transcriptionText');
+                if (textarea) {
+                    textarea.value = prompt;
+                    textarea.focus();
+                    autoResizeTextarea(); // Resize textarea for new content
+                    updateSendButton(); // Enable send button
+
+                    // Save to state
+                    state.voiceTextContent = prompt;
+                    vscode.setState(state);
+                }
+
+                // Close panel
+                window.toggleConfigPanel('sprint-planner');
+
+                showStatus('📋 Prompt generated! Review and send to terminal.', 'info');
+            };
+
+            // Full panel generators with actual configuration forms
+            window.getCodeAnalyzerPanel = function() {
+                // Load saved settings
+                const state = vscode.getState() || {};
+                const settings = state.sprintSettings || {};
+
+                return \`
+                    <div class="config-panel-header">
+                        <h3>🔍 Code Analyzer Configuration</h3>
+                        <button id="closeCodeAnalyzerPanel" class="config-panel-close">×</button>
+                    </div>
+                    <div class="config-panel-body">
+                        <div class="settings-group">
+                            <label for="analyzerGoals">Analysis Goals</label>
+                            <textarea id="analyzerGoals" class="settings-textarea" rows="3" placeholder="e.g., Identify technical debt, Find missing tests, Review security vulnerabilities">\${settings.analyzerGoals || ''}</textarea>
+                            <span class="settings-hint">Define what you want to analyze (one per line or comma-separated)</span>
+                        </div>
+
+                        <div class="settings-group">
+                            <label>Focus Areas</label>
+                            <div class="settings-checkboxes">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="focus-bugs" value="bugs" \${(settings.focusAreas || ['bugs', 'features']).includes('bugs') ? 'checked' : ''}>
+                                    <span>🐛 Bugs</span>
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="focus-features" value="features" \${(settings.focusAreas || ['bugs', 'features']).includes('features') ? 'checked' : ''}>
+                                    <span>✨ Features</span>
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="focus-debt" value="debt" \${(settings.focusAreas || []).includes('debt') ? 'checked' : ''}>
+                                    <span>⚠️ Technical Debt</span>
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="focus-tests" value="tests" \${(settings.focusAreas || []).includes('tests') ? 'checked' : ''}>
+                                    <span>🧪 Tests</span>
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="focus-docs" value="docs" \${(settings.focusAreas || []).includes('docs') ? 'checked' : ''}>
+                                    <span>📚 Documentation</span>
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="focus-security" value="security" \${(settings.focusAreas || []).includes('security') ? 'checked' : ''}>
+                                    <span>🔒 Security</span>
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="focus-performance" value="performance" \${(settings.focusAreas || []).includes('performance') ? 'checked' : ''}>
+                                    <span>⚡ Performance</span>
+                                </label>
+                            </div>
+                            <span class="settings-hint">Select areas to focus analysis on</span>
+                        </div>
+
+                        <div class="settings-group">
+                            <label for="analyzerDepth">Analysis Depth</label>
+                            <select id="analyzerDepth" class="settings-select">
+                                <option value="quick" \${settings.analyzerDepth === 'quick' ? 'selected' : ''}>Quick (5 min - surface level)</option>
+                                <option value="standard" \${!settings.analyzerDepth || settings.analyzerDepth === 'standard' ? 'selected' : ''}>Standard (15 min - thorough)</option>
+                                <option value="deep" \${settings.analyzerDepth === 'deep' ? 'selected' : ''}>Deep (30+ min - comprehensive)</option>
+                            </select>
+                            <span class="settings-hint">Deeper analysis takes longer but finds more issues</span>
+                        </div>
+
+                        <div class="settings-group">
+                            <label for="analyzerOutput">Output Format</label>
+                            <select id="analyzerOutput" class="settings-select">
+                                <option value="sprint-toml" \${!settings.analyzerOutput || settings.analyzerOutput === 'sprint-toml' ? 'selected' : ''}>Sprint TOML (ÆtherLight format)</option>
+                                <option value="markdown" \${settings.analyzerOutput === 'markdown' ? 'selected' : ''}>Markdown Report</option>
+                                <option value="github-issues" \${settings.analyzerOutput === 'github-issues' ? 'selected' : ''}>GitHub Issues JSON</option>
+                                <option value="csv" \${settings.analyzerOutput === 'csv' ? 'selected' : ''}>CSV Export</option>
+                            </select>
+                            <span class="settings-hint">How analysis results should be formatted</span>
+                        </div>
+
+                        <div class="settings-group">
+                            <label for="analyzerExclusions">Exclusions (paths to skip)</label>
+                            <textarea id="analyzerExclusions" class="settings-textarea" rows="2" placeholder="e.g., node_modules/, dist/, *.test.ts">\${settings.analyzerExclusions || ''}</textarea>
+                            <span class="settings-hint">Files/folders to exclude from analysis (one per line)</span>
+                        </div>
+                    </div>
+                    <div class="config-panel-actions">
+                        <button id="generateCodeAnalyzerPrompt" class="settings-button primary">📋 Generate Prompt</button>
+                        <button id="cancelCodeAnalyzer" class="settings-button">Cancel</button>
+                    </div>
+                \`;
+            };
+
+            window.getSprintPlannerPanel = function() {
+                // Load saved settings
+                const state = vscode.getState() || {};
+                const settings = state.sprintSettings || {};
+
+                return \`
+                    <div class="config-panel-header">
+                        <h3>📋 Sprint Planner Configuration</h3>
+                        <button id="closeSprintPlannerPanel" class="config-panel-close">×</button>
+                    </div>
+                    <div class="config-panel-body">
+                        <div class="settings-group">
+                            <label for="teamSize">Team Size</label>
+                            <input type="number" id="teamSize" min="1" max="999" value="\${settings.teamSize || 1}" class="settings-input">
+                            <span class="settings-hint">Number of engineers (1-999, no artificial limit)</span>
+                        </div>
+
+                        <div class="settings-group">
+                            <label for="sprintStructure">Structure Terminology</label>
+                            <select id="sprintStructure" class="settings-select">
+                                <option value="phases" \${!settings.sprintStructure || settings.sprintStructure === 'phases' ? 'selected' : ''}>Phases (ÆtherLight default)</option>
+                                <option value="epics" \${settings.sprintStructure === 'epics' ? 'selected' : ''}>Epics</option>
+                                <option value="user-stories" \${settings.sprintStructure === 'user-stories' ? 'selected' : ''}>User Stories</option>
+                                <option value="sprints" \${settings.sprintStructure === 'sprints' ? 'selected' : ''}>Sprints</option>
+                                <option value="kanban" \${settings.sprintStructure === 'kanban' ? 'selected' : ''}>Kanban</option>
+                                <option value="milestones" \${settings.sprintStructure === 'milestones' ? 'selected' : ''}>Milestones</option>
+                            </select>
+                            <span class="settings-hint">Choose terminology that matches your workflow</span>
+                        </div>
+
+                        <div class="settings-group">
+                            <label for="sprintType">Sprint Type</label>
+                            <select id="sprintType" class="settings-select">
+                                <option value="feature" \${!settings.sprintType || settings.sprintType === 'feature' ? 'selected' : ''}>Feature Development</option>
+                                <option value="bugfix" \${settings.sprintType === 'bugfix' ? 'selected' : ''}>Bug Fix Sprint</option>
+                                <option value="research" \${settings.sprintType === 'research' ? 'selected' : ''}>Research & Design</option>
+                                <option value="refactor" \${settings.sprintType === 'refactor' ? 'selected' : ''}>Refactoring</option>
+                                <option value="mixed" \${settings.sprintType === 'mixed' ? 'selected' : ''}>Mixed (Feature + Bugs)</option>
+                                <option value="maintenance" \${settings.sprintType === 'maintenance' ? 'selected' : ''}>Maintenance</option>
+                            </select>
+                            <span class="settings-hint">Type of work for sprint planning context</span>
+                        </div>
+
+                        <div class="settings-group">
+                            <label for="docFormat">Documentation Format</label>
+                            <select id="docFormat" class="settings-select">
+                                <option value="toml" \${!settings.docFormat || settings.docFormat === 'toml' ? 'selected' : ''}>TOML (ÆtherLight default)</option>
+                                <option value="markdown" \${settings.docFormat === 'markdown' ? 'selected' : ''}>Markdown</option>
+                                <option value="json" \${settings.docFormat === 'json' ? 'selected' : ''}>JSON</option>
+                                <option value="yaml" \${settings.docFormat === 'yaml' ? 'selected' : ''}>YAML</option>
+                                <option value="xml" \${settings.docFormat === 'xml' ? 'selected' : ''}>XML</option>
+                            </select>
+                            <span class="settings-hint">Sprint plan output format</span>
+                        </div>
+                    </div>
+                    <div class="config-panel-actions">
+                        <button id="generateSprintPrompt" class="settings-button primary">📋 Generate Prompt</button>
+                        <button id="cancelSprintPlanner" class="settings-button">Cancel</button>
+                    </div>
+                \`;
             };
 
             // Support Ctrl+Enter to send
@@ -4147,8 +4520,8 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             </div>
 
             <div class="settings-actions">
-                <button onclick="saveGlobalSettings()" class="settings-button primary">💾 Save Settings</button>
-                <button onclick="resetGlobalSettings()" class="settings-button">↩️ Reset to Defaults</button>
+                <button id="saveGlobalSettings" class="settings-button primary">💾 Save Settings</button>
+                <button id="resetGlobalSettings" class="settings-button">↩️ Reset to Defaults</button>
             </div>
 
             <div class="settings-footer">
@@ -4245,6 +4618,13 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
                     window.saveGlobalSettings();
                 };
+
+                // CSP-FIX-004: Attach event listeners to Settings tab buttons
+                const saveBtn = document.getElementById('saveGlobalSettings');
+                const resetBtn = document.getElementById('resetGlobalSettings');
+
+                if (saveBtn) saveBtn.addEventListener('click', () => window.saveGlobalSettings());
+                if (resetBtn) resetBtn.addEventListener('click', () => window.resetGlobalSettings());
             })();
         </script>
         `;
@@ -4276,23 +4656,24 @@ function getVoicePanelBodyContent(): string {
     <div id="statusMessage"></div>
 
     <!-- UI-002: Primary icon toolbar (6 icons, 32px height) -->
+    <!-- CSP-FIX: Removed onclick handlers, using event listeners instead to comply with Trusted Types -->
     <div class="icon-bar primary-toolbar">
-        <button id="recordBtn" class="icon-button" onclick="toggleRecording()" title="🎤 Record - Click or hit Backtick (\`)">
+        <button id="recordBtn" class="icon-button" title="🎤 Record - Click or hit Backtick (\`)">
             <span class="icon">🎤</span>
         </button>
-        <button id="codeAnalyzerBtn" class="icon-button" onclick="insertSkill('/code-analyzer')" title="🔍 Code Analyzer - Analyze codebase structure">
+        <button id="codeAnalyzerBtn" class="icon-button" title="🔍 Code Analyzer - Configure and analyze codebase">
             <span class="icon">🔍</span>
         </button>
-        <button id="sprintPlannerBtn" class="icon-button" onclick="insertSkill('/sprint-planner')" title="📋 Sprint Planner - Generate sprint plans">
+        <button id="sprintPlannerBtn" class="icon-button" title="📋 Sprint Planner - Configure and generate sprint plans">
             <span class="icon">📋</span>
         </button>
-        <button id="enhanceBtn" class="icon-button" onclick="enhanceText()" disabled title="✨ Enhance with Patterns - Coming Soon">
+        <button id="enhanceBtn" class="icon-button" disabled title="✨ Enhance with Patterns - Coming Soon">
             <span class="icon">✨</span>
         </button>
-        <button id="sendBtn" class="icon-button primary" onclick="sendToTerminal()" disabled title="📤 Send to Terminal - Ctrl+Enter">
+        <button id="sendBtn" class="icon-button primary" disabled title="📤 Send to Terminal - Ctrl+Enter">
             <span class="icon">📤</span>
         </button>
-        <button class="icon-button" onclick="clearText()" title="🗑️ Clear Transcription">
+        <button id="clearBtn" class="icon-button" title="🗑️ Clear Transcription">
             <span class="icon">🗑️</span>
         </button>
     </div>
@@ -4312,19 +4693,29 @@ function getVoicePanelBodyContent(): string {
     </div>
 
     <!-- UI-003: Secondary icon toolbar (4 icons, 28px height, bottom placement) -->
+    <!-- CSP-FIX: Removed onclick handlers, using event listeners instead -->
     <div class="icon-bar secondary-toolbar">
-        <button class="icon-button-small" onclick="reportBug()" title="🐛 Report Bug">
+        <button id="reportBugBtn" class="icon-button-small" title="🐛 Report Bug">
             <span class="icon">🐛</span>
         </button>
-        <button class="icon-button-small" onclick="requestFeature()" title="🔧 Request Feature">
+        <button id="requestFeatureBtn" class="icon-button-small" title="🔧 Request Feature">
             <span class="icon">🔧</span>
         </button>
-        <button class="icon-button-small" onclick="manageSkills()" title="📦 Skill Management">
+        <button id="manageSkillsBtn" class="icon-button-small" title="📦 Skill Management">
             <span class="icon">📦</span>
         </button>
-        <button class="icon-button-small" onclick="switchTab('settings')" title="⚙️ Settings">
+        <button id="settingsBtn" class="icon-button-small" title="⚙️ Settings">
             <span class="icon">⚙️</span>
         </button>
+    </div>
+
+    <!-- SLIDE-DOWN-001: Configuration panel container -->
+    <!-- Chain of Thought: Slide-down panels for Code Analyzer and Sprint Planner -->
+    <!-- WHY: User requested configs appear below toolbar in Voice tab, not in separate tabs -->
+    <!-- REASONING: Allows inline configuration that generates prompts directly into text area -->
+    <!-- PATTERN: Collapsible panels for contextual configuration -->
+    <div id="configPanelContainer" class="config-panel-container" style="display: none;">
+        <!-- Dynamic content for Code Analyzer or Sprint Planner configuration -->
     </div>
 
     <div class="keyboard-hints">

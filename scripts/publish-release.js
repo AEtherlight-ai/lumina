@@ -338,7 +338,6 @@ Then reload VS Code to see the update.
 
   // Find desktop app installers
   const desktopFiles = [];
-  const vscodeLuminaPath = path.join(process.cwd(), 'vscode-lumina');
   const exeFile = path.join(vscodeLuminaPath, 'Lumina_0.1.0_x64-setup.exe');
   const msiFile = path.join(vscodeLuminaPath, 'Lumina_0.1.0_x64_en-US.msi');
 
