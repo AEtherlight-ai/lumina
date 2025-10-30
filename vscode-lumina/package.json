@@ -2,7 +2,7 @@
   "name": "aetherlight",
   "displayName": "ÆtherLight",
   "description": "Voice-to-intelligence platform for developers. Capture voice, match patterns, prevent AI hallucinations.",
-  "version": "0.13.28",
+  "version": "0.13.29",
   "publisher": "aetherlight",
   "repository": {
     "type": "git",
@@ -582,12 +582,12 @@
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile",
     "test": "node ./out/test/runTest.js",
-    "package": "npm run compile && vsce package",
+    "package": "npm run compile && vsce package --no-dependencies",
     "postinstall": "node -e \"console.log('\\n✅ ÆtherLight installed!\\n\\nNext step: Run \\\"aetherlight\\\" to install VS Code extension + Desktop app\\n')\""
   },
   "dependencies": {
-    "aetherlight-analyzer": "^0.13.28",
-    "aetherlight-node": "^0.13.28",
+    "aetherlight-analyzer": "^0.13.29",
+    "aetherlight-node": "^0.13.29",
     "@iarna/toml": "^2.2.5",
     "form-data": "^4.0.4",
     "node-fetch": "^2.7.0",

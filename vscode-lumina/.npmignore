@@ -1,0 +1,30 @@
+# Exclude all .vsix files from npm package
+# These are large binary files that should only be distributed via GitHub releases
+*.vsix
+
+# Desktop app installers (also distributed via GitHub releases)
+*.exe
+*.msi
+
+# Development files
+.vscode/
+.vscode-test/
+src/
+*.ts
+!*.d.ts
+tsconfig.json
+*.map
+
+# Test files
+test/
+tests/
+**/*.test.js
+**/*.test.ts
+
+# Git files
+.git/
+.gitignore
+
+# Editor files
+.DS_Store
+Thumbs.db
