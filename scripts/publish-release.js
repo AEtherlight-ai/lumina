@@ -267,19 +267,58 @@ async function main() {
     process.exit(0);
   }
 
-  // Step 9: Publish to npm
+  // Step 9: Publish to npm (ALL packages)
   log('\n📋 Step 9: Publish to npm', 'yellow');
-  exec('npm publish --access public', path.join(process.cwd(), 'vscode-lumina'));
-  log('✓ Published to npm registry', 'green');
 
-  // Step 10: Verify npm publication
-  log('\n📋 Step 10: Verify npm publication', 'yellow');
-  const publishedVersion = execSilent('npm view aetherlight version');
-  if (publishedVersion === newVersion) {
-    log(`✓ Verified on npm: v${publishedVersion}`, 'green');
-  } else {
-    log(`⚠ Version mismatch: expected ${newVersion}, got ${publishedVersion}`, 'yellow');
-    log('⚠ npm might need a few seconds to update', 'yellow');
+  // CRITICAL: Must publish sub-packages BEFORE main package
+  // WHY: Main package depends on sub-packages, so sub-packages must exist first
+  // LESSON LEARNED: v0.13.29 failed because sub-packages weren't published
+  // Result: Users couldn't install - "No matching version found for aetherlight-analyzer@^0.13.29"
+
+  const packagesToPublish = [
+    { name: 'aetherlight-analyzer', path: 'packages/aetherlight-analyzer' },
+    { name: 'aetherlight-sdk', path: 'packages/aetherlight-sdk' },
+    { name: 'aetherlight-node', path: 'packages/aetherlight-node' },
+    { name: 'aetherlight', path: 'vscode-lumina' } // Main package LAST
+  ];
+
+  for (const pkg of packagesToPublish) {
+    log(`  Publishing ${pkg.name}...`, 'blue');
+    exec('npm publish --access public', path.join(process.cwd(), pkg.path));
+    log(`  ✓ ${pkg.name} published`, 'green');
+  }
+
+  log('✓ All packages published to npm registry', 'green');
+
+  // Step 10: Verify ALL npm publications
+  log('\n📋 Step 10: Verify npm publications', 'yellow');
+
+  const packagesToVerify = [
+    'aetherlight-analyzer',
+    'aetherlight-sdk',
+    'aetherlight-node',
+    'aetherlight'
+  ];
+
+  let allVerified = true;
+  for (const pkgName of packagesToVerify) {
+    const publishedVersion = execSilent(`npm view ${pkgName} version`);
+    if (publishedVersion === newVersion) {
+      log(`  ✓ ${pkgName}: v${publishedVersion}`, 'green');
+    } else {
+      log(`  ✗ ${pkgName}: expected ${newVersion}, got ${publishedVersion}`, 'red');
+      allVerified = false;
+    }
+  }
+
+  if (!allVerified) {
+    log('\n⚠ WARNING: Some packages failed verification', 'red');
+    log('Users will NOT be able to install until all packages are published!', 'red');
+    const proceed = await confirmAction('\nContinue anyway? (yes/no): ');
+    if (!proceed) {
+      log('\n✗ Publish cancelled', 'red');
+      process.exit(1);
+    }
   }
 
   // Step 11: Commit and tag

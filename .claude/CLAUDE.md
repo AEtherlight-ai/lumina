@@ -157,6 +157,39 @@ lumina-clean/
 3. Verifies the .vsix exists in the release after creation
 4. All checks happen BEFORE "Release Complete!" message
 
+### Issue: Sub-packages not published, breaking user installs (v0.13.29)
+**Status:** FIXED in publish script
+**Time to Fix:** 2 hours
+**Severity:** CRITICAL - No users could install or update to v0.13.29
+**Cause:** Publish script only published main package (`vscode-lumina`), not sub-packages
+**Impact:** Users saw "No matching version found for aetherlight-analyzer@^0.13.29" when trying to install
+**Why This Happened:**
+- Main package (`aetherlight@0.13.29`) depends on:
+  - `aetherlight-analyzer@^0.13.29`
+  - `aetherlight-sdk@^0.13.29`
+  - `aetherlight-node@^0.13.29`
+- Publish script only ran `npm publish` in `vscode-lumina` directory
+- Sub-packages stayed at 0.13.28 on npm
+- npm couldn't resolve dependencies → install failed
+**User Experience:**
+- Update notification appeared in Cursor ✅
+- User clicked "Install and Reload" ✅
+- `npm install -g aetherlight@latest` ran ❌ FAILED
+- Extension stayed at 0.13.27 (no update)
+- No error shown to user (silent failure)
+**Root Cause:** Monorepo with multiple npm packages, but only publishing one
+**Fix:** Updated publish script to publish ALL packages in order
+**Files:**
+- `scripts/publish-release.js:270-322` - Now publishes all 4 packages
+- Published in order: analyzer → sdk → node → main (dependencies first)
+- Verifies ALL packages after publishing
+- Fails loudly if any package verification fails
+**Prevention:**
+1. Publish sub-packages BEFORE main package (dependency order)
+2. Verify each package exists on npm at correct version
+3. Don't continue if verification fails
+4. Clear error messages if any package is missing
+
 ### Issue: Extension fails to activate - Cannot find module @nut-tree-fork/nut-js (v0.13.22-0.13.23)
 **Status:** FIXED in v0.13.24
 **Time to Fix:** 9 hours
