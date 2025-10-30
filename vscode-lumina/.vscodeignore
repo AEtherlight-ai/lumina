@@ -16,3 +16,6 @@ node_modules/@vscode/vsce/**
 node_modules/typescript/**
 # Exclude local package symlinks (vsce can't handle them)
 ../packages/**
+node_modules/aetherlight-sdk/**
+node_modules/aetherlight-analyzer/**
+node_modules/aetherlight-node/**
