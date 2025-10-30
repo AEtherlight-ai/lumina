@@ -8,6 +8,7 @@ import { recordVoiceWithWebview } from './voiceRecorder';
 import { IPCClient } from '../ipc/client';
 import { AutoTerminalSelector } from './AutoTerminalSelector';
 import { checkAndSetupUserDocumentation } from '../firstRunSetup';
+import { PromptEnhancer } from '../services/PromptEnhancer';
 
 /**
  * DESIGN DECISION: Tabbed sidebar webview with 6 tabs managed by TabManager
@@ -34,6 +35,7 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
     private _view?: vscode.WebviewView;
     private tabManager: TabManager; // A-002: Tab state management
     private sprintLoader: SprintLoader;
+    private promptEnhancer: PromptEnhancer; // ENHANCE-001: AI-powered prompt enhancement
     private autoTerminalSelector: AutoTerminalSelector; // B-003: Intelligent terminal selection
     private sprintTasks: SprintTask[] = [];
     private selectedTaskId: string | null = null;
@@ -57,6 +59,9 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
         // Initialize SprintLoader
         this.sprintLoader = new SprintLoader(_context);
 
+        // ENHANCE-001: Initialize PromptEnhancer for AI-powered prompt generation
+        this.promptEnhancer = new PromptEnhancer(_context);
+
         /**
          * B-003: Initialize AutoTerminalSelector for intelligent terminal selection
          * REASONING: Monitor command execution, auto-select next waiting terminal
@@ -75,8 +80,20 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             }
         });
 
-        // Load sprint tasks
-        this.loadSprintTasks();
+        // BUG-002 FIX: Load sprint tasks asynchronously and refresh webview when done
+        // Chain of Thought: Constructor can't be async, but we need tasks loaded before first render
+        // REASONING: Load tasks immediately, then send postMessage to update webview once loaded
+        // WHY: Prevents "undefined" task display bug (tasks array was empty on first render)
+        this.loadSprintTasks().then(() => {
+            // Refresh webview if it's already been resolved
+            if (this._view) {
+                this._view.webview.postMessage({
+                    type: 'updateTabContent',
+                    tab: 'sprint',
+                    content: this.getSprintTabContent()
+                });
+            }
+        });
 
         // Setup file watcher for automatic sprint refresh
         this.setupSprintFileWatcher();
@@ -1092,6 +1109,53 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 vscode.env.openExternal(vscode.Uri.parse(message.url));
                 break;
 
+            case 'enhancePrompt':
+                // ENHANCE-002: Enhance user's natural language intent into comprehensive prompt
+                // Chain of Thought: User provides intent → PromptEnhancer analyzes + enhances → send back to webview
+                // WHY: Users know what they want but may not know how to structure it for AI
+                // REASONING: Combine user intent + codebase context + SOPs = expert-level prompt
+                try {
+                    const { userIntent, promptType } = message;
+
+                    if (!userIntent || !userIntent.trim()) {
+                        webview.postMessage({
+                            type: 'enhancementError',
+                            error: 'Please describe what you want to analyze or plan.'
+                        });
+                        return;
+                    }
+
+                    // Show status in webview
+                    webview.postMessage({
+                        type: 'enhancementStarted'
+                    });
+
+                    // Enhance the prompt
+                    const result = await this.promptEnhancer.enhancePrompt(userIntent, promptType);
+
+                    // Send enhanced prompt back to webview
+                    webview.postMessage({
+                        type: 'enhancementComplete',
+                        prompt: result.prompt,
+                        confidence: result.confidence,
+                        warnings: result.warnings
+                    });
+
+                    // Save user intent for next time
+                    const stateKey = promptType === 'code-analyzer'
+                        ? 'lastCodeAnalyzerIntent'
+                        : 'lastSprintPlannerIntent';
+                    await this._context.workspaceState.update(`aetherlight.${stateKey}`, userIntent);
+
+                } catch (error) {
+                    console.error('[ÆtherLight] Prompt enhancement failed:', error);
+                    webview.postMessage({
+                        type: 'enhancementError',
+                        error: error instanceof Error ? error.message : 'Failed to enhance prompt'
+                    });
+                }
+                break;
+
             case 'saveSettings':
                 // SETTINGS-001: Save sprint planning settings to workspace state
                 await this._context.workspaceState.update('aetherlight.sprintSettings', message.settings);
@@ -1255,10 +1319,13 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                         }
                     });
 
-                    // Update content area
+                    // Update content area (CSP-safe with DOMParser)
                     const contentArea = document.querySelector('.tab-content');
                     if (contentArea) {
-                        contentArea.innerHTML = message.content;
+                        // CSP-FIX: Use DOMParser instead of innerHTML
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(message.content, 'text/html');
+                        contentArea.replaceChildren(...doc.body.childNodes);
                         contentArea.classList.add('active');
                     }
 
@@ -1272,10 +1339,16 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                     break;
 
                 case 'updateTaskDetail':
-                    // Update just the detail panel without full page refresh
+                    // Update just the detail panel without full page refresh (CSP-safe)
                     const detailPanel = document.querySelector('.task-detail-panel');
                     if (detailPanel) {
-                        detailPanel.outerHTML = message.detailHtml;
+                        // CSP-FIX: Use DOMParser instead of outerHTML
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(message.detailHtml, 'text/html');
+                        const newPanel = doc.body.firstElementChild;
+                        if (newPanel) {
+                            detailPanel.replaceWith(newPanel);
+                        }
                     }
 
                     // Update selected state on task items
@@ -1289,11 +1362,14 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                     break;
 
                 case 'updateSprintFileList':
-                    // Update dropdown with discovered sprint files
+                    // Update dropdown with discovered sprint files (CSP-safe)
                     const dropdown = document.getElementById('sprint-file-dropdown');
                     if (dropdown && message.sprintFiles) {
                         const currentValue = dropdown.value;
-                        dropdown.innerHTML = '';
+                        // CSP-FIX: Clear children without innerHTML
+                        while (dropdown.firstChild) {
+                            dropdown.removeChild(dropdown.firstChild);
+                        }
 
                         message.sprintFiles.forEach(filePath => {
                             const option = document.createElement('option');
@@ -1305,6 +1381,85 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
                         console.log('[ÆtherLight] Updated sprint file list:', message.sprintFiles);
                     }
+                    break;
+
+                case 'enhancementStarted':
+                    // Show enhancement in progress
+                    const statusDiv = document.getElementById('enhancementStatus');
+                    if (statusDiv) {
+                        statusDiv.style.display = 'flex';
+                    }
+                    break;
+
+                case 'enhancementComplete':
+                    // ENHANCE-002: Insert enhanced prompt into textarea
+                    // Chain of Thought: PromptEnhancer generated comprehensive prompt → insert + close panel
+                    // WHY: User can review/edit before sending
+                    const textarea = document.getElementById('transcriptionText');
+                    if (textarea) {
+                        textarea.value = message.prompt;
+                        textarea.focus();
+                        if (window.autoResizeTextarea) window.autoResizeTextarea();
+                        if (window.updateSendButton) window.updateSendButton();
+
+                        // Save to state
+                        const state = vscode.getState() || {};
+                        state.voiceTextContent = textarea.value;
+                        vscode.setState(state);
+                    }
+
+                    // Close config panel
+                    if (window.toggleConfigPanel) {
+                        window.toggleConfigPanel('code-analyzer'); // or 'sprint-planner'
+                    }
+
+                    // Hide enhancement status
+                    const statusDiv2 = document.getElementById('enhancementStatus');
+                    if (statusDiv2) {
+                        statusDiv2.style.display = 'none';
+                    }
+
+                    // Re-enable button
+                    const generateBtn = document.getElementById('generateCodeAnalyzerPrompt')
+                        || document.getElementById('generateSprintPrompt');
+                    if (generateBtn) {
+                        generateBtn.disabled = false;
+                        generateBtn.textContent = generateBtn.id === 'generateCodeAnalyzerPrompt'
+                            ? '✨ Enhance & Generate Prompt'
+                            : '✨ Enhance & Generate Prompt';
+                    }
+
+                    // Show confidence and warnings if any
+                    let statusMessage = '✨ Enhanced prompt generated!';
+                    if (message.confidence === 'medium') {
+                        statusMessage += ' (Medium confidence - some context missing)';
+                    } else if (message.confidence === 'low') {
+                        statusMessage += ' (Low confidence - limited context available)';
+                    }
+                    if (message.warnings && message.warnings.length > 0) {
+                        statusMessage += ' Warnings: ' + message.warnings.join(', ');
+                    }
+                    showStatus(statusMessage, 'info');
+                    break;
+
+                case 'enhancementError':
+                    // Hide enhancement status
+                    const statusDiv3 = document.getElementById('enhancementStatus');
+                    if (statusDiv3) {
+                        statusDiv3.style.display = 'none';
+                    }
+
+                    // Re-enable button
+                    const generateBtn2 = document.getElementById('generateCodeAnalyzerPrompt')
+                        || document.getElementById('generateSprintPrompt');
+                    if (generateBtn2) {
+                        generateBtn2.disabled = false;
+                        generateBtn2.textContent = generateBtn2.id === 'generateCodeAnalyzerPrompt'
+                            ? '✨ Enhance & Generate Prompt'
+                            : '✨ Enhance & Generate Prompt';
+                    }
+
+                    showStatus('❌ Enhancement failed: ' + message.error, 'error');
                     break;
 
                 case 'terminalList':
@@ -1525,24 +1680,7 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             box-shadow: 0 0 0 1px var(--vscode-focusBorder);
         }
 
-        /* B-002: Pencil edit icon */
-        .terminal-edit-icon {
-            opacity: 0;
-            font-size: 12px;
-            cursor: pointer;
-            padding: 2px 4px;
-            border-radius: 2px;
-            transition: opacity 0.2s, background-color 0.2s;
-        }
-
-        .terminal-item:hover .terminal-edit-icon {
-            opacity: 0.6;
-        }
-
-        .terminal-edit-icon:hover {
-            opacity: 1 !important;
-            background-color: rgba(255, 255, 255, 0.1);
-        }
+        /* BUG-010: Removed terminal-edit-icon styles (pencil icon removed) */
 
         /* B-003: Executing terminal indicator */
         .terminal-executing-icon {
@@ -2154,22 +2292,8 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 </div>
             </div>
 
-            <!-- CONFIG-CONSOLIDATION: Configuration moved to Voice tab slide-down panels -->
-            <!-- WHY: Single source of configuration improves UX and generates prompts -->
-            <!-- REASONING: Voice tab panels allow inline configuration → prompt generation → send to terminal -->
-            <div class="sprint-config-redirect">
-                <div class="info-box">
-                    <h3>⚙️ Configuration</h3>
-                    <p>Sprint Planning and Code Analyzer configuration has been moved to the <strong>Voice tab</strong> for a better workflow.</p>
-                    <p>Click the 🔍 <strong>Code Analyzer</strong> or 📋 <strong>Sprint Planner</strong> buttons in the Voice tab to:</p>
-                    <ul>
-                        <li>Configure your settings</li>
-                        <li>Generate a natural language prompt</li>
-                        <li>Send to terminal to execute</li>
-                    </ul>
-                    <p><em>This allows you to review and edit prompts before execution.</em></p>
-                </div>
-            </div>
+            <!-- CONFIG-CONSOLIDATION: Configuration section removed per user request -->
+            <!-- Sprint tab should focus on sprint management, not configuration -->
 
             <div class="sprint-file-selector">
                 <label for="sprint-file-dropdown">Sprint File:</label>
@@ -2702,34 +2826,7 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             font-size: 16px;
         }
 
-        .sprint-config-redirect {
-            margin: 16px 0 24px 0;
-        }
-
-        .info-box {
-            background-color: var(--vscode-textBlockQuote-background);
-            border-left: 4px solid var(--vscode-textLink-foreground);
-            border-radius: 4px;
-            padding: 16px;
-            color: var(--vscode-foreground);
-        }
-
-        .info-box h3 {
-            margin: 0 0 12px 0;
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--vscode-textLink-foreground);
-        }
-
-        .info-box p {
-            margin: 8px 0;
-            line-height: 1.5;
-        }
-
-        .info-box ul {
-            margin: 12px 0;
-            padding-left: 20px;
-        }
+        /* Removed sprint-config-redirect and info-box styles - no longer needed */
 
         .info-box li {
             margin: 4px 0;
@@ -3594,10 +3691,18 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 const list = document.getElementById('terminalList');
                 if (!list) return;
 
-                list.innerHTML = '';
+                // CSP-FIX: Clear children without innerHTML
+                while (list.firstChild) {
+                    list.removeChild(list.firstChild);
+                }
 
                 if (terminals.length === 0) {
-                    list.innerHTML = '<div style="padding: 8px; color: var(--vscode-descriptionForeground);">No terminals open</div>';
+                    // CSP-FIX: Create element instead of innerHTML
+                    const emptyMsg = document.createElement('div');
+                    emptyMsg.style.padding = '8px';
+                    emptyMsg.style.color = 'var(--vscode-descriptionForeground)';
+                    emptyMsg.textContent = 'No terminals open';
+                    list.appendChild(emptyMsg);
                     return;
                 }
 
@@ -3608,87 +3713,34 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                     item.dataset.terminalName = terminal.name; // Display name
                     item.dataset.actualName = terminal.actualName || terminal.name; // B-004: Actual VS Code terminal name
 
-                    // B-002: Compact terminal list with checkmark and pencil icon
-                    // B-003: Add ⏳ icon for executing terminals
-                    item.innerHTML = \`
-                        <span class="terminal-checkmark">✓</span>
-                        <span class="terminal-name">\${terminal.name}</span>
-                        \${terminal.isExecuting ? '<span class="terminal-executing-icon" title="Command executing">⏳</span>' : ''}
-                        <span class="terminal-edit-icon" title="Rename terminal">✏️</span>
-                    \`;
+                    // CSP-FIX: Build DOM structure instead of innerHTML
+                    const checkmark = document.createElement('span');
+                    checkmark.className = 'terminal-checkmark';
+                    checkmark.textContent = '✓';
 
-                    // Click on terminal name to select
-                    const terminalNameSpan = item.querySelector('.terminal-name');
-                    terminalNameSpan.addEventListener('click', () => {
+                    const nameSpan = document.createElement('span');
+                    nameSpan.className = 'terminal-name';
+                    nameSpan.textContent = terminal.name;
+
+                    item.appendChild(checkmark);
+                    item.appendChild(nameSpan);
+
+                    if (terminal.isExecuting) {
+                        const execIcon = document.createElement('span');
+                        execIcon.className = 'terminal-executing-icon';
+                        execIcon.title = 'Command executing';
+                        execIcon.textContent = '⏳';
+                        item.appendChild(execIcon);
+                    }
+
+                    // BUG-010: Removed pencil icon and rename functionality
+                    // WHY: VS Code API doesn't support programmatic terminal renaming
+                    // REASONING: Feature only updated Voice Panel list, not actual VS Code terminal tab
+                    // Users confirmed feature was pointless - custom names not visible where they matter
+
+                    // Click to select terminal
+                    item.addEventListener('click', () => {
                         selectTerminal(terminal.name);
-                    });
-
-                    // Click to select (anywhere except edit icon)
-                    item.addEventListener('click', (e) => {
-                        if (!e.target.classList.contains('terminal-edit-icon')) {
-                            selectTerminal(terminal.name);
-                        }
-                    });
-
-                    // B-004: Click pencil icon to enable inline rename
-                    const editIcon = item.querySelector('.terminal-edit-icon');
-                    editIcon.addEventListener('click', (e) => {
-                        e.stopPropagation();
-
-                        // Convert terminal name to editable input
-                        const terminalNameSpan = item.querySelector('.terminal-name');
-                        const originalName = terminal.name; // Display name
-                        const actualName = terminal.actualName || terminal.name; // B-004: Actual terminal name for rename operation
-
-                        // Create input element
-                        const input = document.createElement('input');
-                        input.type = 'text';
-                        input.className = 'terminal-name-input';
-                        input.value = originalName;
-
-                        // Replace span with input
-                        terminalNameSpan.replaceWith(input);
-                        input.focus();
-                        input.select();
-
-                        // Handle Enter key to confirm rename
-                        input.addEventListener('keydown', (e) => {
-                            if (e.key === 'Enter') {
-                                e.preventDefault();
-                                const newName = input.value.trim();
-
-                                if (newName && newName !== originalName) {
-                                    // B-004: Send rename request using actualName (not display name)
-                                    vscode.postMessage({
-                                        type: 'renameTerminal',
-                                        oldName: actualName, // Use actual VS Code terminal name
-                                        newName: newName
-                                    });
-                                }
-
-                                // Restore span (will be updated by terminal list refresh)
-                                const span = document.createElement('span');
-                                span.className = 'terminal-name';
-                                span.textContent = newName || originalName;
-                                input.replaceWith(span);
-                            } else if (e.key === 'Escape') {
-                                // Cancel rename - restore original span
-                                e.preventDefault();
-                                const span = document.createElement('span');
-                                span.className = 'terminal-name';
-                                span.textContent = originalName;
-                                input.replaceWith(span);
-                            }
-                        });
-
-                        // Handle blur (click outside) - cancel rename
-                        input.addEventListener('blur', () => {
-                            // Restore original span
-                            const span = document.createElement('span');
-                            span.className = 'terminal-name';
-                            span.textContent = originalName;
-                            input.replaceWith(span);
-                        });
                     });
 
                     // Keyboard navigation
@@ -3877,11 +3929,17 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 }
 
                 // Load panel content based on type
+                // CSP-FIX: Use DOMParser instead of innerHTML
+                let panelHtml = '';
                 if (panelType === 'code-analyzer') {
-                    container.innerHTML = window.getCodeAnalyzerPanel();
+                    panelHtml = window.getCodeAnalyzerPanel();
                 } else if (panelType === 'sprint-planner') {
-                    container.innerHTML = window.getSprintPlannerPanel();
+                    panelHtml = window.getSprintPlannerPanel();
                 }
+
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(panelHtml, 'text/html');
+                container.replaceChildren(...doc.body.childNodes);
 
                 // Show panel with animation
                 container.dataset.activePanel = panelType;
@@ -3915,316 +3973,182 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 }, 0);
             };
 
-            // CONFIG-PANEL-002: Generate prompt from Code Analyzer configuration
-            // Chain of Thought: Collect form values → generate natural language prompt → insert into textarea
-            // WHY: User configures settings, we generate a reviewable/editable prompt
-            // REASONING: Natural language prompts are easier to modify than config UI
+            // ENHANCE-002: Generate enhanced prompt from natural language intent
+            // Chain of Thought: User types intent → send to extension → PromptEnhancer analyzes → insert result
+            // WHY: AI-powered enhancement provides codebase context + SOPs automatically
+            // REASONING: User describes goal → system generates expert-level prompt with full context
             window.generateCodeAnalyzerPrompt = function() {
-                // Collect all form values
-                const goals = document.getElementById('analyzerGoals').value.trim();
-                const depth = document.getElementById('analyzerDepth').value;
-                const output = document.getElementById('analyzerOutput').value;
-                const exclusions = document.getElementById('analyzerExclusions').value.trim();
+                const intentTextarea = document.getElementById('codeAnalyzerIntent');
+                if (!intentTextarea) return;
 
-                // Collect checked focus areas
-                const focusAreas = [];
-                ['bugs', 'features', 'debt', 'tests', 'docs', 'security', 'performance'].forEach(area => {
-                    if (document.getElementById('focus-' + area)?.checked) {
-                        focusAreas.push(area);
-                    }
+                const userIntent = intentTextarea.value.trim();
+
+                if (!userIntent) {
+                    showStatus('⚠️ Please describe what you want to analyze.', 'warning');
+                    intentTextarea.focus();
+                    return;
+                }
+
+                // Show enhancement status
+                const statusDiv = document.getElementById('enhancementStatus');
+                if (statusDiv) {
+                    statusDiv.style.display = 'flex';
+                }
+
+                // Disable button during enhancement
+                const generateBtn = document.getElementById('generateCodeAnalyzerPrompt');
+                if (generateBtn) {
+                    generateBtn.disabled = true;
+                    generateBtn.textContent = '⏳ Enhancing...';
+                }
+
+                // Send to extension for enhancement
+                vscode.postMessage({
+                    type: 'enhancePrompt',
+                    userIntent,
+                    promptType: 'code-analyzer'
                 });
-
-                // Map focus areas to readable names
-                const focusNames = {
-                    'bugs': 'bugs',
-                    'features': 'features',
-                    'debt': 'technical debt',
-                    'tests': 'missing tests',
-                    'docs': 'documentation',
-                    'security': 'security vulnerabilities',
-                    'performance': 'performance issues'
-                };
-
-                // Generate natural language prompt
-                let prompt = 'Analyze the codebase';
-
-                if (focusAreas.length > 0) {
-                    const focusText = focusAreas.map(a => focusNames[a]).join(', ');
-                    prompt += ' focusing on ' + focusText;
-                }
-
-                prompt += '.';
-
-                if (goals) {
-                    const goalsList = goals.split('\\n').filter(g => g.trim()).join(', ');
-                    prompt += ' Goals: ' + goalsList + '.';
-                }
-
-                const depthText = {
-                    'quick': 'quick (surface-level)',
-                    'standard': 'standard (thorough)',
-                    'deep': 'deep (comprehensive)'
-                };
-                prompt += ' Use ' + (depthText[depth] || 'standard') + ' analysis';
-
-                const outputText = {
-                    'sprint-toml': 'Sprint TOML (ÆtherLight format)',
-                    'markdown': 'Markdown report',
-                    'github-issues': 'GitHub Issues JSON',
-                    'csv': 'CSV export'
-                };
-                prompt += ' and output as ' + (outputText[output] || 'Sprint TOML') + '.';
-
-                if (exclusions) {
-                    const exclusionsList = exclusions.split('\\n').filter(e => e.trim()).join(', ');
-                    prompt += ' Exclude: ' + exclusionsList + '.';
-                }
-
-                // Save settings to state for next time
-                const state = vscode.getState() || {};
-                state.sprintSettings = state.sprintSettings || {};
-                state.sprintSettings.analyzerGoals = goals;
-                state.sprintSettings.focusAreas = focusAreas;
-                state.sprintSettings.analyzerDepth = depth;
-                state.sprintSettings.analyzerOutput = output;
-                state.sprintSettings.analyzerExclusions = exclusions;
-                vscode.setState(state);
-
-                // Insert prompt into text area
-                const textarea = document.getElementById('transcriptionText');
-                if (textarea) {
-                    textarea.value = prompt;
-                    textarea.focus();
-                    autoResizeTextarea(); // Resize textarea for new content
-                    updateSendButton(); // Enable send button
-
-                    // Save to state
-                    state.voiceTextContent = prompt;
-                    vscode.setState(state);
-                }
-
-                // Close panel
-                window.toggleConfigPanel('code-analyzer');
-
-                showStatus('📋 Prompt generated! Review and send to terminal.', 'info');
             };
 
-            // CONFIG-PANEL-003: Generate prompt from Sprint Planner configuration
-            // Chain of Thought: Collect form values → generate natural language prompt → insert into textarea
-            // WHY: User configures settings, we generate a reviewable/editable prompt
-            // REASONING: Natural language prompts are easier to modify than config UI
+            // ENHANCE-003: Generate enhanced prompt from natural language intent (Sprint Planner)
+            // Chain of Thought: User types intent → send to extension → PromptEnhancer analyzes → insert result
+            // WHY: AI-powered enhancement provides codebase context + SOPs automatically
+            // REASONING: User describes goal → system generates expert-level sprint plan prompt
             window.generateSprintPlannerPrompt = function() {
-                // Collect all form values
-                const teamSize = document.getElementById('teamSize').value;
-                const structure = document.getElementById('sprintStructure').value;
-                const sprintType = document.getElementById('sprintType').value;
-                const docFormat = document.getElementById('docFormat').value;
+                const intentTextarea = document.getElementById('sprintPlannerIntent');
+                if (!intentTextarea) return;
 
-                // Map values to readable names
-                const structureNames = {
-                    'phases': 'phases',
-                    'epics': 'epics',
-                    'user-stories': 'user stories',
-                    'sprints': 'sprints',
-                    'kanban': 'kanban',
-                    'milestones': 'milestones'
-                };
+                const userIntent = intentTextarea.value.trim();
 
-                const typeNames = {
-                    'feature': 'feature development',
-                    'bugfix': 'bug fixes',
-                    'research': 'research and design',
-                    'refactor': 'refactoring',
-                    'mixed': 'mixed (features + bugs)',
-                    'maintenance': 'maintenance'
-                };
-
-                const formatNames = {
-                    'toml': 'TOML',
-                    'markdown': 'Markdown',
-                    'json': 'JSON',
-                    'yaml': 'YAML',
-                    'xml': 'XML'
-                };
-
-                // Generate natural language prompt
-                let prompt = 'Create a sprint plan for a team of ' + teamSize + ' developer' + (teamSize > 1 ? 's' : '');
-                prompt += ' using ' + (structureNames[structure] || 'phases') + ' terminology.';
-                prompt += ' Focus on ' + (typeNames[sprintType] || 'feature development') + ' work.';
-                prompt += ' Output as ' + (formatNames[docFormat] || 'TOML') + ' format.';
-
-                // Save settings to state for next time
-                const state = vscode.getState() || {};
-                state.sprintSettings = state.sprintSettings || {};
-                state.sprintSettings.teamSize = parseInt(teamSize);
-                state.sprintSettings.sprintStructure = structure;
-                state.sprintSettings.sprintType = sprintType;
-                state.sprintSettings.docFormat = docFormat;
-                vscode.setState(state);
-
-                // Insert prompt into text area
-                const textarea = document.getElementById('transcriptionText');
-                if (textarea) {
-                    textarea.value = prompt;
-                    textarea.focus();
-                    autoResizeTextarea(); // Resize textarea for new content
-                    updateSendButton(); // Enable send button
-
-                    // Save to state
-                    state.voiceTextContent = prompt;
-                    vscode.setState(state);
+                if (!userIntent) {
+                    showStatus('⚠️ Please describe the sprint you want to plan.', 'warning');
+                    intentTextarea.focus();
+                    return;
                 }
 
-                // Close panel
-                window.toggleConfigPanel('sprint-planner');
+                // Show enhancement status
+                const statusDiv = document.getElementById('enhancementStatus');
+                if (statusDiv) {
+                    statusDiv.style.display = 'flex';
+                }
 
-                showStatus('📋 Prompt generated! Review and send to terminal.', 'info');
+                // Disable button during enhancement
+                const generateBtn = document.getElementById('generateSprintPrompt');
+                if (generateBtn) {
+                    generateBtn.disabled = true;
+                    generateBtn.textContent = '⏳ Enhancing...';
+                }
+
+                // Send to extension for enhancement
+                vscode.postMessage({
+                    type: 'enhancePrompt',
+                    userIntent,
+                    promptType: 'sprint-planner'
+                });
             };
 
             // Full panel generators with actual configuration forms
+            // ENHANCE-002: Code Analyzer with deep prompt enhancement
+            // Chain of Thought: Replace complex dropdowns with natural language input
+            // WHY: Users know what they want but don't know how to structure it for AI
+            // REASONING: User types intent → system enhances with codebase context + SOPs
             window.getCodeAnalyzerPanel = function() {
-                // Load saved settings
                 const state = vscode.getState() || {};
-                const settings = state.sprintSettings || {};
+                const lastIntent = state.lastCodeAnalyzerIntent || '';
 
                 return \`
                     <div class="config-panel-header">
-                        <h3>🔍 Code Analyzer Configuration</h3>
+                        <h3>🔍 Code Analyzer</h3>
                         <button id="closeCodeAnalyzerPanel" class="config-panel-close">×</button>
                     </div>
                     <div class="config-panel-body">
                         <div class="settings-group">
-                            <label for="analyzerGoals">Analysis Goals</label>
-                            <textarea id="analyzerGoals" class="settings-textarea" rows="3" placeholder="e.g., Identify technical debt, Find missing tests, Review security vulnerabilities">\${settings.analyzerGoals || ''}</textarea>
-                            <span class="settings-hint">Define what you want to analyze (one per line or comma-separated)</span>
+                            <label for="codeAnalyzerIntent">What would you like to analyze?</label>
+                            <textarea
+                                id="codeAnalyzerIntent"
+                                class="settings-textarea enhanced-textarea"
+                                rows="8"
+                                placeholder="Describe your analysis goal in natural language...
+
+Examples:
+• I want to identify all technical debt in the authentication system
+• Find security vulnerabilities in API endpoints
+• Review error handling across the codebase
+• Analyze performance bottlenecks in data processing
+• Check for missing unit tests in critical modules
+
+Be specific about what you want to understand or improve.">\${lastIntent}</textarea>
+                            <span class="settings-hint">
+                                💡 <strong>AI-Enhanced Prompt</strong>: Your description will be analyzed and enhanced with:
+                                <ul style="margin: 8px 0 0 0; padding-left: 20px; font-size: 11px;">
+                                    <li>Codebase structure and patterns</li>
+                                    <li>Relevant ÆtherLight SOPs</li>
+                                    <li>Project-specific instructions</li>
+                                    <li>Success criteria and validation steps</li>
+                                </ul>
+                            </span>
                         </div>
 
-                        <div class="settings-group">
-                            <label>Focus Areas</label>
-                            <div class="settings-checkboxes">
-                                <label class="checkbox-label">
-                                    <input type="checkbox" id="focus-bugs" value="bugs" \${(settings.focusAreas || ['bugs', 'features']).includes('bugs') ? 'checked' : ''}>
-                                    <span>🐛 Bugs</span>
-                                </label>
-                                <label class="checkbox-label">
-                                    <input type="checkbox" id="focus-features" value="features" \${(settings.focusAreas || ['bugs', 'features']).includes('features') ? 'checked' : ''}>
-                                    <span>✨ Features</span>
-                                </label>
-                                <label class="checkbox-label">
-                                    <input type="checkbox" id="focus-debt" value="debt" \${(settings.focusAreas || []).includes('debt') ? 'checked' : ''}>
-                                    <span>⚠️ Technical Debt</span>
-                                </label>
-                                <label class="checkbox-label">
-                                    <input type="checkbox" id="focus-tests" value="tests" \${(settings.focusAreas || []).includes('tests') ? 'checked' : ''}>
-                                    <span>🧪 Tests</span>
-                                </label>
-                                <label class="checkbox-label">
-                                    <input type="checkbox" id="focus-docs" value="docs" \${(settings.focusAreas || []).includes('docs') ? 'checked' : ''}>
-                                    <span>📚 Documentation</span>
-                                </label>
-                                <label class="checkbox-label">
-                                    <input type="checkbox" id="focus-security" value="security" \${(settings.focusAreas || []).includes('security') ? 'checked' : ''}>
-                                    <span>🔒 Security</span>
-                                </label>
-                                <label class="checkbox-label">
-                                    <input type="checkbox" id="focus-performance" value="performance" \${(settings.focusAreas || []).includes('performance') ? 'checked' : ''}>
-                                    <span>⚡ Performance</span>
-                                </label>
-                            </div>
-                            <span class="settings-hint">Select areas to focus analysis on</span>
-                        </div>
-
-                        <div class="settings-group">
-                            <label for="analyzerDepth">Analysis Depth</label>
-                            <select id="analyzerDepth" class="settings-select">
-                                <option value="quick" \${settings.analyzerDepth === 'quick' ? 'selected' : ''}>Quick (5 min - surface level)</option>
-                                <option value="standard" \${!settings.analyzerDepth || settings.analyzerDepth === 'standard' ? 'selected' : ''}>Standard (15 min - thorough)</option>
-                                <option value="deep" \${settings.analyzerDepth === 'deep' ? 'selected' : ''}>Deep (30+ min - comprehensive)</option>
-                            </select>
-                            <span class="settings-hint">Deeper analysis takes longer but finds more issues</span>
-                        </div>
-
-                        <div class="settings-group">
-                            <label for="analyzerOutput">Output Format</label>
-                            <select id="analyzerOutput" class="settings-select">
-                                <option value="sprint-toml" \${!settings.analyzerOutput || settings.analyzerOutput === 'sprint-toml' ? 'selected' : ''}>Sprint TOML (ÆtherLight format)</option>
-                                <option value="markdown" \${settings.analyzerOutput === 'markdown' ? 'selected' : ''}>Markdown Report</option>
-                                <option value="github-issues" \${settings.analyzerOutput === 'github-issues' ? 'selected' : ''}>GitHub Issues JSON</option>
-                                <option value="csv" \${settings.analyzerOutput === 'csv' ? 'selected' : ''}>CSV Export</option>
-                            </select>
-                            <span class="settings-hint">How analysis results should be formatted</span>
-                        </div>
-
-                        <div class="settings-group">
-                            <label for="analyzerExclusions">Exclusions (paths to skip)</label>
-                            <textarea id="analyzerExclusions" class="settings-textarea" rows="2" placeholder="e.g., node_modules/, dist/, *.test.ts">\${settings.analyzerExclusions || ''}</textarea>
-                            <span class="settings-hint">Files/folders to exclude from analysis (one per line)</span>
+                        <div id="enhancementStatus" class="enhancement-status" style="display: none;">
+                            <div class="enhancement-spinner"></div>
+                            <span>Enhancing prompt with codebase context...</span>
                         </div>
                     </div>
                     <div class="config-panel-actions">
-                        <button id="generateCodeAnalyzerPrompt" class="settings-button primary">📋 Generate Prompt</button>
+                        <button id="generateCodeAnalyzerPrompt" class="settings-button primary">✨ Enhance & Generate Prompt</button>
                         <button id="cancelCodeAnalyzer" class="settings-button">Cancel</button>
                     </div>
                 \`;
             };
 
+            // ENHANCE-003: Sprint Planner with deep prompt enhancement
+            // Chain of Thought: Replace complex dropdowns with natural language input
+            // WHY: Users know what they want but don't know how to structure it for AI
+            // REASONING: User types intent → system enhances with codebase context + SOPs
             window.getSprintPlannerPanel = function() {
-                // Load saved settings
                 const state = vscode.getState() || {};
-                const settings = state.sprintSettings || {};
+                const lastIntent = state.lastSprintPlannerIntent || '';
 
                 return \`
                     <div class="config-panel-header">
-                        <h3>📋 Sprint Planner Configuration</h3>
+                        <h3>📋 Sprint Planner</h3>
                         <button id="closeSprintPlannerPanel" class="config-panel-close">×</button>
                     </div>
                     <div class="config-panel-body">
                         <div class="settings-group">
-                            <label for="teamSize">Team Size</label>
-                            <input type="number" id="teamSize" min="1" max="999" value="\${settings.teamSize || 1}" class="settings-input">
-                            <span class="settings-hint">Number of engineers (1-999, no artificial limit)</span>
+                            <label for="sprintPlannerIntent">What sprint would you like to plan?</label>
+                            <textarea
+                                id="sprintPlannerIntent"
+                                class="settings-textarea enhanced-textarea"
+                                rows="8"
+                                placeholder="Describe your sprint goal in natural language...
+
+Examples:
+• Plan a sprint to implement user authentication with OAuth
+• Create tasks for refactoring the API layer
+• Build a sprint for adding dark mode to the application
+• Design a maintenance sprint to improve test coverage
+• Plan feature development for real-time notifications
+
+Be specific about features, timeline, and any constraints.">\${lastIntent}</textarea>
+                            <span class="settings-hint">
+                                💡 <strong>AI-Enhanced Prompt</strong>: Your description will be analyzed and enhanced with:
+                                <ul style="margin: 8px 0 0 0; padding-left: 20px; font-size: 11px;">
+                                    <li>Codebase structure and existing patterns</li>
+                                    <li>Relevant ÆtherLight SOPs and hooks</li>
+                                    <li>Project-specific instructions</li>
+                                    <li>Sprint structure and TOML formatting</li>
+                                </ul>
+                            </span>
                         </div>
 
-                        <div class="settings-group">
-                            <label for="sprintStructure">Structure Terminology</label>
-                            <select id="sprintStructure" class="settings-select">
-                                <option value="phases" \${!settings.sprintStructure || settings.sprintStructure === 'phases' ? 'selected' : ''}>Phases (ÆtherLight default)</option>
-                                <option value="epics" \${settings.sprintStructure === 'epics' ? 'selected' : ''}>Epics</option>
-                                <option value="user-stories" \${settings.sprintStructure === 'user-stories' ? 'selected' : ''}>User Stories</option>
-                                <option value="sprints" \${settings.sprintStructure === 'sprints' ? 'selected' : ''}>Sprints</option>
-                                <option value="kanban" \${settings.sprintStructure === 'kanban' ? 'selected' : ''}>Kanban</option>
-                                <option value="milestones" \${settings.sprintStructure === 'milestones' ? 'selected' : ''}>Milestones</option>
-                            </select>
-                            <span class="settings-hint">Choose terminology that matches your workflow</span>
-                        </div>
-
-                        <div class="settings-group">
-                            <label for="sprintType">Sprint Type</label>
-                            <select id="sprintType" class="settings-select">
-                                <option value="feature" \${!settings.sprintType || settings.sprintType === 'feature' ? 'selected' : ''}>Feature Development</option>
-                                <option value="bugfix" \${settings.sprintType === 'bugfix' ? 'selected' : ''}>Bug Fix Sprint</option>
-                                <option value="research" \${settings.sprintType === 'research' ? 'selected' : ''}>Research & Design</option>
-                                <option value="refactor" \${settings.sprintType === 'refactor' ? 'selected' : ''}>Refactoring</option>
-                                <option value="mixed" \${settings.sprintType === 'mixed' ? 'selected' : ''}>Mixed (Feature + Bugs)</option>
-                                <option value="maintenance" \${settings.sprintType === 'maintenance' ? 'selected' : ''}>Maintenance</option>
-                            </select>
-                            <span class="settings-hint">Type of work for sprint planning context</span>
-                        </div>
-
-                        <div class="settings-group">
-                            <label for="docFormat">Documentation Format</label>
-                            <select id="docFormat" class="settings-select">
-                                <option value="toml" \${!settings.docFormat || settings.docFormat === 'toml' ? 'selected' : ''}>TOML (ÆtherLight default)</option>
-                                <option value="markdown" \${settings.docFormat === 'markdown' ? 'selected' : ''}>Markdown</option>
-                                <option value="json" \${settings.docFormat === 'json' ? 'selected' : ''}>JSON</option>
-                                <option value="yaml" \${settings.docFormat === 'yaml' ? 'selected' : ''}>YAML</option>
-                                <option value="xml" \${settings.docFormat === 'xml' ? 'selected' : ''}>XML</option>
-                            </select>
-                            <span class="settings-hint">Sprint plan output format</span>
+                        <div id="enhancementStatus" class="enhancement-status" style="display: none;">
+                            <div class="enhancement-spinner"></div>
+                            <span>Enhancing prompt with codebase context...</span>
                         </div>
                     </div>
                     <div class="config-panel-actions">
-                        <button id="generateSprintPrompt" class="settings-button primary">📋 Generate Prompt</button>
+                        <button id="generateSprintPrompt" class="settings-button primary">✨ Enhance & Generate Prompt</button>
                         <button id="cancelSprintPlanner" class="settings-button">Cancel</button>
                     </div>
                 \`;

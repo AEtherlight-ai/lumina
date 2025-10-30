@@ -14,7 +14,8 @@
       "Bash(npm test:*)",
       "Bash(npm pack:*)",
       "Bash(git add:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\ndocs: Add comprehensive sprint plan for voice enhancement and critical bug fixes\n\nSPRINT OVERVIEW:\n- Fix Sprint tab bugs (undefined tasks, CSP violations, no task details)\n- Implement deep prompt enhancement for Code Analyzer and Sprint Planner\n- Add active phase widget to Voice tab\n\nROOT CAUSE ANALYSIS:\n1. BUG-002 (undefined tasks): loadSprintTasks() not awaited in constructor\n   - Race condition: webview renders before tasks load\n   - Fix: Add loading state + postMessage update\n\n2. BUG-001 (CSP violations): innerHTML assignments blocked\n   - 6 locations violating Content Security Policy\n   - Fix: Use DOMParser + replaceChildren()\n\n3. BUG-003 (no task details): Depends on bugs 1 & 2\n   - Automatically resolves when above fixed\n\nPROMPT ENHANCEMENT VISION:\nUser types natural language intent → System generates expert-level prompt with:\n- Codebase structure analysis\n- Relevant ÆtherLight patterns and SOPs\n- Validation hooks and performance targets  \n- File context and dependencies\n- Success criteria\n\nCurrent prompts are too shallow - system should add intelligence, not just relay user input.\n\nEstimated time: 24 hours across 3 phases\nPriority: CRITICAL - User-blocking bugs + core feature enhancement\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
     ],
     "deny": [],
     "ask": []
