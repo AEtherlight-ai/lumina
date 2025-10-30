@@ -1301,6 +1301,482 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             vscode.postMessage({ type: 'switchSprintFile', sprintPath });
         };
 
+        // GLOBAL-PERSIST-001: Configuration Panel Functions
+        // Chain of Thought: These functions must be at global scope to persist across tab switches
+        // WHY: Tab content updates replace HTML but don't re-run script, so functions defined
+        //      later in the script are lost when tabs switch
+        // REASONING: Define toggleConfigPanel, generate*Prompt, and panel getter functions
+        //            at global scope so they survive content updates
+        // PATTERN: Pattern-PERSIST-001 (Global Function Persistence)
+
+        // Show status message (used by configuration panels)
+        window.showStatus = function(message, type) {
+            const statusEl = document.getElementById('statusMessage');
+            if (statusEl) {
+                statusEl.textContent = message;
+                statusEl.className = 'status-message ' + type;
+                statusEl.style.display = 'block';
+
+                // Auto-hide after 5 seconds
+                setTimeout(() => {
+                    statusEl.style.display = 'none';
+                }, 5000);
+            }
+        };
+
+        // Toggle configuration panel for Code Analyzer or Sprint Planner
+        window.toggleConfigPanel = function(panelType) {
+            const container = document.getElementById('configPanelContainer');
+            if (!container) return;
+
+            // If clicking same panel, close it
+            if (container.dataset.activePanel === panelType && container.classList.contains('open')) {
+                container.classList.remove('open');
+                container.style.display = 'none';
+                delete container.dataset.activePanel;
+                return;
+            }
+
+            // Load panel content based on type
+            let panelHtml = '';
+            if (panelType === 'code-analyzer') {
+                panelHtml = window.getCodeAnalyzerPanel();
+            } else if (panelType === 'sprint-planner') {
+                panelHtml = window.getSprintPlannerPanel();
+            }
+
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(panelHtml, 'text/html');
+            container.replaceChildren(...doc.body.childNodes);
+
+            // Show panel with animation
+            container.dataset.activePanel = panelType;
+            container.style.display = 'block';
+            container.offsetHeight; // Force reflow
+            container.classList.add('open');
+
+            // Attach event listeners to dynamically added panel buttons
+            setTimeout(() => {
+                if (panelType === 'code-analyzer') {
+                    const closeBtn = document.getElementById('closeCodeAnalyzerPanel');
+                    const cancelBtn = document.getElementById('cancelCodeAnalyzer');
+                    const generateBtn = document.getElementById('generateCodeAnalyzerPrompt');
+
+                    if (closeBtn) closeBtn.addEventListener('click', () => window.toggleConfigPanel(panelType));
+                    if (cancelBtn) cancelBtn.addEventListener('click', () => window.toggleConfigPanel(panelType));
+                    if (generateBtn) generateBtn.addEventListener('click', () => window.generateCodeAnalyzerPrompt());
+                } else if (panelType === 'sprint-planner') {
+                    const closeBtn = document.getElementById('closeSprintPlannerPanel');
+                    const cancelBtn = document.getElementById('cancelSprintPlanner');
+                    const generateBtn = document.getElementById('generateSprintPrompt');
+
+                    if (closeBtn) closeBtn.addEventListener('click', () => window.toggleConfigPanel(panelType));
+                    if (cancelBtn) cancelBtn.addEventListener('click', () => window.toggleConfigPanel(panelType));
+                    if (generateBtn) generateBtn.addEventListener('click', () => window.generateSprintPlannerPrompt());
+                }
+            }, 0);
+        };
+
+        // Generate Code Analyzer prompt from user intent + configuration
+        // Chain of Thought: Collect all config values including checkboxes and save to state for persistence
+        window.generateCodeAnalyzerPrompt = function() {
+            const intentTextarea = document.getElementById('codeAnalyzerIntent');
+            if (!intentTextarea) return;
+
+            const userIntent = intentTextarea.value.trim();
+            if (!userIntent) {
+                window.showStatus('⚠️ Please describe what you want to analyze.', 'warning');
+                intentTextarea.focus();
+                return;
+            }
+
+            // Collect Code Analyzer configuration values
+            const goalsTextarea = document.getElementById('analyzerGoals');
+            const depthSelect = document.getElementById('analyzerDepth');
+            const outputSelect = document.getElementById('analyzerOutput');
+            const exclusionsTextarea = document.getElementById('analyzerExclusions');
+
+            // Collect checked focus areas
+            const focusAreas = [];
+            ['bugs', 'features', 'debt', 'tests', 'docs', 'security', 'performance'].forEach(area => {
+                const checkbox = document.getElementById('focus-' + area);
+                if (checkbox && checkbox.checked) {
+                    focusAreas.push(area);
+                }
+            });
+
+            const config = {
+                goals: goalsTextarea ? goalsTextarea.value.trim() : '',
+                focusAreas: focusAreas,
+                depth: depthSelect ? depthSelect.value : 'standard',
+                output: outputSelect ? outputSelect.value : 'sprint-toml',
+                exclusions: exclusionsTextarea ? exclusionsTextarea.value.trim() : ''
+            };
+
+            // Save config to state for persistence
+            const state = vscode.getState() || {};
+            state.sprintSettings = state.sprintSettings || {};
+            state.sprintSettings.analyzerGoals = config.goals;
+            state.sprintSettings.focusAreas = config.focusAreas;
+            state.sprintSettings.analyzerDepth = config.depth;
+            state.sprintSettings.analyzerOutput = config.output;
+            state.sprintSettings.analyzerExclusions = config.exclusions;
+            state.lastCodeAnalyzerIntent = userIntent;
+            vscode.setState(state);
+
+            // Show enhancement status
+            const statusDiv = document.getElementById('enhancementStatus');
+            if (statusDiv) statusDiv.style.display = 'flex';
+
+            // Disable button during enhancement
+            const generateBtn = document.getElementById('generateCodeAnalyzerPrompt');
+            if (generateBtn) {
+                generateBtn.disabled = true;
+                generateBtn.textContent = '⏳ Enhancing...';
+            }
+
+            // Send to extension for enhancement with config
+            vscode.postMessage({
+                type: 'enhancePrompt',
+                userIntent,
+                config,
+                promptType: 'code-analyzer'
+            });
+        };
+
+        // Generate Sprint Planner prompt from user intent + configuration
+        // Chain of Thought: Collect all config values and save to state for persistence
+        window.generateSprintPlannerPrompt = function() {
+            const intentTextarea = document.getElementById('sprintPlannerIntent');
+            if (!intentTextarea) return;
+
+            const userIntent = intentTextarea.value.trim();
+            if (!userIntent) {
+                window.showStatus('⚠️ Please describe the sprint you want to plan.', 'warning');
+                intentTextarea.focus();
+                return;
+            }
+
+            // Collect Sprint Planner configuration values
+            const teamSizeInput = document.getElementById('teamSize');
+            const structureSelect = document.getElementById('sprintStructure');
+            const typeSelect = document.getElementById('sprintType');
+            const formatSelect = document.getElementById('docFormat');
+
+            const config = {
+                teamSize: teamSizeInput ? parseInt(teamSizeInput.value) : 1,
+                structure: structureSelect ? structureSelect.value : 'phases',
+                type: typeSelect ? typeSelect.value : 'feature',
+                format: formatSelect ? formatSelect.value : 'toml'
+            };
+
+            // Save config to state for persistence
+            const state = vscode.getState() || {};
+            state.sprintSettings = state.sprintSettings || {};
+            state.sprintSettings.teamSize = config.teamSize;
+            state.sprintSettings.sprintStructure = config.structure;
+            state.sprintSettings.sprintType = config.type;
+            state.sprintSettings.docFormat = config.format;
+            state.lastSprintPlannerIntent = userIntent;
+            vscode.setState(state);
+
+            // Show enhancement status
+            const statusDiv = document.getElementById('enhancementStatus');
+            if (statusDiv) statusDiv.style.display = 'flex';
+
+            // Disable button during enhancement
+            const generateBtn = document.getElementById('generateSprintPrompt');
+            if (generateBtn) {
+                generateBtn.disabled = true;
+                generateBtn.textContent = '⏳ Enhancing...';
+            }
+
+            // Send to extension for enhancement with config
+            vscode.postMessage({
+                type: 'enhancePrompt',
+                userIntent,
+                config,
+                promptType: 'sprint-planner'
+            });
+        };
+
+        // Get Code Analyzer panel HTML
+        // Chain of Thought: Merged configuration UI + natural language intent
+        // WHY: User wants config checkboxes/dropdowns merged with textarea in single slide-down panel
+        // REASONING: Restore Code Analyzer config (focus areas, depth, output, exclusions) from git history
+        window.getCodeAnalyzerPanel = function() {
+            const state = vscode.getState() || {};
+            const lastIntent = state.lastCodeAnalyzerIntent || '';
+            const savedSettings = state.sprintSettings || {};
+            const focusAreas = savedSettings.focusAreas || ['bugs', 'features'];
+
+            return \`
+                <div class="config-panel-header">
+                    <h3>🔍 Code Analyzer</h3>
+                    <button id="closeCodeAnalyzerPanel" class="config-panel-close">×</button>
+                </div>
+                <div class="config-panel-body">
+                    <div class="settings-group">
+                        <label for="codeAnalyzerIntent">What would you like to analyze?</label>
+                        <textarea
+                            id="codeAnalyzerIntent"
+                            class="settings-textarea enhanced-textarea"
+                            rows="3"
+                            placeholder="Example: 'Find all authentication bugs and security vulnerabilities in the API layer'">\${lastIntent}</textarea>
+                        <span class="settings-hint">💡 Describe your analysis goal - AI will enhance with config below</span>
+                    </div>
+
+                    <div class="settings-group">
+                        <label for="analyzerGoals">Additional Analysis Goals (optional)</label>
+                        <textarea id="analyzerGoals" class="settings-textarea" rows="2" placeholder="e.g., Identify technical debt, Find missing tests, Review security vulnerabilities">\${savedSettings.analyzerGoals || ''}</textarea>
+                        <span class="settings-hint">One per line or comma-separated</span>
+                    </div>
+
+                    <div class="settings-group">
+                        <label>Focus Areas</label>
+                        <div class="settings-checkboxes">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="focus-bugs" value="bugs" \${focusAreas.includes('bugs') ? 'checked' : ''}>
+                                <span>🐛 Bugs</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="focus-features" value="features" \${focusAreas.includes('features') ? 'checked' : ''}>
+                                <span>✨ Features</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="focus-debt" value="debt" \${focusAreas.includes('debt') ? 'checked' : ''}>
+                                <span>⚠️ Technical Debt</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="focus-tests" value="tests" \${focusAreas.includes('tests') ? 'checked' : ''}>
+                                <span>🧪 Tests</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="focus-docs" value="docs" \${focusAreas.includes('docs') ? 'checked' : ''}>
+                                <span>📚 Documentation</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="focus-security" value="security" \${focusAreas.includes('security') ? 'checked' : ''}>
+                                <span>🔒 Security</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="focus-performance" value="performance" \${focusAreas.includes('performance') ? 'checked' : ''}>
+                                <span>⚡ Performance</span>
+                            </label>
+                        </div>
+                        <span class="settings-hint">Select areas to focus analysis on</span>
+                    </div>
+
+                    <div class="settings-group">
+                        <label for="analyzerDepth">Analysis Depth</label>
+                        <select id="analyzerDepth" class="settings-select">
+                            <option value="quick" \${savedSettings.analyzerDepth === 'quick' ? 'selected' : ''}>Quick (5 min - surface level)</option>
+                            <option value="standard" \${savedSettings.analyzerDepth === 'standard' || !savedSettings.analyzerDepth ? 'selected' : ''}>Standard (15 min - thorough)</option>
+                            <option value="deep" \${savedSettings.analyzerDepth === 'deep' ? 'selected' : ''}>Deep (30+ min - comprehensive)</option>
+                        </select>
+                        <span class="settings-hint">Deeper analysis takes longer but finds more issues</span>
+                    </div>
+
+                    <div class="settings-group">
+                        <label for="analyzerOutput">Output Format</label>
+                        <select id="analyzerOutput" class="settings-select">
+                            <option value="sprint-toml" \${savedSettings.analyzerOutput === 'sprint-toml' || !savedSettings.analyzerOutput ? 'selected' : ''}>Sprint TOML (ÆtherLight format)</option>
+                            <option value="markdown" \${savedSettings.analyzerOutput === 'markdown' ? 'selected' : ''}>Markdown Report</option>
+                            <option value="github-issues" \${savedSettings.analyzerOutput === 'github-issues' ? 'selected' : ''}>GitHub Issues JSON</option>
+                            <option value="csv" \${savedSettings.analyzerOutput === 'csv' ? 'selected' : ''}>CSV Export</option>
+                        </select>
+                        <span class="settings-hint">How analysis results should be formatted</span>
+                    </div>
+
+                    <div class="settings-group">
+                        <label for="analyzerExclusions">Exclusions (paths to skip)</label>
+                        <textarea id="analyzerExclusions" class="settings-textarea" rows="2" placeholder="e.g., node_modules/, dist/, *.test.ts">\${savedSettings.analyzerExclusions || ''}</textarea>
+                        <span class="settings-hint">Files/folders to exclude from analysis (one per line)</span>
+                    </div>
+
+                    <div id="enhancementStatus" class="enhancement-status" style="display: none;">
+                        <div class="enhancement-spinner"></div>
+                        <span>Enhancing prompt with codebase context...</span>
+                    </div>
+                </div>
+                <div class="config-panel-actions">
+                    <button id="generateCodeAnalyzerPrompt" class="settings-button primary">✨ Enhance & Generate Prompt</button>
+                    <button id="cancelCodeAnalyzer" class="settings-button">Cancel</button>
+                </div>
+            \`;
+        };
+
+        // Get Sprint Planner panel HTML
+        // Chain of Thought: Merged configuration UI + natural language intent
+        // WHY: User wants config dropdowns merged with textarea in single slide-down panel
+        // REASONING: Restore Sprint Planning config (team size, structure, type, format) from git history
+        window.getSprintPlannerPanel = function() {
+            const state = vscode.getState() || {};
+            const lastIntent = state.lastSprintPlannerIntent || '';
+            const savedSettings = state.sprintSettings || {};
+
+            return \`
+                <div class="config-panel-header">
+                    <h3>📋 Sprint Planner</h3>
+                    <button id="closeSprintPlannerPanel" class="config-panel-close">×</button>
+                </div>
+                <div class="config-panel-body">
+                    <div class="settings-group">
+                        <label for="sprintPlannerIntent">What sprint would you like to plan?</label>
+                        <textarea
+                            id="sprintPlannerIntent"
+                            class="settings-textarea enhanced-textarea"
+                            rows="4"
+                            placeholder="Example: 'Plan a 2-week sprint for fixing authentication bugs and adding OAuth support'">\${lastIntent}</textarea>
+                        <span class="settings-hint">💡 Describe your sprint goal - AI will enhance with config below</span>
+                    </div>
+
+                    <div class="settings-group">
+                        <label for="teamSize">Team Size</label>
+                        <input type="number" id="teamSize" min="1" max="999" value="\${savedSettings.teamSize || 1}" class="settings-input">
+                        <span class="settings-hint">Number of engineers (1-999)</span>
+                    </div>
+
+                    <div class="settings-group">
+                        <label for="sprintStructure">Structure Terminology</label>
+                        <select id="sprintStructure" class="settings-select">
+                            <option value="phases" \${savedSettings.sprintStructure === 'phases' || !savedSettings.sprintStructure ? 'selected' : ''}>Phases (ÆtherLight default)</option>
+                            <option value="epics" \${savedSettings.sprintStructure === 'epics' ? 'selected' : ''}>Epics</option>
+                            <option value="user-stories" \${savedSettings.sprintStructure === 'user-stories' ? 'selected' : ''}>User Stories</option>
+                            <option value="sprints" \${savedSettings.sprintStructure === 'sprints' ? 'selected' : ''}>Sprints</option>
+                            <option value="kanban" \${savedSettings.sprintStructure === 'kanban' ? 'selected' : ''}>Kanban</option>
+                            <option value="milestones" \${savedSettings.sprintStructure === 'milestones' ? 'selected' : ''}>Milestones</option>
+                        </select>
+                        <span class="settings-hint">Choose terminology that matches your workflow</span>
+                    </div>
+
+                    <div class="settings-group">
+                        <label for="sprintType">Sprint Type</label>
+                        <select id="sprintType" class="settings-select">
+                            <option value="feature" \${savedSettings.sprintType === 'feature' || !savedSettings.sprintType ? 'selected' : ''}>Feature Development</option>
+                            <option value="bugfix" \${savedSettings.sprintType === 'bugfix' ? 'selected' : ''}>Bug Fix Sprint</option>
+                            <option value="research" \${savedSettings.sprintType === 'research' ? 'selected' : ''}>Research & Design</option>
+                            <option value="refactor" \${savedSettings.sprintType === 'refactor' ? 'selected' : ''}>Refactoring</option>
+                            <option value="mixed" \${savedSettings.sprintType === 'mixed' ? 'selected' : ''}>Mixed (Feature + Bugs)</option>
+                            <option value="maintenance" \${savedSettings.sprintType === 'maintenance' ? 'selected' : ''}>Maintenance</option>
+                        </select>
+                        <span class="settings-hint">Type of work for sprint planning context</span>
+                    </div>
+
+                    <div class="settings-group">
+                        <label for="docFormat">Documentation Format</label>
+                        <select id="docFormat" class="settings-select">
+                            <option value="toml" \${savedSettings.docFormat === 'toml' || !savedSettings.docFormat ? 'selected' : ''}>TOML (ÆtherLight default)</option>
+                            <option value="markdown" \${savedSettings.docFormat === 'markdown' ? 'selected' : ''}>Markdown</option>
+                            <option value="json" \${savedSettings.docFormat === 'json' ? 'selected' : ''}>JSON</option>
+                            <option value="yaml" \${savedSettings.docFormat === 'yaml' ? 'selected' : ''}>YAML</option>
+                            <option value="xml" \${savedSettings.docFormat === 'xml' ? 'selected' : ''}>XML</option>
+                        </select>
+                        <span class="settings-hint">Sprint plan output format</span>
+                    </div>
+
+                    <div id="enhancementStatus" class="enhancement-status" style="display: none;">
+                        <div class="enhancement-spinner"></div>
+                        <span>Enhancing prompt with codebase context...</span>
+                    </div>
+                </div>
+                <div class="config-panel-actions">
+                    <button id="generateSprintPrompt" class="settings-button primary">✨ Enhance & Generate Prompt</button>
+                    <button id="cancelSprintPlanner" class="settings-button">Cancel</button>
+                </div>
+            \`;
+        };
+
+        // GLOBAL-PERSIST-002: Sprint Tab Event Delegation
+        // Chain of Thought: Event listeners must persist across tab switches
+        // WHY: Sprint tab content gets replaced when switching tabs, losing event listeners
+        // REASONING: Attach to document.body which never gets replaced, use event delegation
+        // PATTERN: Pattern-PERSIST-002 (Global Event Delegation for Tab-Switched Content)
+        document.body.addEventListener('click', function(e) {
+            const target = e.target;
+
+            // Task status icon click (Sprint tab)
+            if (target.classList.contains('task-status-icon')) {
+                e.stopPropagation();
+                const taskItem = target.closest('.task-item');
+                if (taskItem && taskItem.dataset.taskId) {
+                    window.toggleStatus(taskItem.dataset.taskId);
+                }
+                return;
+            }
+
+            // Task item click - select task to show details (Sprint tab)
+            const taskItem = target.classList.contains('task-item') ? target : target.closest('.task-item');
+            if (taskItem && taskItem.dataset.taskId) {
+                window.selectTask(taskItem.dataset.taskId);
+                return;
+            }
+
+            // Status toggle button in detail panel (Sprint tab)
+            const statusBtn = target.classList.contains('status-toggle-btn') ? target : target.closest('.status-toggle-btn');
+            if (statusBtn && statusBtn.dataset.taskId) {
+                window.toggleStatus(statusBtn.dataset.taskId);
+                return;
+            }
+
+            // Sprint header action buttons
+            const actionBtn = target.closest('[data-action]');
+            if (actionBtn) {
+                const action = actionBtn.dataset.action;
+                if (action === 'reloadSprint' && window.reloadSprint) window.reloadSprint();
+                else if (action === 'openSprintSettings' && window.openSprintSettings) window.openSprintSettings();
+                else if (action === 'popOutSprint' && window.popOutSprint) window.popOutSprint();
+                else if (action === 'discoverSprintFiles' && window.discoverSprintFiles) window.discoverSprintFiles();
+                return;
+            }
+
+            // Engineer tab clicks (Sprint tab)
+            const engineerTab = target.closest('[data-engineer-id]');
+            if (engineerTab && engineerTab.dataset.engineerId && window.selectEngineer) {
+                window.selectEngineer(engineerTab.dataset.engineerId);
+                return;
+            }
+
+            // Voice tab button clicks
+            // CRITICAL FIX: Handle Voice tab buttons globally to persist across tab switches
+            if (target.id === 'recordBtn' && window.toggleRecording) {
+                window.toggleRecording();
+                return;
+            }
+            if (target.id === 'codeAnalyzerBtn' && window.toggleConfigPanel) {
+                window.toggleConfigPanel('code-analyzer');
+                return;
+            }
+            if (target.id === 'sprintPlannerBtn' && window.toggleConfigPanel) {
+                window.toggleConfigPanel('sprint-planner');
+                return;
+            }
+            if (target.id === 'enhanceBtn' && window.enhanceText) {
+                window.enhanceText();
+                return;
+            }
+            if (target.id === 'sendBtn' && window.sendToTerminal) {
+                window.sendToTerminal();
+                return;
+            }
+            if (target.id === 'clearBtn' && window.clearText) {
+                window.clearText();
+                return;
+            }
+            if (target.id === 'settingsBtn' && window.openVoiceSettings) {
+                window.openVoiceSettings();
+                return;
+            }
+        });
+
+        // Sprint file dropdown change handler (needs dedicated listener since 'change' event)
+        document.body.addEventListener('change', function(e) {
+            const target = e.target;
+            if (target.id === 'sprint-file-dropdown' && window.switchSprintFile) {
+                window.switchSprintFile(target.value);
+            }
+        });
+
         // Global message listener for ALL tabs (Sprint and Voice)
         window.addEventListener('message', event => {
             const message = event.data;
@@ -2364,81 +2840,9 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
         html += `</div></div>`; // End sprint-content and sprint-panel
 
-        // CSP-FIX-003: Sprint Tab Event Listeners with Event Delegation
-        // Chain of Thought: Sprint tab has many dynamically generated elements with onclick handlers
-        // WHY: CSP blocks inline onclick handlers, must use event listeners
-        // REASONING: Use event delegation on container for dynamic task elements
-        html += `
-        <script>
-            (function() {
-                // Event delegation for task list (dynamic elements)
-                const sprintContent = document.querySelector('.sprint-content');
-                if (sprintContent) {
-                    sprintContent.addEventListener('click', function(e) {
-                        const target = e.target;
-
-                        // Task status icon click
-                        if (target.classList.contains('task-status-icon')) {
-                            e.stopPropagation();
-                            const taskItem = target.closest('.task-item');
-                            if (taskItem) {
-                                const taskId = taskItem.dataset.taskId;
-                                if (taskId) window.toggleStatus(taskId);
-                            }
-                            return;
-                        }
-
-                        // Task item click (select task)
-                        if (target.classList.contains('task-item') || target.closest('.task-item')) {
-                            const taskItem = target.classList.contains('task-item') ? target : target.closest('.task-item');
-                            const taskId = taskItem.dataset.taskId;
-                            if (taskId) window.selectTask(taskId);
-                            return;
-                        }
-
-                        // Status toggle button in detail panel
-                        if (target.classList.contains('status-toggle-btn') || target.closest('.status-toggle-btn')) {
-                            const btn = target.classList.contains('status-toggle-btn') ? target : target.closest('.status-toggle-btn');
-                            const taskId = btn.getAttribute('data-task-id');
-                            if (taskId) window.toggleStatus(taskId);
-                            return;
-                        }
-                    });
-                }
-
-                // Static button event listeners
-                const reloadBtn = document.querySelector('[data-action="reloadSprint"]');
-                const settingsBtn = document.querySelector('[data-action="openSprintSettings"]');
-                const popOutBtn = document.querySelector('[data-action="popOutSprint"]');
-                const discoverBtn = document.querySelector('[data-action="discoverSprintFiles"]');
-                const engineerTabsContainer = document.querySelector('.engineer-tabs');
-
-                if (reloadBtn) reloadBtn.addEventListener('click', () => window.reloadSprint());
-                if (settingsBtn) settingsBtn.addEventListener('click', () => window.openSprintSettings());
-                if (popOutBtn) popOutBtn.addEventListener('click', () => window.popOutSprint());
-                if (discoverBtn) discoverBtn.addEventListener('click', () => window.discoverSprintFiles());
-
-                // Engineer tab clicks
-                if (engineerTabsContainer) {
-                    engineerTabsContainer.addEventListener('click', function(e) {
-                        const tab = e.target.closest('[data-engineer-id]');
-                        if (tab) {
-                            const engineerId = tab.dataset.engineerId;
-                            if (engineerId) window.selectEngineer(engineerId);
-                        }
-                    });
-                }
-
-                // Sprint file dropdown
-                const sprintDropdown = document.getElementById('sprint-file-dropdown');
-                if (sprintDropdown) {
-                    sprintDropdown.addEventListener('change', function(e) {
-                        window.switchSprintFile(e.target.value);
-                    });
-                }
-            })();
-        </script>
-        `;
+        // NOTE: Sprint tab event listeners moved to global scope (GLOBAL-PERSIST-002)
+        // All task clicks, status toggles, and action buttons now handled by document.body event delegation
+        // This ensures event listeners persist across tab switches
 
         return html;
     }
@@ -3421,6 +3825,222 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
         `;
     }
 
+    /**
+     * Extract global configuration panel functions for re-injection
+     * Chain of Thought: These functions need to be available after tab switches
+     * WHY: Tab content replacement loses global functions, causing button failures
+     * PATTERN: Pattern-PERSIST-002 (Global Function Re-injection)
+     */
+    private getGlobalConfigPanelFunctions(): string {
+        return `
+            // Show status message (used by configuration panels)
+            window.showStatus = function(message, type) {
+                const statusEl = document.getElementById('statusMessage');
+                if (statusEl) {
+                    statusEl.textContent = message;
+                    statusEl.className = 'status-' + (type || 'info');
+                    statusEl.style.display = 'block';
+
+                    // Auto-hide after 5 seconds
+                    setTimeout(() => {
+                        if (statusEl.textContent === message) {
+                            statusEl.style.display = 'none';
+                        }
+                    }, 5000);
+                }
+            };
+
+            // Toggle configuration panel for Code Analyzer or Sprint Planner
+            window.toggleConfigPanel = function(panelType) {
+                const container = document.getElementById('configPanelContainer');
+                if (!container) return;
+
+                // If clicking same panel, close it
+                if (container.dataset.activePanel === panelType && container.classList.contains('open')) {
+                    container.classList.remove('open');
+                    container.style.display = 'none';
+                    delete container.dataset.activePanel;
+                    return;
+                }
+
+                // Load panel content based on type
+                let panelHtml = '';
+                if (panelType === 'code-analyzer') {
+                    panelHtml = window.getCodeAnalyzerPanel();
+                } else if (panelType === 'sprint-planner') {
+                    panelHtml = window.getSprintPlannerPanel();
+                }
+
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(panelHtml, 'text/html');
+                container.replaceChildren(...doc.body.childNodes);
+
+                // Show panel with animation
+                container.dataset.activePanel = panelType;
+                container.style.display = 'block';
+                container.offsetHeight; // Force reflow
+                container.classList.add('open');
+
+                // Attach event listeners to dynamically added panel buttons
+                setTimeout(() => {
+                    if (panelType === 'code-analyzer') {
+                        const closeBtn = document.getElementById('closeCodeAnalyzerPanel');
+                        const cancelBtn = document.getElementById('cancelCodeAnalyzer');
+                        const generateBtn = document.getElementById('generateCodeAnalyzerPrompt');
+
+                        if (closeBtn) closeBtn.addEventListener('click', () => window.toggleConfigPanel(panelType));
+                        if (cancelBtn) cancelBtn.addEventListener('click', () => window.toggleConfigPanel(panelType));
+                        if (generateBtn) generateBtn.addEventListener('click', () => window.generateCodeAnalyzerPrompt());
+                    } else if (panelType === 'sprint-planner') {
+                        const closeBtn = document.getElementById('closeSprintPlannerPanel');
+                        const cancelBtn = document.getElementById('cancelSprintPlanner');
+                        const generateBtn = document.getElementById('generateSprintPrompt');
+
+                        if (closeBtn) closeBtn.addEventListener('click', () => window.toggleConfigPanel(panelType));
+                        if (cancelBtn) cancelBtn.addEventListener('click', () => window.toggleConfigPanel(panelType));
+                        if (generateBtn) generateBtn.addEventListener('click', () => window.generateSprintPlannerPrompt());
+                    }
+                }, 0);
+            };
+
+            // Generate Code Analyzer prompt from user intent + configuration
+            window.generateCodeAnalyzerPrompt = function() {
+                const intentTextarea = document.getElementById('analyzerIntent');
+                if (!intentTextarea || !intentTextarea.value.trim()) {
+                    window.showStatus('⚠️ Please describe what you want to analyze', 'warning');
+                    return;
+                }
+
+                // Show enhancement status
+                const statusDiv = document.getElementById('enhancementStatus');
+                if (statusDiv) {
+                    statusDiv.style.display = 'flex';
+                }
+
+                // Disable button
+                const generateBtn = document.getElementById('generateCodeAnalyzerPrompt');
+                if (generateBtn) {
+                    generateBtn.disabled = true;
+                }
+
+                // Send to extension for enhancement
+                vscode.postMessage({
+                    type: 'enhancePrompt',
+                    promptType: 'code-analyzer',
+                    userIntent: intentTextarea.value.trim()
+                });
+
+                window.showStatus('✨ Enhancing with ÆtherLight patterns...', 'info');
+            };
+
+            // Generate Sprint Planner prompt from user intent + configuration
+            window.generateSprintPlannerPrompt = function() {
+                const intentTextarea = document.getElementById('plannerIntent');
+                if (!intentTextarea || !intentTextarea.value.trim()) {
+                    window.showStatus('⚠️ Please describe what you want to plan', 'warning');
+                    return;
+                }
+
+                // Show enhancement status
+                const statusDiv = document.getElementById('enhancementStatus');
+                if (statusDiv) {
+                    statusDiv.style.display = 'flex';
+                }
+
+                // Disable button
+                const generateBtn = document.getElementById('generateSprintPrompt');
+                if (generateBtn) {
+                    generateBtn.disabled = true;
+                }
+
+                // Send to extension for enhancement
+                vscode.postMessage({
+                    type: 'enhancePrompt',
+                    promptType: 'sprint-planner',
+                    userIntent: intentTextarea.value.trim()
+                });
+
+                window.showStatus('✨ Enhancing with ÆtherLight patterns...', 'info');
+            };
+
+            // Get Code Analyzer panel HTML
+            window.getCodeAnalyzerPanel = function() {
+                const state = vscode.getState() || {};
+                const savedIntent = state.analyzerIntent || '';
+
+                return \`
+                    <div class="config-panel-header">
+                        <h3>🔍 Code Analyzer</h3>
+                        <button id="closeCodeAnalyzerPanel" class="config-panel-close">×</button>
+                    </div>
+
+                    <div class="config-panel-body">
+                        <div class="config-section">
+                            <label for="analyzerIntent" class="config-label">What would you like to analyze?</label>
+                            <textarea
+                                id="analyzerIntent"
+                                class="config-textarea"
+                                placeholder="Examples:\n• Review the authentication system for security issues\n• Find all API endpoints and their usage patterns\n• Analyze component dependencies and coupling\n• Check for performance bottlenecks in data processing"
+                                rows="4">\${savedIntent}</textarea>
+                        </div>
+
+                        <div id="enhancementStatus" style="display: none; align-items: center; gap: 10px; margin: 10px 0;">
+                            <div class="spinner"></div>
+                            <span>Enhancing with ÆtherLight patterns...</span>
+                        </div>
+
+                        <div class="config-actions">
+                            <button id="generateCodeAnalyzerPrompt" class="config-button primary">
+                                ✨ Generate Enhanced Prompt
+                            </button>
+                            <button id="cancelCodeAnalyzer" class="config-button secondary">
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                \`;
+            };
+
+            // Get Sprint Planner panel HTML
+            window.getSprintPlannerPanel = function() {
+                const state = vscode.getState() || {};
+                const savedIntent = state.plannerIntent || '';
+
+                return \`
+                    <div class="config-panel-header">
+                        <h3>📋 Sprint Planner</h3>
+                        <button id="closeSprintPlannerPanel" class="config-panel-close">×</button>
+                    </div>
+
+                    <div class="config-panel-body">
+                        <div class="config-section">
+                            <label for="plannerIntent" class="config-label">What would you like to plan?</label>
+                            <textarea
+                                id="plannerIntent"
+                                class="config-textarea"
+                                placeholder="Examples:\n• Create a 2-week sprint for implementing user authentication\n• Plan refactoring of the payment processing module\n• Design sprint for migrating to microservices\n• Build roadmap for mobile app development"
+                                rows="4">\${savedIntent}</textarea>
+                        </div>
+
+                        <div id="enhancementStatus" style="display: none; align-items: center; gap: 10px; margin: 10px 0;">
+                            <div class="spinner"></div>
+                            <span>Enhancing with ÆtherLight patterns...</span>
+                        </div>
+
+                        <div class="config-actions">
+                            <button id="generateSprintPrompt" class="config-button primary">
+                                ✨ Generate Enhanced Prompt
+                            </button>
+                            <button id="cancelSprintPlanner" class="config-button secondary">
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                \`;
+            };
+        `;
+    }
+
     private getVoiceTabScripts(): string {
         return `
             // Recording state stored in window object to survive tab switches and avoid re-declaration
@@ -3432,6 +4052,17 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 isRecording: false,
                 selectedTerminal: null
             };
+
+            // BUG FIX: Check if global config panel functions exist before re-attaching event listeners
+            // Chain of Thought: When tabs switch, HTML is replaced and global functions may be lost
+            // WHY: Global functions defined in main template are not in Voice tab scripts
+            // SOLUTION: Re-define critical functions if they don't exist
+            if (typeof window.toggleConfigPanel === 'undefined') {
+                console.log('[ÆtherLight] Re-defining global config panel functions after tab switch...');
+
+                // Re-define the functions that were lost when tab switched
+                ${this.getGlobalConfigPanelFunctions()}
+            }
 
             /**
              * B-005: Auto-resize textarea from 60px to max 120px
@@ -3909,13 +4540,16 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
             window.manageSkills = function() {
                 // TODO: Open skills management panel
-                showStatus('📦 Skills Management coming soon!', 'info');
+                window.showStatus('📦 Skills Management coming soon!', 'info');
             };
 
-            // SLIDE-DOWN-003: Toggle configuration panel for Code Analyzer or Sprint Planner
-            // Chain of Thought: Shows/hides config panel with smooth animation
-            // WHY: User requested inline configuration that generates prompts
-            // REASONING: Toggle panel visibility, load config form, handle save → prompt generation
+            // NOTE: toggleConfigPanel, generateCodeAnalyzerPrompt, generateSprintPlannerPrompt,
+            // getCodeAnalyzerPanel, getSprintPlannerPanel, and showStatus are defined at global scope
+            // (see GLOBAL-PERSIST-001 earlier in script) to persist across tab switches.
+            // DO NOT redefine them here or they will be lost when tabs switch.
+
+            // REMOVED DUPLICATE DECLARATIONS - Now using global versions defined above
+            /*
             window.toggleConfigPanel = function(panelType) {
                 const container = document.getElementById('configPanelContainer');
                 if (!container) return;
@@ -4153,6 +4787,7 @@ Be specific about features, timeline, and any constraints.">\${lastIntent}</text
                     </div>
                 \`;
             };
+            */
 
             // Support Ctrl+Enter to send
             const mainTextArea = document.getElementById('transcriptionText');
@@ -4186,7 +4821,7 @@ Be specific about features, timeline, and any constraints.">\${lastIntent}</text
                 const text = document.getElementById('transcriptionText').value;
 
                 if (!text.trim()) {
-                    showStatus('⚠️ Nothing to enhance', 'error');
+                    window.showStatus('⚠️ Nothing to enhance', 'error');
                     return;
                 }
 
@@ -4196,22 +4831,10 @@ Be specific about features, timeline, and any constraints.">\${lastIntent}</text
                     text: text
                 });
 
-                showStatus('✨ Enhancing with ÆtherLight patterns...', 'info');
+                window.showStatus('✨ Enhancing with ÆtherLight patterns...', 'info');
             };
 
-            function showStatus(message, type) {
-                const statusEl = document.getElementById('statusMessage');
-                if (statusEl) {
-                    statusEl.textContent = message;
-                    statusEl.className = 'status-message ' + type;
-                    statusEl.style.display = 'block';
-
-                    // Auto-hide after 5 seconds
-                    setTimeout(() => {
-                        statusEl.style.display = 'none';
-                    }, 5000);
-                }
-            }
+            // NOTE: showStatus is now defined at global scope (see GLOBAL-PERSIST-001)
         `;
     }
 
