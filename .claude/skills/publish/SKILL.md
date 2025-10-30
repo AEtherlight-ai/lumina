@@ -25,7 +25,19 @@ Use this skill when the user:
 
 ## How to Use
 
-1. **Ask for version type** (if not specified):
+### Pre-Release Workflow Check
+
+1. **Verify proper Git workflow**:
+   - Should be on `master` branch after PR merge
+   - If not on master, guide user through proper workflow:
+     ```
+     1. Create PR from feature branch
+     2. Get review and merge to master
+     3. Checkout master and pull latest
+     4. Then run publish script
+     ```
+
+2. **Ask for version type** (if not specified):
    ```
    Which version type?
    - patch: Bug fixes (0.13.20 → 0.13.21)
@@ -33,29 +45,29 @@ Use this skill when the user:
    - major: Breaking changes (0.13.20 → 1.0.0)
    ```
 
-2. **Run the automated publishing script**:
+3. **Run the automated publishing script**:
    ```bash
    node scripts/publish-release.js [patch|minor|major]
    ```
 
-3. **Monitor output** - The script will:
+4. **Monitor output** - The script will (IN THIS ORDER):
    - ✓ Verify npm authentication (must be `aelor`)
-   - ✓ Verify GitHub CLI authentication (required)
-   - ✓ Check git working directory is clean
+   - ✓ Verify Git workflow (branch, clean, up-to-date)
+   - ✓ Check GitHub CLI authentication (required)
    - ✓ Bump version across all packages
    - ✓ Compile TypeScript
    - ✓ Verify compiled artifacts exist
    - ✓ Package .vsix extension
-   - ✓ Build desktop app installers (Tauri build - takes ~15 minutes)
-   - ✓ Copy installers to vscode-lumina directory
-   - ✓ Show summary and ask for confirmation
-   - ✓ Publish to npm (with .npmignore excluding binaries)
+   - ✓ Build desktop app installers (if configured)
+   - ✓ Commit version bump
    - ✓ Create git tag
-   - ✓ Push to GitHub
-   - ✓ Create GitHub release with .vsix and installers (CRITICAL - users install from here)
+   - ✓ Push to GitHub (FIRST)
+   - ✓ Create GitHub release with .vsix and installers
    - ✓ Verify GitHub release has all artifacts
+   - ✓ Publish to npm registry (LAST)
+   - ✓ Verify all packages published correctly
 
-4. **Report completion**:
+5. **Report completion**:
    ```
    ✅ Version X.X.X published successfully!
    - npm: https://www.npmjs.com/package/aetherlight
