@@ -154,6 +154,26 @@
       {
         "command": "aetherlight.checkForUpdates",
         "title": "ÆtherLight: Check for Updates"
+      },
+      {
+        "command": "aetherlight.initialize",
+        "title": "ÆtherLight: Initialize Project"
+      },
+      {
+        "command": "aetherlight.sprintPlan",
+        "title": "ÆtherLight: Plan Sprint"
+      },
+      {
+        "command": "aetherlight.codeAnalyze",
+        "title": "ÆtherLight: Analyze Code"
+      },
+      {
+        "command": "aetherlight.publish",
+        "title": "ÆtherLight: Publish Release"
+      },
+      {
+        "command": "aetherlight.executeSkill",
+        "title": "ÆtherLight: Execute Skill"
       }
     ],
     "keybindings": [

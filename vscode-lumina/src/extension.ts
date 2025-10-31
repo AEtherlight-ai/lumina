@@ -44,6 +44,7 @@ import { RealtimeSyncManager } from './realtime_sync';
 // TEMPORARILY DISABLED - Missing @aetherlight/analyzer package
 // import { registerAnalyzeWorkspaceCommands } from './commands/analyzeWorkspace';
 import { UpdateChecker } from './services/updateChecker';
+import { SkillExecutor } from './services/SkillExecutor';
 import * as fs from 'fs';
 
 /**
@@ -725,6 +726,25 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	context.subscriptions.push({
 		dispose: () => updateChecker.stop()
 	});
+
+	/**
+	 * Initialize Skill Executor for running skills
+	 *
+	 * DESIGN DECISION: Skills are markdown-defined workflows that need execution
+	 * WHY: Bridges gap between .claude/skills/ definitions and VS Code commands
+	 *
+	 * REASONING CHAIN:
+	 * 1. Skills defined in .claude/skills/[skill-name]/SKILL.md
+	 * 2. SkillExecutor reads and executes them
+	 * 3. Each skill becomes a VS Code command
+	 * 4. Result: /initialize, /sprint-plan, /code-analyze work in VS Code
+	 *
+	 * PATTERN: Pattern-SKILLS-001 (Skill Execution Bridge)
+	 */
+	const skillExecutor = new SkillExecutor();
+	await skillExecutor.discoverSkills();
+	skillExecutor.registerCommands(context);
+	console.log('[ÆtherLight] Skill executor initialized');
 
 	console.log('Lumina extension activated successfully');
 }
