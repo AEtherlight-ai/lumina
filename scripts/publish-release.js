@@ -187,11 +187,18 @@ async function main() {
     log(`⚠ Continuing from ${currentBranch} (should be master/main for releases)`, 'yellow');
   }
 
-  // Check for uncommitted changes
+  // Check for uncommitted changes (allow package.json changes from version bump)
   const gitStatus = execSilent('git status --porcelain');
-  if (gitStatus && gitStatus.length > 0) {
-    log('✗ Git working directory has uncommitted changes', 'red');
+  const uncommittedChanges = gitStatus ? gitStatus.split('\n').filter(line => {
+    // Allow package.json changes (these are from version bump)
+    return line && !line.includes('package.json');
+  }) : [];
+
+  if (uncommittedChanges.length > 0) {
+    log('✗ Git working directory has uncommitted changes:', 'red');
+    uncommittedChanges.forEach(line => log(`  ${line}`, 'red'));
     log('Commit or stash your changes before publishing', 'yellow');
+    log('(Note: package.json version changes are allowed)', 'yellow');
     process.exit(1);
   }
 
@@ -212,6 +219,7 @@ async function main() {
   // Get current version and last git tag version
   const currentVersion = readPackageJson('vscode-lumina').version;
   const lastTaggedVersion = getLastVersion();
+  let versionBumpedByScript = false; // Track if we bumped version in this run
 
   if (skipBump) {
     log('--skip-bump flag provided, skipping version bump', 'yellow');
@@ -242,6 +250,7 @@ async function main() {
     } else {
       // Version hasn't been bumped yet, proceed with bump
       exec(`node scripts/bump-version.js ${versionType}`);
+      versionBumpedByScript = true; // We just bumped the version
     }
   }
 
@@ -394,8 +403,22 @@ async function main() {
 
   // Step 9: Commit and tag
   log('\n📋 Step 9: Commit and tag', 'yellow');
-  exec('git add .');
-  exec(`git commit -m "chore: release v${newVersion}"`);
+
+  // Check if there are any uncommitted changes (from version bump)
+  const finalGitStatus = execSilent('git status --porcelain');
+
+  if (finalGitStatus && finalGitStatus.trim().length > 0) {
+    // We have uncommitted changes (likely from version bump)
+    log('Committing version bump changes...', 'blue');
+    exec('git add .');
+    exec(`git commit -m "chore: bump version to ${newVersion}"`);
+    log(`✓ Version bump committed`, 'green');
+  } else {
+    // No uncommitted changes - version was already committed
+    log('No uncommitted changes (version already committed)', 'blue');
+  }
+
+  // Create and push tag
   exec(`git tag v${newVersion}`);
   log(`✓ Created git tag v${newVersion}`, 'green');
 
