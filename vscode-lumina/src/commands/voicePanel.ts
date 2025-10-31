@@ -2861,6 +2861,24 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
         // All task clicks, status toggles, and action buttons now handled by document.body event delegation
         // This ensures event listeners persist across tab switches
 
+        // AUTO-DISCOVER sprint files when Sprint tab renders
+        // This populates the dropdown immediately without requiring user to click the discover button
+        html += `
+        <script>
+            // Auto-discover sprint files when Sprint tab loads
+            (function() {
+                const dropdown = document.getElementById('sprint-file-dropdown');
+                if (dropdown && dropdown.options.length <= 1) {
+                    // Only 1 option (current file) - auto-discover all files
+                    console.log('[ÆtherLight] Auto-discovering sprint files...');
+                    if (window.discoverSprintFiles) {
+                        window.discoverSprintFiles();
+                    }
+                }
+            })();
+        </script>
+        `;
+
         return html;
     }
 
