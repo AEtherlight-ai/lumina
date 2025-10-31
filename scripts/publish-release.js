@@ -356,23 +356,32 @@ Then reload VS Code to see the update.
 
   fs.writeFileSync('.release-notes.tmp', releaseNotes);
 
-  // Find desktop app installers
+  // Find desktop app installers in Tauri build directory
   const desktopFiles = [];
+  const tauriBuildPath = path.join(process.cwd(), 'products', 'lumina-desktop', 'src-tauri', 'target', 'release', 'bundle');
+  const exeSourceFile = path.join(tauriBuildPath, 'nsis', 'Lumina_0.1.0_x64-setup.exe');
+  const msiSourceFile = path.join(tauriBuildPath, 'msi', 'Lumina_0.1.0_x64_en-US.msi');
+
   const exeFile = path.join(vscodeLuminaPath, 'Lumina_0.1.0_x64-setup.exe');
   const msiFile = path.join(vscodeLuminaPath, 'Lumina_0.1.0_x64_en-US.msi');
 
-  if (fs.existsSync(exeFile)) {
+  // Copy desktop installers from Tauri build to vscode-lumina for GitHub release
+  if (fs.existsSync(exeSourceFile)) {
+    fs.copyFileSync(exeSourceFile, exeFile);
     desktopFiles.push(`"${exeFile}"`);
-    log(`   Found desktop installer: Lumina_0.1.0_x64-setup.exe`, 'blue');
+    log(`   Found and copied desktop installer: Lumina_0.1.0_x64-setup.exe`, 'blue');
   }
-  if (fs.existsSync(msiFile)) {
+  if (fs.existsSync(msiSourceFile)) {
+    fs.copyFileSync(msiSourceFile, msiFile);
     desktopFiles.push(`"${msiFile}"`);
-    log(`   Found desktop installer: Lumina_0.1.0_x64_en-US.msi`, 'blue');
+    log(`   Found and copied desktop installer: Lumina_0.1.0_x64_en-US.msi`, 'blue');
   }
 
   if (desktopFiles.length === 0) {
-    log('⚠️  Warning: No desktop installers found', 'yellow');
+    log('⚠️  Warning: No desktop installers found in Tauri build directory', 'yellow');
+    log(`   Looked in: ${tauriBuildPath}`, 'yellow');
     log('   Desktop app will not be available for this release', 'yellow');
+    log('   Build desktop app first: cd products/lumina-desktop && npm run tauri build', 'yellow');
   } else {
     log(`✓ Found ${desktopFiles.length} desktop installer(s)`, 'green');
   }
