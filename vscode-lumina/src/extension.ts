@@ -24,10 +24,9 @@ import * as path from 'path';
 import { IPCClient } from './ipc/client';
 import { registerCaptureVoiceCommand } from './commands/captureVoice';
 import { checkAndSetupUserDocumentation } from './firstRunSetup';
-// REMOVED - These files don't exist (work-in-progress features):
-// import { registerSimpleVoiceCaptureCommand } from './commands/simpleVoiceCapture';
-// import { registerCaptureVoiceGlobalCommand } from './commands/captureVoiceGlobal';
-// import { registerEnhanceTerminalInputCommand } from './commands/enhanceTerminalInput';
+// Enhancement commands now implemented (v0.15.2):
+import { registerCaptureVoiceGlobalCommand } from './commands/captureVoiceGlobal';
+import { registerEnhanceTerminalInputCommand } from './commands/enhanceTerminalInput';
 // import { registerOpenAetherlightTerminalCommand } from './commands/openAetherlightTerminal';
 // import { registerQuickVoiceCommand } from './commands/quickVoice';
 // import { registerLuminaControlStatusBar } from './lumina_status_bar';
@@ -504,15 +503,31 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	 * REASONING CHAIN:
 	 * 1. User presses ~ (Shift+`)
 	 * 2. Desktop app records via IPC (native microphone access)
-	 * 3. Transcription chunks typed using nut-js keyboard simulation
-	 * 4. Text appears wherever cursor is focused (terminal, editor, any input)
+	 * 3. Transcription chunks typed using VS Code editor API
+	 * 4. Text appears at current cursor position (editor)
 	 * 5. Result: Universal voice-to-text that works everywhere ✅
 	 *
 	 * PATTERN: Pattern-VOICE-005 (Global Voice Typing)
-	 * RELATED: captureVoiceGlobal.ts, IPC client, nut-js keyboard
+	 * RELATED: captureVoiceGlobal.ts, IPC client, desktop app
 	 */
-	// REMOVED - captureVoiceGlobal.ts doesn't exist (work-in-progress feature)
-	// registerCaptureVoiceGlobalCommand(context);
+	registerCaptureVoiceGlobalCommand(context);
+
+	/**
+	 * DESIGN DECISION: Register Enhance Terminal Input command
+	 * WHY: User can type text and enhance it with project context via button or hotkey
+	 *
+	 * REASONING CHAIN:
+	 * 1. User types natural language request in Voice Panel
+	 * 2. User clicks Enhancement button (lightning bolt) or uses hotkey
+	 * 3. System gathers project context (patterns, files, git status, errors)
+	 * 4. Combines user input + context into enhanced prompt
+	 * 5. Enhanced prompt ready to send to Claude Code
+	 * 6. Result: Rich contextual prompts with minimal effort
+	 *
+	 * PATTERN: Pattern-ENHANCEMENT-001 (Context-Aware Enhancement)
+	 * RELATED: enhanceTerminalInput.ts, voicePanel.ts, PromptEnhancer
+	 */
+	registerEnhanceTerminalInputCommand(context);
 
 	/**
 	 * OLD APPROACH: IPC-based voice capture (Ctrl+Shift+V hotkey)
