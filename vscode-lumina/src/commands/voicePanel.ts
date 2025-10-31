@@ -668,6 +668,13 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                         // Reload sprint data from new file
                         await this.loadSprintTasks();
 
+                        // CRITICAL: Update terminal environment variables with new sprint
+                        // WHY: Claude Code terminals need to see the new sprint context immediately
+                        // PATTERN: Pattern-TERMINAL-ENV-001 (Global Terminal Environment Variables)
+                        const { updateSprintEnvironmentVariables } = await import('../extension');
+                        await updateSprintEnvironmentVariables(this._context);
+                        console.log('[ÆtherLight] Terminal environment variables updated for new sprint');
+
                         // CRITICAL FIX: Use postMessage instead of HTML regeneration
                         // WHY: Regenerating HTML causes script redeclaration errors
                         const sprintContent = this.getSprintTabContent();

@@ -1,7 +1,8 @@
 # ÆtherLight Project - Claude Code Instructions
 
 **Project:** ÆtherLight (Voice-to-intelligence platform for developers)
-**Last Updated:** 2025-10-28
+**Last Updated:** 2025-10-31
+**Initialized:** 2025-10-31 (Full ÆtherLight setup complete)
 
 ---
 

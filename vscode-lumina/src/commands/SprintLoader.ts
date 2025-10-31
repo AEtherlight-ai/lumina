@@ -140,14 +140,14 @@ export class SprintLoader {
     }
 
     /**
-     * Discover all ACTIVE_SPRINT.toml files in workspace
+     * Discover all ACTIVE_SPRINT*.toml files in workspace
      */
     public async discoverAllSprintFiles(workspaceRoot: string): Promise<string[]> {
         const glob = require('glob');
         const sprintFiles: string[] = [];
 
-        // Search for all ACTIVE_SPRINT.toml files
-        const pattern = '**/ACTIVE_SPRINT.toml';
+        // Search for all ACTIVE_SPRINT*.toml files (including ACTIVE_SPRINT.toml and ACTIVE_SPRINT_*.toml)
+        const pattern = '**/ACTIVE_SPRINT*.toml';
         const options = {
             cwd: workspaceRoot,
             ignore: ['**/node_modules/**', '**/.git/**'],

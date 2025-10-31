@@ -56,10 +56,10 @@
     "registry": "https://registry.npmjs.org/"
   },
   "optionalDependencies": {
-    "aetherlight-node-win32-x64-msvc": "0.15.1",
-    "aetherlight-node-darwin-x64": "0.15.1",
-    "aetherlight-node-linux-x64-gnu": "0.15.1",
-    "aetherlight-node-darwin-arm64": "0.15.1",
-    "aetherlight-node-linux-arm64-gnu": "0.15.1"
+    "aetherlight-node-win32-x64-msvc": "0.15.3",
+    "aetherlight-node-darwin-x64": "0.15.3",
+    "aetherlight-node-linux-x64-gnu": "0.15.3",
+    "aetherlight-node-darwin-arm64": "0.15.3",
+    "aetherlight-node-linux-arm64-gnu": "0.15.3"
   }
 }

@@ -38,8 +38,7 @@ import { registerVoiceView } from './commands/voicePanel';
 // import { registerAgentCoordinationView } from './agent_coordination_view';
 import { registerStatusBarManager } from './status_bar_manager';
 import { RealtimeSyncManager } from './realtime_sync';
-// TEMPORARILY DISABLED FOR v0.13.1-beta - Phase 4 code has incomplete NAPI bindings
-// import { SprintLoader } from './commands/SprintLoader';
+import { SprintLoader } from './commands/SprintLoader';
 // TEMPORARILY DISABLED - Missing @aetherlight/analyzer package
 // import { registerAnalyzeWorkspaceCommands } from './commands/analyzeWorkspace';
 import { UpdateChecker } from './services/updateChecker';
@@ -761,6 +760,22 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	skillExecutor.registerCommands(context);
 	console.log('[ÆtherLight] Skill executor initialized');
 
+	/**
+	 * DESIGN DECISION: Inject ACTIVE_SPRINT_* environment variables into ALL terminals
+	 * WHY: Claude Code needs sprint context available as environment variables
+	 *
+	 * REASONING CHAIN:
+	 * 1. User creates terminal (manually or via extension)
+	 * 2. VS Code injects environment variables from EnvironmentVariableCollection
+	 * 3. Claude Code reads ACTIVE_SPRINT_* variables (file path, name, tasks)
+	 * 4. Claude knows current sprint context without manual lookup
+	 * 5. Result: Automatic sprint awareness in all terminals
+	 *
+	 * PATTERN: Pattern-TERMINAL-ENV-001 (Global Terminal Environment Variables)
+	 * RELATED: SprintLoader (loads sprint data), TerminalSpawner (agent terminals)
+	 */
+	await updateSprintEnvironmentVariables(context);
+
 	console.log('Lumina extension activated successfully');
 }
 
@@ -798,4 +813,53 @@ export function deactivate(): void {
 
 	// IPC client cleanup handled by IPCClient destructor
 	console.log('Lumina extension deactivated successfully');
+}
+
+/**
+ * Update terminal environment variables with current sprint data
+ *
+ * DESIGN DECISION: Extracted to reusable function for sprint file switching
+ * WHY: Environment variables must update when user switches sprint files
+ *
+ * REASONING CHAIN:
+ * 1. Load current sprint from configured file path (aetherlight.sprint.filePath)
+ * 2. Extract metadata and task statistics
+ * 3. Update environment variables for ALL terminals (existing + future)
+ * 4. Log success/failure for debugging
+ * 5. Result: Claude Code terminals always see current sprint context
+ *
+ * PATTERN: Pattern-TERMINAL-ENV-001 (Global Terminal Environment Variables)
+ * RELATED: SprintLoader.ts:96-124 (findSprintFile), voicePanel.ts:660-690 (switchSprintFile)
+ *
+ * @param context Extension context with environment variable collection
+ */
+export async function updateSprintEnvironmentVariables(context: vscode.ExtensionContext): Promise<void> {
+	const envCollection = context.environmentVariableCollection;
+	envCollection.clear(); // Clear old values first
+
+	// Load sprint data to inject into environment
+	const sprintLoader = new SprintLoader(context);
+	const { tasks, metadata } = await sprintLoader.loadSprint();
+
+	if (metadata && tasks.length > 0) {
+		const sprintFilePath = sprintLoader.getSprintFilePath();
+		const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
+		const fullSprintPath = path.join(workspaceRoot, sprintFilePath);
+
+		// Set environment variables for all terminals
+		envCollection.replace('ACTIVE_SPRINT_FILE', fullSprintPath);
+		envCollection.replace('ACTIVE_SPRINT_NAME', metadata.sprint_name);
+		envCollection.replace('ACTIVE_SPRINT_VERSION', metadata.version);
+		envCollection.replace('ACTIVE_SPRINT_PHASE', metadata.phase || 'unknown');
+		envCollection.replace('ACTIVE_SPRINT_STATUS', metadata.status || 'active');
+		envCollection.replace('ACTIVE_SPRINT_TASKS_TOTAL', tasks.length.toString());
+		envCollection.replace('ACTIVE_SPRINT_TASKS_COMPLETED',
+			tasks.filter(t => t.status === 'completed').length.toString());
+		envCollection.replace('ACTIVE_SPRINT_TASKS_IN_PROGRESS',
+			tasks.filter(t => t.status === 'in_progress').length.toString());
+
+		console.log(`[ÆtherLight] Injected ACTIVE_SPRINT_* environment variables for: ${metadata.sprint_name}`);
+	} else {
+		console.log('[ÆtherLight] No active sprint found - ACTIVE_SPRINT_* variables not set');
+	}
 }
