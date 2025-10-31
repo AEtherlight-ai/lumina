@@ -145,6 +145,9 @@ supabase/.temp/
 # Keep these patterns but move files to internal/
 COMPREHENSIVE_AUDIT_*.md
 *_AUDIT_*.md
+AUDIT_PROMPT_*.md
+*_FIXES_APPLIED.md
+.claude/AUDIT_STRATEGY.md
 SESSION_SUMMARY_*.md
 *_COMPLETION_*.md
 *_TEST_REPORT.md
