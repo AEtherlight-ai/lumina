@@ -666,33 +666,35 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	// context.subscriptions.push(shellIntegration);
 
 	/**
-	 * DESIGN DECISION: Initialize Real-Time Context Sync Manager (Phase 3.9)
-	 * WHY: Enable real-time collaboration and context sharing across terminals
+	 * DESIGN DECISION: Real-Time Context Sync DISABLED (Future Release)
+	 * WHY: WebSocket implementation causes "WebSocket is not defined" error in Node.js environment
 	 *
 	 * REASONING CHAIN:
-	 * 1. RealtimeSyncManager connects to WebSocket server (ws://localhost:43216)
-	 * 2. Registers event hooks for TodoWrite, Bash, Pattern extraction
-	 * 3. Detects design decisions, blockers, discoveries automatically
-	 * 4. Broadcasts events to all connected terminals (<100ms latency)
-	 * 5. Activity Feed TreeView shows real-time updates
-	 * 6. Result: Team shares context BEFORE git commits (zero conflicts)
+	 * 1. VS Code extensions run in Node.js, not browser
+	 * 2. WebSocket API not available in Node.js without 'ws' package
+	 * 3. Feature planned for future release after proper Node.js WebSocket implementation
+	 * 4. Commenting out to prevent extension activation errors
+	 *
+	 * TODO (Future Release):
+	 * - Add 'ws' package dependency
+	 * - Update RealtimeSyncClient to use Node.js WebSocket (require('ws'))
+	 * - Test WebSocket connection in Node.js environment
 	 *
 	 * PATTERN: Pattern-WEBSOCKET-001 (Real-Time Sync Server Architecture)
 	 * RELATED: Activity Feed (realtime_sync/activity_feed.ts)
-	 * PERFORMANCE: <10ms hook overhead, <50ms event broadcast
-	 *
-	 * NOTE: Real-time sync is optional - only initializes if enabled in settings
+	 * STATUS: Disabled until future release
 	 */
-	try {
-		const realtimeSyncManager = await RealtimeSyncManager.initialize(context);
-		context.subscriptions.push({
-			dispose: () => realtimeSyncManager.dispose()
-		});
-		console.log('Real-time sync manager initialized');
-	} catch (error) {
-		console.log('Real-time sync disabled or failed to initialize:', error);
-		// Continue without real-time sync - not a critical failure
-	}
+	// DISABLED: Real-time sync causes WebSocket errors in Node.js environment
+	// try {
+	// 	const realtimeSyncManager = await RealtimeSyncManager.initialize(context);
+	// 	context.subscriptions.push({
+	// 		dispose: () => realtimeSyncManager.dispose()
+	// 	});
+	// 	console.log('Real-time sync manager initialized');
+	// } catch (error) {
+	// 	console.log('Real-time sync disabled or failed to initialize:', error);
+	// 	// Continue without real-time sync - not a critical failure
+	// }
 
 	/**
 	 * DESIGN DECISION: Register workspace analyzer commands (integrates @aetherlight/analyzer)

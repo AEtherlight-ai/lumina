@@ -1232,7 +1232,7 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}' 'unsafe-hashes' 'unsafe-inline'; media-src * blob: data: mediastream:; img-src ${webview.cspSource} https: data: blob:; font-src ${webview.cspSource} data:; connect-src https://api.openai.com;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; media-src * blob: data: mediastream:; img-src ${webview.cspSource} https: data: blob:; font-src ${webview.cspSource} data:; connect-src https://api.openai.com;">
     <title>ÆtherLight</title>
     <style>
         ${this.tabManager.getTabStyles()}
