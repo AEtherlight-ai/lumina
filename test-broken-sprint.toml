@@ -1,0 +1,34 @@
+[meta]
+sprint_name = "Test Broken Sprint"
+version = "1.0.0"
+total_tasks = 3
+estimated_weeks = "1"
+priority = "high"
+
+[tasks.TEST-001]
+id = "TEST-001"
+name = "First Task"
+phase = "Phase 1"
+description = "This is a valid task"
+status = "pending"
+
+[tasks.TEST-002]
+id = "TEST-002"
+name = "Second Task"
+phase = "Phase 1"
+description = "This is also valid"
+status = "pending"
+
+[tasks.TEST-002]
+id = "TEST-002"
+name = "DUPLICATE TASK - THIS SHOULD CAUSE ERROR"
+phase = "Phase 1"
+description = "This duplicate should be caught by our validation"
+status = "pending"
+
+[tasks.TEST-003]
+id = "TEST-003"
+name = "Third Task"
+phase = "Phase 1"
+description = "This would never be reached with old code"
+status = "pending"

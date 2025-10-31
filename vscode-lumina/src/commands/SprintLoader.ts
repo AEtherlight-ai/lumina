@@ -204,9 +204,67 @@ export class SprintLoader {
                 );
             }
 
-            // 3. Read and parse TOML file
+            // 3. Read and parse TOML file with error handling
             const tomlContent = fs.readFileSync(sprintPath, 'utf-8');
-            const data = toml.parse(tomlContent) as any;
+
+            // CRITICAL: Pre-validate for duplicate task IDs before parsing
+            // This prevents catastrophic extension failure (BUG-012)
+            const duplicateIds = this.findDuplicateTaskIds(tomlContent);
+            if (duplicateIds.length > 0) {
+                const errorMsg = `Sprint file has duplicate task IDs: ${duplicateIds.join(', ')}`;
+                console.error('[SprintLoader] Validation error:', errorMsg);
+                vscode.window.showErrorMessage(
+                    `⚠️ Sprint file error: ${errorMsg}. Please fix the duplicate IDs.`,
+                    'Open Sprint File'
+                ).then(action => {
+                    if (action === 'Open Sprint File') {
+                        vscode.workspace.openTextDocument(sprintPath).then(doc => {
+                            vscode.window.showTextDocument(doc);
+                        });
+                    }
+                });
+                // Return empty data - extension continues without crashing
+                this.tasks = [];
+                this.metadata = null;
+                return { tasks: [], metadata: null };
+            }
+
+            // Parse with error handling to prevent extension crash
+            let data: any;
+            try {
+                data = toml.parse(tomlContent) as any;
+            } catch (parseError) {
+                const errorMsg = parseError instanceof Error ? parseError.message : 'Unknown TOML parsing error';
+                console.error('[SprintLoader] TOML parsing error:', errorMsg);
+                vscode.window.showErrorMessage(
+                    `⚠️ Sprint file syntax error: ${errorMsg}`,
+                    'Open Sprint File',
+                    'Continue Without Sprint'
+                ).then(action => {
+                    if (action === 'Open Sprint File') {
+                        vscode.workspace.openTextDocument(sprintPath).then(doc => {
+                            vscode.window.showTextDocument(doc);
+                            // Show error location if available
+                            if (parseError instanceof Error && parseError.message.includes('row')) {
+                                const match = parseError.message.match(/row (\d+)/);
+                                if (match) {
+                                    const line = parseInt(match[1]) - 1;
+                                    const position = new vscode.Position(line, 0);
+                                    const editor = vscode.window.activeTextEditor;
+                                    if (editor) {
+                                        editor.selection = new vscode.Selection(position, position);
+                                        editor.revealRange(new vscode.Range(position, position));
+                                    }
+                                }
+                            }
+                        });
+                    }
+                });
+                // Return empty data - extension continues without crashing
+                this.tasks = [];
+                this.metadata = null;
+                return { tasks: [], metadata: null };
+            }
 
             // 4. Extract metadata
             this.metadata = this.parseTomlMetadata(data.meta);
@@ -425,7 +483,26 @@ export class SprintLoader {
 
             const sprintPath = path.join(workspaceRoot, 'sprints', 'ACTIVE_SPRINT.toml');
             const tomlContent = fs.readFileSync(sprintPath, 'utf-8');
-            const data = toml.parse(tomlContent) as any;
+
+            // Parse with error handling (BUG-012: prevent extension crash)
+            let data: any;
+            try {
+                data = toml.parse(tomlContent) as any;
+            } catch (parseError) {
+                const errorMsg = parseError instanceof Error ? parseError.message : 'Unknown TOML parsing error';
+                console.error('[SprintLoader] TOML parsing error in updateTaskStatus:', errorMsg);
+                vscode.window.showErrorMessage(
+                    `⚠️ Cannot update task - sprint file has syntax error: ${errorMsg}`,
+                    'Open Sprint File'
+                ).then(action => {
+                    if (action === 'Open Sprint File') {
+                        vscode.workspace.openTextDocument(sprintPath).then(doc => {
+                            vscode.window.showTextDocument(doc);
+                        });
+                    }
+                });
+                throw new Error(`Sprint file parse error: ${errorMsg}`);
+            }
 
             // Find task in TOML
             if (!data.tasks || !data.tasks[taskId]) {
@@ -579,5 +656,34 @@ export class SprintLoader {
      */
     public getMetadata(): SprintMetadata | null {
         return this.metadata;
+    }
+
+    /**
+     * Find duplicate task IDs in TOML content before parsing
+     * This prevents catastrophic extension failure from duplicate keys (BUG-012)
+     *
+     * @param content - Raw TOML file content
+     * @returns Array of duplicate task IDs found
+     */
+    private findDuplicateTaskIds(content: string): string[] {
+        const taskIdPattern = /^\[tasks\.([^\]]+)\]/gm;
+        const ids: string[] = [];
+        let match;
+
+        while ((match = taskIdPattern.exec(content)) !== null) {
+            ids.push(match[1]);
+        }
+
+        // Find duplicates
+        const seen = new Set<string>();
+        const duplicates = new Set<string>();
+        for (const id of ids) {
+            if (seen.has(id)) {
+                duplicates.add(id);
+            }
+            seen.add(id);
+        }
+
+        return Array.from(duplicates);
     }
 }
