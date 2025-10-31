@@ -1789,7 +1789,7 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
         // Sprint file dropdown change handler (needs dedicated listener since 'change' event)
         document.body.addEventListener('change', function(e) {
-            const target = e.target;
+            const target = e.target as HTMLSelectElement;
             if (target.id === 'sprint-file-dropdown' && window.switchSprintFile) {
                 window.switchSprintFile(target.value);
             }
@@ -1857,15 +1857,14 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
                 case 'updateSprintFileList':
                     // Update dropdown with discovered sprint files (CSP-safe)
-                    const dropdown = document.getElementById('sprint-file-dropdown');
+                    const dropdown = document.getElementById('sprint-file-dropdown') as HTMLSelectElement;
                     if (dropdown && message.sprintFiles) {
-                        const currentValue = dropdown.value;
                         // CSP-FIX: Clear children without innerHTML
                         while (dropdown.firstChild) {
                             dropdown.removeChild(dropdown.firstChild);
                         }
 
-                        message.sprintFiles.forEach(filePath => {
+                        message.sprintFiles.forEach((filePath: string) => {
                             const option = document.createElement('option');
                             option.value = filePath;
                             option.textContent = filePath;
