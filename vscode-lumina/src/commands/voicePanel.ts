@@ -1058,6 +1058,14 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 }
                 break;
 
+            case 'sendKeystroke':
+                // Handle backtick keystroke to trigger desktop app recording
+                if (message.key === 'backtick') {
+                    // Execute the global voice capture command (backtick)
+                    vscode.commands.executeCommand('aetherlight.captureVoiceGlobal');
+                }
+                break;
+
             case 'transcribeAudio':
                 try {
                     const transcription = await transcribeAudioWithWhisper(message.audioData);
@@ -4183,80 +4191,28 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 });
             })();
 
-            // Toggle recording
-            window.toggleRecording = async function() {
+            // Toggle recording - Send backtick to trigger desktop app
+            window.toggleRecording = function() {
                 /**
-                 * DESIGN DECISION: Record directly in sidebar webview
-                 * WHY: Sidebar webviews DO support getUserMedia with enableForms: true
+                 * DESIGN DECISION: Send backtick keystroke to trigger desktop app recording
+                 * WHY: Desktop app handles voice recording with global hotkey (backtick)
                  *
                  * REASONING CHAIN:
-                 * 1. Sidebar webview has enableForms: true → mic access enabled
-                 * 2. Use MediaRecorder API directly in sidebar
-                 * 3. No separate panel needed
-                 * 4. Transcription sent to extension when complete
-                 * 5. Result: Recording stays in activity bar (no separate panel)
+                 * 1. Desktop app (Tauri) has global hotkey listener for backtick
+                 * 2. Sending backtick from webview triggers desktop recording
+                 * 3. Desktop app handles microphone permissions and Whisper API
+                 * 4. Result: Consistent recording behavior across all contexts
                  *
-                 * PATTERN: Pattern-VOICE-003 (In-Panel Recording)
+                 * PATTERN: Pattern-VOICE-004 (Desktop App Integration)
                  */
 
-                if (window.voiceTabState.isRecording) {
-                    // Stop recording
-                    if (window.voiceTabState.mediaRecorder && window.voiceTabState.mediaRecorder.state === 'recording') {
-                        window.voiceTabState.mediaRecorder.stop();
-                    }
-                    return;
-                }
+                // Send backtick keystroke to VS Code to trigger desktop app
+                vscode.postMessage({
+                    type: 'sendKeystroke',
+                    key: 'backtick'
+                });
 
-                try {
-                    // Request microphone permission
-                    showStatus('🔍 Requesting microphone access...', 'info');
-
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
-                    window.voiceTabState.mediaRecorder = new MediaRecorder(stream);
-                    window.voiceTabState.audioChunks = [];
-
-                    window.voiceTabState.mediaRecorder.ondataavailable = (event) => {
-                        if (event.data.size > 0) {
-                            window.voiceTabState.audioChunks.push(event.data);
-                        }
-                    };
-
-                    window.voiceTabState.mediaRecorder.onstop = async () => {
-                        window.voiceTabState.isRecording = false;
-                        document.getElementById('recordBtn').textContent = '🎤 Record';
-                        showStatus('🎵 Processing audio...', 'info');
-
-                        // Create audio blob
-                        const audioBlob = new Blob(window.voiceTabState.audioChunks, { type: 'audio/webm' });
-
-                        // Convert to base64
-                        const reader = new FileReader();
-                        reader.readAsDataURL(audioBlob);
-                        reader.onloadend = () => {
-                            const base64Audio = reader.result.split(',')[1];
-
-                            // Send to extension for transcription
-                            vscode.postMessage({
-                                type: 'transcribeAudio',
-                                audioData: base64Audio
-                            });
-                        };
-
-                        // Stop all tracks
-                        stream.getTracks().forEach(track => track.stop());
-                    };
-
-                    // Start recording
-                    window.voiceTabState.mediaRecorder.start();
-                    window.voiceTabState.isRecording = true;
-                    document.getElementById('recordBtn').textContent = '⏹️ Stop';
-                    showStatus('🎤 Recording... Click Stop when done!', 'info');
-
-                } catch (error) {
-                    showStatus('❌ Mic access denied: ' + error.message, 'error');
-                    console.error('[ÆtherLight] Mic error:', error);
-                }
+                showStatus('📢 Triggering voice capture (backtick sent)', 'info');
             };
 
             // Voice-specific message handler (called from global listener)

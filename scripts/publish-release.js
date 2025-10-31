@@ -108,15 +108,49 @@ async function main() {
   }
   log(`✓ Logged in as ${npmUser}`, 'green');
 
-  // Step 2: Verify clean git state
-  log('\n📋 Step 2: Verify clean git state', 'yellow');
+  // Step 2: Verify Git workflow requirements
+  log('\n📋 Step 2: Verify Git workflow', 'yellow');
+
+  // Check current branch
+  const currentBranch = execSilent('git rev-parse --abbrev-ref HEAD').trim();
+  log(`  Current branch: ${currentBranch}`, 'blue');
+
+  // Proper workflow: Release from master/main AFTER PR merge
+  if (currentBranch !== 'master' && currentBranch !== 'main') {
+    log('⚠ Not on master/main branch', 'yellow');
+    log('Recommended workflow:', 'yellow');
+    log('  1. Create PR from your branch to master', 'yellow');
+    log('  2. Get PR reviewed and approved', 'yellow');
+    log('  3. Merge PR to master', 'yellow');
+    log('  4. Checkout master: git checkout master', 'yellow');
+    log('  5. Pull latest: git pull origin master', 'yellow');
+    log('  6. Run publish script from clean master', 'yellow');
+
+    const continueFromBranch = await confirmAction('\nContinue from feature branch? (not recommended) (yes/no): ');
+    if (!continueFromBranch) {
+      process.exit(1);
+    }
+    log(`⚠ Continuing from ${currentBranch} (should be master/main for releases)`, 'yellow');
+  }
+
+  // Check for uncommitted changes
   const gitStatus = execSilent('git status --porcelain');
   if (gitStatus && gitStatus.length > 0) {
     log('✗ Git working directory has uncommitted changes', 'red');
     log('Commit or stash your changes before publishing', 'yellow');
     process.exit(1);
   }
-  log('✓ Git working directory is clean', 'green');
+
+  // Ensure branch is up to date with remote
+  exec('git fetch origin', process.cwd(), true); // Silent fetch
+  const behind = execSilent(`git rev-list HEAD..origin/${currentBranch} --count`);
+  if (behind && behind.trim() !== '0') {
+    log(`✗ Branch is ${behind.trim()} commits behind origin/${currentBranch}`, 'red');
+    log(`Pull latest changes: git pull origin ${currentBranch}`, 'yellow');
+    process.exit(1);
+  }
+
+  log('✓ Git state verified', 'green');
 
   // Step 3: Bump version
   log('\n📋 Step 3: Bump version', 'yellow');
@@ -256,10 +290,11 @@ async function main() {
   log(`Version: ${newVersion}`, 'cyan');
   log(`Package: aetherlight-${newVersion}.vsix (${(vsixStats.size / 1024 / 1024).toFixed(2)} MB)`, 'cyan');
   log(`\nThis will:`, 'yellow');
-  log(`  1. Publish to npm registry`, 'yellow');
+  log(`  1. Commit version bump`, 'yellow');
   log(`  2. Create git tag v${newVersion}`, 'yellow');
   log(`  3. Push to GitHub`, 'yellow');
-  log(`  4. Create GitHub release`, 'yellow');
+  log(`  4. Create GitHub release with VSIX`, 'yellow');
+  log(`  5. Publish to npm registry (last)`, 'yellow');
 
   const confirmed = await confirmAction('\nContinue? (yes/no): ');
   if (!confirmed) {
@@ -267,74 +302,20 @@ async function main() {
     process.exit(0);
   }
 
-  // Step 9: Publish to npm (ALL packages)
-  log('\n📋 Step 9: Publish to npm', 'yellow');
-
-  // CRITICAL: Must publish sub-packages BEFORE main package
-  // WHY: Main package depends on sub-packages, so sub-packages must exist first
-  // LESSON LEARNED: v0.13.29 failed because sub-packages weren't published
-  // Result: Users couldn't install - "No matching version found for aetherlight-analyzer@^0.13.29"
-
-  const packagesToPublish = [
-    { name: 'aetherlight-analyzer', path: 'packages/aetherlight-analyzer' },
-    { name: 'aetherlight-sdk', path: 'packages/aetherlight-sdk' },
-    { name: 'aetherlight-node', path: 'packages/aetherlight-node' },
-    { name: 'aetherlight', path: 'vscode-lumina' } // Main package LAST
-  ];
-
-  for (const pkg of packagesToPublish) {
-    log(`  Publishing ${pkg.name}...`, 'blue');
-    exec('npm publish --access public', path.join(process.cwd(), pkg.path));
-    log(`  ✓ ${pkg.name} published`, 'green');
-  }
-
-  log('✓ All packages published to npm registry', 'green');
-
-  // Step 10: Verify ALL npm publications
-  log('\n📋 Step 10: Verify npm publications', 'yellow');
-
-  const packagesToVerify = [
-    'aetherlight-analyzer',
-    'aetherlight-sdk',
-    'aetherlight-node',
-    'aetherlight'
-  ];
-
-  let allVerified = true;
-  for (const pkgName of packagesToVerify) {
-    const publishedVersion = execSilent(`npm view ${pkgName} version`);
-    if (publishedVersion === newVersion) {
-      log(`  ✓ ${pkgName}: v${publishedVersion}`, 'green');
-    } else {
-      log(`  ✗ ${pkgName}: expected ${newVersion}, got ${publishedVersion}`, 'red');
-      allVerified = false;
-    }
-  }
-
-  if (!allVerified) {
-    log('\n⚠ WARNING: Some packages failed verification', 'red');
-    log('Users will NOT be able to install until all packages are published!', 'red');
-    const proceed = await confirmAction('\nContinue anyway? (yes/no): ');
-    if (!proceed) {
-      log('\n✗ Publish cancelled', 'red');
-      process.exit(1);
-    }
-  }
-
-  // Step 11: Commit and tag
-  log('\n📋 Step 11: Commit and tag', 'yellow');
+  // Step 9: Commit and tag
+  log('\n📋 Step 9: Commit and tag', 'yellow');
   exec('git add .');
   exec(`git commit -m "chore: release v${newVersion}"`);
   exec(`git tag v${newVersion}`);
   log(`✓ Created git tag v${newVersion}`, 'green');
 
-  // Step 12: Push to GitHub
-  log('\n📋 Step 12: Push to GitHub', 'yellow');
+  // Step 10: Push to GitHub
+  log('\n📋 Step 10: Push to GitHub', 'yellow');
   exec('git push origin master --tags');
   log('✓ Pushed to GitHub', 'green');
 
-  // Step 13: Create GitHub Release (CRITICAL - required for user updates)
-  log('\n📋 Step 13: Create GitHub Release', 'yellow');
+  // Step 11: Create GitHub Release (BEFORE npm publish)
+  log('\n📋 Step 11: Create GitHub Release', 'yellow');
   const ghInstalled = execSilent('gh --version');
   if (!ghInstalled) {
     log('✗ GitHub CLI not installed', 'red');
@@ -449,12 +430,70 @@ Then reload VS Code to see the update.
     }
   }
 
+  // Step 15: Publish to npm (AFTER GitHub release)
+  log('\n📋 Step 15: Publish to npm registry', 'yellow');
+  log('GitHub release successful, now publishing packages...', 'blue');
+
+  // CRITICAL: Must publish sub-packages BEFORE main package
+  // WHY: Main package depends on sub-packages at same version
+  // LESSON LEARNED: v0.13.29 failed because sub-packages weren't published
+  const packagesToPublish = [
+    { name: 'aetherlight-analyzer', path: 'packages/aetherlight-analyzer' },
+    { name: 'aetherlight-sdk', path: 'packages/aetherlight-sdk' },
+    { name: 'aetherlight-node', path: 'packages/aetherlight-node' },
+    { name: 'aetherlight', path: 'vscode-lumina' } // Main package LAST
+  ];
+
+  for (const pkg of packagesToPublish) {
+    log(`  Publishing ${pkg.name}...`, 'blue');
+    try {
+      exec('npm publish --access public', path.join(process.cwd(), pkg.path));
+      log(`  ✓ ${pkg.name} published`, 'green');
+    } catch (error) {
+      log(`  ✗ ${pkg.name} failed to publish`, 'red');
+      log(`    GitHub release exists but npm publish failed`, 'red');
+      log(`    You can retry: cd ${pkg.path} && npm publish --access public`, 'yellow');
+      throw error;
+    }
+  }
+
+  log('✓ All packages published to npm registry', 'green');
+
+  // Step 16: Verify npm publications
+  log('\n📋 Step 16: Verify npm publications', 'yellow');
+
+  const packagesToVerify = [
+    'aetherlight-analyzer',
+    'aetherlight-sdk',
+    'aetherlight-node',
+    'aetherlight'
+  ];
+
+  let allVerified = true;
+  for (const pkgName of packagesToVerify) {
+    const publishedVersion = execSilent(`npm view ${pkgName} version`);
+    if (publishedVersion === newVersion) {
+      log(`  ✓ ${pkgName}: v${publishedVersion}`, 'green');
+    } else {
+      log(`  ✗ ${pkgName}: expected ${newVersion}, got ${publishedVersion}`, 'red');
+      allVerified = false;
+    }
+  }
+
+  if (!allVerified) {
+    log('\n⚠ WARNING: Some packages failed verification', 'red');
+    log('GitHub release exists but npm packages incomplete', 'red');
+    log('Users will NOT be able to install via npm until fixed', 'red');
+    process.exit(1);
+  }
+
   // Summary
   log('\n✅ Release Complete!', 'green');
   log(`\nVersion: v${newVersion}`, 'cyan');
-  log(`NPM: https://www.npmjs.com/package/aetherlight`, 'cyan');
   log(`GitHub: https://github.com/AEtherlight-ai/lumina/releases/tag/v${newVersion}`, 'cyan');
+  log(`NPM: https://www.npmjs.com/package/aetherlight`, 'cyan');
   log('\n📢 Users will receive update notifications within 1 hour', 'yellow');
+  log('\n✓ GitHub pushed BEFORE npm - proper order maintained', 'green');
 }
 
 // Run main function
