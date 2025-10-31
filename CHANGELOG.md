@@ -19,6 +19,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.15.3] - 2025-10-31 - Enhancement Feature Implementation
+
+### Fixed
+- **BUG-007: Enhancement Feature (Shift+` hotkey)**: Implemented missing enhancement commands
+  - Created `captureVoiceGlobal.ts` command handler for Shift+` hotkey
+  - Created `enhanceTerminalInput.ts` with full context enhancement
+  - Enhancement now gathers: project type, recent files, git status, errors, and patterns
+  - Enhanced prompts copied to clipboard for Claude Code
+  - Files: `vscode-lumina/src/commands/captureVoiceGlobal.ts`, `enhanceTerminalInput.ts`
+  - Registered both commands in `extension.ts:513-530`
+
+### Changed
+- Synced aetherlight-node optional dependencies to v0.15.1
+
+### Technical Details
+- Root cause: Enhancement commands registered in package.json but not implemented
+- Impact: Enhancement button and Shift+` hotkey did nothing since v0.13.x
+- Fix time: 2 hours from discovery to published release
+- All packages published: aetherlight@0.15.3, aetherlight-analyzer@0.15.3, aetherlight-sdk@0.15.3, aetherlight-node@0.15.3
+
+---
+
+## [0.15.2] - 2025-10-31 - Skipped (Version Bump Issue)
+
+_Skipped due to version bump running twice during publish process. Released as v0.15.3 instead._
+
+---
+
 ## [0.15.1] - 2025-10-31 - Critical Bug Fixes
 
 ### Fixed
