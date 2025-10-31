@@ -79,10 +79,41 @@ export class PromptEnhancer {
             warnings.push('No workspace folder open - context will be limited');
         }
 
-        // SMART ENHANCEMENT DECISION
+        // CRITICAL FIX v0.15.1: Check for skills FIRST before complexity assessment
+        // WHY: Skills must be detected even for "simple" requests like "initialize my project"
+        // BUG: Previously complexity check with early return bypassed ALL skill detection
+        // Chain of Thought: User types "initialize my project" → detect skill → apply template
+
+        // Step 1: Detect if a skill should be applied (MOVED BEFORE complexity check)
+        const skillMatch = this.skillDetector.detectSkill(userIntent);
+
+        // Step 2: If skill detected with confidence, use it immediately (even if request seems "simple")
+        if (skillMatch && skillMatch.confidence > 0.7) {
+            const context = await this.gatherContext(userIntent);
+            const patterns = await this.findRelevantPatterns(userIntent, context);
+
+            let prompt = skillMatch.enhancedPrompt;
+
+            // Add pattern references if found
+            if (patterns.length > 0) {
+                prompt += '\n\n## Relevant Patterns:\n';
+                patterns.forEach(pattern => {
+                    prompt += `- ${pattern}\n`;
+                });
+            }
+
+            return {
+                prompt,
+                context,
+                confidence: 'high',
+                warnings
+            };
+        }
+
+        // Step 3: ONLY NOW check complexity for non-skill requests
         const complexity = this.assessComplexity(userIntent);
 
-        // For simple, clear requests - minimal enhancement (saves tokens)
+        // For simple, clear requests without skills - minimal enhancement (saves tokens)
         if (complexity === 'simple') {
             return {
                 prompt: userIntent, // Pass through as-is
@@ -92,16 +123,13 @@ export class PromptEnhancer {
             };
         }
 
-        // Step 1: Detect if a skill should be applied
-        const skillMatch = this.skillDetector.detectSkill(userIntent);
-
-        // Step 2: Gather context from workspace
+        // Step 4: Gather context from workspace
         const context = await this.gatherContext(userIntent);
 
         // Step 3: Find relevant patterns from knowledge base
         const patterns = await this.findRelevantPatterns(userIntent, context);
 
-        // Step 4: Generate prompt based on type and detected elements
+        // Step 5: Generate prompt based on type and detected elements
         let prompt: string;
 
         // If user already provided a skill command, just add minimal context
@@ -109,18 +137,6 @@ export class PromptEnhancer {
             prompt = userIntent;
             if (patterns.length > 0) {
                 prompt += '\n\nApplicable patterns: ' + patterns.join(', ');
-            }
-        }
-        // If skill detected with high confidence, use skill-enhanced prompt
-        else if (skillMatch && skillMatch.confidence > 0.7) {
-            prompt = skillMatch.enhancedPrompt;
-
-            // Add pattern references if found
-            if (patterns.length > 0) {
-                prompt += '\n\n## Relevant Patterns:\n';
-                patterns.forEach(pattern => {
-                    prompt += `- ${pattern}\n`;
-                });
             }
         }
         // For medium complexity - use lighter structure

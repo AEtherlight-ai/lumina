@@ -1059,10 +1059,13 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 break;
 
             case 'sendKeystroke':
-                // Handle backtick keystroke to trigger desktop app recording
+                // BUG FIX v0.15.1: Record button should trigger same behavior as backtick key
+                // WHY: Record button was calling non-existent 'captureVoiceGlobal' command
+                // Chain of Thought: Backtick key → openVoicePanel → startRecording action
+                // FIX: Call the same command that backtick key uses
                 if (message.key === 'backtick') {
-                    // Execute the global voice capture command (backtick)
-                    vscode.commands.executeCommand('aetherlight.captureVoiceGlobal');
+                    // Execute the openVoicePanel command which handles recording
+                    vscode.commands.executeCommand('aetherlight.openVoicePanel');
                 }
                 break;
 
