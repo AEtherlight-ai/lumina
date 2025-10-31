@@ -90,13 +90,21 @@ async function confirmAction(question) {
 
 async function main() {
   // Parse arguments
-  const versionType = process.argv[2];
-  if (!['patch', 'minor', 'major'].includes(versionType)) {
-    log('Usage: node scripts/publish-release.js [patch|minor|major]', 'red');
+  const args = process.argv.slice(2);
+  const skipBump = args.includes('--skip-bump');
+  const versionType = args.find(arg => ['patch', 'minor', 'major'].includes(arg));
+
+  if (!versionType && !skipBump) {
+    log('Usage: node scripts/publish-release.js [patch|minor|major] [--skip-bump]', 'red');
+    log('  patch: Bug fixes (0.15.8 → 0.15.9)', 'yellow');
+    log('  minor: New features (0.15.8 → 0.16.0)', 'yellow');
+    log('  major: Breaking changes (0.15.8 → 1.0.0)', 'yellow');
+    log('  --skip-bump: Skip version bumping (use when version already bumped)', 'yellow');
     process.exit(1);
   }
 
-  log(`\n🚀 Starting ÆtherLight Release Pipeline (${versionType} bump)\n`, 'cyan');
+  const modeDescription = skipBump ? 'skip bump' : `${versionType} bump`;
+  log(`\n🚀 Starting ÆtherLight Release Pipeline (${modeDescription})\n`, 'cyan');
 
   // Step 1: Verify npm authentication
   log('\n📋 Step 1: Verify npm authentication', 'yellow');
@@ -152,11 +160,47 @@ async function main() {
 
   log('✓ Git state verified', 'green');
 
-  // Step 3: Bump version
+  // Step 3: Bump version (with smart detection to prevent double-bumping)
   log('\n📋 Step 3: Bump version', 'yellow');
-  exec(`node scripts/bump-version.js ${versionType}`);
+
+  // Get current version and last git tag version
+  const currentVersion = readPackageJson('vscode-lumina').version;
+  const lastTaggedVersion = getLastVersion();
+
+  if (skipBump) {
+    log('--skip-bump flag provided, skipping version bump', 'yellow');
+    log(`Using current version: ${currentVersion}`, 'blue');
+  } else {
+    // Check if version was already bumped
+    if (currentVersion !== lastTaggedVersion && lastTaggedVersion !== '0.0.0') {
+      log(`⚠️  Version already bumped from ${lastTaggedVersion} to ${currentVersion}`, 'yellow');
+      log('Skipping version bump to prevent double-bumping', 'yellow');
+
+      // Check if the bump matches what was requested
+      const versionParts = lastTaggedVersion.split('.');
+      const newParts = currentVersion.split('.');
+      let expectedBumpType = '';
+
+      if (newParts[0] > versionParts[0]) expectedBumpType = 'major';
+      else if (newParts[1] > versionParts[1]) expectedBumpType = 'minor';
+      else if (newParts[2] > versionParts[2]) expectedBumpType = 'patch';
+
+      if (expectedBumpType && expectedBumpType !== versionType) {
+        log(`⚠️  Warning: Current bump is ${expectedBumpType} but you requested ${versionType}`, 'yellow');
+        const proceed = await confirmAction('Continue with existing version bump? (yes/no): ');
+        if (!proceed) {
+          log('Aborted by user', 'red');
+          process.exit(1);
+        }
+      }
+    } else {
+      // Version hasn't been bumped yet, proceed with bump
+      exec(`node scripts/bump-version.js ${versionType}`);
+    }
+  }
+
   const newVersion = readPackageJson('vscode-lumina').version;
-  log(`✓ Version bumped to ${newVersion}`, 'green');
+  log(`✓ Version ready: ${newVersion}`, 'green');
 
   // Step 4: Compile TypeScript
   log('\n📋 Step 4: Compile TypeScript', 'yellow');
