@@ -426,23 +426,21 @@ export class AgentCoordinationViewProvider implements vscode.WebviewViewProvider
             const eta = snapshot.eta_seconds !== null ? formatDuration(snapshot.eta_seconds) : 'unknown';
             const progress = Math.round(snapshot.overall_progress * 100);
 
-            let html = \`
-                <div id="header">
-                    <div>
-                        <div id="sprint-name">\${snapshot.sprint_name}</div>
-                        <div id="sprint-progress">Progress: \${progress}% | Elapsed: \${elapsed} | ETA: \${eta}</div>
-                    </div>
-                </div>
-                <div id="gantt-container">
-                    <div id="gantt-chart">
-                        \${renderGanttChart(snapshot)}
-                    </div>
-                </div>
-                <h3>Activity Log</h3>
-                <div id="activity-log">
-                    \${renderActivityLog(snapshot.activity_log)}
-                </div>
-            \`;
+            let html = '<div id="header">' +
+                '<div>' +
+                '<div id="sprint-name">' + snapshot.sprint_name + '</div>' +
+                '<div id="sprint-progress">Progress: ' + progress + '% | Elapsed: ' + elapsed + ' | ETA: ' + eta + '</div>' +
+                '</div>' +
+                '</div>' +
+                '<div id="gantt-container">' +
+                '<div id="gantt-chart">' +
+                renderGanttChart(snapshot) +
+                '</div>' +
+                '</div>' +
+                '<h3>Activity Log</h3>' +
+                '<div id="activity-log">' +
+                renderActivityLog(snapshot.activity_log) +
+                '</div>';
 
             document.getElementById('content').innerHTML = html;
 
@@ -469,10 +467,10 @@ export class AgentCoordinationViewProvider implements vscode.WebviewViewProvider
 
             agents.forEach((agent, index) => {
                 const agentTasks = snapshot.tasks.filter(t => t.agent === agent);
-                html += \`<div class="swimlane" data-agent="\${agent}">
-                    <div class="swimlane-label">\${getAgentIcon(agent)} \${agent}</div>
-                    \${renderAgentTasks(agentTasks, snapshot.elapsed_seconds)}
-                </div>\`;
+                html += '<div class="swimlane" data-agent="' + agent + '">' +
+                    '<div class="swimlane-label">' + getAgentIcon(agent) + ' ' + agent + '</div>' +
+                    renderAgentTasks(agentTasks, snapshot.elapsed_seconds) +
+                '</div>';
             });
 
             return html;
@@ -485,12 +483,12 @@ export class AgentCoordinationViewProvider implements vscode.WebviewViewProvider
                 const width = task.duration * 0.05;
                 const progressWidth = width * task.progress;
 
-                html += \`<div class="task-bar \${task.status}"
-                    data-task-id="\${task.id}"
-                    style="left: \${startPos}px; width: \${width}px;"
-                    title="\${task.id}: \${task.name}">
-                    \${task.id}
-                </div>\`;
+                html += '<div class="task-bar ' + task.status + '"' +
+                    ' data-task-id="' + task.id + '"' +
+                    ' style="left: ' + startPos + 'px; width: ' + width + 'px;"' +
+                    ' title="' + task.id + ': ' + task.name + '">' +
+                    task.id +
+                '</div>';
             });
             return html;
         }
@@ -505,11 +503,11 @@ export class AgentCoordinationViewProvider implements vscode.WebviewViewProvider
             const sorted = entries.slice().reverse();
             sorted.forEach(entry => {
                 const timestamp = formatDuration(entry.timestamp);
-                html += \`<div class="activity-entry">
-                    <span class="activity-timestamp">\${timestamp}</span>
-                    <span class="activity-agent">\${entry.agent}</span>
-                    <span>\${entry.message}</span>
-                </div>\`;
+                html += '<div class="activity-entry">' +
+                    '<span class="activity-timestamp">' + timestamp + '</span>' +
+                    '<span class="activity-agent">' + entry.agent + '</span>' +
+                    '<span>' + entry.message + '</span>' +
+                '</div>';
             });
 
             return html;
