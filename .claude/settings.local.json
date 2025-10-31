@@ -7,7 +7,18 @@
       "Bash(node scripts/publish-release.js:*)",
       "Bash(npm run compile:*)",
       "Bash(node ../scripts/publish-release.js:*)",
-      "Bash(gh release upload:*)"
+      "Bash(gh release upload:*)",
+      "Bash(gh run view:*)",
+      "Bash(find:*)",
+      "Bash(sed:*)",
+      "Bash(cp:*)",
+      "Bash(\"internal/sprints/ACTIVE_SPRINT_v0.15.4_CLEANED.toml\")",
+      "Bash(mv:*)",
+      "Bash(npx toml-lint:*)",
+      "Bash(node:*)",
+      "Skill(publish)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []

@@ -776,7 +776,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	 * PATTERN: Pattern-TERMINAL-ENV-001 (Global Terminal Environment Variables)
 	 * RELATED: SprintLoader (loads sprint data), TerminalSpawner (agent terminals)
 	 */
-	await updateSprintEnvironmentVariables(context);
+	try {
+		await updateSprintEnvironmentVariables(context);
+	} catch (error) {
+		console.error('[Extension] Failed to load sprint environment variables:', error);
+		// Don't fail activation - extension should work without sprint data
+	}
 
 	console.log('Lumina extension activated successfully');
 }
