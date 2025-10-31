@@ -74,6 +74,48 @@ function getLastVersion() {
   }
 }
 
+async function detectViolations() {
+  // Check if npm is ahead of git (indicates manual publishing)
+  const mainPkg = readPackageJson('vscode-lumina');
+  const npmVersion = execSilent('npm view aetherlight version');
+  const gitTags = execSilent('git tag --sort=-version:refname | head -1')?.replace('v', '');
+
+  if (npmVersion && gitTags && npmVersion > gitTags) {
+    log('⛔⛔⛔ CRITICAL VIOLATION DETECTED ⛔⛔⛔', 'red');
+    log('npm is AHEAD of git tags!', 'red');
+    log(`npm version: ${npmVersion}`, 'red');
+    log(`git version: ${gitTags}`, 'red');
+    log('', 'red');
+    log('This means someone published to npm WITHOUT using this script!', 'red');
+    log('This BREAKS:', 'red');
+    log('  - GitHub releases', 'red');
+    log('  - Desktop app installation', 'red');
+    log('  - Version synchronization', 'red');
+    log('', 'red');
+    log('FIX: Create git tag and GitHub release manually to match npm', 'yellow');
+    process.exit(1);
+  }
+
+  // Check if desktop installers exist
+  const installers = [
+    'vscode-lumina/Lumina_0.1.0_x64-setup.exe',
+    'vscode-lumina/Lumina_0.1.0_x64_en-US.msi'
+  ];
+
+  for (const installer of installers) {
+    if (!fs.existsSync(installer)) {
+      log('⛔ CRITICAL: Desktop installer missing!', 'red');
+      log(`Missing: ${installer}`, 'red');
+      log('Desktop app installation will FAIL for users!', 'red');
+      log('', 'red');
+      log('FIX: Ensure desktop installers are in vscode-lumina/', 'yellow');
+      process.exit(1);
+    }
+  }
+
+  log('✓ No violations detected', 'green');
+}
+
 async function confirmAction(question) {
   const rl = readline.createInterface({
     input: process.stdin,
@@ -93,6 +135,10 @@ async function main() {
   const args = process.argv.slice(2);
   const skipBump = args.includes('--skip-bump');
   const versionType = args.find(arg => ['patch', 'minor', 'major'].includes(arg));
+
+  // Check for violations FIRST before doing anything
+  log('\n📋 Step 0: Checking for violations', 'yellow');
+  await detectViolations();
 
   if (!versionType && !skipBump) {
     log('Usage: node scripts/publish-release.js [patch|minor|major] [--skip-bump]', 'red');

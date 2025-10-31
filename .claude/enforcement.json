@@ -1,0 +1,51 @@
+{
+  "version": "1.0.0",
+  "critical_rules": {
+    "publishing": {
+      "forbidden_commands": [
+        "npm publish",
+        "vsce publish",
+        "gh release create",
+        "git tag",
+        "npm version"
+      ],
+      "required_script": "scripts/publish-release.js",
+      "violation_response": "HALT_IMMEDIATELY",
+      "error_message": "⛔ FORBIDDEN: Manual publishing BREAKS EVERYTHING. Use: node scripts/publish-release.js [patch|minor|major]"
+    },
+    "desktop_installers": {
+      "required_files": [
+        "vscode-lumina/Lumina_0.1.0_x64-setup.exe",
+        "vscode-lumina/Lumina_0.1.0_x64_en-US.msi"
+      ],
+      "violation_response": "BLOCK_PUBLISH",
+      "error_message": "⛔ CRITICAL: Desktop installers MUST be present before publishing"
+    },
+    "order_of_operations": {
+      "publish_sequence": [
+        "1. Verify npm auth",
+        "2. Verify git clean",
+        "3. Bump versions",
+        "4. Compile TypeScript",
+        "5. Package VSIX",
+        "6. Commit version bump",
+        "7. Create git tag",
+        "8. Push to GitHub",
+        "9. Create GitHub release WITH installers",
+        "10. Publish to npm LAST"
+      ],
+      "violation_response": "ABORT_AND_ROLLBACK"
+    }
+  },
+  "enforcement_level": "MAXIMUM",
+  "bypass_allowed": false,
+  "manual_override": "FORBIDDEN",
+  "consequences": {
+    "violation_detected": [
+      "Stop all operations immediately",
+      "Show critical error message",
+      "Refuse to continue until using correct script",
+      "Log violation to .claude/violations.log"
+    ]
+  }
+}

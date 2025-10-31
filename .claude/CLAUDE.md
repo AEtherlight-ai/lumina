@@ -21,16 +21,42 @@
 
 ---
 
-## Critical Rules
+## ⛔⛔⛔ CRITICAL RULES - VIOLATION = CATASTROPHIC FAILURE ⛔⛔⛔
 
-### Publishing & Releases
+### 🚨 PUBLISHING & RELEASES - DO NOT FUCK THIS UP 🚨
 
-**ALWAYS use the automated publishing script:**
+# ⚠️ READ THIS OR BREAK EVERYTHING ⚠️
+
+**THE ONLY ACCEPTABLE WAY TO PUBLISH:**
 ```bash
 node scripts/publish-release.js [patch|minor|major]
 ```
 
-**NEVER manually run individual publish steps** - this causes version mismatch bugs.
+**❌ FORBIDDEN COMMANDS - NEVER RUN THESE:**
+```bash
+❌ npm publish              # BREAKS VERSION SYNC
+❌ vsce publish             # BREAKS GITHUB RELEASE
+❌ gh release create        # BREAKS NPM SYNC
+❌ git tag                  # BREAKS AUTOMATION
+❌ npm version              # BREAKS EVERYTHING
+```
+
+**🔴 WHAT HAPPENS IF YOU VIOLATE THIS:**
+1. GitHub Actions FAIL
+2. Users can't install
+3. Desktop app breaks
+4. Version mismatches everywhere
+5. HOURS of manual fixing
+6. Users lose trust
+7. EVERYTHING IS FUCKED
+
+**✅ CORRECT ORDER (ENFORCED BY SCRIPT):**
+1. GitHub release created FIRST (with ALL assets)
+2. npm publish happens LAST
+3. Desktop installers MUST be in GitHub release
+4. ALL packages publish together
+
+**NEVER manually run individual publish steps** - this causes CATASTROPHIC FAILURES.
 
 **Why:** The script ensures:
 - Everything is compiled before publishing

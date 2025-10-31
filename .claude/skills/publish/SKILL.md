@@ -23,11 +23,67 @@ Use this skill when the user:
 - Mentions creating a release
 - Asks to bump the version and publish
 
+## ⛔ ENFORCEMENT RULES - READ OR BREAK EVERYTHING ⛔
+
+### FORBIDDEN OPERATIONS
+
+**NEVER run these commands manually:**
+```bash
+❌ npm publish              # VIOLATES enforcement.json
+❌ vsce publish             # BREAKS GitHub sync
+❌ gh release create        # BREAKS npm sync
+❌ git tag                  # BREAKS automation
+❌ npm version              # CAUSES version mismatches
+```
+
+**Attempting these will:**
+1. Trigger npm-publish-override skill
+2. Be blocked by git hooks
+3. Be logged to violations.log
+4. Cause CATASTROPHIC FAILURES
+
+### THE ONLY WAY TO PUBLISH
+
+```bash
+node scripts/publish-release.js [patch|minor|major]
+```
+
 ## How to Use
 
-### Pre-Release Workflow Check
+### CRITICAL Pre-Release Checklist (MANDATORY)
 
-1. **Verify proper Git workflow**:
+**⚠️ STOP - Complete ALL checks before proceeding:**
+
+1. **Error Handling Verification** (Prevents BUG-012 incidents):
+   ```bash
+   # Check for unprotected parsing operations
+   grep -r "\.parse(" vscode-lumina/src --include="*.ts" | grep -v "try"
+   # If ANY results, FIX THEM FIRST
+
+   # Check for unprotected file operations
+   grep -r "readFileSync\|writeFileSync" vscode-lumina/src --include="*.ts" | grep -v "try"
+   # If ANY results, FIX THEM FIRST
+   ```
+
+2. **Testing Requirements** (Prevents 9-hour outages):
+   ```bash
+   # a. Compile TypeScript
+   cd vscode-lumina && npm run compile
+   # MUST complete without errors
+
+   # b. Test in Extension Host
+   # Press F5 in VS Code
+   # ✅ Extension activates
+   # ✅ Voice panel opens (backtick)
+   # ✅ No errors in Output panel
+
+   # c. Package and test .vsix
+   vsce package
+   code --install-extension aetherlight-[version].vsix
+   # ✅ Reload and test ALL features work
+   ```
+
+3. **Git Workflow Verification**:
    - Should be on `master` branch after PR merge
    - If not on master, guide user through proper workflow:
      ```
@@ -37,7 +93,7 @@ Use this skill when the user:
      4. Then run publish script
      ```
 
-2. **Ask for version type** (if not specified):
+4. **Ask for version type** (if not specified):
    ```
    Which version type?
    - patch: Bug fixes (0.13.20 → 0.13.21)
@@ -45,12 +101,12 @@ Use this skill when the user:
    - major: Breaking changes (0.13.20 → 1.0.0)
    ```
 
-3. **Run the automated publishing script**:
+5. **Run the automated publishing script**:
    ```bash
    node scripts/publish-release.js [patch|minor|major]
    ```
 
-4. **Monitor output** - The script will (IN THIS ORDER):
+6. **Monitor output** - The script will (IN THIS ORDER):
    - ✓ Verify npm authentication (must be `aelor`)
    - ✓ Verify Git workflow (branch, clean, up-to-date)
    - ✓ Check GitHub CLI authentication (required)
@@ -67,7 +123,7 @@ Use this skill when the user:
    - ✓ Publish to npm registry (LAST)
    - ✓ Verify all packages published correctly
 
-5. **Report completion**:
+7. **Report completion**:
    ```
    ✅ Version X.X.X published successfully!
    - npm: https://www.npmjs.com/package/aetherlight
@@ -135,19 +191,40 @@ This is CRITICAL - users install from GitHub releases. The script will:
 - Verify the release was created with .vsix and installers
 - Fail loudly if any step doesn't work
 
-## Important Rules
+## ⛔⛔⛔ CRITICAL RULES - VIOLATION = CATASTROPHIC FAILURE ⛔⛔⛔
 
-**ALWAYS use the automated script** (`scripts/publish-release.js`)
+### 🚨 NEVER RUN THESE COMMANDS MANUALLY 🚨
 
-**NEVER manually run individual publish steps** - this caused the v0.13.20 bug where users saw wrong versions after updating.
+**❌ FORBIDDEN - WILL BREAK EVERYTHING:**
+```bash
+❌ npm publish              # BREAKS VERSION SYNC
+❌ vsce publish             # BREAKS GITHUB RELEASE
+❌ gh release create        # BREAKS NPM SYNC
+❌ git tag                  # BREAKS AUTOMATION
+❌ npm version              # BREAKS EVERYTHING
+```
 
-**Why the script is critical:**
-- Prevents version mismatches
-- Ensures everything is compiled before publishing
+**✅ THE ONLY ACCEPTABLE COMMAND:**
+```bash
+node scripts/publish-release.js [patch|minor|major]
+```
+
+**🔴 WHAT HAPPENS IF YOU VIOLATE THIS:**
+1. GitHub Actions FAIL
+2. Users can't install (see v0.13.29 incident)
+3. Desktop app breaks
+4. Version mismatches everywhere
+5. HOURS of manual fixing (9+ hours for v0.13.23)
+6. Users lose trust
+7. Extension completely non-functional
+
+**Why the script is MANDATORY:**
+- Prevents version mismatches (v0.13.20 incident)
+- Ensures everything compiled (v0.13.28 incident)
 - No timing issues or partial deploys
-- Verifies all artifacts before publishing anything
-- Includes desktop app installers in GitHub release
-- .npmignore prevents bloated npm packages (was 246MB, now 251KB)
+- Verifies ALL artifacts exist
+- Includes desktop installers
+- Prevents 246MB npm packages (v0.13.29)
 
 ## Related Files
 

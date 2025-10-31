@@ -6,7 +6,8 @@
       "Bash(git push:*)",
       "Bash(node scripts/publish-release.js:*)",
       "Bash(npm run compile:*)",
-      "Bash(node ../scripts/publish-release.js:*)"
+      "Bash(node ../scripts/publish-release.js:*)",
+      "Bash(gh release upload:*)"
     ],
     "deny": [],
     "ask": []
