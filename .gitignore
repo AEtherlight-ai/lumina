@@ -191,6 +191,8 @@ PRE_RELEASE_CLEANUP_PLAN.md
 .env.local
 config.local.*
 .lumina/
+.aetherlight/
+.claude/settings.json
 
 # VS Code workspace settings (local)
 .vscode/
