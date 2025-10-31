@@ -169,6 +169,56 @@ lumina-clean/
 **Prevention:** Always use `scripts/publish-release.js`
 **Never:** Manually publish individual packages
 
+### Issue: Publish script fails with "uncommitted changes" after version bump (v0.15.14)
+**Status:** FIXED in publish script
+**Time to Fix:** 30 minutes
+**Severity:** HIGH - Script was unusable, requiring manual workarounds
+**Cause:** Script checked for uncommitted changes BEFORE version bump, but then tried to commit AFTER bump, causing workflow conflicts
+**Impact:**
+- Running `node scripts/publish-release.js patch` would fail with "Git working directory has uncommitted changes" after bumping version
+- Using `--skip-bump` flag would try to commit nothing, causing git errors
+- Users had to manually commit version bumps and work around the script
+**Why This Happened:**
+- Step 2: Git status check rejected ANY uncommitted changes
+- Step 3: Script bumped version (creating package.json changes)
+- Step 9: Script tried to commit, but git check had already failed OR no changes existed with --skip-bump
+**Root Cause:** Script didn't track version bump state or allow package.json changes
+**Fix:** Updated publish script workflow logic
+**Files:**
+- `scripts/publish-release.js:190-214` - Now allows package.json changes in git status check
+- `scripts/publish-release.js:222` - Tracks if script bumped version vs already bumped
+- `scripts/publish-release.js:407-423` - Only commits if uncommitted changes exist
+**Solution Details:**
+```javascript
+// BEFORE: Rejected ALL uncommitted changes
+if (gitStatus && gitStatus.length > 0) {
+  log('✗ Git working directory has uncommitted changes', 'red');
+  process.exit(1);
+}
+
+// AFTER: Allow package.json changes (from version bump)
+const uncommittedChanges = gitStatus ? gitStatus.split('\n').filter(line => {
+  return line && !line.includes('package.json');
+}) : [];
+
+// BEFORE: Always tried to commit
+exec('git add .');
+exec(`git commit -m "chore: release v${newVersion}"`);
+
+// AFTER: Only commit if changes exist
+const finalGitStatus = execSilent('git status --porcelain');
+if (finalGitStatus && finalGitStatus.trim().length > 0) {
+  exec('git add .');
+  exec(`git commit -m "chore: bump version to ${newVersion}"`);
+} else {
+  log('No uncommitted changes (version already committed)', 'blue');
+}
+```
+**Prevention:**
+1. Script now gracefully handles all version bump states (not bumped, already bumped, --skip-bump)
+2. Only rejects non-package.json uncommitted changes
+3. Smart commit logic only commits when necessary
+
 ### Issue: npm published but GitHub release missing (v0.13.20)
 **Status:** FIXED in publish script
 **Cause:** GitHub release creation was "optional" and could fail silently
