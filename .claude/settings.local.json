@@ -18,7 +18,8 @@
       "Bash(node:*)",
       "Skill(publish)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(npm whoami:*)"
     ],
     "deny": [],
     "ask": []
