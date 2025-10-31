@@ -19,6 +19,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.15.1] - 2025-10-31 - Critical Bug Fixes
+
+### Fixed
+- **Skill Detection from Natural Language**: Fixed critical bug where skill detection was bypassed by complexity check
+  - Natural language like "initialize my project" now properly triggers `/initialize` skill
+  - Moved skill detection to run BEFORE complexity assessment
+  - All 4 skills (initialize, sprint-plan, code-analyze, publish) now work from natural language
+  - File: `vscode-lumina/src/services/PromptEnhancer.ts:82-127`
+
+- **Record Button Functionality**: Fixed record button calling non-existent command
+  - Button now actually starts recording instead of showing error
+  - Changed from `captureVoiceGlobal` to `openVoicePanel` command
+  - Matches backtick hotkey behavior
+  - File: `vscode-lumina/src/commands/voicePanel.ts:1061-1070`
+
+### Technical Details
+- Root cause: Early return in complexity check prevented skill detection code from running
+- Impact: Core v0.15.0 feature (natural language → skill detection) was completely broken
+- Fix time: ~1 hour from audit to published release
+- All packages published: aetherlight, aetherlight-analyzer, aetherlight-sdk, aetherlight-node
+
+---
+
+## [0.15.0] - 2025-10-31 - Autonomous Agent Features
+
+### Added
+- Skill-based command system for common workflows
+- Natural language enhancement with skill detection
+- PromptEnhancer service for intelligent prompt generation
+- SkillDetector for automatic skill matching from user intent
+- Four managed skills: initialize, sprint-plan, code-analyze, publish
+- Audit documentation system for release validation
+
+### Known Issues (Fixed in 0.15.1)
+- Skill detection was non-functional due to flow control bug
+- Record button didn't trigger recording
+
+---
+
 ## [0.1.0] - 2025-10-27 - Initial Public Release
 
 ### 🎉 First Public Release
