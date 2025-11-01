@@ -1,6 +1,6 @@
 {
   "name": "aetherlight-node",
-  "version": "0.15.29",
+  "version": "0.15.30",
   "description": "Node.js bindings for ÆtherLight Core pattern matching engine",
   "main": "index.js",
   "types": "index.d.ts",
