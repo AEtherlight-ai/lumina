@@ -2698,7 +2698,13 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
         }
 
         const aetherlightDocPath = path.join(workspaceRoot, '.vscode', 'aetherlight.md');
-        const sprintFilePath = path.join(workspaceRoot, 'sprints', 'ACTIVE_SPRINT.toml');
+
+        // BUG FIX: Check configured sprint path, not hardcoded 'sprints/ACTIVE_SPRINT.toml'
+        // REASONING: User may configure custom sprint path (e.g., 'internal/sprints/ACTIVE_SPRINT.toml')
+        // WHY: SprintLoader uses configured path, so setup detection must match
+        const config = vscode.workspace.getConfiguration('aetherlight');
+        const configuredSprintPath = config.get<string>('sprint.filePath') || 'sprints/ACTIVE_SPRINT.toml';
+        const sprintFilePath = path.join(workspaceRoot, configuredSprintPath);
 
         const docExists = fs.existsSync(aetherlightDocPath);
         const sprintExists = fs.existsSync(sprintFilePath);
