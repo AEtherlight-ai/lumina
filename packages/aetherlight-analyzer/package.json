@@ -1,6 +1,6 @@
 {
   "name": "aetherlight-analyzer",
-  "version": "0.15.20",
+  "version": "0.15.21",
   "description": "Code analysis tool to generate ÆtherLight sprint plans from any codebase",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
