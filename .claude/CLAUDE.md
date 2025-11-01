@@ -169,6 +169,52 @@ lumina-clean/
 **Prevention:** Always use `scripts/publish-release.js`
 **Never:** Manually publish individual packages
 
+### Issue: Publish script verification falsely reports .vsix not found (v0.15.16)
+**Status:** FIXED in publish script
+**Time to Fix:** 45 minutes
+**Severity:** MEDIUM - Script was functional but reported false failures
+**Cause:** GitHub API propagation delay - assets take 1-3 seconds to appear in API after upload
+**Impact:**
+- Script would report "✗ GitHub release verification failed - .vsix not found"
+- Verification happened IMMEDIATELY after upload, before GitHub API propagated
+- File was actually uploaded successfully, but verification timed out
+- User had to bypass script rules and manually publish npm packages
+**Why This Happened:**
+- Step 11: `gh release create` uploads assets synchronously
+- Step 14: Verification runs IMMEDIATELY after (< 1 second later)
+- GitHub's API takes 1-3 seconds to reflect uploaded assets
+- Single check with no retry = false negative
+**Root Cause:** No retry logic for API propagation delays
+**Fix:** Added exponential backoff retry logic (5 attempts: 1s, 2s, 4s, 8s delays)
+**Files:**
+- `scripts/publish-release.js:546-578` - Added retry loop with exponential backoff
+- `scripts/publish-release.js:570-575` - Enhanced error logging with debug info
+**Solution Details:**
+```javascript
+// BEFORE: Single check, immediate failure
+const vsixCheck = execSilent(`gh release view v${newVersion} ...`);
+if (!vsixCheck || !vsixCheck.includes(...)) {
+  process.exit(1); // FAIL IMMEDIATELY
+}
+
+// AFTER: Retry with exponential backoff
+let vsixCheck = null;
+const maxRetries = 5;
+for (let attempt = 1; attempt <= maxRetries; attempt++) {
+  vsixCheck = execSilent(`gh release view v${newVersion} ...`);
+  if (vsixCheck && vsixCheck.includes(...)) break; // Success!
+  if (attempt < maxRetries) {
+    const delay = baseDelay * Math.pow(2, attempt - 1);
+    // Wait 1s, 2s, 4s, 8s before retrying
+  }
+}
+```
+**Prevention:**
+1. Always account for API propagation delays (1-5 seconds typical)
+2. Use exponential backoff for retries (prevents API hammering)
+3. Enhanced error logging shows what was expected vs received
+4. Fail ONLY after all retries exhausted
+
 ### Issue: Publish script fails with "uncommitted changes" after version bump (v0.15.14)
 **Status:** FIXED in publish script
 **Time to Fix:** 30 minutes

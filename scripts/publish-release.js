@@ -539,11 +539,40 @@ Then reload VS Code to see the update.
   // Step 14: Verify GitHub release exists and has all required files
   log('\n📋 Step 14: Verify GitHub Release Assets', 'yellow');
 
-  // Check for .vsix file
-  const vsixCheck = execSilent(`gh release view v${newVersion} --json assets -q '.assets[] | select(.name | endswith(".vsix")) | .name'`);
+  // DESIGN DECISION: Retry with exponential backoff for GitHub API propagation
+  // WHY: GitHub API may take a few seconds to reflect uploaded assets
+  // LESSON LEARNED: v0.15.16 verification failed immediately after upload, but file was actually there
+
+  // Check for .vsix file with retry logic
+  let vsixCheck = null;
+  const maxRetries = 5;
+  const baseDelay = 1000; // 1 second
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    vsixCheck = execSilent(`gh release view v${newVersion} --json assets -q '.assets[] | select(.name | endswith(".vsix")) | .name'`);
+
+    if (vsixCheck && vsixCheck.includes(`aetherlight-${newVersion}.vsix`)) {
+      // Success!
+      break;
+    }
+
+    if (attempt < maxRetries) {
+      const delay = baseDelay * Math.pow(2, attempt - 1); // Exponential backoff: 1s, 2s, 4s, 8s
+      log(`  Attempt ${attempt}/${maxRetries}: .vsix not found yet, retrying in ${delay}ms...`, 'yellow');
+      execSync(`node -e "setTimeout(() => {}, ${delay})"`, { stdio: 'ignore' });
+    }
+  }
+
   if (!vsixCheck || !vsixCheck.includes(`aetherlight-${newVersion}.vsix`)) {
-    log('✗ GitHub release verification failed - .vsix not found', 'red');
+    log('✗ GitHub release verification failed - .vsix not found after all retries', 'red');
     log('This is CRITICAL - users will get wrong version on update', 'red');
+    log('', 'reset');
+    log('Debug information:', 'yellow');
+    log(`  Expected: aetherlight-${newVersion}.vsix`, 'yellow');
+    log(`  Got from GitHub: ${vsixCheck || '(empty)'}`, 'yellow');
+    log('', 'reset');
+    log('Try manually:', 'yellow');
+    log(`  gh release view v${newVersion} --json assets -q '.assets[].name'`, 'yellow');
     process.exit(1);
   }
   log(`✓ Verified: ${vsixCheck} exists on GitHub`, 'green');
