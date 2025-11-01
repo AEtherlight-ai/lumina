@@ -5,7 +5,12 @@
       "Bash(git tag:*)",
       "Bash(node scripts/publish-release.js:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(gh release view:*)",
+      "Bash(npm view:*)",
+      "Bash(node -e:*)",
+      "Bash(git log:*)",
+      "Bash(npm run compile:*)"
     ],
     "deny": [],
     "ask": []
