@@ -45,6 +45,7 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
     private taskDetailsCache: Map<string, string> = new Map(); // Cache for extracted task sections
     private poppedOutPanels: vscode.WebviewPanel[] = []; // Track all popped-out panels
     private sprintFileWatcher?: vscode.FileSystemWatcher; // Auto-refresh on TOML changes
+    private showCompletedTasks: boolean = false; // FIX-WEBVIEW-CRASH: Hide completed tasks by default to reduce HTML size
 
     constructor(
         private readonly _extensionUri: vscode.Uri,
@@ -80,20 +81,12 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             }
         });
 
-        // BUG-002 FIX: Load sprint tasks asynchronously and refresh webview when done
+        // BUG-002 FIX: Load sprint tasks asynchronously
         // Chain of Thought: Constructor can't be async, but we need tasks loaded before first render
-        // REASONING: Load tasks immediately, then send postMessage to update webview once loaded
-        // WHY: Prevents "undefined" task display bug (tasks array was empty on first render)
-        this.loadSprintTasks().then(() => {
-            // Refresh webview if it's already been resolved
-            if (this._view) {
-                this._view.webview.postMessage({
-                    type: 'updateTabContent',
-                    tab: 'sprint',
-                    content: this.getSprintTabContent()
-                });
-            }
-        });
+        // FIX-WEBVIEW-CRASH: Removed automatic webview update here to prevent duplicate HTML generation
+        // WHY: resolveWebviewView() already calls _getHtmlForWebview which includes sprint content
+        // REASONING: Let resolveWebviewView handle initial render, this just preloads the data
+        this.loadSprintTasks();
 
         // Setup file watcher for automatic sprint refresh
         this.setupSprintFileWatcher();
@@ -766,6 +759,37 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 }
                 break;
 
+            case 'toggleCompletedTasks':
+                // FIX-WEBVIEW-CRASH: Toggle visibility of completed tasks
+                this.showCompletedTasks = message.show;
+
+                // Update sprint tab content with filtered tasks
+                {
+                    const sprintContent = this.getSprintTabContent();
+                    const updateMessage = {
+                        type: 'updateTabContent',
+                        tabId: TabId.Sprint,
+                        content: sprintContent,
+                        needsVoiceScripts: false
+                    };
+
+                    // Update the webview that sent the message
+                    webview.postMessage(updateMessage);
+
+                    // Update sidebar if different
+                    if (this._view && this._view.webview !== webview) {
+                        this._view.webview.postMessage(updateMessage);
+                    }
+
+                    // Update all popped-out panels
+                    for (const poppedPanel of this.poppedOutPanels) {
+                        if (poppedPanel.webview !== webview) {
+                            poppedPanel.webview.postMessage(updateMessage);
+                        }
+                    }
+                }
+                break;
+
             // Removed: openTaskDocs - task details now shown in detail panel instead
 
             case 'openSprintSettings':
@@ -1287,6 +1311,14 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
         window.selectEngineer = function(engineerId) {
             vscode.postMessage({ type: 'selectEngineer', engineerId });
         };
+
+        // FIX-WEBVIEW-CRASH: Toggle completed tasks visibility
+        const completedToggle = document.getElementById('show-completed-toggle');
+        if (completedToggle) {
+            completedToggle.addEventListener('change', function(e) {
+                vscode.postMessage({ type: 'toggleCompletedTasks', show: e.target.checked });
+            });
+        }
 
         // Open sprint settings
         window.openSprintSettings = function() {
@@ -1812,7 +1844,17 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                         // CSP-FIX: Use DOMParser instead of innerHTML
                         const parser = new DOMParser();
                         const doc = parser.parseFromString(message.content, 'text/html');
-                        contentArea.replaceChildren(...doc.body.childNodes);
+
+                        // CRITICAL FIX: Filter out <script> tags to prevent infinite re-execution
+                        // WHY: Settings tab includes inline scripts that re-run on every tab switch
+                        // REASONING: Scripts should only execute on initial page load, not on content updates
+                        // PATTERN: Pattern-SCRIPT-FILTER-001 (Prevent Script Re-execution in Dynamic Content)
+                        const nodesToInsert = Array.from(doc.body.childNodes).filter(node => {
+                            // Keep all nodes except <script> elements
+                            return node.nodeName !== 'SCRIPT';
+                        });
+
+                        contentArea.replaceChildren(...nodesToInsert);
                         contentArea.classList.add('active');
                     }
 
@@ -2670,10 +2712,19 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
     }
 
     private getFilteredTasks(): SprintTask[] {
-        if (this.selectedEngineerId === 'all') {
-            return this.sprintTasks;
+        // FIX-WEBVIEW-CRASH: Filter by engineer first
+        let tasks = this.selectedEngineerId === 'all'
+            ? this.sprintTasks
+            : this.sprintLoader.getTasksByEngineer(this.selectedEngineerId);
+
+        // FIX-WEBVIEW-CRASH: Hide completed tasks by default to reduce HTML size
+        // WHY: Large sprints (90+ tasks) generate 50KB+ HTML which crashes VS Code webview
+        // REASONING: Show only active work (pending + in_progress), user can toggle to see completed
+        if (!this.showCompletedTasks) {
+            tasks = tasks.filter(t => t.status !== 'completed');
         }
-        return this.sprintLoader.getTasksByEngineer(this.selectedEngineerId);
+
+        return tasks;
     }
 
     /**
@@ -2803,6 +2854,13 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                     ${stats.completed}/${stats.total} tasks completed (${stats.percentage}%)
                     <span class="progress-detail">| ${stats.inProgress} in progress | ${stats.pending} pending</span>
                 </div>
+            </div>
+
+            <div class="filter-section">
+                <label class="filter-toggle">
+                    <input type="checkbox" id="show-completed-toggle" ${this.showCompletedTasks ? 'checked' : ''} />
+                    Show completed tasks
+                </label>
             </div>
 
             ${teamSize > 1 ? this.getEngineerTabs(engineers) : ''}
@@ -3239,6 +3297,27 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
         .sprint-panel h2 {
             margin: 0 0 16px 0;
             font-size: 16px;
+        }
+
+        /* FIX-WEBVIEW-CRASH: Filter section styling */
+        .filter-section {
+            margin: 12px 0;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--vscode-panel-border);
+        }
+
+        .filter-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--vscode-foreground);
+        }
+
+        .filter-toggle input[type="checkbox"] {
+            cursor: pointer;
+            margin: 0;
         }
 
         /* Removed sprint-config-redirect and info-box styles - no longer needed */
