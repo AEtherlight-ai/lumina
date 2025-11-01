@@ -2,7 +2,7 @@
   "name": "aetherlight",
   "displayName": "ÆtherLight",
   "description": "Voice-to-intelligence platform for developers. Capture voice, match patterns, prevent AI hallucinations.",
-  "version": "0.15.26",
+  "version": "0.15.27",
   "publisher": "aetherlight",
   "repository": {
     "type": "git",
@@ -606,8 +606,8 @@
     "postinstall": "node -e \"console.log('\\n✅ ÆtherLight installed!\\n\\nNext step: Run \\\"aetherlight\\\" to install VS Code extension + Desktop app\\n')\""
   },
   "dependencies": {
-    "aetherlight-analyzer": "^0.15.26",
-    "aetherlight-node": "^0.15.26",
+    "aetherlight-analyzer": "^0.15.27",
+    "aetherlight-node": "^0.15.27",
     "@iarna/toml": "^2.2.5",
     "form-data": "^4.0.4",
     "node-fetch": "^2.7.0",
