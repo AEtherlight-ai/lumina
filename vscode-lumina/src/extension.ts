@@ -683,17 +683,20 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	 * PERFORMANCE: <10ms hook overhead, <50ms event broadcast
 	 *
 	 * NOTE: Real-time sync is optional - only initializes if enabled in settings
+	 *
+	 * TEMPORARILY DISABLED v0.15.25: WebSocket code has Node.js compatibility issues
+	 * TODO: Fix WebSocket to use 'ws' package properly instead of browser WebSocket API
 	 */
-	try {
-		const realtimeSyncManager = await RealtimeSyncManager.initialize(context);
-		context.subscriptions.push({
-			dispose: () => realtimeSyncManager.dispose()
-		});
-		console.log('Real-time sync manager initialized');
-	} catch (error) {
-		console.log('Real-time sync disabled or failed to initialize:', error);
-		// Continue without real-time sync - not a critical failure
-	}
+	// try {
+	// 	const realtimeSyncManager = await RealtimeSyncManager.initialize(context);
+	// 	context.subscriptions.push({
+	// 		dispose: () => realtimeSyncManager.dispose()
+	// 	});
+	// 	console.log('Real-time sync manager initialized');
+	// } catch (error) {
+	// 	console.log('Real-time sync disabled or failed to initialize:', error);
+	// 	// Continue without real-time sync - not a critical failure
+	// }
 
 	/**
 	 * DESIGN DECISION: Register workspace analyzer commands (integrates @aetherlight/analyzer)
