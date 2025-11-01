@@ -10,7 +10,8 @@
       "Bash(npm view:*)",
       "Bash(node -e:*)",
       "Bash(git log:*)",
-      "Bash(npm run compile:*)"
+      "Bash(npm run compile:*)",
+      "Bash(printf:*)"
     ],
     "deny": [],
     "ask": []
