@@ -246,15 +246,12 @@ export class AgentCoordinationViewProvider implements vscode.WebviewViewProvider
         // Get VS Code theme colors
         const isDark = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark;
 
-        // Generate nonce for script-src CSP to prevent TrustedScript violations
-        const nonce = this.getNonce();
-
         return `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource} 'unsafe-inline';">
     <title>Agent Coordination</title>
     <style>
         body {
@@ -400,7 +397,7 @@ export class AgentCoordinationViewProvider implements vscode.WebviewViewProvider
         <div class="no-sprint">No sprint currently active. Start a sprint to see coordination view.</div>
     </div>
 
-    <script nonce="${nonce}">
+    <script>
         const vscode = acquireVsCodeApi();
 
         // Request initial data
@@ -549,19 +546,6 @@ export class AgentCoordinationViewProvider implements vscode.WebviewViewProvider
     </script>
 </body>
 </html>`;
-    }
-
-    /**
-     * Generate a cryptographically secure nonce for Content Security Policy
-     * WHY: VS Code enforces Trusted Types, inline scripts need nonce verification
-     */
-    private getNonce(): string {
-        let text = '';
-        const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-        for (let i = 0; i < 32; i++) {
-            text += possible.charAt(Math.floor(Math.random() * possible.length));
-        }
-        return text;
     }
 }
 
