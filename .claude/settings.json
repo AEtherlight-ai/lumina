@@ -1,0 +1,25 @@
+{
+  "version": "1.0.0",
+  "workflow": {
+    "requirePR": true,
+    "protectedBranch": "master",
+    "requireReview": true,
+    "semanticCommits": true
+  },
+  "analysis": {
+    "schedule": "weekly",
+    "autoFix": false,
+    "blockOnCritical": true
+  },
+  "sprint": {
+    "duration": "2 weeks",
+    "ceremonies": ["planning", "standup", "review", "retro"],
+    "defaultPath": "sprints/"
+  },
+  "publishing": {
+    "automated": true,
+    "scriptPath": "scripts/publish-release.js",
+    "requireTests": true,
+    "requireCompile": true
+  }
+}
