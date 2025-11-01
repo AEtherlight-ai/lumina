@@ -16,6 +16,24 @@
  * PERFORMANCE: <1s reconnect, <5MB memory
  */
 
+/**
+ * DESIGN DECISION: Use browser WebSocket API instead of Node.js 'ws' package
+ * WHY: VS Code extension host provides global WebSocket (browser API)
+ *
+ * REASONING CHAIN:
+ * 1. Original code used 'ws' package (Node.js-only, uses .on() event emitters)
+ * 2. VS Code extension host is a restricted Node.js environment
+ * 3. Extension host provides global WebSocket (browser-standard API)
+ * 4. Browser WebSocket uses addEventListener() or property handlers, NOT .on()
+ * 5. Error: "ReferenceError: WebSocket is not defined" when using 'ws' import
+ * 6. Solution: Use global WebSocket directly (no import needed)
+ * 7. Convert .on('open') → .onopen, .on('message') → .onmessage, etc.
+ *
+ * PATTERN: Pattern-WEBSOCKET-004 (Cross-Platform WebSocket)
+ * BUG FIX: v0.15.21 - Fixed "WebSocket is not defined" error
+ * RELATED: Extension host environment restrictions, browser WebSocket API
+ * API REFERENCE: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+ */
 import {
     SyncEvent,
     SyncEventType,
@@ -105,7 +123,7 @@ export class RealtimeSyncClient {
             try {
                 this.ws = new WebSocket(this.config.serverUrl);
 
-                // Connection opened
+                // Connection opened (browser API: onopen property)
                 this.ws.onopen = () => {
                     console.log('[RTC Client] Connected to', this.config.serverUrl);
                     this.setState(ConnectionState.Connected);
@@ -116,13 +134,13 @@ export class RealtimeSyncClient {
                     resolve();
                 };
 
-                // Message received
-                this.ws.onmessage = (event) => {
-                    this.handleMessage(event.data);
+                // Message received (browser API: onmessage property)
+                this.ws.onmessage = (event: MessageEvent) => {
+                    this.handleMessage(event.data.toString());
                 };
 
-                // Connection closed
-                this.ws.onclose = (event) => {
+                // Connection closed (browser API: onclose property)
+                this.ws.onclose = (event: CloseEvent) => {
                     console.log('[RTC Client] Disconnected:', event.code, event.reason);
                     this.setState(ConnectionState.Disconnected);
                     this.stopPingInterval();
@@ -132,9 +150,9 @@ export class RealtimeSyncClient {
                     }
                 };
 
-                // Error occurred
-                this.ws.onerror = (error) => {
-                    console.error('[RTC Client] WebSocket error:', error);
+                // Error occurred (browser API: onerror property)
+                this.ws.onerror = (event: Event) => {
+                    console.error('[RTC Client] WebSocket error:', event);
                     const err = new Error('WebSocket connection failed');
                     this.emitError(err);
                     reject(err);
