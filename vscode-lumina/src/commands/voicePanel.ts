@@ -45,7 +45,7 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
     private taskDetailsCache: Map<string, string> = new Map(); // Cache for extracted task sections
     private poppedOutPanels: vscode.WebviewPanel[] = []; // Track all popped-out panels
     private sprintFileWatcher?: vscode.FileSystemWatcher; // Auto-refresh on TOML changes
-    private showCompletedTasks: boolean = false; // FIX-WEBVIEW-CRASH: Hide completed tasks by default to reduce HTML size
+    private showCompletedTasks: boolean = true; // Show completed tasks by default (users can toggle off if needed)
 
     constructor(
         private readonly _extensionUri: vscode.Uri,
