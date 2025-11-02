@@ -325,4 +325,437 @@ Performance test pattern ${i} with various keywords for search testing.
             assert.ok(duration < 200, `Search took ${duration}ms (should be <200ms)`);
         });
     });
+
+    suite('Relationship Extraction (Neural Network Foundation)', () => {
+        test('should extract related patterns', async () => {
+            const content = `# Pattern-API-001: REST API Structure
+
+**CATEGORY:** API
+**RELATED:** Pattern-AUTH-001, Pattern-JWT-001
+
+## Context
+
+REST API with authentication.
+`;
+            fs.writeFileSync(path.join(testPatternsDir, 'Pattern-API-001.md'), content);
+
+            const patterns = await library.loadPatterns(testPatternsDir);
+            const pattern = patterns.find(p => p.id === 'Pattern-API-001');
+
+            assert.ok(pattern);
+            assert.strictEqual(pattern!.relatedPatterns.length, 2);
+            assert.ok(pattern!.relatedPatterns.includes('Pattern-AUTH-001'));
+            assert.ok(pattern!.relatedPatterns.includes('Pattern-JWT-001'));
+        });
+
+        test('should extract supersedes relationship', async () => {
+            const content = `# Pattern-API-002: REST API Structure v2
+
+**CATEGORY:** API
+**SUPERSEDES:** Pattern-API-001
+
+## Context
+
+Improved REST API structure.
+`;
+            fs.writeFileSync(path.join(testPatternsDir, 'Pattern-API-002.md'), content);
+
+            const patterns = await library.loadPatterns(testPatternsDir);
+            const pattern = patterns.find(p => p.id === 'Pattern-API-002');
+
+            assert.ok(pattern);
+            assert.strictEqual(pattern!.supersedes, 'Pattern-API-001');
+        });
+
+        test('should extract dependencies', async () => {
+            const content = `# Pattern-AUTH-001: JWT Authentication
+
+**CATEGORY:** Authentication
+**DEPENDENCIES:** Pattern-BASE-001, Pattern-CRYPTO-001
+
+## Context
+
+JWT authentication requires base utilities and crypto.
+`;
+            fs.writeFileSync(path.join(testPatternsDir, 'Pattern-AUTH-001.md'), content);
+
+            const patterns = await library.loadPatterns(testPatternsDir);
+            const pattern = patterns.find(p => p.id === 'Pattern-AUTH-001');
+
+            assert.ok(pattern);
+            assert.strictEqual(pattern!.dependencies.length, 2);
+            assert.ok(pattern!.dependencies.includes('Pattern-BASE-001'));
+            assert.ok(pattern!.dependencies.includes('Pattern-CRYPTO-001'));
+        });
+
+        test('should extract cross-links from content', async () => {
+            const content = `# Pattern-API-001: REST API
+
+**CATEGORY:** API
+
+## Context
+
+This pattern builds on Pattern-AUTH-001 and Pattern-JWT-001 for authentication.
+
+## Solution
+
+Use Pattern-VALIDATION-001 for input validation.
+`;
+            fs.writeFileSync(path.join(testPatternsDir, 'Pattern-API-001.md'), content);
+
+            const patterns = await library.loadPatterns(testPatternsDir);
+            const pattern = patterns.find(p => p.id === 'Pattern-API-001');
+
+            assert.ok(pattern);
+            // Cross-links include patterns referenced in content (including self-reference)
+            assert.ok(pattern!.crossLinks.length >= 3);
+            assert.ok(pattern!.crossLinks.includes('PATTERN-AUTH-001'));
+            assert.ok(pattern!.crossLinks.includes('PATTERN-JWT-001'));
+            assert.ok(pattern!.crossLinks.includes('PATTERN-VALIDATION-001'));
+        });
+    });
+
+    suite('Content Hashing (Pattern-CONTEXT-002)', () => {
+        test('should calculate SHA-256 hash for pattern', async () => {
+            const content = `# Pattern-HASH-001: Test Pattern
+
+**CATEGORY:** Testing
+
+## Context
+
+Test pattern for content hashing.
+`;
+            fs.writeFileSync(path.join(testPatternsDir, 'Pattern-HASH-001.md'), content);
+
+            const patterns = await library.loadPatterns(testPatternsDir);
+            const pattern = patterns.find(p => p.id === 'Pattern-HASH-001');
+
+            assert.ok(pattern);
+            assert.ok(pattern!.contentHash);
+            assert.strictEqual(pattern!.contentHash!.length, 64); // SHA-256 = 64 hex chars
+        });
+
+        test('should produce different hashes for different content', async () => {
+            const content1 = `# Pattern-HASH-001: Test Pattern 1
+
+**CATEGORY:** Testing
+
+## Context
+
+Test pattern 1.
+`;
+            const content2 = `# Pattern-HASH-002: Test Pattern 2
+
+**CATEGORY:** Testing
+
+## Context
+
+Test pattern 2.
+`;
+            fs.writeFileSync(path.join(testPatternsDir, 'Pattern-HASH-001.md'), content1);
+            fs.writeFileSync(path.join(testPatternsDir, 'Pattern-HASH-002.md'), content2);
+
+            const patterns = await library.loadPatterns(testPatternsDir);
+            const pattern1 = patterns.find(p => p.id === 'Pattern-HASH-001');
+            const pattern2 = patterns.find(p => p.id === 'Pattern-HASH-002');
+
+            assert.ok(pattern1);
+            assert.ok(pattern2);
+            assert.notStrictEqual(pattern1!.contentHash, pattern2!.contentHash);
+        });
+    });
+
+    suite('Domain and Region Classification', () => {
+        test('should extract domain from category', async () => {
+            const apiContent = `# Pattern-API-001: REST API
+
+**CATEGORY:** API Architecture
+
+## Context
+
+REST API pattern.
+`;
+            const authContent = `# Pattern-AUTH-001: JWT Authentication
+
+**CATEGORY:** Authentication
+
+## Context
+
+JWT authentication pattern.
+`;
+            fs.writeFileSync(path.join(testPatternsDir, 'Pattern-API-001.md'), apiContent);
+            fs.writeFileSync(path.join(testPatternsDir, 'Pattern-AUTH-001.md'), authContent);
+
+            const patterns = await library.loadPatterns(testPatternsDir);
+            const apiPattern = patterns.find(p => p.id === 'Pattern-API-001');
+            const authPattern = patterns.find(p => p.id === 'Pattern-AUTH-001');
+
+            assert.ok(apiPattern);
+            assert.ok(authPattern);
+            assert.strictEqual(apiPattern!.domain, 'api');
+            assert.strictEqual(authPattern!.domain, 'authentication');
+        });
+
+        test('should extract region from content', async () => {
+            const content = `# Pattern-REGION-001: Regional Pattern
+
+**CATEGORY:** Regional
+**REGION:** us-midwest
+
+## Context
+
+Region-specific pattern.
+`;
+            fs.writeFileSync(path.join(testPatternsDir, 'Pattern-REGION-001.md'), content);
+
+            const patterns = await library.loadPatterns(testPatternsDir);
+            const pattern = patterns.find(p => p.id === 'Pattern-REGION-001');
+
+            assert.ok(pattern);
+            assert.strictEqual(pattern!.region, 'us-midwest');
+        });
+    });
+
+    suite('Graph Traversal (Neural Network)', () => {
+        test('should find related patterns at depth 1', async () => {
+            // Create pattern network: API-001 -> AUTH-001 -> JWT-001
+            const api = `# Pattern-API-001: REST API
+
+**CATEGORY:** API
+**RELATED:** Pattern-AUTH-001
+
+## Context
+
+REST API.
+`;
+            const auth = `# Pattern-AUTH-001: Authentication
+
+**CATEGORY:** Authentication
+**RELATED:** Pattern-JWT-001
+
+## Context
+
+Authentication.
+`;
+            const jwt = `# Pattern-JWT-001: JWT
+
+**CATEGORY:** Authentication
+
+## Context
+
+JWT tokens.
+`;
+            fs.writeFileSync(path.join(testPatternsDir, 'Pattern-API-001.md'), api);
+            fs.writeFileSync(path.join(testPatternsDir, 'Pattern-AUTH-001.md'), auth);
+            fs.writeFileSync(path.join(testPatternsDir, 'Pattern-JWT-001.md'), jwt);
+
+            await library.loadPatterns(testPatternsDir);
+            const related = library.findRelatedPatterns('Pattern-API-001', 1);
+
+            assert.strictEqual(related.length, 1);
+            assert.strictEqual(related[0].pattern.id, 'Pattern-AUTH-001');
+            assert.strictEqual(related[0].distance, 1);
+        });
+
+        test('should find related patterns at depth 2', async () => {
+            // Create pattern network: API-001 -> AUTH-001 -> JWT-001
+            const api = `# Pattern-API-001: REST API
+
+**CATEGORY:** API
+**RELATED:** Pattern-AUTH-001
+
+## Context
+
+REST API.
+`;
+            const auth = `# Pattern-AUTH-001: Authentication
+
+**CATEGORY:** Authentication
+**RELATED:** Pattern-JWT-001
+
+## Context
+
+Authentication.
+`;
+            const jwt = `# Pattern-JWT-001: JWT
+
+**CATEGORY:** Authentication
+
+## Context
+
+JWT tokens.
+`;
+            fs.writeFileSync(path.join(testPatternsDir, 'Pattern-API-001.md'), api);
+            fs.writeFileSync(path.join(testPatternsDir, 'Pattern-AUTH-001.md'), auth);
+            fs.writeFileSync(path.join(testPatternsDir, 'Pattern-JWT-001.md'), jwt);
+
+            await library.loadPatterns(testPatternsDir);
+            const related = library.findRelatedPatterns('Pattern-API-001', 2);
+
+            assert.strictEqual(related.length, 2);
+            assert.ok(related.some(r => r.pattern.id === 'Pattern-AUTH-001' && r.distance === 1));
+            assert.ok(related.some(r => r.pattern.id === 'Pattern-JWT-001' && r.distance === 2));
+        });
+
+        test('should find dependencies recursively', async () => {
+            // Create dependency chain: API-001 -> AUTH-001 -> JWT-001
+            const api = `# Pattern-API-001: REST API
+
+**CATEGORY:** API
+**DEPENDENCIES:** Pattern-AUTH-001
+
+## Context
+
+REST API.
+`;
+            const auth = `# Pattern-AUTH-001: Authentication
+
+**CATEGORY:** Authentication
+**DEPENDENCIES:** Pattern-JWT-001
+
+## Context
+
+Authentication.
+`;
+            const jwt = `# Pattern-JWT-001: JWT
+
+**CATEGORY:** Authentication
+
+## Context
+
+JWT tokens.
+`;
+            fs.writeFileSync(path.join(testPatternsDir, 'Pattern-API-001.md'), api);
+            fs.writeFileSync(path.join(testPatternsDir, 'Pattern-AUTH-001.md'), auth);
+            fs.writeFileSync(path.join(testPatternsDir, 'Pattern-JWT-001.md'), jwt);
+
+            await library.loadPatterns(testPatternsDir);
+            const deps = library.findDependencies('Pattern-API-001');
+
+            // Should return dependencies in order: JWT-001, AUTH-001
+            assert.strictEqual(deps.length, 2);
+            assert.strictEqual(deps[0].id, 'Pattern-JWT-001'); // Deepest dependency first
+            assert.strictEqual(deps[1].id, 'Pattern-AUTH-001');
+        });
+
+        test('should follow supersession chain', async () => {
+            // Create supersession chain: API-001 -> API-002 -> API-003
+            const api1 = `# Pattern-API-001: REST API v1
+
+**CATEGORY:** API
+**SUPERSEDED BY:** Pattern-API-002
+**STATUS:** Deprecated
+
+## Context
+
+Old API.
+`;
+            const api2 = `# Pattern-API-002: REST API v2
+
+**CATEGORY:** API
+**SUPERSEDES:** Pattern-API-001
+**SUPERSEDED BY:** Pattern-API-003
+**STATUS:** Deprecated
+
+## Context
+
+Intermediate API.
+`;
+            const api3 = `# Pattern-API-003: REST API v3
+
+**CATEGORY:** API
+**SUPERSEDES:** Pattern-API-002
+**STATUS:** Active
+
+## Context
+
+Current API.
+`;
+            fs.writeFileSync(path.join(testPatternsDir, 'Pattern-API-001.md'), api1);
+            fs.writeFileSync(path.join(testPatternsDir, 'Pattern-API-002.md'), api2);
+            fs.writeFileSync(path.join(testPatternsDir, 'Pattern-API-003.md'), api3);
+
+            await library.loadPatterns(testPatternsDir);
+            const current = library.findSupersededBy('Pattern-API-001');
+
+            assert.ok(current);
+            assert.strictEqual(current!.id, 'Pattern-API-003');
+        });
+    });
+
+    suite('Ripple Effect Detection', () => {
+        test('should detect patterns affected by changes', async () => {
+            // Create pattern network where multiple patterns depend on BASE-001
+            const base = `# Pattern-BASE-001: Base Utilities
+
+**CATEGORY:** Infrastructure
+
+## Context
+
+Base utilities.
+`;
+            const api = `# Pattern-API-001: REST API
+
+**CATEGORY:** API
+**DEPENDENCIES:** Pattern-BASE-001
+
+## Context
+
+REST API depends on base utilities.
+`;
+            const auth = `# Pattern-AUTH-001: Authentication
+
+**CATEGORY:** Authentication
+**RELATED:** Pattern-BASE-001
+
+## Context
+
+Authentication uses base utilities.
+`;
+            fs.writeFileSync(path.join(testPatternsDir, 'Pattern-BASE-001.md'), base);
+            fs.writeFileSync(path.join(testPatternsDir, 'Pattern-API-001.md'), api);
+            fs.writeFileSync(path.join(testPatternsDir, 'Pattern-AUTH-001.md'), auth);
+
+            await library.loadPatterns(testPatternsDir);
+            const affected = library.detectRippleEffects('Pattern-BASE-001');
+
+            assert.ok(affected.length >= 2);
+            assert.ok(affected.some(p => p.id === 'Pattern-API-001')); // Depends on BASE-001
+            assert.ok(affected.some(p => p.id === 'Pattern-AUTH-001')); // Related to BASE-001
+        });
+    });
+
+    suite('Pattern Graph Visualization', () => {
+        test('should generate pattern graph structure', async () => {
+            const api = `# Pattern-API-001: REST API
+
+**CATEGORY:** API
+**RELATED:** Pattern-AUTH-001
+
+## Context
+
+REST API.
+`;
+            const auth = `# Pattern-AUTH-001: Authentication
+
+**CATEGORY:** Authentication
+
+## Context
+
+Authentication.
+`;
+            fs.writeFileSync(path.join(testPatternsDir, 'Pattern-API-001.md'), api);
+            fs.writeFileSync(path.join(testPatternsDir, 'Pattern-AUTH-001.md'), auth);
+
+            await library.loadPatterns(testPatternsDir);
+            const graph = library.getPatternGraph();
+
+            assert.ok(graph);
+            assert.strictEqual(graph.nodes.length, 2);
+            assert.ok(graph.edges.length >= 1); // At least the related edge
+            assert.ok(graph.nodes.some(n => n.id === 'Pattern-API-001'));
+            assert.ok(graph.nodes.some(n => n.id === 'Pattern-AUTH-001'));
+            assert.ok(graph.edges.some(e => e.source === 'Pattern-API-001' && e.target === 'Pattern-AUTH-001' && e.type === 'related'));
+        });
+    });
 });

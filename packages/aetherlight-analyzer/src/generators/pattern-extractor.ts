@@ -94,6 +94,13 @@ export class PatternExtractor {
    *
    * DESIGN DECISION: Focus on high-quality code only
    * WHY: Patterns should be examples of GOOD code, not bad code
+   *
+   * NEURAL NETWORK FOUNDATION:
+   * After extracting patterns, detect relationships between them:
+   * - Architecture pattern relates to all component patterns
+   * - API patterns depend on model patterns
+   * - Model patterns may depend on utility patterns
+   * - Component patterns relate to patterns they interact with
    */
   async extractPatterns(analysis: AnalysisResult): Promise<ExtractedPattern[]> {
     const architecture = this.getArchitecture(analysis);
@@ -133,7 +140,73 @@ export class PatternExtractor {
     // Limit to max patterns
     const limitedPatterns = patterns.slice(0, this.options.maxPatterns);
 
+    // Detect relationships between patterns (NEURAL NETWORK EDGES)
+    this.detectPatternRelationships(limitedPatterns);
+
     return limitedPatterns;
+  }
+
+  /**
+   * Detect relationships between extracted patterns
+   *
+   * DESIGN DECISION: Establish neural network edges between pattern nodes
+   * WHY: Enable cross-domain pattern discovery and dependency tracking
+   *
+   * REASONING CHAIN:
+   * 1. Architecture pattern relates to all component patterns
+   * 2. API patterns depend on model patterns (data flow)
+   * 3. Model patterns may depend on utility patterns (shared logic)
+   * 4. Component patterns relate to other patterns in same file
+   *
+   * PATTERN: Pattern-CONTEXT-002 (Content-Addressable Context System)
+   */
+  private detectPatternRelationships(patterns: ExtractedPattern[]): void {
+    // Get pattern categories
+    const archPatterns = patterns.filter(p => p.category === PatternCategory.ARCHITECTURE);
+    const apiPatterns = patterns.filter(p => p.category === PatternCategory.API_HANDLER);
+    const modelPatterns = patterns.filter(p => p.category === PatternCategory.DATA_MODEL);
+    const utilityPatterns = patterns.filter(p => p.category === PatternCategory.UTILITY);
+
+    // 1. Architecture pattern relates to all component patterns (first 5 to avoid overload)
+    for (const archPattern of archPatterns) {
+      archPattern.relatedPatterns = patterns
+        .filter(p => p.category !== PatternCategory.ARCHITECTURE)
+        .slice(0, 5)
+        .map(p => p.id);
+    }
+
+    // 2. API patterns depend on model patterns
+    for (const apiPattern of apiPatterns) {
+      apiPattern.relatedPatterns = modelPatterns.map(p => p.id);
+    }
+
+    // 3. Model patterns relate to utility patterns
+    for (const modelPattern of modelPatterns) {
+      modelPattern.relatedPatterns = utilityPatterns.map(p => p.id);
+    }
+
+    // 4. Detect file-based relationships (patterns in same files are related)
+    for (let i = 0; i < patterns.length; i++) {
+      for (let j = i + 1; j < patterns.length; j++) {
+        const pattern1 = patterns[i];
+        const pattern2 = patterns[j];
+
+        // Check if patterns share source files
+        const sharedFiles = pattern1.sourceFiles.filter(f =>
+          pattern2.sourceFiles.includes(f)
+        );
+
+        if (sharedFiles.length > 0) {
+          // Mutual relationship
+          if (!pattern1.relatedPatterns.includes(pattern2.id)) {
+            pattern1.relatedPatterns.push(pattern2.id);
+          }
+          if (!pattern2.relatedPatterns.includes(pattern1.id)) {
+            pattern2.relatedPatterns.push(pattern1.id);
+          }
+        }
+      }
+    }
   }
 
   /**
@@ -384,39 +457,36 @@ export class PatternExtractor {
 
   /**
    * Generate Pattern-XXX.md file content
+   *
+   * PATTERN FORMAT: Compatible with PatternLibrary parser
+   * - Uses **FIELD:** format for metadata (e.g., **CATEGORY:**, **RELATED:**)
+   * - Pattern-CONTEXT-002 compliant for neural network integration
    */
   private generatePatternMarkdown(
     pattern: ExtractedPattern,
     repositoryName: string
   ): string {
-    return `# ${pattern.name}
+    return `# ${pattern.id}: ${pattern.name}
 
-**ID:** ${pattern.id}
-**Category:** ${pattern.category}
-**Language:** ${pattern.language}
-**Quality Score:** ${(pattern.qualityScore * 100).toFixed(1)}%
-**Complexity:** ${pattern.complexity}
-**Usage Frequency:** ${pattern.usageFrequency}x
-
----
+**CREATED:** ${new Date().toISOString().split('T')[0]}
+**CATEGORY:** ${pattern.category}
+**LANGUAGE:** ${pattern.language}
+**QUALITY SCORE:** ${pattern.qualityScore.toFixed(2)}
+**APPLICABILITY:** ${pattern.context}
+**STATUS:** Production-Validated
+${pattern.relatedPatterns.length > 0 ? `**RELATED:** ${pattern.relatedPatterns.join(', ')}` : ''}
 
 ## Context
 
 ${pattern.context}
 
----
-
 ## Problem
 
 ${pattern.problem}
 
----
-
 ## Solution
 
 ${pattern.solution}
-
----
 
 ## Chain of Thought
 
@@ -427,38 +497,25 @@ ${pattern.solution}
 **REASONING CHAIN:**
 ${pattern.reasoningChain.map((step, i) => `${i + 1}. ${step}`).join('\n')}
 
----
-
 ## Code Example
 
 \`\`\`${pattern.language.toLowerCase()}
 ${pattern.code}
 \`\`\`
 
----
+## Implementation Details
 
-## Source Files
-
+**Source Files:**
 ${pattern.sourceFiles.map((file) => `- ${file}`).join('\n')}
 
----
-
-## Related Patterns
-
-${pattern.relatedPatterns.length > 0 ? pattern.relatedPatterns.map((p) => `- ${p}`).join('\n') : 'None'}
-
----
-
-## Metadata
-
-- **Extracted from:** ${repositoryName}
-- **Quality Score:** ${(pattern.qualityScore * 100).toFixed(1)}%
-- **Complexity:** ${pattern.complexity}
-- **Test Coverage:** ${pattern.testCoverage ? (pattern.testCoverage * 100).toFixed(1) + '%' : 'Unknown'}
+**Extracted from:** ${repositoryName}
+**Complexity:** ${pattern.complexity}
+**Usage Frequency:** ${pattern.usageFrequency}x
+**Test Coverage:** ${pattern.testCoverage ? (pattern.testCoverage * 100).toFixed(1) + '%' : 'Unknown'}
 
 ---
 
-**Generated with ÆtherLight Code Analyzer**
+*Generated with ÆtherLight Code Analyzer - Pattern-ANALYZER-004*
 `;
   }
 

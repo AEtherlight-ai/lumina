@@ -22,16 +22,116 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 /**
+ * Pattern status lifecycle
+ */
+export type PatternStatus = 'Active' | 'Deprecated' | 'Superseded' | 'Design' | 'Production-Validated';
+
+/**
+ * Edge case documentation
+ */
+export interface EdgeCase {
+    scenario: string;
+    handling: string;
+    example?: string;
+}
+
+/**
+ * Alternative approach considered
+ */
+export interface Alternative {
+    approach: string;
+    rejected: string;  // Why it was rejected
+}
+
+/**
+ * Code example with Chain of Thought
+ */
+export interface CodeExample {
+    language: string;
+    code: string;
+    explanation: string;
+}
+
+/**
+ * Performance metrics
+ */
+export interface PerformanceMetrics {
+    latency?: string;      // "< 100ms"
+    throughput?: string;   // "1000 req/s"
+    memory?: string;       // "< 50MB"
+    benchmarks?: string;   // Free-form benchmark results
+}
+
+/**
+ * Enhanced Chain of Thought structure
+ */
+export interface ChainOfThought {
+    designDecision: string;
+    why: string;
+    reasoningChain: string[];
+    context?: string;           // Problem context
+    problem?: string;           // Specific challenges
+    solution?: string;          // How it solves
+    whenToUse?: string[];       // Use cases
+    whenNotToUse?: string[];    // Anti-patterns
+    edgeCases?: EdgeCase[];     // Edge cases
+    alternatives?: Alternative[]; // What was rejected
+    examples?: CodeExample[];   // Actual usage
+    metrics?: PerformanceMetrics; // Performance data
+}
+
+/**
  * Pattern metadata extracted from Pattern-XXX-NNN.md files
+ *
+ * NEURAL NETWORK FOUNDATION:
+ * This interface represents a node in the pattern knowledge graph.
+ * Relationships (relatedPatterns, crossLinks, dependencies) are the edges
+ * that enable neural routing, cross-domain discovery, and meta-learning.
  */
 export interface Pattern {
+    // Core Identity:
     id: string;              // Pattern-API-001
     name: string;            // REST Endpoint Structure
     category: string;        // API Architecture
     description: string;     // First paragraph of Context section (50-100 tokens)
     keywords: string[];      // Extracted from content (lowercase)
-    qualityScore?: number;   // From **QUALITY SCORE:** metadata
-    applicability?: string;  // From **APPLICABILITY:** metadata
+
+    // Relationship Graph (CRITICAL - Neural Network Edges):
+    relatedPatterns: string[];   // Links to related patterns (e.g., ['Pattern-AUTH-001', 'Pattern-JWT-001'])
+    supersedes?: string;         // Pattern this replaces (e.g., 'Pattern-API-000')
+    supersededBy?: string;       // Pattern that replaces this one (e.g., 'Pattern-API-002')
+    crossLinks: string[];        // Cross-domain references (e.g., patterns from other domains)
+    dependencies: string[];      // Required patterns (e.g., ['Pattern-BASE-001'])
+
+    // Domain Classification (for neural routing):
+    domain: string;              // Semantic domain (legal, agriculture, tech, api, auth, etc.)
+    region?: string;             // Geographic applicability (us-midwest, eu, global, etc.)
+    language: string;            // Implementation language (TypeScript, Rust, Python, Architecture)
+
+    // Quality & Status:
+    qualityScore?: number;       // 0.0-1.0 (production-validated patterns)
+    status: PatternStatus;       // Active | Deprecated | Superseded | Design | Production-Validated
+    applicability?: string;      // When to use this pattern
+
+    // Chain of Thought (enhanced):
+    chainOfThought?: ChainOfThought;
+
+    // Implementation Details:
+    sourceFiles?: string[];      // Actual usage locations in codebase
+    usageFrequency?: number;     // How often used (for optimization)
+    testCoverage?: number;       // Test coverage percentage (0.0-1.0)
+    complexity?: number;         // Cyclomatic complexity
+    performance?: PerformanceMetrics; // Benchmarks
+    source?: string;             // Where pattern was extracted from
+
+    // Lifecycle:
+    created?: Date;              // Creation timestamp
+    lastUpdated?: Date;          // Last modification
+    nextReview?: Date;           // When to review pattern
+
+    // Content-Addressable Storage (Pattern-CONTEXT-002):
+    contentHash?: string;        // SHA-256 hash of pattern content (for change detection)
+    address?: string;            // Hierarchical address (DOC-ID.SEC-ID.PARA-ID.LINE-ID)
 }
 
 /**
@@ -151,19 +251,196 @@ export class PatternLibrary {
             // Extract keywords from content (simple approach: lowercase words, filter common words)
             const keywords = this.extractKeywords(content, name, category);
 
+            // Extract relationship fields (CRITICAL for neural network)
+            const relatedPatterns = this.extractRelationships(content, /\*\*RELATED:\*\*\s*(.+)/i);
+            const supersedes = this.extractSingleRelation(content, /\*\*SUPERSEDES:\*\*\s*(.+)/i);
+            const supersededBy = this.extractSingleRelation(content, /\*\*SUPERSEDED BY:\*\*\s*(.+)/i);
+            const crossLinks = this.extractCrossLinks(content);
+            const dependencies = this.extractRelationships(content, /\*\*DEPENDENCIES:\*\*\s*(.+)/i);
+
+            // Extract domain and region
+            const domain = this.extractDomain(category, content);
+            const region = this.extractRegion(content);
+
+            // Extract language
+            const languageMatch = content.match(/\*\*Language:\*\*\s*(.+)/i);
+            const language = languageMatch ? languageMatch[1].trim() : 'Architecture';
+
+            // Extract status
+            const statusMatch = content.match(/\*\*STATUS:\*\*\s*(.+)/i);
+            const status: PatternStatus = statusMatch
+                ? (statusMatch[1].trim() as PatternStatus)
+                : 'Active';
+
+            // Extract source
+            const sourceMatch = content.match(/\*\*SOURCE:\*\*\s*(.+)/i);
+            const source = sourceMatch ? sourceMatch[1].trim() : undefined;
+
+            // Extract timestamps
+            const createdMatch = content.match(/\*\*CREATED:\*\*\s*(\d{4}-\d{2}-\d{2})/i);
+            const created = createdMatch ? new Date(createdMatch[1]) : undefined;
+
+            const updatedMatch = content.match(/\*\*LAST UPDATED:\*\*\s*(\d{4}-\d{2}-\d{2})/i);
+            const lastUpdated = updatedMatch ? new Date(updatedMatch[1]) : undefined;
+
+            // Calculate content hash
+            const contentHash = this.calculateContentHash(content);
+
             return {
                 id,
                 name,
                 category,
                 description,
                 keywords,
+                relatedPatterns,
+                supersedes,
+                supersededBy,
+                crossLinks,
+                dependencies,
+                domain,
+                region,
+                language,
                 qualityScore,
-                applicability
+                status,
+                applicability,
+                source,
+                created,
+                lastUpdated,
+                contentHash
             };
         } catch (error) {
             console.error(`Error parsing pattern file ${filename}:`, error);
             return null;
         }
+    }
+
+    /**
+     * Extract relationship patterns from content
+     *
+     * @param content - Full pattern content
+     * @param regex - Regex to match relationship field
+     * @returns Array of pattern IDs
+     *
+     * EXAMPLE:
+     * **RELATED:** Pattern-API-001, Pattern-AUTH-001, Pattern-JWT-001
+     * → ['Pattern-API-001', 'Pattern-AUTH-001', 'Pattern-JWT-001']
+     */
+    private extractRelationships(content: string, regex: RegExp): string[] {
+        const match = content.match(regex);
+        if (!match) {
+            return [];
+        }
+
+        // Split by comma, trim, filter empty
+        return match[1]
+            .split(/[,;]/)
+            .map(p => p.trim())
+            .filter(p => p.match(/^Pattern-[A-Z]+-\d+$/i));
+    }
+
+    /**
+     * Extract single relationship pattern
+     *
+     * @param content - Full pattern content
+     * @param regex - Regex to match relationship field
+     * @returns Pattern ID or undefined
+     */
+    private extractSingleRelation(content: string, regex: RegExp): string | undefined {
+        const match = content.match(regex);
+        if (!match) {
+            return undefined;
+        }
+
+        const patternId = match[1].trim();
+        return patternId.match(/^Pattern-[A-Z]+-\d+$/i) ? patternId : undefined;
+    }
+
+    /**
+     * Extract cross-links from content (patterns referenced in text)
+     *
+     * @param content - Full pattern content
+     * @returns Array of pattern IDs found in content
+     *
+     * DESIGN DECISION: Extract all Pattern-XXX-NNN references from text
+     * WHY: Patterns often reference other patterns in Context/Solution sections
+     */
+    private extractCrossLinks(content: string): string[] {
+        const patternRefs = content.match(/Pattern-[A-Z]+-\d+/gi) || [];
+        // Deduplicate and sort
+        return Array.from(new Set(patternRefs.map(p => p.toUpperCase())));
+    }
+
+    /**
+     * Extract domain from category and content
+     *
+     * @param category - Pattern category
+     * @param content - Full pattern content
+     * @returns Semantic domain
+     *
+     * DESIGN DECISION: Map category to semantic domain
+     * WHY: Enable domain-specific neural routing
+     */
+    private extractDomain(category: string, content: string): string {
+        const categoryLower = category.toLowerCase();
+
+        // Domain mapping
+        if (categoryLower.includes('api') || categoryLower.includes('rest') || categoryLower.includes('endpoint')) {
+            return 'api';
+        }
+        if (categoryLower.includes('auth') || categoryLower.includes('jwt') || categoryLower.includes('oauth')) {
+            return 'authentication';
+        }
+        if (categoryLower.includes('data') || categoryLower.includes('database') || categoryLower.includes('sql')) {
+            return 'data';
+        }
+        if (categoryLower.includes('ui') || categoryLower.includes('interface') || categoryLower.includes('component')) {
+            return 'ui';
+        }
+        if (categoryLower.includes('test') || categoryLower.includes('quality')) {
+            return 'testing';
+        }
+        if (categoryLower.includes('performance') || categoryLower.includes('optimization')) {
+            return 'performance';
+        }
+        if (categoryLower.includes('security') || categoryLower.includes('encryption')) {
+            return 'security';
+        }
+        if (categoryLower.includes('network') || categoryLower.includes('distribution')) {
+            return 'networking';
+        }
+
+        // Default: use category as domain
+        return category.toLowerCase().replace(/\s+/g, '-');
+    }
+
+    /**
+     * Extract region from content
+     *
+     * @param content - Full pattern content
+     * @returns Geographic region or undefined
+     *
+     * EXAMPLE:
+     * **REGION:** us-midwest
+     * → 'us-midwest'
+     */
+    private extractRegion(content: string): string | undefined {
+        const regionMatch = content.match(/\*\*REGION:\*\*\s*(.+)/i);
+        return regionMatch ? regionMatch[1].trim().toLowerCase() : undefined;
+    }
+
+    /**
+     * Calculate SHA-256 content hash for pattern
+     *
+     * @param content - Full pattern content
+     * @returns SHA-256 hash (hex string)
+     *
+     * DESIGN DECISION: Use Node's crypto module for hashing
+     * WHY: Standard, fast, collision-resistant
+     * PATTERN: Pattern-CONTEXT-002 (Content-Addressable Context System)
+     */
+    private calculateContentHash(content: string): string {
+        const crypto = require('crypto');
+        return crypto.createHash('sha256').update(content).digest('hex');
     }
 
     /**
@@ -296,4 +573,306 @@ export class PatternLibrary {
 
         return lines.join('\n');
     }
+
+    /**
+     * NEURAL NETWORK GRAPH TRAVERSAL METHODS
+     *
+     * These methods enable navigating the pattern knowledge graph to:
+     * - Discover related patterns across domains
+     * - Track pattern dependencies
+     * - Follow supersession chains
+     * - Detect ripple effects from pattern changes
+     *
+     * DESIGN DECISION: Breadth-first traversal with cycle detection
+     * WHY: Avoid infinite loops in circular relationships, explore nearest neighbors first
+     * PATTERN: Pattern-CONTEXT-002 (Content-Addressable Context System)
+     */
+
+    /**
+     * Find related patterns by traversing relationship graph
+     *
+     * @param patternId - Starting pattern ID
+     * @param depth - How many levels deep to traverse (default 2)
+     * @returns Array of related patterns with distance
+     *
+     * REASONING CHAIN:
+     * 1. Start with Pattern-API-001
+     * 2. Find relatedPatterns: [Pattern-AUTH-001, Pattern-JWT-001]
+     * 3. For each related pattern, find THEIR related patterns (depth 2)
+     * 4. Result: Complete context of related patterns within 2 hops
+     * 5. Token savings: Only load what's needed, not entire pattern library
+     */
+    public findRelatedPatterns(patternId: string, depth: number = 2): Array<{ pattern: Pattern; distance: number }> {
+        const result: Array<{ pattern: Pattern; distance: number }> = [];
+        const visited = new Set<string>();
+        const queue: Array<{ id: string; distance: number }> = [{ id: patternId, distance: 0 }];
+
+        while (queue.length > 0) {
+            const current = queue.shift()!;
+
+            // Skip if already visited
+            if (visited.has(current.id)) {
+                continue;
+            }
+
+            visited.add(current.id);
+
+            // Get pattern
+            const pattern = this.getPatternById(current.id);
+            if (!pattern) {
+                continue;
+            }
+
+            // Add to results (skip the starting pattern itself)
+            if (current.distance > 0) {
+                result.push({ pattern, distance: current.distance });
+            }
+
+            // Stop at depth limit
+            if (current.distance >= depth) {
+                continue;
+            }
+
+            // Queue related patterns
+            for (const relatedId of pattern.relatedPatterns) {
+                if (!visited.has(relatedId)) {
+                    queue.push({ id: relatedId, distance: current.distance + 1 });
+                }
+            }
+
+            // Queue cross-links (patterns referenced in content)
+            for (const crossLinkId of pattern.crossLinks) {
+                if (!visited.has(crossLinkId)) {
+                    queue.push({ id: crossLinkId, distance: current.distance + 1 });
+                }
+            }
+        }
+
+        // Sort by distance (nearest first)
+        result.sort((a, b) => a.distance - b.distance);
+
+        return result;
+    }
+
+    /**
+     * Find all dependencies for a pattern (recursive)
+     *
+     * @param patternId - Pattern ID
+     * @returns Array of required patterns (dependencies)
+     *
+     * DESIGN DECISION: Recursive dependency resolution with cycle detection
+     * WHY: Agent needs to know ALL required patterns before implementing one
+     *
+     * EXAMPLE:
+     * Pattern-API-001 depends on Pattern-AUTH-001
+     * Pattern-AUTH-001 depends on Pattern-JWT-001
+     * → Result: [Pattern-JWT-001, Pattern-AUTH-001] (dependency order)
+     */
+    public findDependencies(patternId: string): Pattern[] {
+        const result: Pattern[] = [];
+        const visited = new Set<string>();
+
+        const traverse = (id: string) => {
+            if (visited.has(id)) {
+                return;  // Cycle detection
+            }
+
+            visited.add(id);
+
+            const pattern = this.getPatternById(id);
+            if (!pattern) {
+                return;
+            }
+
+            // Recursively get dependencies FIRST (depth-first)
+            for (const depId of pattern.dependencies) {
+                traverse(depId);
+            }
+
+            // Add this pattern after its dependencies
+            result.push(pattern);
+        };
+
+        traverse(patternId);
+
+        // Remove the starting pattern from results
+        return result.filter(p => p.id !== patternId);
+    }
+
+    /**
+     * Follow supersession chain to find current pattern
+     *
+     * @param patternId - Pattern ID (may be deprecated)
+     * @returns Current active pattern (or original if not superseded)
+     *
+     * DESIGN DECISION: Follow supersededBy chain until we reach active pattern
+     * WHY: Agent should always use latest pattern, not deprecated ones
+     *
+     * EXAMPLE:
+     * Pattern-API-000 → supersededBy: Pattern-API-001 → supersededBy: Pattern-API-002
+     * → Result: Pattern-API-002 (latest)
+     */
+    public findSupersededBy(patternId: string): Pattern | null {
+        let currentId = patternId;
+        const visited = new Set<string>();
+
+        while (true) {
+            if (visited.has(currentId)) {
+                return null;  // Cycle detection
+            }
+
+            visited.add(currentId);
+
+            const pattern = this.getPatternById(currentId);
+            if (!pattern) {
+                return null;  // Pattern not found
+            }
+
+            // If pattern has supersededBy, follow the chain
+            if (pattern.supersededBy) {
+                currentId = pattern.supersededBy;
+            } else {
+                // Reached the end of the chain
+                return pattern;
+            }
+        }
+    }
+
+    /**
+     * Detect ripple effects: which patterns are affected by changes to this pattern
+     *
+     * @param patternId - Pattern ID that changed
+     * @returns Array of patterns that depend on or reference this pattern
+     *
+     * DESIGN DECISION: Find patterns that depend on or reference this pattern
+     * WHY: SHA-256 hash changed → notify dependent patterns → prevent silent breakage
+     * PATTERN: Pattern-CONTEXT-002 (Content-Addressable Context System)
+     *
+     * REASONING CHAIN:
+     * 1. Pattern-AUTH-001 content changes → SHA-256 hash changes
+     * 2. detectRippleEffects('Pattern-AUTH-001') finds:
+     *    - Patterns with dependencies: ['Pattern-AUTH-001']
+     *    - Patterns with relatedPatterns: ['Pattern-AUTH-001']
+     *    - Patterns with crossLinks: ['Pattern-AUTH-001']
+     * 3. Result: [Pattern-API-001, Pattern-JWT-001] need review
+     * 4. Agent notified: "Pattern-AUTH-001 changed, review these patterns"
+     * 5. Token savings: 90% (reference by hash until change detected)
+     */
+    public detectRippleEffects(patternId: string): Pattern[] {
+        const affected: Pattern[] = [];
+
+        for (const pattern of this.patterns) {
+            // Skip the pattern itself
+            if (pattern.id === patternId) {
+                continue;
+            }
+
+            // Check if this pattern depends on the changed pattern
+            if (pattern.dependencies.includes(patternId)) {
+                affected.push(pattern);
+                continue;
+            }
+
+            // Check if this pattern is related to the changed pattern
+            if (pattern.relatedPatterns.includes(patternId)) {
+                affected.push(pattern);
+                continue;
+            }
+
+            // Check if this pattern cross-links to the changed pattern
+            if (pattern.crossLinks.includes(patternId)) {
+                affected.push(pattern);
+                continue;
+            }
+
+            // Check if this pattern is superseded by the changed pattern
+            if (pattern.supersededBy === patternId) {
+                affected.push(pattern);
+                continue;
+            }
+        }
+
+        return affected;
+    }
+
+    /**
+     * Get pattern graph structure for visualization
+     *
+     * @returns Graph with nodes (patterns) and edges (relationships)
+     *
+     * DESIGN DECISION: Return graph structure for visualization/analysis
+     * WHY: Enable graph visualization in UI, pattern analysis, etc.
+     */
+    public getPatternGraph(): PatternGraph {
+        const nodes: PatternNode[] = [];
+        const edges: PatternEdge[] = [];
+
+        for (const pattern of this.patterns) {
+            // Add node
+            nodes.push({
+                id: pattern.id,
+                name: pattern.name,
+                domain: pattern.domain,
+                status: pattern.status,
+                qualityScore: pattern.qualityScore
+            });
+
+            // Add edges (relationships)
+            for (const relatedId of pattern.relatedPatterns) {
+                edges.push({
+                    source: pattern.id,
+                    target: relatedId,
+                    type: 'related'
+                });
+            }
+
+            // Add dependency edges
+            for (const depId of pattern.dependencies) {
+                edges.push({
+                    source: pattern.id,
+                    target: depId,
+                    type: 'depends'
+                });
+            }
+
+            // Add supersession edge
+            if (pattern.supersedes) {
+                edges.push({
+                    source: pattern.id,
+                    target: pattern.supersedes,
+                    type: 'supersedes'
+                });
+            }
+        }
+
+        return { nodes, edges };
+    }
+}
+
+/**
+ * Pattern graph node for visualization
+ */
+export interface PatternNode {
+    id: string;
+    name: string;
+    domain: string;
+    status: PatternStatus;
+    qualityScore?: number;
+}
+
+/**
+ * Pattern graph edge for visualization
+ */
+export interface PatternEdge {
+    source: string;
+    target: string;
+    type: 'related' | 'depends' | 'supersedes' | 'crossLink';
+}
+
+/**
+ * Pattern graph structure
+ */
+export interface PatternGraph {
+    nodes: PatternNode[];
+    edges: PatternEdge[];
 }
