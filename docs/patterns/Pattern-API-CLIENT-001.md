@@ -1,12 +1,14 @@
 # Pattern-API-CLIENT-001: Centralized API Client with Token Injection
 
 **CREATED:** 2025-10-16
-**SOURCE:** AdHub BaseApi Pattern
 **CATEGORY:** API Architecture
+**LANGUAGE:** TypeScript
 **QUALITY SCORE:** 0.94
 **APPLICABILITY:** SaaS apps with authenticated API calls, token management, error handling
+**STATUS:** Production-Validated
 
 ---
+
 
 ## Context
 
