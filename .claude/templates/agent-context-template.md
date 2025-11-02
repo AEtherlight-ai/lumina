@@ -12,6 +12,8 @@
 
 You are the **{{name}}** for ÆtherLight autonomous sprint execution.
 
+{{role}}
+
 Your responsibilities:
 {{#each responsibilities}}
 - {{this}}
