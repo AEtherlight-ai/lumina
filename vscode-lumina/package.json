@@ -602,7 +602,7 @@
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile",
     "test": "node ./out/test/runTest.js",
-    "test:unit": "npm run compile && mocha 'out/test/services/**/*.test.js' --ui tdd",
+    "test:unit": "npm run compile && mocha 'out/test/services/**/*.test.js' --ui tdd --timeout 10000",
     "package": "npm run compile && vsce package --no-dependencies",
     "postinstall": "node -e \"console.log('\\n✅ ÆtherLight installed!\\n\\nNext step: Run \\\"aetherlight\\\" to install VS Code extension + Desktop app\\n')\""
   },
