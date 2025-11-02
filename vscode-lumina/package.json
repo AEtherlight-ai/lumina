@@ -140,6 +140,11 @@
         "title": "ÆtherLight: Clear Sprint Cache (Force TOML Reload)"
       },
       {
+        "command": "aetherlight.analyzeSprint",
+        "title": "ÆtherLight: Analyze Sprint",
+        "icon": "$(search-view-icon)"
+      },
+      {
         "command": "aetherlight.resetTabState",
         "title": "ÆtherLight: Reset Tab State (Debug)"
       },
@@ -258,6 +263,15 @@
         "contents": "No sprint currently active.\n[Start Sprint](command:lumina.startSprintPlanning)"
       }
     ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "aetherlight.analyzeSprint",
+          "when": "view == luminaSprintProgress",
+          "group": "navigation"
+        }
+      ]
+    },
     "configuration": {
       "title": "ÆtherLight Configuration",
       "properties": {

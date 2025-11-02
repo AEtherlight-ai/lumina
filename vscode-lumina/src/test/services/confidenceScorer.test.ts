@@ -34,7 +34,7 @@ suite('ConfidenceScorer Tests', () => {
     });
 
     suite('Individual Task Scoring', () => {
-        test('should score complete task as 1.0', () => {
+        test('should score complete task as 1.0', async () => {
             const completeTask: Task = {
                 id: 'TEST-001',
                 name: 'Complete Task',
@@ -47,26 +47,26 @@ suite('ConfidenceScorer Tests', () => {
                 context: 'Test context'
             };
 
-            const score = scorer.scoreTask(completeTask);
+            const score = await scorer.scoreTask(completeTask);
             assert.strictEqual(score.confidence, 1.0);
             assert.strictEqual(score.action, 'accept');
             assert.strictEqual(score.gaps.length, 0);
         });
 
-        test('should score empty task as 0.0', () => {
+        test('should score empty task as 0.0', async () => {
             const emptyTask: Task = {
                 id: 'TEST-002',
                 name: 'Empty Task',
                 description: ''
             };
 
-            const score = scorer.scoreTask(emptyTask);
+            const score = await scorer.scoreTask(emptyTask);
             assert.strictEqual(score.confidence, 0.0);
             assert.strictEqual(score.action, 'regenerate');
             assert.ok(score.gaps.length > 0);
         });
 
-        test('should score task with only agent as 0.2', () => {
+        test('should score task with only agent as 0.2', async () => {
             const partialTask: Task = {
                 id: 'TEST-003',
                 name: 'Partial Task',
@@ -74,12 +74,12 @@ suite('ConfidenceScorer Tests', () => {
                 agent: 'test-agent'
             };
 
-            const score = scorer.scoreTask(partialTask);
+            const score = await scorer.scoreTask(partialTask);
             assert.strictEqual(score.confidence, 0.2);
             assert.strictEqual(score.action, 'regenerate');
         });
 
-        test('should score task with agent + patterns as 0.4', () => {
+        test('should score task with agent + patterns as 0.4', async () => {
             const task: Task = {
                 id: 'TEST-004',
                 name: 'Task with patterns',
@@ -88,12 +88,12 @@ suite('ConfidenceScorer Tests', () => {
                 patterns: ['Pattern-TEST-001']
             };
 
-            const score = scorer.scoreTask(task);
+            const score = await scorer.scoreTask(task);
             assert.strictEqual(score.confidence, 0.4);
             assert.strictEqual(score.action, 'regenerate');
         });
 
-        test('should score task with agent + patterns + deliverables as 0.6', () => {
+        test('should score task with agent + patterns + deliverables as 0.6', async () => {
             const task: Task = {
                 id: 'TEST-005',
                 name: 'Task with deliverables',
@@ -103,12 +103,12 @@ suite('ConfidenceScorer Tests', () => {
                 deliverables: ['Create file', 'Add tests']
             };
 
-            const score = scorer.scoreTask(task);
+            const score = await scorer.scoreTask(task);
             assert.strictEqual(score.confidence, 0.6);
             assert.strictEqual(score.action, 'fill_gaps');
         });
 
-        test('should score task with all criteria except why/context as 0.8', () => {
+        test('should score task with all criteria except why/context as 0.8', async () => {
             const task: Task = {
                 id: 'TEST-006',
                 name: 'Nearly complete task',
@@ -119,21 +119,21 @@ suite('ConfidenceScorer Tests', () => {
                 validation_criteria: ['Test passes']
             };
 
-            const score = scorer.scoreTask(task);
+            const score = await scorer.scoreTask(task);
             assert.strictEqual(score.confidence, 0.8);
             assert.strictEqual(score.action, 'accept');
         });
     });
 
     suite('Gap Identification', () => {
-        test('should identify all missing fields for empty task', () => {
+        test('should identify all missing fields for empty task', async () => {
             const task: Task = {
                 id: 'TEST-007',
                 name: 'Empty',
                 description: ''
             };
 
-            const score = scorer.scoreTask(task);
+            const score = await scorer.scoreTask(task);
             assert.ok(score.gaps.includes('agent'));
             assert.ok(score.gaps.includes('patterns'));
             assert.ok(score.gaps.includes('deliverables'));
@@ -141,7 +141,7 @@ suite('ConfidenceScorer Tests', () => {
             assert.ok(score.gaps.includes('why/context'));
         });
 
-        test('should identify specific gaps', () => {
+        test('should identify specific gaps', async () => {
             const task: Task = {
                 id: 'TEST-008',
                 name: 'Partial',
@@ -150,7 +150,7 @@ suite('ConfidenceScorer Tests', () => {
                 why: 'Because'
             };
 
-            const score = scorer.scoreTask(task);
+            const score = await scorer.scoreTask(task);
             assert.ok(score.gaps.includes('patterns'));
             assert.ok(score.gaps.includes('deliverables'));
             assert.ok(score.gaps.includes('validation_criteria'));
@@ -158,7 +158,7 @@ suite('ConfidenceScorer Tests', () => {
             assert.ok(!score.gaps.includes('why/context'));
         });
 
-        test('should have no gaps for complete task', () => {
+        test('should have no gaps for complete task', async () => {
             const task: Task = {
                 id: 'TEST-009',
                 name: 'Complete',
@@ -171,13 +171,13 @@ suite('ConfidenceScorer Tests', () => {
                 context: 'Context'
             };
 
-            const score = scorer.scoreTask(task);
+            const score = await scorer.scoreTask(task);
             assert.strictEqual(score.gaps.length, 0);
         });
     });
 
     suite('Action Assignment', () => {
-        test('should assign "accept" for confidence ≥ 0.8', () => {
+        test('should assign "accept" for confidence ≥ 0.8', async () => {
             const task: Task = {
                 id: 'TEST-010',
                 name: 'High confidence',
@@ -188,12 +188,12 @@ suite('ConfidenceScorer Tests', () => {
                 validation_criteria: ['Test']
             };
 
-            const score = scorer.scoreTask(task);
+            const score = await scorer.scoreTask(task);
             assert.ok(score.confidence >= 0.8);
             assert.strictEqual(score.action, 'accept');
         });
 
-        test('should assign "fill_gaps" for confidence 0.5-0.79', () => {
+        test('should assign "fill_gaps" for confidence 0.5-0.79', async () => {
             const task: Task = {
                 id: 'TEST-011',
                 name: 'Medium confidence',
@@ -203,12 +203,12 @@ suite('ConfidenceScorer Tests', () => {
                 deliverables: ['File']
             };
 
-            const score = scorer.scoreTask(task);
+            const score = await scorer.scoreTask(task);
             assert.ok(score.confidence >= 0.5 && score.confidence < 0.8);
             assert.strictEqual(score.action, 'fill_gaps');
         });
 
-        test('should assign "regenerate" for confidence < 0.5', () => {
+        test('should assign "regenerate" for confidence < 0.5', async () => {
             const task: Task = {
                 id: 'TEST-012',
                 name: 'Low confidence',
@@ -216,14 +216,14 @@ suite('ConfidenceScorer Tests', () => {
                 agent: 'test-agent'
             };
 
-            const score = scorer.scoreTask(task);
+            const score = await scorer.scoreTask(task);
             assert.ok(score.confidence < 0.5);
             assert.strictEqual(score.action, 'regenerate');
         });
     });
 
     suite('Sprint-Level Confidence', () => {
-        test('should calculate average confidence for sprint', () => {
+        test('should calculate average confidence for sprint', async () => {
             const tasks: Task[] = [
                 {
                     id: 'T1',
@@ -243,13 +243,13 @@ suite('ConfidenceScorer Tests', () => {
                 }
             ];
 
-            const sprintScore = scorer.scoreSprint(tasks);
+            const sprintScore = await scorer.scoreSprint(tasks);
             // Task 1: 1.0, Task 2: 0.2, Average: 0.6
             assert.strictEqual(sprintScore.averageConfidence, 0.6);
             assert.strictEqual(sprintScore.totalTasks, 2);
         });
 
-        test('should calculate confidence distribution', () => {
+        test('should calculate confidence distribution', async () => {
             const tasks: Task[] = [
                 // High confidence (≥0.8)
                 {
@@ -279,14 +279,14 @@ suite('ConfidenceScorer Tests', () => {
                 }
             ];
 
-            const sprintScore = scorer.scoreSprint(tasks);
+            const sprintScore = await scorer.scoreSprint(tasks);
             assert.strictEqual(sprintScore.distribution.high, 1);
             assert.strictEqual(sprintScore.distribution.medium, 1);
             assert.strictEqual(sprintScore.distribution.low, 1);
         });
 
-        test('should handle empty sprint', () => {
-            const sprintScore = scorer.scoreSprint([]);
+        test('should handle empty sprint', async () => {
+            const sprintScore = await scorer.scoreSprint([]);
             assert.strictEqual(sprintScore.averageConfidence, 0.0);
             assert.strictEqual(sprintScore.totalTasks, 0);
             assert.strictEqual(sprintScore.distribution.high, 0);
@@ -296,7 +296,7 @@ suite('ConfidenceScorer Tests', () => {
     });
 
     suite('Performance', () => {
-        test('should score task in <100ms', () => {
+        test('should score task in <100ms', async () => {
             const task: Task = {
                 id: 'PERF-001',
                 name: 'Performance test',
@@ -310,13 +310,13 @@ suite('ConfidenceScorer Tests', () => {
             };
 
             const start = Date.now();
-            scorer.scoreTask(task);
+            await scorer.scoreTask(task);
             const duration = Date.now() - start;
 
             assert.ok(duration < 100, `Scoring took ${duration}ms (should be <100ms)`);
         });
 
-        test('should score 50 tasks in <2s', () => {
+        test('should score 50 tasks in <2s', async () => {
             const tasks: Task[] = [];
             for (let i = 0; i < 50; i++) {
                 tasks.push({
@@ -331,7 +331,7 @@ suite('ConfidenceScorer Tests', () => {
             }
 
             const start = Date.now();
-            scorer.scoreSprint(tasks);
+            await scorer.scoreSprint(tasks);
             const duration = Date.now() - start;
 
             assert.ok(duration < 2000, `Scoring 50 tasks took ${duration}ms (should be <2000ms)`);

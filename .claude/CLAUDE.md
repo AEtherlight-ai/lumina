@@ -87,17 +87,49 @@ The bump-version script handles this automatically.
 - **Prevent mock implementations:** Tell Claude to run tests and confirm they fail before writing code
 - **Do NOT change tests:** Only change implementation to make tests pass
 
-**Middleware Enforcement (Phase 0):**
-- All sprint tasks include `test_requirements` section (auto-injected by middleware)
-- SkillOrchestrator validates tests exist before task completion (hard block)
-- ConfidenceScorer gives highest score (0.15 weight) to tasks with passing tests
-- Sprint UI shows test status: 🔴 No tests / 🟡 Partial coverage / 🟢 Full coverage (≥80%)
+**TDD Enforcement System (MID-012):**
+
+The project has automated TDD enforcement through multiple layers:
+
+1. **TestRequirementGenerator** (`vscode-lumina/src/services/TestRequirementGenerator.ts`)
+   - Auto-generates test requirements based on task category
+   - Infrastructure tasks → 90% coverage, unit tests
+   - API tasks → 85% coverage, integration tests
+   - UI tasks → 70% coverage, component tests
+   - Documentation tasks → No tests required
+
+2. **TestContextGatherer** (`vscode-lumina/src/services/TestContextGatherer.ts`)
+   - Scans workspace for existing test files
+   - Runs test suite and captures output
+   - Calculates coverage from coverage reports
+   - Status: 🔴 None / 🟡 Partial / 🟢 Complete (≥80%)
+
+3. **TestValidator** (`vscode-lumina/src/services/TestValidator.ts`)
+   - **BLOCKS** task completion if tests missing or failing
+   - Requires execution proof (not just file existence)
+   - Detects manual script workarounds (console.log, node test.js)
+   - Enforces coverage requirements per task type
+
+4. **ConfidenceScorer** (`vscode-lumina/src/services/ConfidenceScorer.ts`)
+   - Updated with test coverage scoring (30% of total score!)
+   - test_files: +0.10 (tests exist)
+   - test_requirements: +0.05 (TDD requirements defined)
+   - passing_tests: +0.15 (highest weight - most critical!)
+   - Tasks without passing tests score ≤0.70 (fill_gaps or regenerate)
+
+5. **Git Pre-Commit Hook** (`.git/hooks/pre-commit`)
+   - Runs automatically before every commit
+   - Blocks commits if tests failing
+   - Shows test output and TDD workflow reminder
+   - Bypass: `git commit --no-verify` (NOT RECOMMENDED)
 
 **Pre-Publish Checklist:**
 - [ ] All tests passing (`npm test`)
 - [ ] Test coverage ≥ 80% (check: `npm run coverage`)
 - [ ] No skipped tests (`.skip` removed)
 - [ ] No TODO tests (`.todo` implemented)
+- [ ] TestValidator passes for all tasks
+- [ ] No manual script workarounds detected
 
 **Example Task with TDD:**
 ```toml
@@ -128,6 +160,14 @@ test_coverage_requirement = 0.9  # 90% for core services
 **Token Impact:**
 - WITHOUT TDD: Bug → Undetected → Debug (8k tokens) → Regression (8k tokens) = 21k total
 - WITH TDD: Write tests (2k) → Implement (5k) → Test catches bug → Fix (1k) = 9k total (57% savings)
+
+**Enforcement Mechanism Files:**
+- `vscode-lumina/src/services/TestRequirementGenerator.ts` - Auto-generate test requirements
+- `vscode-lumina/src/services/TestContextGatherer.ts` - Find tests, run suite, check coverage
+- `vscode-lumina/src/services/TestValidator.ts` - Block completion without passing tests
+- `vscode-lumina/src/services/ConfidenceScorer.ts` - Score tasks with test coverage weight
+- `.git/hooks/pre-commit` - Block commits with failing tests
+- Pattern: Pattern-TDD-001 (Test-Driven Development Ratchet)
 
 **Resources:**
 - Full enforcement guide: `internal/TDD_ENFORCEMENT_MECHANISM.md`

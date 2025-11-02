@@ -131,10 +131,12 @@ export class SkillOrchestrator {
 	 * DESIGN DECISION: Score confidence to decide incremental vs full
 	 * WHY: Confidence ≥0.5 → incremental (60% token savings)
 	 */
-	scoreSprint(sprint: Sprint): ConfidenceResult {
-		const scores = sprint.tasks.map((task: any) =>
+	async scoreSprint(sprint: Sprint): Promise<ConfidenceResult> {
+		const scorePromises = sprint.tasks.map((task: any) =>
 			this.config.scorer.scoreTask(task)
 		);
+
+		const scores = await Promise.all(scorePromises);
 
 		const average = scores.length > 0
 			? scores.reduce((sum, s) => sum + s.confidence, 0) / scores.length
@@ -333,7 +335,7 @@ export class SkillOrchestrator {
 			const sprint = await this.loadSprint(sprintPath);
 
 			// 2. Score confidence
-			const confidence = this.scoreSprint(sprint);
+			const confidence = await this.scoreSprint(sprint);
 
 			// 3. Decide analysis type
 			const analysisType = this.decideAnalysisType(confidence.average);

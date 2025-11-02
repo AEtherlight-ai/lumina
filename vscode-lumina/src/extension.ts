@@ -27,6 +27,7 @@ import { checkAndSetupUserDocumentation } from './firstRunSetup';
 // Enhancement commands now implemented (v0.15.2):
 import { registerCaptureVoiceGlobalCommand } from './commands/captureVoiceGlobal';
 import { registerEnhanceTerminalInputCommand } from './commands/enhanceTerminalInput';
+import { registerAnalyzeSprintCommand } from './commands/analyzeSprint';
 // import { registerOpenAetherlightTerminalCommand } from './commands/openAetherlightTerminal';
 // import { registerQuickVoiceCommand } from './commands/quickVoice';
 // import { registerLuminaControlStatusBar } from './lumina_status_bar';
@@ -528,6 +529,24 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	 * RELATED: enhanceTerminalInput.ts, voicePanel.ts, PromptEnhancer
 	 */
 	registerEnhanceTerminalInputCommand(context);
+
+	/**
+	 * DESIGN DECISION: Register Analyze Sprint command (MID-009)
+	 * WHY: Users need visibility into sprint confidence and gaps before execution
+	 *
+	 * REASONING CHAIN:
+	 * 1. User clicks "Analyze Sprint" button in Sprint tab
+	 * 2. Load ACTIVE_SPRINT.toml
+	 * 3. Score confidence via SkillOrchestrator
+	 * 4. Show confidence report modal with overall score, task breakdown, gaps
+	 * 5. Provide actions: 'Fill Gaps', 'Regenerate Low Confidence', 'Cancel'
+	 * 6. Result: User can identify and fix low confidence tasks before sprint execution
+	 *
+	 * PATTERN: Pattern-ORCHESTRATION-001 (Smart Skill Chaining)
+	 * PATTERN: Pattern-INCREMENTAL-001 (Smart Gap Filling)
+	 * RELATED: analyzeSprint.ts, SkillOrchestrator, ConfidenceScorer
+	 */
+	registerAnalyzeSprintCommand(context);
 
 	/**
 	 * OLD APPROACH: IPC-based voice capture (Ctrl+Shift+V hotkey)

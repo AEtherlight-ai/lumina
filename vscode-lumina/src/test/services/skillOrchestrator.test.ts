@@ -123,7 +123,7 @@ suite('SkillOrchestrator Test Suite', () => {
 
 		const sprintPath = path.join(projectRoot, 'internal/sprints/ACTIVE_SPRINT.toml');
 		const sprint = await orchestrator.loadSprint(sprintPath);
-		const confidence = orchestrator.scoreSprint(sprint);
+		const confidence = await orchestrator.scoreSprint(sprint);
 
 		assert.ok(confidence, 'Should score sprint');
 		assert.ok(typeof confidence.average === 'number', 'Should have average score');
