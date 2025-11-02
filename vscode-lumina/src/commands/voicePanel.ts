@@ -2942,6 +2942,9 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             </div>`;
         }
 
+        // DEBUG: Log patterns to diagnose blank badges
+        console.log(`[voicePanel] Task ${task.id} patterns:`, task.patterns, 'Type:', typeof task.patterns, 'IsArray:', Array.isArray(task.patterns));
+
         const statusIcon = this.getStatusIcon(task.status);
         const statusText = task.status.replace('_', ' ').toUpperCase();
 
@@ -2988,10 +2991,11 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             <div class="detail-section">
                 <h4>🎨 Patterns</h4>
                 <div class="tag-list">
-                    ${task.patterns.map(pattern => `<span class="tag pattern-tag">${pattern}</span>`).join('')}
+                    ${task.patterns.map((pattern, idx) => `<span class="tag pattern-tag" title="Pattern ${idx}: ${pattern}">${pattern || '[EMPTY]'}</span>`).join('')}
                 </div>
+                <!-- DEBUG: Patterns array JSON: ${JSON.stringify(task.patterns)} -->
             </div>
-            ` : ''}
+            ` : `<!-- DEBUG: No patterns - task.patterns = ${JSON.stringify(task.patterns)} -->`}
 
             ${task.performance_target ? `
             <div class="detail-section">

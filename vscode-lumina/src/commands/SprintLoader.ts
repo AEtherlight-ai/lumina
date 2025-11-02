@@ -47,6 +47,7 @@ export interface SprintTask {
     required_expertise: string[];
     performance_target?: string;
     patterns?: string[];
+    pattern_context?: string;        // Pattern descriptions (inline, not just IDs)
     deliverables?: string[];
     completed_date?: string;
     files_to_create?: string[];
@@ -308,6 +309,7 @@ export class SprintLoader {
                 required_expertise: task.required_expertise || [],
                 performance_target: task.performance_target,
                 patterns: task.patterns,
+                pattern_context: task.pattern_context,  // Load pattern descriptions
                 deliverables: task.deliverables,
                 completed_date: task.completed_date,
                 files_to_create: task.files_to_create,

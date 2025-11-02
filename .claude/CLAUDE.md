@@ -66,9 +66,73 @@ The bump-version script handles this automatically.
    - Document design decisions
 
 3. **Testing:**
-   - Manual testing required (no automated tests yet)
+   - **TDD REQUIRED (Test-Driven Development)** - See TDD Workflow below
    - Test in VS Code extension host (F5)
    - Verify all commands work
+
+### Test-Driven Development (TDD) - MANDATORY
+
+**CRITICAL: All code changes MUST follow Test-Driven Development**
+
+**Why TDD:** Creates a "ratchet" (floor) preventing subtle breakage. Without tests, bugs slip through and reappear as regressions 4 changes later.
+
+**TDD Workflow (Red-Green-Refactor):**
+1. **RED:** Write test FIRST → Run → Test FAILS (expected)
+2. **GREEN:** Implement minimum code to pass → Run → Test PASSES
+3. **REFACTOR:** Improve code → Run → Test STILL PASSES
+4. **COMMIT:** Tests + implementation together
+
+**Claude Code Instructions:**
+- **State TDD explicitly:** "We are doing test-driven development. Write tests FIRST, then implementation."
+- **Prevent mock implementations:** Tell Claude to run tests and confirm they fail before writing code
+- **Do NOT change tests:** Only change implementation to make tests pass
+
+**Middleware Enforcement (Phase 0):**
+- All sprint tasks include `test_requirements` section (auto-injected by middleware)
+- SkillOrchestrator validates tests exist before task completion (hard block)
+- ConfidenceScorer gives highest score (0.15 weight) to tasks with passing tests
+- Sprint UI shows test status: 🔴 No tests / 🟡 Partial coverage / 🟢 Full coverage (≥80%)
+
+**Pre-Publish Checklist:**
+- [ ] All tests passing (`npm test`)
+- [ ] Test coverage ≥ 80% (check: `npm run coverage`)
+- [ ] No skipped tests (`.skip` removed)
+- [ ] No TODO tests (`.todo` implemented)
+
+**Example Task with TDD:**
+```toml
+[[epic.middleware.tasks]]
+id = "MID-002"
+name = "Confidence Scorer"
+
+test_requirements = """
+TDD Requirements (Infrastructure Task):
+1. Write tests FIRST for scoreTask()
+2. Test cases:
+   - Complete task (all criteria) → score 1.0
+   - Partial task (missing agent) → score 0.85
+   - Empty task → score 0.0
+   - With passing tests → score includes +0.15 bonus
+3. Run tests → FAIL (red phase)
+4. Implement ConfidenceScorer.scoreTask() → PASS (green phase)
+5. Refactor for clarity → STILL PASS
+"""
+
+test_files = [
+  "vscode-lumina/test/services/confidenceScorer.test.ts"
+]
+
+test_coverage_requirement = 0.9  # 90% for core services
+```
+
+**Token Impact:**
+- WITHOUT TDD: Bug → Undetected → Debug (8k tokens) → Regression (8k tokens) = 21k total
+- WITH TDD: Write tests (2k) → Implement (5k) → Test catches bug → Fix (1k) = 9k total (57% savings)
+
+**Resources:**
+- Full enforcement guide: `internal/TDD_ENFORCEMENT_MECHANISM.md`
+- Sprint task example: `internal/sprints/ACTIVE_SPRINT.toml` (MID-012)
+- Pattern: Pattern-TDD-001 (Test-Driven Development Ratchet)
 
 ---
 
