@@ -1,11 +1,16 @@
 # Pattern-UI-006: Tabbed Multi-Feature Sidebar with WebView
 
 **CREATED:** 2025-11-01
-**STATUS:** Active (Implemented in v0.15.0+)
 **CATEGORY:** UI Architecture + VS Code Extension
-**MATURITY:** Production
+**LANGUAGE:** TypeScript
+**QUALITY SCORE:** 0.80
+**APPLICABILITY:** General use
+**STATUS:** Active (Implemented in v0.15.0+)
+**RELATED:** PATTERN-SPRINT-001, PATTERN-VOICE-001, PATTERN-TERMINAL-001, PATTERN-CONTEXT-002, PATTERN-EVENT-002
 
 ---
+
+
 
 ## Problem Statement
 

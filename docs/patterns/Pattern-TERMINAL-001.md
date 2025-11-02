@@ -1,11 +1,16 @@
 # Pattern-TERMINAL-001: Intelligent Terminal Management for Voice Workflows
 
 **CREATED:** 2025-11-01
-**STATUS:** Active (Implemented in v0.15.0+)
 **CATEGORY:** UI/UX + VS Code Integration + Voice Workflows
-**MATURITY:** Production
+**LANGUAGE:** TypeScript
+**QUALITY SCORE:** 0.85
+**APPLICABILITY:** General use
+**STATUS:** Active (Implemented in v0.15.0+)
+**RELATED:** PATTERN-UI-006, PATTERN-VOICE-001, PATTERN-ENHANCEMENT-001, PATTERN-EVENT-002
 
 ---
+
+
 
 ## Problem Statement
 

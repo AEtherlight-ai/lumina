@@ -1,12 +1,15 @@
 # Pattern-HYBRID-SEARCH-001: Hybrid Search (Keyword + Semantic + Tag Matching)
 
 **CREATED:** 2025-01-16
-**SOURCE:** Legal AI Assistant (Defense Attorney Case Management System)
 **CATEGORY:** Vector/Embedding Patterns
+**LANGUAGE:** TypeScript
 **QUALITY SCORE:** 0.89
 **APPLICABILITY:** Search systems requiring high precision and recall, document discovery, knowledge bases
+**STATUS:** Production-Validated
+**RELATED:** PATTERN-EMBEDDING-001, PATTERN-PGVECTOR-001
 
 ---
+
 
 ## Context
 

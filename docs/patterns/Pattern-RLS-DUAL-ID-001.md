@@ -1,12 +1,14 @@
 # Pattern-RLS-DUAL-ID-001: Supabase RLS with Dual ID Mapping
 
 **CREATED:** 2025-10-16
-**SOURCE:** AdHub Supabase RLS Architecture
 **CATEGORY:** Database Security
+**LANGUAGE:** Architecture
 **QUALITY SCORE:** 0.88
 **APPLICABILITY:** Supabase apps with external auth (Clerk, Auth0), Row Level Security
+**STATUS:** Production-Validated
 
 ---
+
 
 ## Context
 

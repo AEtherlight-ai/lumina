@@ -1,12 +1,14 @@
 # Pattern-PLAN-LIMITS-001: Database-Driven Feature Flags with JSONB
 
 **CREATED:** 2025-10-16
-**SOURCE:** AdHub Subscription Management
 **CATEGORY:** Feature Management
+**LANGUAGE:** TypeScript
 **QUALITY SCORE:** 0.90
 **APPLICABILITY:** SaaS apps with subscription tiers, feature gating
+**STATUS:** Production-Validated
 
 ---
+
 
 ## Context
 

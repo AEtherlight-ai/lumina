@@ -1,11 +1,16 @@
 # Pattern-VOICE-001: Voice Capture and Transcription via Desktop App
 
 **CREATED:** 2025-11-01
-**STATUS:** Active (Implemented in v0.9.0+)
 **CATEGORY:** Audio Processing + IPC + Desktop Integration
-**MATURITY:** Production
+**LANGUAGE:** TypeScript
+**QUALITY SCORE:** 0.85
+**APPLICABILITY:** General use
+**STATUS:** Active (Implemented in v0.9.0+)
+**RELATED:** PATTERN-UI-006, PATTERN-TERMINAL-001, PATTERN-ENHANCEMENT-001, PATTERN-IPC-001
 
 ---
+
+
 
 ## Problem Statement
 

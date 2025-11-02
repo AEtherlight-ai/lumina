@@ -1,12 +1,16 @@
 # Pattern-STORAGE-001: Multi-Layer Distributed Storage
 
-**PATTERN ID:** Pattern-STORAGE-001
-**CATEGORY:** Distributed Systems / Storage
-**STATUS:** Active
 **CREATED:** 2025-10-05
-**LAST UPDATED:** 2025-10-05
+**CATEGORY:** Distributed Systems / Storage
+**LANGUAGE:** Rust
+**QUALITY SCORE:** 0.95
+**APPLICABILITY:** General use
+**STATUS:** Active
+**RELATED:** PATTERN-MESH-001, PATTERN-DHT-001, PATTERN-TRUST-001, PATTERN-RECOVERY-001, PATTERN-BUSINESS-001
 
 ---
+
+
 
 ## Context
 

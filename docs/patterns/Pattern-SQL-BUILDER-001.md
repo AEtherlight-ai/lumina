@@ -1,12 +1,14 @@
 # Pattern-SQL-BUILDER-001: Snowflake Query Builder with SQL Injection Prevention
 
 **CREATED:** 2025-10-16
-**SOURCE:** AdHub Snowflake Query Builder
 **CATEGORY:** Database Security
+**LANGUAGE:** TypeScript
 **QUALITY SCORE:** 0.90
 **APPLICABILITY:** Dynamic SQL generation, analytics platforms, reporting tools, data warehouses
+**STATUS:** Production-Validated
 
 ---
+
 
 ## Context
 

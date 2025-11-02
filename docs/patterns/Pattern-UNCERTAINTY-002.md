@@ -1,10 +1,16 @@
 # Pattern-UNCERTAINTY-002: Confidence Calibration System
 
-**STATUS:** Implemented (AI-008)
 **CREATED:** 2025-10-13
+**CATEGORY:** Uncategorized
+**LANGUAGE:** Rust
+**QUALITY SCORE:** 0.83
+**APPLICABILITY:** General use
+**STATUS:** Implemented (AI-008)
 **RELATED:** Pattern-UNCERTAINTY-001 (Confidence Quantification), AI-002 (Verification System), AI-007 (Uncertainty Quantification)
 
 ---
+
+
 
 ## Problem Statement
 

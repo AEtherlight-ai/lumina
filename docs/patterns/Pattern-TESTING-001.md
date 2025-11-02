@@ -1,11 +1,16 @@
 # Pattern-TESTING-001: Manual Testing Methodology for VS Code Extensions
 
 **CREATED:** 2025-11-01
-**STATUS:** Active (Required for v0.15.4+)
 **CATEGORY:** Quality Assurance + Testing
-**MATURITY:** Production
+**LANGUAGE:** TypeScript
+**QUALITY SCORE:** 1.00
+**APPLICABILITY:** General use
+**STATUS:** Active (Required for v0.15.4+)
+**RELATED:** PATTERN-UI-006, PATTERN-TERMINAL-001, PATTERN-VOICE-001, PATTERN-DOCUMENTATION-001
 
 ---
+
+
 
 ## Problem Statement
 

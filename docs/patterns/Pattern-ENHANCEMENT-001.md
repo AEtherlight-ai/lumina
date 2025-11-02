@@ -1,11 +1,16 @@
 # Pattern-ENHANCEMENT-001: Context-Aware Prompt Enhancement
 
 **CREATED:** 2025-11-01
-**STATUS:** Active (Implemented in v0.15.0+)
 **CATEGORY:** AI Prompt Engineering + Context Injection
-**MATURITY:** Production
+**LANGUAGE:** TypeScript
+**QUALITY SCORE:** 0.85
+**APPLICABILITY:** General use
+**STATUS:** Active (Implemented in v0.15.0+)
+**RELATED:** PATTERN-UI-006, PATTERN-THEME-001, PATTERN-VOICE-001, PATTERN-TERMINAL-001, PATTERN-DOCUMENTATION-001
 
 ---
+
+
 
 ## Problem Statement
 

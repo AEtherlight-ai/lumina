@@ -1,32 +1,16 @@
 # Pattern-META-002: Commit-Level Documentation Impact Analysis
 
-```rust
-/**
- * DESIGN DECISION: Analyze commits for documentation drift and code duplication BEFORE committing
- * WHY: Prevents documentation inconsistencies and duplicate code from entering the codebase
- *
- * REASONING CHAIN:
- * 1. Before committing, analyze git diff against existing documentation
- * 2. Check if changes duplicate existing functionality elsewhere
- * 3. Identify which docs need updating (not just code-adjacent docs)
- * 4. Update documentation ATOMICALLY with code changes
- * 5. Prevents drift, duplication, and maintains single source of truth
- * 6. Makes commits self-documenting and knowledge-preserving
- *
- * PATTERN: Pattern-META-001 (Documentation Feedback Loop) + commit enforcement
- * RELATED: commit-enforcer agent, Pattern-META-001, SOP-007 (Git Workflow)
- * FUTURE: Automate with pre-commit hook that runs analysis
- */
-```
-
-**PATTERN ID:** Pattern-META-002
-**NAME:** Commit-Level Documentation Impact Analysis
+**CREATED:** 2025-11-02
 **CATEGORY:** Meta-Learning / Process Enforcement
-**MATURITY:** Emerging
-**DISCOVERED:** 2025-10-06
+**LANGUAGE:** JavaScript
+**QUALITY SCORE:** 0.83
+**APPLICABILITY:** General use
 **STATUS:** Active
+**RELATED:** PATTERN-META-001
 
 ---
+
+
 
 ## Problem Statement
 

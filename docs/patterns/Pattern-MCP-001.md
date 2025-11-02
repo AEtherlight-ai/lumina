@@ -1,11 +1,16 @@
 # Pattern-MCP-001: Neural Network Routing Architecture
 
 **CREATED:** 2025-10-04
-**STATUS:** Architectural Design
-**DOMAIN:** Distributed Systems, Knowledge Networks
 **CATEGORY:** MCP Protocol, Neural Routing
+**LANGUAGE:** TypeScript
+**QUALITY SCORE:** 0.75
+**APPLICABILITY:** General use
+**STATUS:** Architectural Design
+**RELATED:** - DISTRIBUTED_PATTERN_NETWORK.md (overall architecture)
 
 ---
+
+
 
 ## Design Decision
 

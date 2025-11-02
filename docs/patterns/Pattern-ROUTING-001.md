@@ -1,8 +1,15 @@
 # Pattern-ROUTING-001: Domain Routing Table
 
 **CREATED:** 2025-10-12 | **STATUS:** Implemented (P3.5-004) | **SOURCE:** PHASE_3.5_INTELLIGENCE_LAYER.md
+**CATEGORY:** Uncategorized
+**LANGUAGE:** Rust
+**QUALITY SCORE:** 0.80
+**APPLICABILITY:** General use
+**STATUS:** Implemented (P3.5-004) | **SOURCE:** PHASE_3.5_INTELLIGENCE_LAYER.md
+**RELATED:** PATTERN-DOMAIN-001, PATTERN-NETWORK-001
 
 ---
+
 
 ## Design Decision
 

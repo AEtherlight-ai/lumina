@@ -1,12 +1,14 @@
 # Pattern-IAC-AMPLIFY-001: AWS Amplify CDK Infrastructure as Code
 
 **CREATED:** 2025-10-16
-**SOURCE:** AdHub Infrastructure
 **CATEGORY:** Infrastructure
+**LANGUAGE:** TypeScript
 **QUALITY SCORE:** 0.85
 **APPLICABILITY:** AWS infrastructure, serverless apps, CI/CD pipelines
+**STATUS:** Production-Validated
 
 ---
+
 
 ## Context
 

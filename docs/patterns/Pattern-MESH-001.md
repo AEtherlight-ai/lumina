@@ -1,12 +1,16 @@
 # Pattern-MESH-001: Offline Mesh Networking
 
-**PATTERN ID:** Pattern-MESH-001
-**CATEGORY:** Distributed Systems / Networking
-**STATUS:** Active
 **CREATED:** 2025-10-05
-**LAST UPDATED:** 2025-10-05
+**CATEGORY:** Distributed Systems / Networking
+**LANGUAGE:** Rust
+**QUALITY SCORE:** 0.80
+**APPLICABILITY:** General use
+**STATUS:** Active
+**RELATED:** PATTERN-STORAGE-001, PATTERN-DHT-001, PATTERN-TRUST-001, PATTERN-BUSINESS-001
 
 ---
+
+
 
 ## Context
 

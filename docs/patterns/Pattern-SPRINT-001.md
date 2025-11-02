@@ -1,11 +1,16 @@
 # Pattern-SPRINT-001: Sprint System with TOML Source of Truth
 
 **CREATED:** 2025-11-01
-**STATUS:** Active (Implemented in v0.15.0+)
 **CATEGORY:** Project Management + Autonomous Execution
-**MATURITY:** Production
+**LANGUAGE:** TypeScript
+**QUALITY SCORE:** 0.85
+**APPLICABILITY:** General use
+**STATUS:** Active (Implemented in v0.15.0+)
+**RELATED:** PATTERN-UI-006, PATTERN-VOICE-001, PATTERN-DOCUMENTATION-001, PATTERN-CONTEXT-002
 
 ---
+
+
 
 ## Problem Statement
 

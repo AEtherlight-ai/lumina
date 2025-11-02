@@ -1,11 +1,16 @@
 # Pattern-FAILURE-004: Documentation Completion Failure
 
-**STATUS:** Active Anti-Pattern (failure mode to avoid)
-**IDENTIFIED:** 2025-10-05
-**SEVERITY:** High (causes data loss, no training data, cannot validate improvements)
+**CREATED:** 2025-11-02
 **CATEGORY:** Process Compliance
+**LANGUAGE:** TypeScript
+**QUALITY SCORE:** 0.80
+**APPLICABILITY:** General use
+**STATUS:** Active Anti-Pattern (failure mode to avoid)
+**RELATED:** PATTERN-FAILURE-002, PATTERN-CLI-001, PATTERN-FAILURE-003, PATTERN-META-001
 
 ---
+
+
 
 ## Problem Statement
 

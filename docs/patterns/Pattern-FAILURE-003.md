@@ -1,11 +1,16 @@
 # Pattern-FAILURE-003: Process Compliance Failure
 
+**CREATED:** 2025-10-05
 **CATEGORY:** Anti-Pattern / Failure Mode
-**SEVERITY:** High (data loss, no audit trail)
-**IDENTIFIED:** 2025-10-05 (Phase 1, P1-009 to P1-012)
+**LANGUAGE:** TypeScript
+**QUALITY SCORE:** 0.80
+**APPLICABILITY:** General use
 **STATUS:** Documented, corrective actions defined
+**RELATED:** PATTERN-FAILURE-004, PATTERN-FAILURE-002, PATTERN-CLI-001, PATTERN-TRACKING-001
 
 ---
+
+
 
 ## Context
 

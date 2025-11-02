@@ -1,11 +1,16 @@
 # Pattern-FAILURE-006: Self-Fulfilling Negative Prophecy
 
+**CREATED:** 2025-11-02
 **CATEGORY:** Anti-Pattern
-**SEVERITY:** High (causes AI hallucinations about working code)
-**IDENTIFIED:** 2025-10-15
+**LANGUAGE:** TypeScript
+**QUALITY SCORE:** 0.80
+**APPLICABILITY:** General use
 **STATUS:** Active mitigation
+**RELATED:** PATTERN-FAILURE-002, PATTERN-META-001
 
 ---
+
+
 
 ## Problem
 

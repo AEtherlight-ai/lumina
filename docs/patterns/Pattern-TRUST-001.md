@@ -1,11 +1,16 @@
 # Pattern-TRUST-001: Circle of Trust Key Sharing with Shamir Secret Sharing
 
 **CREATED:** 2025-10-04
+**CATEGORY:** Uncategorized
+**LANGUAGE:** Rust
+**QUALITY SCORE:** 0.90
+**APPLICABILITY:** General use
 **STATUS:** Architecture Design
-**DOMAIN:** Cryptography, Privacy, Team Collaboration
-**RELATED PATTERNS:** Pattern-DHT-001 (Distributed Pattern Storage), Pattern-MCP-001 (Neural Network Routing)
+**RELATED:** PATTERN-DHT-001, PATTERN-MCP-001, PATTERN-CRYPTO-001, PATTERN-AUDIT-001
 
 ---
+
+
 
 ## PROBLEM
 

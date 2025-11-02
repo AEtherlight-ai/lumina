@@ -1,10 +1,16 @@
 # Pattern-CONTEXT-001: Hierarchical Context Organization
 
 **CREATED:** 2025-10-04T21:59:45-05:00
-**STATUS:** Active
 **CATEGORY:** Information Architecture
+**LANGUAGE:** Architecture
+**QUALITY SCORE:** 0.75
+**APPLICABILITY:** General use
+**STATUS:** Active
+**RELATED:** PATTERN-FAILURE-001, PATTERN-TRACKING-001, PATTERN-NAPI-001, PATTERN-WHISPER-001, PATTERN-META-001
 
 ---
+
+
 
 ## Problem
 

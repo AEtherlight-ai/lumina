@@ -1,11 +1,15 @@
 # Pattern-FILE-READING-001: Efficient Large File Reading Strategy
 
 **CREATED:** 2025-11-01
-**STATUS:** Active
 **CATEGORY:** Performance + Token Optimization
-**MATURITY:** Established
+**LANGUAGE:** TypeScript
+**QUALITY SCORE:** 0.77
+**APPLICABILITY:** General use
+**STATUS:** Active
+**RELATED:** PATTERN-CONTEXT-002, PATTERN-SPRINT-001
 
 ---
+
 
 ## Problem Statement
 

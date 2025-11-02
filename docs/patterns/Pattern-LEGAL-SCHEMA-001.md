@@ -1,12 +1,15 @@
 # Pattern-LEGAL-SCHEMA-001: Comprehensive Legal Case Schema (Domain Model Reference)
 
 **CREATED:** 2025-01-16
-**SOURCE:** Legal AI Assistant (Defense Attorney Case Management System)
 **CATEGORY:** Domain Model Patterns
+**LANGUAGE:** TypeScript
 **QUALITY SCORE:** 0.89
 **APPLICABILITY:** Legal tech, case management, law firm software, legal document management
+**STATUS:** Production-Validated
+**RELATED:** PATTERN-EMBEDDING-001, PATTERN-PGVECTOR-001
 
 ---
+
 
 ## Context
 
