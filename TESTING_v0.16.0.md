@@ -8,7 +8,7 @@
 
 ---
 
-## 📊 Phase 0 Progress: 18 of 33 Tasks Complete (54.5%)
+## 📊 Phase 0 Progress: 19 of 33 Tasks Complete (57.6%)
 
 **Completed Tasks:**
 - ✅ UI-FIX-001: Sprint Progress Panel enabled
@@ -27,6 +27,7 @@
 - ✅ VAL-003: Extension Package Size Validator (commit c3e16ed)
 - ✅ VAL-004: TypeScript Compilation Validator (commit 43b4613)
 - ✅ VAL-005: Test Coverage Validator (commit 96c13a8)
+- ✅ VAL-006: Git Workflow Validator (commit TBD)
 - ✅ UI-ARCH-001: Remove Voice Tab (commit 7ff6545)
 - ✅ UI-ARCH-002: Deprecate Unused Tabs (commit fb9b76b)
 - ✅ UI-ARCH-003: Reorganize Layout
@@ -35,7 +36,7 @@
 - ⏳ 0 PROTO tasks (ALL PROTO TASKS COMPLETE! 🎉)
 - ⏳ 4 UI-ARCH tasks (UI Architecture Redesign)
 - ⏳ 8 MID tasks (Middleware Services)
-- ⏳ 2 VAL tasks (VAL-006 to VAL-007)
+- ⏳ 1 VAL task (VAL-007)
 - ⏳ 1 SYNC task (Context Synchronization)
 
 ---
@@ -207,6 +208,38 @@
   node scripts/validate-coverage.js
   if [ $? -ne 0 ]; then
     echo "❌ Pre-commit blocked: Test coverage below minimum threshold"
+    exit 1
+  fi
+  ```
+
+**Git Workflow Validator** (VAL-006) ✅ NEW
+- What: Validates git repository state before publishing/committing (Pattern-VALIDATION-001)
+- Where: `vscode-lumina/src/services/GitWorkflowValidator.ts` (217 lines)
+- Tests: `vscode-lumina/src/test/services/gitWorkflowValidator.test.ts` (340 lines, 21 test cases)
+- Script: `scripts/validate-git-state.js` (168 lines) - Pre-commit/pre-publish git state validation CLI
+- Features:
+  - Detects uncommitted changes (git status --porcelain)
+  - Detects current branch (git rev-parse --abbrev-ref HEAD)
+  - Warns if on main/master branch (critical warning, not blocking)
+  - Detects merge conflicts (git ls-files -u) - blocks if present
+  - Counts unpushed commits (git log origin/HEAD..HEAD)
+  - Graceful degradation if git unavailable
+  - Performance: <500ms target (actual: ~1-2s on Windows with large repos)
+- Integration: Can be added to pre-commit hook or publish workflow
+- Usage: `node scripts/validate-git-state.js [--strict] [project-path]`
+- Strict Mode: Treats warnings as errors (fails on uncommitted changes or main branch)
+- Pattern Reference: Pattern-VALIDATION-001 (Comprehensive System Validation)
+- Status: ✅ Complete - All tests passing, validation script ready
+- Manual Test:
+  1. Run validator: `node scripts/validate-git-state.js`
+  2. Verify git state reported correctly (branch, uncommitted changes, conflicts)
+  3. Test --strict mode: `node scripts/validate-git-state.js --strict`
+- Optional Pre-Commit Hook:
+  ```bash
+  #!/bin/sh
+  node scripts/validate-git-state.js
+  if [ $? -ne 0 ]; then
+    echo "❌ Pre-commit blocked: Git workflow validation failed"
     exit 1
   fi
   ```
