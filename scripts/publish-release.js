@@ -217,6 +217,26 @@ async function main() {
   const vsixStats = fs.statSync(vsixPath);
   log(`✓ VSIX package created (${(vsixStats.size / 1024 / 1024).toFixed(2)} MB)`, 'green');
 
+  // Step 6.5: Validate package size (VS Code marketplace limit: 50MB)
+  log('\n📋 Step 6.5: Validate package size (VS Code marketplace)', 'yellow');
+  log('⚠️  Marketplace enforces <50MB limit - oversized packages get rejected', 'yellow');
+
+  // Run automated package size validation (VAL-003)
+  const sizeValidationResult = execSilent('node scripts/validate-package-size.js');
+
+  if (sizeValidationResult === null) {
+    // Validation script failed (exit code 1)
+    log('✗ CRITICAL: Package size validation FAILED', 'red');
+    log('\n⚠️  Package exceeds VS Code marketplace limit (50MB)!', 'red');
+    log('Run manually to see details: node scripts/validate-package-size.js', 'yellow');
+    log('\nMarketplace will reject this package.', 'yellow');
+    log('Reduce size by excluding unnecessary files via .vscodeignore', 'yellow');
+    process.exit(1);
+  }
+
+  const packageSizeMB = (vsixStats.size / 1024 / 1024).toFixed(2);
+  log(`✓ Package size validation PASSED (${packageSizeMB}MB < 50MB)`, 'green');
+
   // Step 7: Pre-publish verification
   log('\n📋 Step 7: Pre-publish verification', 'yellow');
   log('Checking package contents...', 'blue');
