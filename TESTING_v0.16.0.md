@@ -8,7 +8,7 @@
 
 ---
 
-## 📊 Phase 0 Progress: 20 of 33 Tasks Complete (60.6%)
+## 📊 Phase 0 Progress: 22 of 33 Tasks Complete (66.7%)
 
 **Completed Tasks:**
 - ✅ UI-FIX-001: Sprint Progress Panel enabled
@@ -28,16 +28,18 @@
 - ✅ VAL-004: TypeScript Compilation Validator (commit 43b4613)
 - ✅ VAL-005: Test Coverage Validator (commit 96c13a8)
 - ✅ VAL-006: Git Workflow Validator (commit 0abd3e4)
-- ✅ VAL-007: Version Sync Validator (commit TBD)
+- ✅ VAL-007: Version Sync Validator (commit 3d08ff1)
+- ✅ MID-013: Service Registry & Dependency Injection (commit TBD)
 - ✅ UI-ARCH-001: Remove Voice Tab (commit 7ff6545)
 - ✅ UI-ARCH-002: Deprecate Unused Tabs (commit fb9b76b)
 - ✅ UI-ARCH-003: Reorganize Layout
+- ✅ UI-ARCH-004: Add Workflow Toolbar
 
 **Remaining:**
 - ⏳ 0 PROTO tasks (ALL PROTO TASKS COMPLETE! 🎉)
 - ⏳ 0 VAL tasks (ALL VALIDATION TASKS COMPLETE! 🎉)
-- ⏳ 4 UI-ARCH tasks (UI Architecture Redesign)
-- ⏳ 8 MID tasks (Middleware Services)
+- ⏳ 3 UI-ARCH tasks (UI Architecture Redesign)
+- ⏳ 7 MID tasks (MID-014 to MID-020 - Middleware Services)
 - ⏳ 1 SYNC task (Context Synchronization)
 
 ---
@@ -271,6 +273,37 @@
   1. Run validator: `node scripts/validate-version-sync.js`
   2. Verify all 4 packages show same version
   3. Test mismatch detection: Manually change one package.json version, re-run validator
+
+**Service Registry & Dependency Injection** (MID-013) ✅ NEW
+- What: Centralized service management with dependency injection (Pattern-MIDDLEWARE-001, Pattern-DEPENDENCY-INJECTION-001)
+- Why: Prevents circular dependencies, enables testing with mocks, centralized lifecycle management
+- Where: `vscode-lumina/src/services/ServiceRegistry.ts` (254 lines)
+- Tests: `vscode-lumina/src/test/services/serviceRegistry.test.ts` (730 lines, 34 test cases)
+- Validation: `scripts/test-service-registry.js` (Quick validation script)
+- Features:
+  - Singleton pattern (single source of truth)
+  - Factory-based registration (lazy loading)
+  - Service retrieval with get<T>(name)
+  - Singleton per service (same instance on multiple gets)
+  - Lifecycle management (initialize(), dispose())
+  - Health status monitoring (getHealthStatus())
+  - Clear registry for testing
+  - Helper methods (has(), getRegisteredServices(), etc.)
+  - Performance: Registration <10ms, Lookup <1ms (actual: 0ms for both!)
+- Pattern Reference: Pattern-MIDDLEWARE-001, Pattern-DEPENDENCY-INJECTION-001
+- Problem Solved:
+  - Before: Services create dependencies directly (tight coupling, circular deps possible)
+  - After: Services request dependencies from registry (loose coupling, no circular deps)
+  - Testing: Easy to mock services by replacing in registry
+- Status: ✅ Complete - Foundation ready, full integration pending
+- Next Steps:
+  - Integrate with extension.ts activation
+  - Update existing services to use dependency injection pattern
+  - Register all services on extension activation
+- Manual Test:
+  1. Run validation: `node scripts/test-service-registry.js`
+  2. Verify: Singleton pattern, lazy loading, lifecycle, performance
+  3. Test cases: All 34 tests should pass
 
 **Remove Voice Tab** (UI-ARCH-001) ✅ NEW
 - What: Voice section now permanent at top (not a tab), always visible regardless of active tab

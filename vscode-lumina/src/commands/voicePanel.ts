@@ -2101,6 +2101,32 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                     if (sendBtn) sendBtn.addEventListener('click', () => window.sendToTerminal());
                     if (clearBtn) clearBtn.addEventListener('click', () => window.clearText());
 
+                    // UI-ARCH-004: Workflow toolbar event listeners
+                    const workflowToggleBtn = document.getElementById('workflowToggleBtn');
+                    if (workflowToggleBtn) workflowToggleBtn.addEventListener('click', () => window.toggleWorkflowToolbar());
+
+                    // UI-ARCH-004: Workflow button event listeners (placeholder handlers for UI-ARCH-004)
+                    const workflowSprintBtn = document.getElementById('workflowSprintBtn');
+                    const workflowAnalyzerBtn = document.getElementById('workflowAnalyzerBtn');
+                    const workflowPatternBtn = document.getElementById('workflowPatternBtn');
+                    const workflowSkillBtn = document.getElementById('workflowSkillBtn');
+                    const workflowAgentBtn = document.getElementById('workflowAgentBtn');
+                    const workflowTestsBtn = document.getElementById('workflowTestsBtn');
+                    const workflowGitBtn = document.getElementById('workflowGitBtn');
+                    const workflowPublishBtn = document.getElementById('workflowPublishBtn');
+
+                    if (workflowSprintBtn) workflowSprintBtn.addEventListener('click', () => window.handleWorkflowClick('sprint'));
+                    if (workflowAnalyzerBtn) workflowAnalyzerBtn.addEventListener('click', () => window.handleWorkflowClick('analyzer'));
+                    if (workflowPatternBtn) workflowPatternBtn.addEventListener('click', () => window.handleWorkflowClick('pattern'));
+                    if (workflowSkillBtn) workflowSkillBtn.addEventListener('click', () => window.handleWorkflowClick('skill'));
+                    if (workflowAgentBtn) workflowAgentBtn.addEventListener('click', () => window.handleWorkflowClick('agent'));
+                    if (workflowTestsBtn) workflowTestsBtn.addEventListener('click', () => window.handleWorkflowClick('tests'));
+                    if (workflowGitBtn) workflowGitBtn.addEventListener('click', () => window.handleWorkflowClick('git'));
+                    if (workflowPublishBtn) workflowPublishBtn.addEventListener('click', () => window.handleWorkflowClick('publish'));
+
+                    // UI-ARCH-004: Load and apply workflow toolbar collapsed state
+                    window.loadWorkflowToolbarState();
+
                     console.log('[ÆtherLight] Event listeners re-attached to voice tab buttons');
                 }, 0);
             }
@@ -2451,6 +2477,115 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             background-color: var(--vscode-button-hoverBackground);
             border-color: var(--vscode-button-border);
             transform: scale(1.05);
+        }
+
+        /* UI-ARCH-004: Workflow toolbar styling */
+        /* WHY: One-click access to major workflows with collapsible UI */
+        /* REASONING: Flex layout with wrapping, smooth animation, professional styling */
+        /* Pattern: Pattern-UI-ARCH-001 (Progressive Disclosure - hide advanced features until needed) */
+        .workflow-toolbar-container {
+            margin: 16px 0;
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 4px;
+            background-color: var(--vscode-editor-background);
+            overflow: hidden;
+        }
+
+        .workflow-toolbar-header {
+            display: flex;
+            align-items: center;
+            background-color: var(--vscode-sideBar-background);
+            border-bottom: 1px solid var(--vscode-panel-border);
+        }
+
+        .workflow-toggle {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: transparent;
+            border: none;
+            color: var(--vscode-foreground);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .workflow-toggle:hover {
+            background-color: var(--vscode-list-hoverBackground);
+        }
+
+        .workflow-toggle-icon {
+            font-size: 12px;
+            transition: transform 0.3s ease-in-out;
+            display: inline-block;
+        }
+
+        .workflow-toggle-icon.collapsed {
+            transform: rotate(-90deg);
+        }
+
+        .workflow-toolbar-label {
+            flex: 1;
+            text-align: left;
+        }
+
+        .workflow-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 12px;
+            max-height: 500px;
+            opacity: 1;
+            transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out, padding 0.3s ease-in-out;
+            overflow: hidden;
+        }
+
+        .workflow-toolbar.collapsed {
+            max-height: 0;
+            opacity: 0;
+            padding: 0 12px;
+        }
+
+        .workflow-button {
+            flex: 1 1 calc(25% - 8px);
+            min-width: 100px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            padding: 12px 8px;
+            background-color: var(--vscode-button-secondaryBackground);
+            color: var(--vscode-button-secondaryForeground);
+            border: 1px solid var(--vscode-button-border);
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .workflow-button:hover {
+            background-color: var(--vscode-button-hoverBackground);
+            color: var(--vscode-button-foreground);
+            border-color: var(--vscode-focusBorder);
+            transform: translateY(-2px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .workflow-button:active {
+            transform: translateY(0);
+        }
+
+        .workflow-icon {
+            font-size: 20px;
+            line-height: 1;
+        }
+
+        .workflow-label {
+            font-weight: 500;
+            text-align: center;
         }
 
         /* SLIDE-DOWN-002: Configuration panel container styling */
@@ -4350,6 +4485,98 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 vscode.setState(state);
             };
 
+            // UI-ARCH-004: Workflow toolbar functions
+            // WHY: Collapsible toolbar for one-click access to major workflows
+            // REASONING: State persistence via vscode.getState/setState, smooth animation via CSS
+            // Pattern: Pattern-UI-ARCH-001 (Progressive Disclosure)
+
+            window.toggleWorkflowToolbar = function() {
+                const toolbar = document.getElementById('workflowToolbar');
+                const toggleIcon = document.querySelector('.workflow-toggle-icon');
+
+                if (!toolbar || !toggleIcon) return;
+
+                // Toggle collapsed class
+                const isCollapsed = toolbar.classList.contains('collapsed');
+
+                if (isCollapsed) {
+                    // Expand
+                    toolbar.classList.remove('collapsed');
+                    toggleIcon.classList.remove('collapsed');
+                    toggleIcon.textContent = '▼';
+                } else {
+                    // Collapse
+                    toolbar.classList.add('collapsed');
+                    toggleIcon.classList.add('collapsed');
+                    toggleIcon.textContent = '▶';
+                }
+
+                // Save state
+                const state = vscode.getState() || {};
+                state.workflowToolbarExpanded = !isCollapsed;
+                vscode.setState(state);
+
+                console.log('[ÆtherLight] Workflow toolbar toggled:', !isCollapsed ? 'expanded' : 'collapsed');
+            };
+
+            window.loadWorkflowToolbarState = function() {
+                const toolbar = document.getElementById('workflowToolbar');
+                const toggleIcon = document.querySelector('.workflow-toggle-icon');
+
+                if (!toolbar || !toggleIcon) return;
+
+                // Load saved state (default: expanded)
+                const state = vscode.getState() || {};
+                const isExpanded = state.workflowToolbarExpanded !== undefined ? state.workflowToolbarExpanded : true;
+
+                if (!isExpanded) {
+                    // Apply collapsed state
+                    toolbar.classList.add('collapsed');
+                    toggleIcon.classList.add('collapsed');
+                    toggleIcon.textContent = '▶';
+                } else {
+                    // Ensure expanded state
+                    toolbar.classList.remove('collapsed');
+                    toggleIcon.classList.remove('collapsed');
+                    toggleIcon.textContent = '▼';
+                }
+
+                console.log('[ÆtherLight] Workflow toolbar state loaded:', isExpanded ? 'expanded' : 'collapsed');
+            };
+
+            window.handleWorkflowClick = function(workflowType) {
+                // UI-ARCH-004: Placeholder handler (full logic in UI-ARCH-006)
+                // Chain of Thought: Log workflow type for now, will integrate WorkflowCheck later
+                // WHY: UI-ARCH-004 focuses on UI skeleton, UI-ARCH-006 implements workflow integration
+
+                console.log('[ÆtherLight] Workflow button clicked:', workflowType);
+
+                // TODO UI-ARCH-006: Replace with WorkflowCheck.checkWorkflow(workflowType)
+                // For now, just show a status message
+                const workflowNames = {
+                    'sprint': 'Sprint Planning',
+                    'analyzer': 'Code Analyzer',
+                    'pattern': 'Pattern Creation',
+                    'skill': 'Skill Creation',
+                    'agent': 'Agent Creation',
+                    'tests': 'Test Runner',
+                    'git': 'Git Status Check',
+                    'publish': 'Publishing'
+                };
+
+                const workflowName = workflowNames[workflowType] || workflowType;
+                const statusEl = document.getElementById('statusMessage');
+                if (statusEl) {
+                    statusEl.textContent = 'Workflow: ' + workflowName + ' (full integration in UI-ARCH-006)';
+                    statusEl.className = 'status-message info';
+                    statusEl.style.display = 'block';
+
+                    setTimeout(() => {
+                        statusEl.style.display = 'none';
+                    }, 3000);
+                }
+            };
+
             // CSP-FIX-001: Attach event listeners to buttons (no onclick allowed)
             // Chain of Thought: CSP Trusted Types blocks onclick handlers, must use addEventListener
             // WHY: VS Code webview CSP policy blocks inline event handlers for security
@@ -4382,6 +4609,30 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 if (settingsBtn) settingsBtn.addEventListener('click', () => {
                     vscode.postMessage({ type: 'switchTab', tabId: 'settings' });
                 });
+
+                // UI-ARCH-004: Workflow toolbar event listeners (initial load)
+                const workflowToggleBtn = document.getElementById('workflowToggleBtn');
+                const workflowSprintBtn = document.getElementById('workflowSprintBtn');
+                const workflowAnalyzerBtn = document.getElementById('workflowAnalyzerBtn');
+                const workflowPatternBtn = document.getElementById('workflowPatternBtn');
+                const workflowSkillBtn = document.getElementById('workflowSkillBtn');
+                const workflowAgentBtn = document.getElementById('workflowAgentBtn');
+                const workflowTestsBtn = document.getElementById('workflowTestsBtn');
+                const workflowGitBtn = document.getElementById('workflowGitBtn');
+                const workflowPublishBtn = document.getElementById('workflowPublishBtn');
+
+                if (workflowToggleBtn) workflowToggleBtn.addEventListener('click', () => window.toggleWorkflowToolbar());
+                if (workflowSprintBtn) workflowSprintBtn.addEventListener('click', () => window.handleWorkflowClick('sprint'));
+                if (workflowAnalyzerBtn) workflowAnalyzerBtn.addEventListener('click', () => window.handleWorkflowClick('analyzer'));
+                if (workflowPatternBtn) workflowPatternBtn.addEventListener('click', () => window.handleWorkflowClick('pattern'));
+                if (workflowSkillBtn) workflowSkillBtn.addEventListener('click', () => window.handleWorkflowClick('skill'));
+                if (workflowAgentBtn) workflowAgentBtn.addEventListener('click', () => window.handleWorkflowClick('agent'));
+                if (workflowTestsBtn) workflowTestsBtn.addEventListener('click', () => window.handleWorkflowClick('tests'));
+                if (workflowGitBtn) workflowGitBtn.addEventListener('click', () => window.handleWorkflowClick('git'));
+                if (workflowPublishBtn) workflowPublishBtn.addEventListener('click', () => window.handleWorkflowClick('publish'));
+
+                // UI-ARCH-004: Load workflow toolbar state on first load
+                window.loadWorkflowToolbarState();
             })();
 
             // Toggle recording - Send backtick to trigger desktop app
@@ -5390,6 +5641,57 @@ function getVoicePanelBodyContent(): string {
             id="transcriptionText"
             placeholder="Click 🎤 to record, or type directly..."
         ></textarea>
+    </div>
+
+    <!-- UI-ARCH-004: Workflow toolbar (8 workflow buttons, collapsible) -->
+    <!-- WHY: One-click access to major workflows (Sprint, Analyzer, Pattern, Skill, Agent, Tests, Git, Publish) -->
+    <!-- REASONING: Collapsible to save space (most users won't use all 8 workflows frequently) -->
+    <!-- Pattern: Pattern-UI-ARCH-001 (Progressive Disclosure - hide advanced features until needed) -->
+    <!-- Pattern: Pattern-COMM-001 (Each button will trigger workflow check in UI-ARCH-006) -->
+    <div class="workflow-toolbar-container">
+        <div class="workflow-toolbar-header">
+            <button id="workflowToggleBtn" class="workflow-toggle" title="Toggle workflow toolbar">
+                <span class="workflow-toggle-icon">▼</span>
+                <span class="workflow-toolbar-label">Workflows</span>
+            </button>
+        </div>
+        <div id="workflowToolbar" class="workflow-toolbar">
+            <!-- Row 1: Planning & Analysis workflows -->
+            <button id="workflowSprintBtn" class="workflow-button" title="Plan new sprint or continue current sprint">
+                <span class="workflow-icon">📋</span>
+                <span class="workflow-label">Sprint</span>
+            </button>
+            <button id="workflowAnalyzerBtn" class="workflow-button" title="Analyze workspace and generate insights">
+                <span class="workflow-icon">🔍</span>
+                <span class="workflow-label">Analyzer</span>
+            </button>
+            <button id="workflowPatternBtn" class="workflow-button" title="Create reusable pattern document">
+                <span class="workflow-icon">📐</span>
+                <span class="workflow-label">Pattern</span>
+            </button>
+            <button id="workflowSkillBtn" class="workflow-button" title="Create new skill for automation">
+                <span class="workflow-icon">🛠️</span>
+                <span class="workflow-label">Skill</span>
+            </button>
+
+            <!-- Row 2: Development & Release workflows -->
+            <button id="workflowAgentBtn" class="workflow-button" title="Create specialized agent">
+                <span class="workflow-icon">🤖</span>
+                <span class="workflow-label">Agent</span>
+            </button>
+            <button id="workflowTestsBtn" class="workflow-button" title="Run test suite and show results">
+                <span class="workflow-icon">🧪</span>
+                <span class="workflow-label">Tests</span>
+            </button>
+            <button id="workflowGitBtn" class="workflow-button" title="Check uncommitted files and branch status">
+                <span class="workflow-icon">🔀</span>
+                <span class="workflow-label">Git</span>
+            </button>
+            <button id="workflowPublishBtn" class="workflow-button" title="Publish new release to npm and GitHub">
+                <span class="workflow-icon">🚀</span>
+                <span class="workflow-label">Publish</span>
+            </button>
+        </div>
     </div>
 
     <!-- UI-003: Secondary icon toolbar (4 icons, 28px height, bottom placement) -->
