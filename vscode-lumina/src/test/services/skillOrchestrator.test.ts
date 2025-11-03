@@ -398,4 +398,102 @@ suite('SkillOrchestrator Test Suite', () => {
 		// Individual operations should be fast (<5s for unit test with 1 task)
 		assert.ok(duration < 5000, `Orchestration steps took ${duration}ms (should be <5s for unit test)`);
 	});
+
+	/**
+	 * Test: Handle invalid TOML syntax gracefully (MID-018)
+	 *
+	 * DESIGN DECISION: Invalid TOML shouldn't crash extension
+	 * WHY: User makes typo in sprint file → extension should show helpful error, not crash
+	 *
+	 * TDD WORKFLOW (MID-018):
+	 * 1. RED: Write test first → Run → FAILS (no error handling yet)
+	 * 2. GREEN: Implement error handling → Run → PASSES
+	 * 3. REFACTOR: Clean up if needed → Run → STILL PASSES
+	 */
+	test('Should throw enhanced error for invalid TOML with line number', async () => {
+		const parser = new MultiFormatParser();
+		const scorer = new ConfidenceScorer();
+		const patternLibrary = new PatternLibrary();
+		const agentRegistry = new AgentRegistry(agentsPath);
+		const contextGatherer = new ContextGatherer(patternLibrary, projectRoot);
+
+		const config: OrchestratorConfig = {
+			parser,
+			scorer,
+			patternLibrary,
+			agentRegistry,
+			contextGatherer,
+			projectRoot
+		};
+
+		orchestrator = new SkillOrchestrator(config);
+
+		// Create temporary file with invalid TOML syntax
+		const fs = require('fs');
+		const invalidTomlPath = path.join(projectRoot, 'internal/sprints/INVALID_TEST.toml');
+		const invalidTomlContent = `
+[meta]
+sprint_name = "Test Sprint"
+
+[tasks.TEST-001]
+id = "TEST-001"
+name = "Test task"
+invalid_syntax_here = [unclosed array  # ← Syntax error at line 9
+`;
+
+		fs.writeFileSync(invalidTomlPath, invalidTomlContent, 'utf8');
+
+		try {
+			// This should throw an error with line number details
+			await orchestrator.loadSprint(invalidTomlPath);
+			assert.fail('Should have thrown error for invalid TOML');
+		} catch (error: any) {
+			// Verify error has line number information
+			assert.ok(error.details, 'Error should have details object');
+			assert.ok(error.details.line, 'Error should have line number');
+			assert.ok(error.details.file === invalidTomlPath, 'Error should have file path');
+			assert.ok(error.details.message, 'Error should have message');
+
+			// Verify error message is user-friendly
+			assert.ok(error.message.includes('line'), 'Error message should mention line number');
+		} finally {
+			// Clean up test file
+			if (fs.existsSync(invalidTomlPath)) {
+				fs.unlinkSync(invalidTomlPath);
+			}
+		}
+	});
+
+	/**
+	 * Test: Return empty sprint on file read error (edge case)
+	 *
+	 * DESIGN DECISION: File read errors should not crash - graceful degradation
+	 * WHY: File permissions, network drives, etc. shouldn't break extension
+	 */
+	test('Should return empty sprint for non-existent file', async () => {
+		const parser = new MultiFormatParser();
+		const scorer = new ConfidenceScorer();
+		const patternLibrary = new PatternLibrary();
+		const agentRegistry = new AgentRegistry(agentsPath);
+		const contextGatherer = new ContextGatherer(patternLibrary, projectRoot);
+
+		const config: OrchestratorConfig = {
+			parser,
+			scorer,
+			patternLibrary,
+			agentRegistry,
+			contextGatherer,
+			projectRoot
+		};
+
+		orchestrator = new SkillOrchestrator(config);
+
+		const nonExistentPath = path.join(projectRoot, 'internal/sprints/NONEXISTENT.toml');
+		const sprint = await orchestrator.loadSprint(nonExistentPath);
+
+		// Should return empty sprint, not throw error
+		assert.ok(sprint, 'Should return sprint object');
+		assert.ok(sprint.tasks, 'Sprint should have tasks array');
+		assert.strictEqual(sprint.tasks.length, 0, 'Tasks array should be empty');
+	});
 });

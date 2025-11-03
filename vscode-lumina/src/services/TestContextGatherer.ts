@@ -15,13 +15,21 @@
  * RELATED: MID-012 (TDD Enforcement), TestValidator
  */
 
-import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
 const execAsync = promisify(exec);
+
+// Dynamic import for vscode (optional for unit tests)
+let vscode: any;
+try {
+    vscode = require('vscode');
+} catch {
+    // vscode not available (unit test context)
+    vscode = null;
+}
 
 export interface TestContext {
     taskId: string;
@@ -46,7 +54,14 @@ export class TestContextGatherer {
     private workspaceRoot: string;
 
     constructor(workspaceRoot?: string) {
-        this.workspaceRoot = workspaceRoot || vscode.workspace.workspaceFolders?.[0].uri.fsPath || process.cwd();
+        // Use provided workspace root, or try to get from vscode, or default to cwd
+        if (workspaceRoot) {
+            this.workspaceRoot = workspaceRoot;
+        } else if (vscode?.workspace?.workspaceFolders?.[0]) {
+            this.workspaceRoot = vscode.workspace.workspaceFolders[0].uri.fsPath;
+        } else {
+            this.workspaceRoot = process.cwd();
+        }
     }
 
     /**

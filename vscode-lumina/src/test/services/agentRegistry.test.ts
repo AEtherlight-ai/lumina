@@ -97,7 +97,7 @@ suite('AgentRegistry Test Suite', () => {
 			files: ['src/api/users.ts']
 		};
 
-		const assignedAgent = registry.assignAgent(apiTask);
+		const assignedAgent = await registry.assignAgent(apiTask);
 		assert.ok(assignedAgent, 'No agent assigned');
 		assert.strictEqual(assignedAgent.type, 'API', 'Wrong agent type assigned');
 	});
@@ -121,7 +121,7 @@ suite('AgentRegistry Test Suite', () => {
 			files: ['migrations/001_users.sql']
 		};
 
-		const assignedAgent = registry.assignAgent(dbTask);
+		const assignedAgent = await registry.assignAgent(dbTask);
 		assert.ok(assignedAgent, 'No agent assigned');
 		assert.strictEqual(assignedAgent.type, 'Database', 'Wrong agent type for DB patterns');
 	});
@@ -145,7 +145,7 @@ suite('AgentRegistry Test Suite', () => {
 			files: ['vscode-lumina/src/components/SettingsPanel.tsx']
 		};
 
-		const assignedAgent = registry.assignAgent(uiTask);
+		const assignedAgent = await registry.assignAgent(uiTask);
 		assert.ok(assignedAgent, 'No agent assigned');
 		assert.strictEqual(assignedAgent.type, 'UI', 'Wrong agent type for UI files');
 	});
@@ -218,7 +218,7 @@ suite('AgentRegistry Test Suite', () => {
 			files: []
 		};
 
-		const agent = registry.assignAgent(task);
+		const agent = await registry.assignAgent(task);
 		registry.recordTaskAssignment(agent.id, task.id);
 
 		const workload = registry.getAgentWorkload(agent.id);
@@ -246,7 +246,7 @@ suite('AgentRegistry Test Suite', () => {
 		};
 
 		const startTime = Date.now();
-		registry.assignAgent(task);
+		await registry.assignAgent(task);
 		const duration = Date.now() - startTime;
 
 		assert.ok(duration < 50, `Assignment took ${duration}ms (target: <50ms)`);
@@ -301,8 +301,64 @@ suite('AgentRegistry Test Suite', () => {
 			files: []
 		};
 
-		registry.assignAgent(task);
+		await registry.assignAgent(task);
 		assert.ok(logs.length > 0, 'No assignment logs generated');
 		assert.ok(logs[0].includes('TEST-007'), 'Log should include task ID');
+	});
+
+	/**
+	 * Test: Create default agent when registry is empty (MID-019)
+	 *
+	 * DESIGN DECISION: Empty registry should create 'general-agent' fallback
+	 * WHY: New users have no agents → pipeline would fail → bad UX
+	 *
+	 * TDD WORKFLOW (MID-019):
+	 * 1. RED: Test written first → Run → FAILS (no fallback yet)
+	 * 2. GREEN: Implement fallback in AgentRegistry.initialize()
+	 * 3. REFACTOR: Clean up if needed
+	 */
+	test('Should create default "general-agent" when registry is empty (MID-019)', async () => {
+		const emptyPath = path.join(__dirname, '../fixtures/empty-agents-fallback-test');
+		registry = new AgentRegistry(emptyPath);
+
+		// Initialize empty registry
+		await registry.initialize();
+
+		// Should have created default 'general-agent' automatically
+		const agents = registry.getAllAgents();
+		assert.strictEqual(agents.length, 1, 'Should have created 1 default agent');
+
+		const generalAgent = registry.getAgentById('general-agent');
+		assert.ok(generalAgent, 'general-agent should exist');
+		assert.strictEqual(generalAgent.id, 'general-agent', 'Agent ID should be "general-agent"');
+		assert.strictEqual(generalAgent.name, 'General Agent', 'Agent name should be "General Agent"');
+		assert.ok(generalAgent.responsibilities.length > 0, 'Default agent should have responsibilities');
+		assert.ok(generalAgent.responsibilities.some((r: string) => r.includes('general') || r.includes('broad')),
+			'Default agent should have general/broad responsibilities');
+	});
+
+	/**
+	 * Test: Default agent can be assigned to any task (MID-019)
+	 *
+	 * DESIGN DECISION: general-agent has broad expertise for all task types
+	 * WHY: Fallback should handle any task category when no specialized agents exist
+	 */
+	test('Should assign default agent to tasks when no specialized agents exist (MID-019)', async () => {
+		const emptyPath = path.join(__dirname, '../fixtures/empty-agents-fallback-test');
+		registry = new AgentRegistry(emptyPath);
+		await registry.initialize();
+
+		const apiTask: TaskContext = {
+			id: 'TEST-FALLBACK-001',
+			name: 'API task with no specialized agent',
+			category: 'API',
+			description: 'Test fallback agent assignment',
+			patterns: [],
+			files: []
+		};
+
+		const assignedAgent = await registry.assignAgent(apiTask);
+		assert.ok(assignedAgent, 'Should assign default agent');
+		assert.strictEqual(assignedAgent.id, 'general-agent', 'Should assign general-agent as fallback');
 	});
 });

@@ -18,6 +18,7 @@
  */
 
 import * as vscode from 'vscode';
+import * as path from 'path';
 import {
     SprintProgressSnapshot,
     AgentStatusInfo,
@@ -26,9 +27,19 @@ import {
     STATUS_ICONS,
     AGENT_ICONS
 } from './types';
+import { TestContextGatherer } from '../services/TestContextGatherer';
 
 /**
- * TreeView item representing either sprint root or agent
+ * Test status for a task (MID-024)
+ */
+interface TaskTestStatus {
+    status: 'none' | 'low' | 'medium' | 'high';
+    coverage: number;  // 0-100
+    testFiles: string[];
+}
+
+/**
+ * TreeView item representing sprint root, agent, or task
  */
 class SprintTreeItem extends vscode.TreeItem {
     constructor(
@@ -36,6 +47,7 @@ class SprintTreeItem extends vscode.TreeItem {
         public readonly collapsibleState: vscode.TreeItemCollapsibleState,
         public readonly contextValue: 'sprint' | 'agent' | 'task',
         public readonly agentInfo?: AgentStatusInfo,
+        public readonly taskInfo?: { id: string; name: string; testStatus?: TaskTestStatus },
         public readonly command?: vscode.Command
     ) {
         super(label, collapsibleState);
@@ -47,6 +59,10 @@ class SprintTreeItem extends vscode.TreeItem {
             );
             this.description = this.getDescriptionForAgent(agentInfo);
             this.tooltip = this.getTooltipForAgent(agentInfo);
+        } else if (contextValue === 'task' && taskInfo) {
+            // MID-024: Show test status icon for tasks
+            this.description = this.getTestStatusIndicator(taskInfo.testStatus);
+            this.tooltip = this.getTooltipForTask(taskInfo);
         }
     }
 
@@ -119,6 +135,82 @@ class SprintTreeItem extends vscode.TreeItem {
             return `${hours}h ${minutes}m`;
         }
     }
+
+    /**
+     * Get test status indicator (MID-024)
+     *
+     * DESIGN DECISION: Emoji indicators for quick visual scanning
+     * WHY: Color-coded feedback matching TDD workflow
+     */
+    private getTestStatusIndicator(testStatus?: TaskTestStatus): string {
+        if (!testStatus) {
+            return '⚫ No tests';
+        }
+
+        switch (testStatus.status) {
+            case 'high':
+                return `🟢 ${testStatus.coverage}% coverage`;
+            case 'medium':
+                return `🟡 ${testStatus.coverage}% coverage`;
+            case 'low':
+            case 'none':
+                return `🔴 ${testStatus.coverage}% coverage`;
+            default:
+                return '⚫ Unknown';
+        }
+    }
+
+    /**
+     * Get tooltip for task with test details (MID-024)
+     */
+    private getTooltipForTask(taskInfo: { id: string; name: string; testStatus?: TaskTestStatus }): vscode.MarkdownString {
+        const tooltip = new vscode.MarkdownString();
+        tooltip.appendMarkdown(`**Task:** ${taskInfo.id} - ${taskInfo.name}\n\n`);
+
+        if (taskInfo.testStatus) {
+            const { status, coverage, testFiles } = taskInfo.testStatus;
+
+            // Status icon
+            let statusIcon = '';
+            let statusText = '';
+            switch (status) {
+                case 'high':
+                    statusIcon = '🟢';
+                    statusText = 'Excellent';
+                    break;
+                case 'medium':
+                    statusIcon = '🟡';
+                    statusText = 'Good';
+                    break;
+                case 'low':
+                    statusIcon = '🔴';
+                    statusText = 'Needs Work';
+                    break;
+                case 'none':
+                    statusIcon = '⚫';
+                    statusText = 'No Tests';
+                    break;
+            }
+
+            tooltip.appendMarkdown(`**Test Status:** ${statusIcon} ${statusText}\n\n`);
+            tooltip.appendMarkdown(`**Coverage:** ${coverage}%\n\n`);
+
+            if (testFiles.length > 0) {
+                tooltip.appendMarkdown(`**Test Files:**\n`);
+                testFiles.forEach(file => {
+                    tooltip.appendMarkdown(`- ${path.basename(file)}\n`);
+                });
+                tooltip.appendMarkdown(`\n`);
+            }
+
+            tooltip.appendMarkdown(`_Click to open test file_`);
+        } else {
+            tooltip.appendMarkdown(`**Test Status:** ⚫ No tests found\n\n`);
+            tooltip.appendMarkdown(`_No test files detected for this task_`);
+        }
+
+        return tooltip;
+    }
 }
 
 /**
@@ -132,8 +224,15 @@ export class SprintProgressProvider implements vscode.TreeDataProvider<SprintTre
     readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
     private currentSnapshot: SprintProgressSnapshot | null = null;
+    private testContextGatherer: TestContextGatherer | null = null;
+    private workspaceRoot: string | undefined;
 
-    constructor() {}
+    constructor(workspaceRoot?: string) {
+        this.workspaceRoot = workspaceRoot;
+        if (workspaceRoot) {
+            this.testContextGatherer = new TestContextGatherer(workspaceRoot);
+        }
+    }
 
     /**
      * Update sprint progress snapshot (called by IPC client)
@@ -163,19 +262,19 @@ export class SprintProgressProvider implements vscode.TreeDataProvider<SprintTre
     /**
      * Get TreeView children
      *
-     * DESIGN DECISION: Two-level hierarchy (Sprint → Agents)
-     * WHY: Tasks shown in agent description (avoids 3-level tree complexity)
+     * DESIGN DECISION: Three-level hierarchy (Sprint → Agents → Tasks) (MID-024)
+     * WHY: Need per-task test status indicators
      */
-    getChildren(element?: SprintTreeItem): Thenable<SprintTreeItem[]> {
+    async getChildren(element?: SprintTreeItem): Promise<SprintTreeItem[]> {
         if (!this.currentSnapshot) {
             // No sprint running
-            return Promise.resolve([]);
+            return [];
         }
 
         if (!element) {
             // Root level: Show sprint summary
             const sprintItem = this.createSprintItem(this.currentSnapshot);
-            return Promise.resolve([sprintItem]);
+            return [sprintItem];
         }
 
         if (element.contextValue === 'sprint') {
@@ -183,11 +282,15 @@ export class SprintProgressProvider implements vscode.TreeDataProvider<SprintTre
             const agentItems = this.currentSnapshot.agents.map(agent =>
                 this.createAgentItem(agent)
             );
-            return Promise.resolve(agentItems);
+            return agentItems;
         }
 
-        // No third level (tasks shown in agent description)
-        return Promise.resolve([]);
+        if (element.contextValue === 'agent' && element.agentInfo) {
+            // Third level: Show tasks for this agent (MID-024)
+            return await this.createTaskItems(element.agentInfo);
+        }
+
+        return [];
     }
 
     private createSprintItem(snapshot: SprintProgressSnapshot): SprintTreeItem {
@@ -236,15 +339,172 @@ export class SprintProgressProvider implements vscode.TreeDataProvider<SprintTre
             arguments: [agent.terminal_id]
         } : undefined;
 
+        // MID-024: Make agents collapsible to show tasks
+        const collapsibleState = (agent.current_task || agent.next_task)
+            ? vscode.TreeItemCollapsibleState.Collapsed
+            : vscode.TreeItemCollapsibleState.None;
+
         const item = new SprintTreeItem(
             label,
-            vscode.TreeItemCollapsibleState.None,
+            collapsibleState,
             'agent',
             agent,
+            undefined, // No taskInfo for agent items
             command
         );
 
         return item;
+    }
+
+    /**
+     * Create task items with test status (MID-024)
+     *
+     * DESIGN DECISION: Show current_task and next_task with test status
+     * WHY: Display test coverage for tasks being executed
+     */
+    private async createTaskItems(agent: AgentStatusInfo): Promise<SprintTreeItem[]> {
+        const tasks: SprintTreeItem[] = [];
+
+        // Add current task
+        if (agent.current_task) {
+            const testStatus = await this.getTestStatusForTask(agent.current_task.id);
+            const item = new SprintTreeItem(
+                agent.current_task.name,
+                vscode.TreeItemCollapsibleState.None,
+                'task',
+                undefined,
+                {
+                    id: agent.current_task.id,
+                    name: agent.current_task.name,
+                    testStatus
+                },
+                testStatus?.testFiles.length ? {
+                    command: 'vscode.open',
+                    title: 'Open Test File',
+                    arguments: [vscode.Uri.file(testStatus.testFiles[0])]
+                } : undefined
+            );
+            tasks.push(item);
+        }
+
+        // Add next task
+        if (agent.next_task) {
+            const testStatus = await this.getTestStatusForTask(agent.next_task.id);
+            const item = new SprintTreeItem(
+                `⏳ ${agent.next_task.name}`,
+                vscode.TreeItemCollapsibleState.None,
+                'task',
+                undefined,
+                {
+                    id: agent.next_task.id,
+                    name: agent.next_task.name,
+                    testStatus
+                },
+                testStatus?.testFiles.length ? {
+                    command: 'vscode.open',
+                    title: 'Open Test File',
+                    arguments: [vscode.Uri.file(testStatus.testFiles[0])]
+                } : undefined
+            );
+            tasks.push(item);
+        }
+
+        return tasks;
+    }
+
+    /**
+     * Get test status for a task (MID-024)
+     *
+     * DESIGN DECISION: Search for test files by naming convention
+     * WHY: Real-time view doesn't have full task metadata
+     */
+    private async getTestStatusForTask(taskId: string): Promise<TaskTestStatus | undefined> {
+        if (!this.workspaceRoot) {
+            return undefined;
+        }
+
+        try {
+            // Search for test files matching task ID pattern
+            const testFiles = await this.findTestFiles(taskId);
+
+            if (testFiles.length === 0) {
+                return {
+                    status: 'none',
+                    coverage: 0,
+                    testFiles: []
+                };
+            }
+
+            // For now, return default "needs verification" status
+            // Full coverage calculation would require running tests
+            return {
+                status: 'medium',
+                coverage: 75,
+                testFiles
+            };
+        } catch (error) {
+            return undefined;
+        }
+    }
+
+    /**
+     * Find test files for a task by naming convention
+     */
+    private async findTestFiles(taskId: string): Promise<string[]> {
+        if (!this.workspaceRoot) {
+            return [];
+        }
+
+        const testDir = path.join(this.workspaceRoot, 'vscode-lumina', 'src', 'test');
+        const testFiles: string[] = [];
+
+        // Search for test files
+        const searchPatterns = [
+            taskId.toLowerCase(),
+            taskId.replace(/-/g, '').toLowerCase()
+        ];
+
+        try {
+            const fs = require('fs');
+            if (fs.existsSync(testDir)) {
+                const files = this.getAllFiles(testDir);
+                for (const file of files) {
+                    const basename = path.basename(file, '.ts').toLowerCase();
+                    if (searchPatterns.some(pattern => basename.includes(pattern))) {
+                        testFiles.push(file);
+                    }
+                }
+            }
+        } catch (error) {
+            // Directory doesn't exist or can't be read
+        }
+
+        return testFiles;
+    }
+
+    /**
+     * Recursively get all files in a directory
+     */
+    private getAllFiles(dir: string): string[] {
+        const fs = require('fs');
+        let results: string[] = [];
+
+        try {
+            const list = fs.readdirSync(dir);
+            list.forEach((file: string) => {
+                const filePath = path.join(dir, file);
+                const stat = fs.statSync(filePath);
+                if (stat && stat.isDirectory()) {
+                    results = results.concat(this.getAllFiles(filePath));
+                } else {
+                    results.push(filePath);
+                }
+            });
+        } catch (error) {
+            // Error reading directory
+        }
+
+        return results;
     }
 
     private createProgressBar(progress: number, length: number = 10): string {

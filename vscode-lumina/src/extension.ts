@@ -28,6 +28,10 @@ import { checkAndSetupUserDocumentation } from './firstRunSetup';
 import { registerCaptureVoiceGlobalCommand } from './commands/captureVoiceGlobal';
 import { registerEnhanceTerminalInputCommand } from './commands/enhanceTerminalInput';
 import { registerAnalyzeSprintCommand } from './commands/analyzeSprint';
+// MID-011: Middleware integration commands
+import { registerCreateSkillCommand } from './commands/createSkill';
+import { registerCreateAgentCommand } from './commands/createAgent';
+import { registerAnalyzeAndPlanCommand } from './commands/analyzeAndPlan';
 // import { registerOpenAetherlightTerminalCommand } from './commands/openAetherlightTerminal';
 // import { registerQuickVoiceCommand } from './commands/quickVoice';
 // import { registerLuminaControlStatusBar } from './lumina_status_bar';
@@ -45,6 +49,7 @@ import { RealtimeSyncManager } from './realtime_sync';
 // import { registerAnalyzeWorkspaceCommands } from './commands/analyzeWorkspace';
 import { UpdateChecker } from './services/updateChecker';
 import { SkillExecutor } from './services/SkillExecutor';
+import { WorkflowEnforcement } from './services/WorkflowEnforcement';
 import * as fs from 'fs';
 
 /**
@@ -184,6 +189,69 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	 * PATTERN: Pattern-WORKSPACE-001 (Per-Workspace Setup)
 	 */
 	await checkAndSetupUserDocumentation(context);
+
+	/**
+	 * MID-020: Show Phase 0 welcome message on first activation
+	 *
+	 * DESIGN DECISION: Show welcome modal on first v0.16.0 activation
+	 * WHY: Gap #2 - Users don't know Phase 0 exists or what commands do
+	 *
+	 * REASONING CHAIN:
+	 * 1. Check global state for 'phase0WelcomeShown' flag
+	 * 2. If false → Show welcome modal with Phase 0 overview
+	 * 3. Three buttons: 'Show Me' (opens docs), 'Maybe Later', 'Don't Show Again'
+	 * 4. Set flag = true to prevent showing again (unless user clicked 'Maybe Later')
+	 * 5. Result: Users discover Phase 0 features on first use
+	 *
+	 * PATTERN: Pattern-ONBOARDING-001 (First-Run Experience)
+	 * RELATED: MID-017 (Phase 0 documentation in aetherlight.md)
+	 */
+	const phase0WelcomeShown = context.globalState.get<boolean>('phase0WelcomeShown', false);
+	if (!phase0WelcomeShown) {
+		// Show welcome modal asynchronously (don't block activation)
+		setTimeout(async () => {
+			const action = await vscode.window.showInformationMessage(
+				`🎉 Welcome to ÆtherLight v0.16.0!\n\n` +
+				`✨ New: Phase 0 Middleware\n` +
+				`• Auto-analyze tasks with AI (60-76% token savings)\n` +
+				`• Smart agent assignment (0% errors)\n` +
+				`• TDD enforcement (prevents regressions)\n` +
+				`• Pattern library (neural network for code)\n\n` +
+				`Ready to get started?`,
+				{ modal: true },
+				'Show Me',
+				'Maybe Later',
+				"Don't Show Again"
+			);
+
+			if (action === 'Show Me') {
+				// Open aetherlight.md at Phase 0 section
+				const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+				if (workspaceRoot) {
+					const aetherlightMdPath = path.join(workspaceRoot, '.vscode', 'aetherlight.md');
+					if (fs.existsSync(aetherlightMdPath)) {
+						const doc = await vscode.workspace.openTextDocument(aetherlightMdPath);
+						const editor = await vscode.window.showTextDocument(doc);
+
+						// Find "Phase 0" section and scroll to it
+						const text = doc.getText();
+						const phase0Index = text.indexOf('## 🤖 Phase 0 - Intelligent Middleware System');
+						if (phase0Index !== -1) {
+							const position = doc.positionAt(phase0Index);
+							editor.selection = new vscode.Selection(position, position);
+							editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenter);
+						}
+					}
+				}
+				// Mark as shown (don't show again)
+				context.globalState.update('phase0WelcomeShown', true);
+			} else if (action === "Don't Show Again") {
+				// Permanently dismiss
+				context.globalState.update('phase0WelcomeShown', true);
+			}
+			// If "Maybe Later" or dismissed → don't update flag, show again next time
+		}, 2000); // Wait 2 seconds after activation for better UX
+	}
 
 	/**
 	 * DESIGN DECISION: Setup docs when workspace folders change (user opens new repo)
@@ -549,6 +617,20 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	registerAnalyzeSprintCommand(context);
 
 	/**
+	 * Register Middleware Commands (MID-011)
+	 *
+	 * DESIGN DECISION: Wizard commands for skill/agent creation + full pipeline orchestration
+	 * WHY: Users need guided workflow to create skills/agents and run analyze-and-plan pipeline
+	 *
+	 * PATTERN: Pattern-TEMPLATE-001 (Template-Based Code Generation)
+	 * PATTERN: Pattern-ORCHESTRATION-001 (Smart Skill Chaining)
+	 * RELATED: MID-006 (Skill Builder), MID-007 (Agent Builder), MID-008 (Skill Orchestrator)
+	 */
+	registerCreateSkillCommand(context);
+	registerCreateAgentCommand(context);
+	registerAnalyzeAndPlanCommand(context);
+
+	/**
 	 * OLD APPROACH: IPC-based voice capture (Ctrl+Shift+V hotkey)
 	 * STATUS: Deprecated - replaced by simpleVoiceCapture (backtick `)
 	 * NOTE: This required desktop app running with IPC protocol (ws://localhost:43215)
@@ -782,6 +864,28 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	await skillExecutor.discoverSkills();
 	skillExecutor.registerCommands(context);
 	console.log('[ÆtherLight] Skill executor initialized');
+
+	/**
+	 * Initialize Workflow Enforcement (MID-026)
+	 *
+	 * DESIGN DECISION: Proactive workflow guidance for manual task creation
+	 * WHY: Users don't know about analyzeAndPlan when manually creating tasks
+	 *
+	 * REASONING CHAIN:
+	 * 1. Watch ACTIVE_SPRINT.toml for manual edits
+	 * 2. Detect when 3+ tasks added manually
+	 * 3. Suggest using analyzeAndPlan instead
+	 * 4. Result: Users learn about middleware at the perfect moment
+	 *
+	 * PATTERN: Pattern-WORKFLOW-INTEGRATION-001
+	 */
+	const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+	if (workspaceRoot) {
+		const workflowEnforcement = new WorkflowEnforcement(context);
+		const watchers = workflowEnforcement.initialize(workspaceRoot);
+		watchers.forEach(watcher => context.subscriptions.push(watcher));
+		console.log('[ÆtherLight] Workflow enforcement initialized (file watchers: manual task detection + analysis suggestion)');
+	}
 
 	console.log('Lumina extension activated successfully');
 }

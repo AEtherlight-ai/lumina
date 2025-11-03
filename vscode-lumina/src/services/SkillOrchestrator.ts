@@ -30,6 +30,7 @@ import { ConfidenceScorer } from './ConfidenceScorer';
 import { PatternLibrary } from './PatternLibrary';
 import { AgentRegistry } from './AgentRegistry';
 import { ContextGatherer } from './ContextGatherer';
+import { MiddlewareLogger } from './MiddlewareLogger';
 
 /**
  * Orchestrator configuration
@@ -69,7 +70,40 @@ export interface ValidationResult {
 }
 
 /**
+ * Agent assignment detail (MID-021)
+ */
+export interface AgentAssignment {
+	taskId: string;
+	taskName: string;
+	agentId: string;
+	agentName: string;
+	matchScore: number;
+	matchReason: string;
+}
+
+/**
+ * Pattern discovery detail (MID-021)
+ */
+export interface PatternDiscovery {
+	patternId: string;
+	taskIds: string[];
+	relevanceScore: number;
+}
+
+/**
+ * Confidence breakdown (MID-021)
+ */
+export interface ConfidenceBreakdown {
+	high: number;  // Count of tasks with ≥0.80
+	medium: number; // Count of tasks with 0.50-0.79
+	low: number;   // Count of tasks with <0.50
+	average: number; // Average confidence across all tasks
+}
+
+/**
  * Pipeline execution result
+ *
+ * MID-021: Enhanced with detailed results for UI modal
  */
 export interface PipelineResult {
 	success: boolean;
@@ -78,6 +112,12 @@ export interface PipelineResult {
 	updatedTasks: number;
 	duration: number;
 	error?: string;
+	// MID-021: Detailed results for modal
+	agentAssignments?: AgentAssignment[];
+	patternDiscoveries?: PatternDiscovery[];
+	confidenceBreakdown?: ConfidenceBreakdown;
+	filesDiscovered?: string[];
+	validationResults?: string[];
 }
 
 /**
@@ -87,42 +127,83 @@ export interface PipelineResult {
  * Performance target: <2min incremental, <5min full
  */
 export class SkillOrchestrator {
-	constructor(private config: OrchestratorConfig) {}
+	private logger: MiddlewareLogger;
+
+	constructor(private config: OrchestratorConfig) {
+		this.logger = MiddlewareLogger.getInstance();
+	}
 
 	/**
 	 * Load existing sprint file
 	 *
-	 * DESIGN DECISION: Load ACTIVE_SPRINT.toml if exists
-	 * WHY: Need existing sprint for confidence scoring
+	 * DESIGN DECISION: Load ACTIVE_SPRINT.toml if exists, graceful degradation on parse error
+	 * WHY: Need existing sprint for confidence scoring. Invalid TOML shouldn't crash extension.
+	 *
+	 * ERROR HANDLING (MID-018):
+	 * - Wraps toml.parse() in try-catch
+	 * - Throws enhanced error with line number for caller to handle
+	 * - Returns empty sprint on file not found (graceful degradation)
+	 *
+	 * TDD WORKFLOW (MID-018):
+	 * - RED: Test written first (test/services/skillOrchestrator.test.ts:413)
+	 * - GREEN: This implementation makes test pass
+	 * - REFACTOR: (if needed)
 	 */
 	async loadSprint(sprintPath: string): Promise<Sprint> {
 		if (!fs.existsSync(sprintPath)) {
 			return { tasks: [] };
 		}
 
-		// Parse TOML file
-		const toml = require('@iarna/toml');
-		const content = fs.readFileSync(sprintPath, 'utf8');
-		const parsed = toml.parse(content);
+		try {
+			// Parse TOML file
+			const toml = require('@iarna/toml');
+			const content = fs.readFileSync(sprintPath, 'utf8');
+			const parsed = toml.parse(content);
 
-		// Extract tasks from TOML structure
-		const tasks: any[] = [];
+			// Extract tasks from TOML structure
+			const tasks: any[] = [];
 
-		// Handle tasks.* structure (MID-001, MID-002, etc.)
-		if (parsed.tasks) {
-			for (const taskId in parsed.tasks) {
-				const task = parsed.tasks[taskId];
-				tasks.push({
-					...task,
-					id: task.id || taskId
-				});
+			// Handle tasks.* structure (MID-001, MID-002, etc.)
+			if (parsed.tasks) {
+				for (const taskId in parsed.tasks) {
+					const task = parsed.tasks[taskId];
+					tasks.push({
+						...task,
+						id: task.id || taskId
+					});
+				}
 			}
-		}
 
-		return {
-			meta: parsed.meta,
-			tasks
-		};
+			return {
+				meta: parsed.meta,
+				tasks
+			};
+		} catch (error: any) {
+			// TOML parse error - extract line/column info
+			// @iarna/toml error format: "Error: Unexpected character at line X, column Y"
+			const lineMatch = error.message?.match(/line (\d+)/i);
+			const colMatch = error.message?.match(/column (\d+)/i);
+
+			const line = lineMatch ? parseInt(lineMatch[1]) : null;
+			const col = colMatch ? parseInt(colMatch[1]) : null;
+
+			const errorDetails = {
+				message: error.message || 'Invalid TOML syntax',
+				line,
+				column: col,
+				file: sprintPath
+			};
+
+			// Throw enhanced error for caller to handle with UI
+			const enhancedError: any = new Error(
+				line
+					? `TOML parse error at line ${line}${col ? `, column ${col}` : ''}: ${error.message}`
+					: `TOML parse error: ${error.message}`
+			);
+			enhancedError.details = errorDetails;
+
+			throw enhancedError;
+		}
 	}
 
 	/**
@@ -272,8 +353,8 @@ export class SkillOrchestrator {
 				files: task.files || []
 			};
 
-			// Assign agent
-			const agent = this.config.agentRegistry.assignAgent(taskContext);
+			// Assign agent (MID-025: now async with user choice prompt)
+			const agent = await this.config.agentRegistry.assignAgent(taskContext);
 
 			// Update task with assigned agent
 			assignedTasks.push({
@@ -330,25 +411,54 @@ export class SkillOrchestrator {
 	async runAnalyzeAndPlan(sprintPath: string): Promise<PipelineResult> {
 		const startTime = Date.now();
 
+		// MID-022: Log pipeline start
+		this.logger.section(`Analyze & Plan Pipeline - ${path.basename(sprintPath)}`);
+		this.logger.info(`Sprint Path: ${sprintPath}`);
+
 		try {
 			// 1. Load existing sprint
+			const loadStart = this.logger.startOperation('Load Sprint', { path: sprintPath });
 			const sprint = await this.loadSprint(sprintPath);
+			this.logger.endOperation('Load Sprint', loadStart, { taskCount: sprint.tasks.length });
 
 			// 2. Score confidence
+			const scoreStart = this.logger.startOperation('Score Confidence', { taskCount: sprint.tasks.length });
 			const confidence = await this.scoreSprint(sprint);
+			this.logger.endOperation('Score Confidence', scoreStart, {
+				average: confidence.average.toFixed(2),
+				highConfidence: confidence.highConfidenceTasks.length,
+				lowConfidence: confidence.lowConfidenceTasks.length
+			});
 
 			// 3. Decide analysis type
 			const analysisType = this.decideAnalysisType(confidence.average);
+			this.logger.info(`Analysis Type: ${analysisType} (confidence: ${(confidence.average * 100).toFixed(0)}%)`);
 
 			// 4. Assign agents to tasks
+			const assignStart = this.logger.startOperation('Assign Agents', { taskCount: sprint.tasks.length });
 			let tasksWithAgents = await this.assignAgentsToTasks(sprint.tasks);
+			this.logger.endOperation('Assign Agents', assignStart, { assignedCount: tasksWithAgents.length });
+
+			// Log each agent assignment (MID-022)
+			tasksWithAgents.forEach(task => {
+				this.logger.info(`  → ${task.id}: ${task.name} → agent: ${task.agent}`);
+			});
 
 			// 5. Gather context for tasks
+			const contextStart = this.logger.startOperation('Gather Context', { taskCount: tasksWithAgents.length });
 			let enrichedTasks = await this.gatherContextForTasks(tasksWithAgents);
+			this.logger.endOperation('Gather Context', contextStart, { enrichedCount: enrichedTasks.length });
+
+			// Log context summary (MID-022)
+			const totalFiles = enrichedTasks.reduce((sum, t) => sum + (t.files?.length || 0), 0);
+			const totalPatterns = enrichedTasks.reduce((sum, t) => sum + (t.patterns?.length || 0), 0);
+			this.logger.info(`  Context Summary: ${totalFiles} files, ${totalPatterns} patterns`);
 
 			// 6. Validate agents
+			const validateStart = this.logger.startOperation('Validate Agents', { taskCount: enrichedTasks.length });
 			const agentValidation = await this.validateAgents(enrichedTasks);
 			if (!agentValidation.valid) {
+				this.logger.failOperation('Validate Agents', validateStart, { errors: agentValidation.errors });
 				return {
 					success: false,
 					tasksProcessed: 0,
@@ -358,10 +468,13 @@ export class SkillOrchestrator {
 					error: `Agent validation failed: ${agentValidation.errors.join(', ')}`
 				};
 			}
+			this.logger.endOperation('Validate Agents', validateStart, { valid: true });
 
 			// 7. Validate dependencies
+			const depStart = this.logger.startOperation('Validate Dependencies', { taskCount: enrichedTasks.length });
 			const depValidation = this.validateDependencies(enrichedTasks);
 			if (!depValidation.valid) {
+				this.logger.failOperation('Validate Dependencies', depStart, { errors: depValidation.errors });
 				return {
 					success: false,
 					tasksProcessed: 0,
@@ -371,9 +484,12 @@ export class SkillOrchestrator {
 					error: `Dependency validation failed: ${depValidation.errors.join(', ')}`
 				};
 			}
+			this.logger.endOperation('Validate Dependencies', depStart, { valid: true });
 
 			// Success
 			const duration = Date.now() - startTime;
+			this.logger.info(`✅ Pipeline Complete: ${enrichedTasks.length} tasks processed in ${duration}ms`);
+
 			return {
 				success: true,
 				tasksProcessed: enrichedTasks.length,
@@ -382,12 +498,14 @@ export class SkillOrchestrator {
 				duration
 			};
 		} catch (error: any) {
+			const duration = Date.now() - startTime;
+			this.logger.error(`❌ Pipeline Failed after ${duration}ms`, error);
 			return {
 				success: false,
 				tasksProcessed: 0,
 				newTasks: 0,
 				updatedTasks: 0,
-				duration: Date.now() - startTime,
+				duration,
 				error: error.message || 'Unknown error occurred'
 			};
 		}

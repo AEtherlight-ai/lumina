@@ -108,7 +108,33 @@ export async function analyzeSprint(): Promise<ConfidenceReport | null> {
 
 		return null;
 	} catch (error: any) {
-		vscode.window.showErrorMessage(`Failed to analyze sprint: ${error.message}`);
+		// Handle TOML parse errors specially (MID-018)
+		if (error.details?.file && error.details?.line) {
+			// TOML parse error with line number - show helpful message with action buttons
+			const action = await vscode.window.showErrorMessage(
+				`❌ TOML Parse Error at line ${error.details.line}\n\n${error.details.message}\n\nFile: ${path.basename(error.details.file)}`,
+				'Open File',
+				'Validate TOML'
+			);
+
+			if (action === 'Open File') {
+				// Open file and jump to error line
+				const doc = await vscode.workspace.openTextDocument(error.details.file);
+				const editor = await vscode.window.showTextDocument(doc);
+
+				// Jump to error line (line numbers are 0-indexed in VS Code API)
+				const line = Math.max(0, error.details.line - 1);
+				const position = new vscode.Position(line, error.details.column || 0);
+				editor.selection = new vscode.Selection(position, position);
+				editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenter);
+			} else if (action === 'Validate TOML') {
+				// Open TOML validator in browser
+				vscode.env.openExternal(vscode.Uri.parse('https://www.toml-lint.com/'));
+			}
+		} else {
+			// Generic error
+			vscode.window.showErrorMessage(`Failed to analyze sprint: ${error.message}`);
+		}
 		return null;
 	}
 }

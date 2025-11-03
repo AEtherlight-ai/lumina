@@ -179,6 +179,21 @@
       {
         "command": "aetherlight.executeSkill",
         "title": "ÆtherLight: Execute Skill"
+      },
+      {
+        "command": "aetherlight.createSkill",
+        "title": "ÆtherLight: Create Skill",
+        "icon": "$(add)"
+      },
+      {
+        "command": "aetherlight.createAgent",
+        "title": "ÆtherLight: Create Agent",
+        "icon": "$(add)"
+      },
+      {
+        "command": "aetherlight.analyzeAndPlan",
+        "title": "ÆtherLight: Analyze and Plan",
+        "icon": "$(sparkle)"
       }
     ],
     "keybindings": [

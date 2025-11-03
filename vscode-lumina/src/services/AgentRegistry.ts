@@ -21,6 +21,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { glob } from 'glob';
+import { showUserChoicePrompt, ChoiceOption, UserChoiceContext } from '../utils/UserChoicePrompt';
+import { MiddlewareLogger } from './MiddlewareLogger';
 
 /**
  * Agent metadata extracted from agent context files
@@ -81,9 +83,11 @@ export class AgentRegistry {
 	private agents: Map<string, Agent> = new Map();
 	private agentsPath: string;
 	private assignmentListeners: Array<(log: string) => void> = [];
+	private logger: MiddlewareLogger;
 
 	constructor(agentsPath: string) {
 		this.agentsPath = agentsPath;
+		this.logger = MiddlewareLogger.getInstance();
 	}
 
 	/**
@@ -93,32 +97,91 @@ export class AgentRegistry {
 	 * WHY: Fast assignment (<50ms) during sprint planning
 	 */
 	async initialize(): Promise<void> {
+		const startTime = this.logger.startOperation('Initialize AgentRegistry', { path: this.agentsPath });
+
 		try {
 			// Check if directory exists
 			if (!fs.existsSync(this.agentsPath)) {
-				console.warn(`AgentRegistry: Directory not found: ${this.agentsPath}`);
+				this.logger.warn(`Directory not found: ${this.agentsPath}`);
 				return;
 			}
 
 			// Find all agent context files
 			const pattern = path.join(this.agentsPath, '*-agent-context.md').replace(/\\/g, '/');
 			const agentFiles = await glob(pattern);
+			this.logger.info(`Found ${agentFiles.length} agent files in ${this.agentsPath}`);
 
 			// Load each agent
 			for (const filePath of agentFiles) {
 				try {
 					const agent = await this.loadAgent(filePath);
 					this.agents.set(agent.id, agent);
+					this.logger.info(`  ✓ Loaded agent: ${agent.id} (${agent.name}) - ${agent.responsibilities.length} responsibilities`);
 				} catch (error) {
-					console.error(`AgentRegistry: Failed to load ${filePath}:`, error);
+					this.logger.error(`  ✗ Failed to load ${path.basename(filePath)}`, error);
 				}
 			}
 
-			console.log(`AgentRegistry: Loaded ${this.agents.size} agents`);
+			// MID-019: Create default agent fallback if registry is empty
+			if (this.agents.size === 0) {
+				this.logger.warn('No agents found - creating default "general-agent" fallback');
+				const defaultAgent = this.createDefaultAgent();
+				this.agents.set(defaultAgent.id, defaultAgent);
+			}
+
+			this.logger.endOperation('Initialize AgentRegistry', startTime, { loadedAgents: this.agents.size });
 		} catch (error) {
-			console.error('AgentRegistry: Initialization failed:', error);
+			this.logger.failOperation('Initialize AgentRegistry', startTime, error);
 			throw error;
 		}
+	}
+
+	/**
+	 * Create default "general-agent" fallback (MID-019)
+	 *
+	 * DESIGN DECISION: Empty registry gets default agent with broad responsibilities
+	 * WHY: New users have no agents → pipeline would fail → bad UX
+	 *
+	 * TDD WORKFLOW (MID-019):
+	 * - RED: Test written first (test/services/agentRegistry.test.ts:320)
+	 * - GREEN: This implementation makes test pass
+	 * - REFACTOR: (if needed)
+	 */
+	private createDefaultAgent(): Agent {
+		return {
+			id: 'general-agent',
+			name: 'General Agent',
+			type: 'General',
+			version: '1.0.0',
+			lastUpdated: new Date().toISOString().split('T')[0],
+			responsibilities: [
+				'Handle general-purpose tasks across all categories',
+				'Provide broad expertise when no specialized agent is available',
+				'Infrastructure, API, UI, database, and documentation tasks',
+				'Code analysis, refactoring, and testing',
+				'Sprint planning and task organization'
+			],
+			patterns: [
+				'Pattern-GENERAL-001',
+				'Pattern-TDD-001',
+				'Pattern-ORCHESTRATION-001'
+			],
+			performanceTargets: {
+				'task_completion': '<2 hours per task',
+				'code_quality': '80% test coverage',
+				'response_time': '<5 minutes'
+			},
+			commonPitfalls: [
+				'May lack specialized expertise for complex domain-specific tasks',
+				'Consider creating specialized agents for better performance'
+			],
+			relevantCode: [],
+			skills: ['code-analyze', 'sprint-plan', 'test-generation'],
+			tokenBudget: 10000, // Default token budget
+			currentTasks: [],
+			maxParallelTasks: 3,
+			filePath: '<default>' // Not loaded from file
+		};
 	}
 
 	/**
@@ -330,38 +393,90 @@ export class AgentRegistry {
 	 * DESIGN DECISION: Match by category, patterns, and file paths
 	 * WHY: Pattern-AGENT-001 - 0% assignment errors through intelligent matching
 	 *
+	 * MID-025: User Choice Integration
+	 * - If multiple agents match with similar scores (within 0.15)
+	 * - AND best score is medium confidence (0.60-0.80)
+	 * - Show user choice prompt instead of auto-selecting
+	 *
 	 * Matching logic:
 	 * 1. Category match (exact type match) - weight: 40%
 	 * 2. Pattern overlap (agent patterns ∩ task patterns) - weight: 30%
 	 * 3. File path analysis (file paths → code areas) - weight: 30%
 	 */
-	assignAgent(task: TaskContext): Agent {
+	async assignAgent(task: TaskContext): Promise<Agent> {
 		const candidates = this.getAllAgents();
 		if (candidates.length === 0) {
 			throw new Error('No agents available in registry');
 		}
 
-		let bestAgent: Agent | null = null;
-		let bestScore = 0;
+		// Calculate scores for all agents
+		const scoredAgents = candidates.map(agent => ({
+			agent,
+			score: this.calculateMatchScore(agent, task)
+		})).sort((a, b) => b.score - a.score); // Sort by score descending
 
-		for (const agent of candidates) {
-			const score = this.calculateMatchScore(agent, task);
+		const bestScore = scoredAgents[0].score;
+		const bestAgent = scoredAgents[0].agent;
 
-			if (score > bestScore) {
-				bestScore = score;
-				bestAgent = agent;
+		// MID-025: Check if we should show user choice prompt
+		// Conditions:
+		// 1. Best score is medium confidence (0.60-0.80)
+		// 2. Multiple agents have similar scores (within 0.15 of best)
+		const similarAgents = scoredAgents.filter(sa => Math.abs(sa.score - bestScore) <= 0.15);
+
+		if (bestScore >= 0.60 && bestScore <= 0.80 && similarAgents.length >= 2) {
+			// Medium confidence with multiple similar matches - ask user
+			const options: ChoiceOption[] = similarAgents.slice(0, 3).map((sa, index) => ({
+				label: `${sa.agent.name}`,
+				description: `Score: ${sa.score.toFixed(2)} | Type: ${sa.agent.type} | ${sa.agent.responsibilities[0] || 'General purpose'}`,
+				value: sa.agent.id,
+				isRecommended: index === 0 // First one is recommended
+			}));
+
+			const context: UserChoiceContext = {
+				decisionType: 'agent_assignment',
+				confidence: bestScore,
+				taskId: task.id,
+				metadata: {
+					taskCategory: task.category,
+					taskPatterns: task.patterns,
+					taskFiles: task.files
+				}
+			};
+
+			const result = await showUserChoicePrompt(
+				'Multiple agents match this task',
+				`Task: ${task.name} (${task.category})`,
+				options,
+				context
+			);
+
+			if (result.selected && result.selected !== 'skip') {
+				if (result.selected === 'custom' && result.customInput) {
+					// User provided custom agent ID
+					const customAgent = this.getAgentById(result.customInput);
+					this.logAssignment(task, customAgent, `User choice: custom (${result.customInput})`);
+					return customAgent;
+				} else {
+					// User selected one of the options
+					const selectedAgent = this.getAgentById(result.selected);
+					this.logAssignment(task, selectedAgent, `User choice: ${selectedAgent.name}`);
+					return selectedAgent;
+				}
 			}
+			// User skipped or cancelled - fall through to auto-selection
 		}
 
+		// Auto-select best agent (high confidence or user skipped)
 		if (!bestAgent) {
 			// Fallback: return first agent
-			bestAgent = candidates[0];
-			this.logAssignment(task, bestAgent, 'Fallback assignment (no good matches)');
+			const fallbackAgent = candidates[0];
+			this.logAssignment(task, fallbackAgent, 'Fallback assignment (no good matches)');
+			return fallbackAgent;
 		} else {
 			this.logAssignment(task, bestAgent, `Match score: ${bestScore.toFixed(2)}`);
+			return bestAgent;
 		}
-
-		return bestAgent;
 	}
 
 	/**
@@ -434,10 +549,15 @@ export class AgentRegistry {
 	}
 
 	/**
-	 * Log assignment decision
+	 * Log assignment decision (MID-022: Enhanced with MiddlewareLogger)
 	 */
 	private logAssignment(task: TaskContext, agent: Agent, reasoning: string): void {
 		const log = `Task ${task.id} → Agent ${agent.id}: ${reasoning}`;
+
+		// Log to output channel (MID-022)
+		this.logger.info(`Agent Assignment: ${task.id} (${task.name}) → ${agent.name} | Reason: ${reasoning}`);
+
+		// Call listeners (existing functionality)
 		this.assignmentListeners.forEach(listener => listener(log));
 	}
 }

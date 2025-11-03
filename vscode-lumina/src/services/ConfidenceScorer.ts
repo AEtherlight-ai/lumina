@@ -31,6 +31,7 @@
 import { Task } from './MultiFormatParser';
 import { TestRequirementGenerator } from './TestRequirementGenerator';
 import { TestContextGatherer, TestContext } from './TestContextGatherer';
+import { MiddlewareLogger } from './MiddlewareLogger';
 
 /**
  * Task confidence score with gaps and recommended action
@@ -66,9 +67,11 @@ export interface SprintConfidence {
  */
 export class ConfidenceScorer {
     private testContextGatherer: TestContextGatherer;
+    private logger: MiddlewareLogger;
 
     constructor(workspaceRoot?: string) {
         this.testContextGatherer = new TestContextGatherer(workspaceRoot);
+        this.logger = MiddlewareLogger.getInstance();
     }
     /**
      * Score individual task completeness (0.0-1.0) with TDD enforcement
@@ -183,9 +186,16 @@ export class ConfidenceScorer {
             action = 'regenerate';  // Low confidence, regenerate completely
         }
 
+        // MID-022: Log confidence score
+        const roundedConfidence = Math.round(confidence * 100) / 100;
+        this.logger.info(
+            `Confidence Score: ${task.id} → ${(roundedConfidence * 100).toFixed(0)}% (${action}) | ` +
+            `Gaps: ${gaps.length > 0 ? gaps.join(', ') : 'none'}`
+        );
+
         return {
             taskId: task.id,
-            confidence: Math.round(confidence * 100) / 100,  // Round to 2 decimals
+            confidence: roundedConfidence,
             action,
             gaps,
             testContext
