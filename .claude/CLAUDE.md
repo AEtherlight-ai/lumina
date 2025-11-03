@@ -43,6 +43,71 @@ node scripts/publish-release.js [patch|minor|major]
 - `.claude/commands/publish.md` - Publishing command
 - `PUBLISHING.md` - Publishing documentation
 
+### Publishing Enforcement (CRITICAL - Pattern-PUBLISH-002)
+
+**MANDATORY: Claude must follow this process when publishing is requested**
+
+**When user requests a publish/release:**
+
+1. **ALWAYS attempt to use the publish skill FIRST:**
+   ```
+   Use Skill tool with command: "publish"
+   ```
+
+2. **IF the skill fails or has an issue (e.g., interactive prompt timeout):**
+   - **STOP immediately**
+   - **DO NOT run manual commands without permission**
+   - **Use AskUserQuestion tool** with this message:
+
+   ```
+   The automated publish script encountered an issue: [describe issue]
+
+   I can proceed in two ways:
+
+   Option 1 (RECOMMENDED): Troubleshoot the automation
+   - Investigate why the script failed
+   - Fix the underlying issue
+   - Run the full automated script again
+
+   Option 2 (MANUAL BYPASS - NOT RECOMMENDED): Run manual commands
+   - Risk: May miss steps (desktop installers, verification, etc.)
+   - Risk: Version mismatch bugs
+   - Risk: Incomplete releases
+   - Only use if automation is completely broken
+
+   Which approach should I take?
+   ```
+
+3. **IF user chooses Manual Bypass:**
+   - Document EVERY manual command being run
+   - Explain why each command is needed
+   - Compare against `scripts/publish-release.js` to ensure no steps are missed
+   - Warn user before running ANY npm publish or gh release commands
+
+4. **AFTER manual bypass completes:**
+   - Create a task to fix the automation
+   - Document what went wrong in CLAUDE.md Known Issues
+
+**Why This Enforcement Exists:**
+
+v0.15.31 release: I bypassed the automation when the interactive prompt timed out, which caused me to:
+- ✅ Publish npm packages correctly
+- ✅ Create GitHub release
+- ❌ **FORGET desktop installers** (had to manually upload after)
+- ❌ Skip verification steps
+
+The automation has ALL the logic built-in. Manual bypasses WILL cause bugs.
+
+**Enforcement Mechanism:**
+- Pattern-PUBLISH-002 (Publishing Enforcement)
+- Git pre-push hook detects manual version changes (`.git/hooks/pre-push`)
+- This CLAUDE.md instruction requires asking user before bypassing
+
+**Related Known Issues:**
+- v0.13.28: Manual bypass caused version mismatch
+- v0.13.29: Manual bypass missed sub-package publish (2-hour fix)
+- v0.15.31: Manual bypass forgot desktop installers
+
 ### Version Management
 
 All packages MUST stay in sync:
