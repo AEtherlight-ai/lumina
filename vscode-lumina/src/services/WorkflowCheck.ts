@@ -111,6 +111,34 @@ export interface WorkflowContext {
 }
 
 /**
+ * Git Status Interface - Complete git repository state
+ *
+ * PROTO-004: Git Workflow Integration
+ * DESIGN DECISION: Comprehensive git status for all workflow types
+ * WHY: Every workflow needs git visibility (commit state, branch, conflicts)
+ *
+ * REASONING CHAIN:
+ * 1. User starts workflow (code, publish, sprint, etc.)
+ * 2. WorkflowCheck.checkGitStatus() executes git commands
+ * 3. Parse output into structured GitStatus
+ * 4. Cache for 30 seconds (git doesn't change that fast)
+ * 5. Include in workflow prerequisites with appropriate severity
+ * 6. Code workflow: warn if dirty (⚠️), Publish workflow: block if dirty (❌)
+ */
+export interface GitStatus {
+	uncommittedFiles: string[];  // List of modified/untracked files
+	currentBranch: string;  // Branch name (e.g., "master", "feature/proto-004")
+	isMainBranch: boolean;  // true if master/main
+	hasUnpushedCommits: boolean;  // Local commits not pushed to remote
+	unpushedCommitCount: number;  // Number of commits ahead of remote
+	hasMergeConflicts: boolean;  // Merge conflicts present
+	conflictFiles: string[];  // Files with conflicts (UU status)
+	isClean: boolean;  // No uncommitted changes
+	ahead: number;  // Commits ahead of remote
+	behind: number;  // Commits behind remote
+}
+
+/**
  * WorkflowCheck Service
  *
  * DESIGN DECISION: Orchestrates multiple services (ConfidenceScorer, TestValidator, Git)
@@ -121,11 +149,17 @@ export class WorkflowCheck {
 	private testValidator: TestValidator;
 	private logger: MiddlewareLogger;
 	private cache: Map<string, WorkflowCheckResult>;
+	private gitStatusCache: { status: GitStatus; timestamp: number } | null = null;
+	private readonly GIT_CACHE_TTL = 30000; // 30 seconds
 
-	constructor() {
-		this.confidenceScorer = new ConfidenceScorer();
-		this.testValidator = new TestValidator();
-		this.logger = MiddlewareLogger.getInstance();
+	constructor(
+		confidenceScorer?: ConfidenceScorer,
+		testValidator?: TestValidator,
+		logger?: MiddlewareLogger
+	) {
+		this.confidenceScorer = confidenceScorer || new ConfidenceScorer();
+		this.testValidator = testValidator || new TestValidator();
+		this.logger = logger || MiddlewareLogger.getInstance();
 		this.cache = new Map();
 	}
 
@@ -178,6 +212,171 @@ export class WorkflowCheck {
 
 			// Return partial result on error (graceful degradation)
 			return this.createPartialResult(workflowType, context, error as Error);
+		}
+	}
+
+	/**
+	 * Check Git Status - Get comprehensive git repository state
+	 *
+	 * PROTO-004: Git Workflow Integration
+	 * DESIGN DECISION: Cache for 30s, execute git commands in sequence
+	 * WHY: Git commands can be slow (200-400ms total), caching improves performance
+	 *
+	 * REASONING CHAIN:
+	 * 1. Check cache first (30s TTL)
+	 * 2. Execute git commands: status, branch, log, rev-list
+	 * 3. Parse output into structured GitStatus
+	 * 4. Handle errors gracefully (not in repo, command failures)
+	 * 5. Log performance (target <500ms)
+	 * 6. Cache result and return
+	 *
+	 * @returns GitStatus with all repository state
+	 */
+	public async checkGitStatus(): Promise<GitStatus> {
+		const startTime = this.logger.startOperation('WorkflowCheck.checkGitStatus', {});
+
+		try {
+			// Check cache first
+			const now = Date.now();
+			if (this.gitStatusCache && (now - this.gitStatusCache.timestamp < this.GIT_CACHE_TTL)) {
+				this.logger.info('Git status cache hit');
+				return this.gitStatusCache.status;
+			}
+
+			// Execute git commands
+			const [uncommittedFiles, currentBranch, conflictFiles, aheadBehind] = await Promise.all([
+				this.getUncommittedFiles(),
+				this.getCurrentBranch(),
+				this.getConflictFiles(),
+				this.getAheadBehindCount()
+			]);
+
+			// Build GitStatus object
+			const gitStatus: GitStatus = {
+				uncommittedFiles,
+				currentBranch,
+				isMainBranch: currentBranch === 'master' || currentBranch === 'main',
+				hasUnpushedCommits: aheadBehind.ahead > 0,
+				unpushedCommitCount: aheadBehind.ahead,
+				hasMergeConflicts: conflictFiles.length > 0,
+				conflictFiles,
+				isClean: uncommittedFiles.length === 0 && conflictFiles.length === 0,
+				ahead: aheadBehind.ahead,
+				behind: aheadBehind.behind
+			};
+
+			// Cache result
+			this.gitStatusCache = {
+				status: gitStatus,
+				timestamp: now
+			};
+
+			this.logger.endOperation('WorkflowCheck.checkGitStatus', startTime, {
+				isClean: gitStatus.isClean,
+				currentBranch: gitStatus.currentBranch,
+				uncommittedCount: gitStatus.uncommittedFiles.length
+			});
+
+			return gitStatus;
+		} catch (error) {
+			this.logger.failOperation('WorkflowCheck.checkGitStatus', startTime, error);
+
+			// Return safe defaults on error
+			return {
+				uncommittedFiles: [],
+				currentBranch: 'unknown',
+				isMainBranch: false,
+				hasUnpushedCommits: false,
+				unpushedCommitCount: 0,
+				hasMergeConflicts: false,
+				conflictFiles: [],
+				isClean: true,
+				ahead: 0,
+				behind: 0
+			};
+		}
+	}
+
+	/**
+	 * Get list of uncommitted files from git status
+	 */
+	private async getUncommittedFiles(): Promise<string[]> {
+		try {
+			const { stdout } = await exec('git status --porcelain');
+			if (!stdout.trim()) {
+				return [];
+			}
+
+			// Parse git status --porcelain output
+			// Format: XY file_path (XY = status codes)
+			return stdout
+				.trim()
+				.split('\n')
+				.map(line => line.substring(3).trim())  // Remove status codes
+				.filter(file => file.length > 0);
+		} catch (error) {
+			// Not in git repo or git not installed
+			return [];
+		}
+	}
+
+	/**
+	 * Get current git branch name
+	 */
+	private async getCurrentBranch(): Promise<string> {
+		try {
+			const { stdout } = await exec('git rev-parse --abbrev-ref HEAD');
+			return stdout.trim();
+		} catch (error) {
+			return 'unknown';
+		}
+	}
+
+	/**
+	 * Get files with merge conflicts (UU status)
+	 */
+	private async getConflictFiles(): Promise<string[]> {
+		try {
+			const { stdout } = await exec('git status --porcelain');
+			if (!stdout.trim()) {
+				return [];
+			}
+
+			// Parse for conflict markers: UU, AA, DD, AU, UA, DU, UD
+			return stdout
+				.trim()
+				.split('\n')
+				.filter(line => {
+					const status = line.substring(0, 2);
+					return status === 'UU' || status === 'AA' || status === 'DD' ||
+					       status === 'AU' || status === 'UA' || status === 'DU' || status === 'UD';
+				})
+				.map(line => line.substring(3).trim());
+		} catch (error) {
+			return [];
+		}
+	}
+
+	/**
+	 * Get commits ahead/behind remote
+	 */
+	private async getAheadBehindCount(): Promise<{ ahead: number; behind: number }> {
+		try {
+			// Try to get ahead/behind from git rev-list
+			const { stdout } = await exec('git rev-list --left-right --count HEAD...@{u}');
+			const parts = stdout.trim().split('\t');
+
+			if (parts.length === 2) {
+				return {
+					ahead: parseInt(parts[0], 10) || 0,
+					behind: parseInt(parts[1], 10) || 0
+				};
+			}
+
+			return { ahead: 0, behind: 0 };
+		} catch (error) {
+			// No upstream or not in git repo
+			return { ahead: 0, behind: 0 };
 		}
 	}
 
@@ -330,7 +529,7 @@ export class WorkflowCheck {
 		}
 
 		// Prerequisite 3: Git working directory clean
-		await this.checkGitStatus(context, prerequisites, gaps);
+		await this.addGitStatusToPrerequisites(context, prerequisites, gaps);
 
 		// Prerequisite 4: Confidence check
 		await this.checkConfidence(context, prerequisites, gaps);
@@ -365,7 +564,7 @@ export class WorkflowCheck {
 		}
 
 		// Prerequisite 2: Git status clean
-		await this.checkGitStatus(context, prerequisites, gaps);
+		await this.addGitStatusToPrerequisites(context, prerequisites, gaps);
 
 		// Prerequisite 3: Skills available
 		if (context.skillsAvailable) {
@@ -619,9 +818,12 @@ export class WorkflowCheck {
 	}
 
 	/**
-	 * Check git status (shared by multiple workflows)
+	 * Add git status to prerequisites (helper for workflow checks)
+	 *
+	 * PROTO-004: Enhanced with comprehensive git integration
+	 * Uses public checkGitStatus() method for rich git visibility
 	 */
-	private async checkGitStatus(
+	private async addGitStatusToPrerequisites(
 		context: WorkflowContext,
 		prerequisites: PrerequisiteStatus[],
 		gaps: string[]
@@ -629,7 +831,7 @@ export class WorkflowCheck {
 		// Test mode: force error
 		if (context.forceGitError) {
 			prerequisites.push({
-				name: 'Git status',
+				name: 'Git repository status',
 				status: '❌',
 				details: 'Git command failed: Simulated error',
 				remediation: 'Check git installation and repository status',
@@ -639,57 +841,60 @@ export class WorkflowCheck {
 			return;
 		}
 
-		// Check if git clean
-		if (context.gitClean === true) {
-			prerequisites.push({
-				name: 'Git status',
-				status: '✅',
-				details: 'Working directory clean',
-				remediation: null,
-				impact: 'suboptimal'
-			});
-		} else if (context.gitClean === false) {
-			prerequisites.push({
-				name: 'Git status',
-				status: '⚠️',
-				details: 'Uncommitted changes',
-				remediation: 'Commit changes before proceeding: git add . && git commit',
-				impact: 'suboptimal'
-			});
-		} else {
-			// Git status not provided - try to check (graceful degradation)
-			try {
-				const { stdout } = await exec('git status --porcelain');
-				const isClean = stdout.trim().length === 0;
+		// Get comprehensive git status using new PROTO-004 integration
+		const gitStatus = await this.checkGitStatus();
 
-				if (isClean) {
-					prerequisites.push({
-						name: 'Git status',
-						status: '✅',
-						details: 'Working directory clean',
-						remediation: null,
-						impact: 'suboptimal'
-					});
-				} else {
-					prerequisites.push({
-						name: 'Git status',
-						status: '⚠️',
-						details: 'Uncommitted changes',
-						remediation: 'Commit changes: git add . && git commit',
-						impact: 'suboptimal'
-					});
-				}
-			} catch (error) {
-				prerequisites.push({
-					name: 'Git status',
-					status: '❌',
-					details: `Git command failed: ${(error as Error).message}`,
-					remediation: 'Check git installation and repository status',
-					impact: 'degraded'
-				});
-				gaps.push('Git error');
+		// Build detailed status message
+		const details: string[] = [];
+		details.push(`Branch: ${gitStatus.currentBranch}${gitStatus.isMainBranch ? ' (main)' : ''}`);
+
+		if (!gitStatus.isClean) {
+			details.push(`${gitStatus.uncommittedFiles.length} uncommitted file(s)`);
+			// Show first 3 files
+			const filesToShow = gitStatus.uncommittedFiles.slice(0, 3);
+			filesToShow.forEach(file => details.push(`  - ${file}`));
+			if (gitStatus.uncommittedFiles.length > 3) {
+				details.push(`  ... and ${gitStatus.uncommittedFiles.length - 3} more`);
 			}
+		} else {
+			details.push('Working directory clean');
 		}
+
+		if (gitStatus.hasMergeConflicts) {
+			details.push(`⚠️ ${gitStatus.conflictFiles.length} merge conflict(s)`);
+		}
+
+		if (gitStatus.hasUnpushedCommits) {
+			details.push(`${gitStatus.unpushedCommitCount} unpushed commit(s)`);
+		}
+
+		if (gitStatus.behind > 0) {
+			details.push(`${gitStatus.behind} commit(s) behind remote`);
+		}
+
+		// Determine status and impact
+		let status: '✅' | '❌' | '⚠️' = '✅';
+		let impact: 'blocking' | 'degraded' | 'suboptimal' = 'suboptimal';
+		let remediation: string | null = null;
+
+		if (gitStatus.hasMergeConflicts) {
+			status = '❌';
+			impact = 'blocking';
+			remediation = 'Resolve merge conflicts before proceeding: git status';
+			gaps.push('Merge conflicts');
+		} else if (!gitStatus.isClean) {
+			status = '⚠️';
+			impact = 'suboptimal';
+			remediation = 'Consider committing changes: git add . && git commit -m "..."';
+		}
+
+		prerequisites.push({
+			name: 'Git repository status',
+			status,
+			details: details.join('\n'),
+			remediation,
+			impact
+		});
 	}
 
 	/**
