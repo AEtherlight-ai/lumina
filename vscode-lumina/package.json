@@ -640,6 +640,7 @@
     "aetherlight-analyzer": "^0.15.31",
     "aetherlight-node": "^0.15.31",
     "form-data": "^4.0.4",
+    "glob": "^10.3.10",
     "node-fetch": "^2.7.0",
     "ws": "^8.14.0"
   },
@@ -653,7 +654,6 @@
     "@types/ws": "^8.5.9",
     "@vscode/test-electron": "^2.3.8",
     "@vscode/vsce": "^2.22.0",
-    "glob": "^10.3.10",
     "mocha": "^10.2.0",
     "typescript": "^5.3.0"
   }
