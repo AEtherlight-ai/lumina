@@ -1,7 +1,99 @@
 # ÆtherLight Project - Claude Code Instructions
 
 **Project:** ÆtherLight (Voice-to-intelligence platform for developers)
-**Last Updated:** 2025-10-28
+**Last Updated:** 2025-11-03
+
+---
+
+## ⚠️ PRE-FLIGHT CHECKLIST (MANDATORY - READ BEFORE EVERY EDIT/WRITE)
+
+**CRITICAL: You MUST complete this checklist BEFORE using Edit or Write tools.**
+
+**Pattern-VALIDATION-001 Enforcement: If you skip this checklist, you WILL break the system.**
+
+### Before Modifying ACTIVE_SPRINT.toml:
+
+**STOP. Answer these questions OUT LOUD in your response:**
+
+1. ✅ **Did I read `SprintLoader.ts:292-333` to verify the parser format?**
+   - If NO → Read it NOW before proceeding
+   - Expected format: `[tasks.TASK-ID]` NOT `[[epic.*.tasks]]`
+
+2. ✅ **Did I check an existing task in ACTIVE_SPRINT.toml for format example?**
+   - If NO → Read one task NOW (lines 72-150)
+   - Copy the exact structure, don't invent
+
+3. ✅ **Did I validate required fields are present?**
+   - Required: id, name, status, phase, agent, estimated_time, dependencies
+   - If missing any → Add them before proceeding
+
+4. ✅ **Did I check for template literals in code examples?**
+   - Search for: backticks with ${}
+   - If found → Replace with string concatenation (+ operator)
+   - Example: `` `Error: ${msg}` `` → `'Error: ' + msg`
+
+5. ✅ **Did I validate the TOML will parse?**
+   - If NO → Run: `node scripts/validate-sprint-schema.js` BEFORE committing
+   - If script doesn't exist yet → Use: `node -e "const toml = require('@iarna/toml'); toml.parse(require('fs').readFileSync('internal/sprints/ACTIVE_SPRINT.toml', 'utf-8'));"`
+
+**If you answered NO to ANY question, STOP and complete it NOW.**
+
+### Before Adding Dependencies to package.json:
+
+**STOP. Answer these questions OUT LOUD in your response:**
+
+1. ✅ **Is this a native dependency?**
+   - Check for: node-gyp, napi, bindings, .node, robotjs, @nut-tree-fork
+   - If YES → **FORBIDDEN** - Use VS Code APIs instead
+   - See: Pattern-PUBLISH-003 in Known Issues section
+
+2. ✅ **Is this a runtime npm dependency?**
+   - Check for: glob, lodash, moment, axios, chalk, colors
+   - If YES → **FORBIDDEN** - Use Node.js built-ins instead
+   - Exception: Whitelisted (@iarna/toml, form-data, node-fetch, ws)
+
+3. ✅ **Did I check the whitelist?**
+   - Allowed: aetherlight-analyzer, aetherlight-sdk, aetherlight-node
+   - Allowed: @iarna/toml, form-data, node-fetch, ws
+   - Everything else → Use built-ins (fs, path, util, crypto, https)
+
+**If you're adding a forbidden dependency, STOP and find an alternative NOW.**
+
+### Before Using Edit/Write Tools:
+
+**STOP. Answer these questions OUT LOUD in your response:**
+
+1. ✅ **Did I read the target file first?**
+   - If NO → Read it NOW with Read tool
+   - Never edit a file you haven't read in this session
+
+2. ✅ **Did I verify the format/structure I'm following?**
+   - If NO → Read the parser/loader code that will read this file
+   - Never guess the format
+
+3. ✅ **Am I following an existing pattern?**
+   - If NO → Search for similar code and copy the pattern
+   - Never invent new patterns without user approval
+
+**If you answered NO to ANY question, STOP and complete it NOW.**
+
+---
+
+## Enforcement Mechanism
+
+**This checklist is NOT optional. It is MANDATORY.**
+
+**Historical bugs caused by skipping this checklist:**
+- **2025-11-03:** Used `[[epic.*.tasks]]` instead of `[tasks.ID]` → Sprint panel broken (2 hours debugging)
+- **v0.15.31-32:** Added `glob` runtime dependency → Extension activation failed (2 hours debugging)
+- **v0.13.23:** Added `@nut-tree-fork/nut-js` native dependency → Extension broken (9 hours debugging)
+- **v0.13.28, v0.13.29:** Version mismatch → User installs broken (2 hours debugging)
+
+**Total time wasted: 15+ hours**
+
+**If you skip this checklist, you WILL break something. User WILL be frustrated. Time WILL be wasted.**
+
+**Your commitment: I will answer these questions OUT LOUD in my response BEFORE using Edit/Write tools.**
 
 ---
 
@@ -441,6 +533,602 @@ Confidence: HIGH (0.90)
 - This protocol becomes part of the development culture
 
 **Pattern Reference:** Pattern-TASK-ANALYSIS-001 (Pre-Task Analysis Protocol)
+
+---
+
+### Code Development Protocol (Pattern-CODE-001) - MANDATORY
+
+**CRITICAL: Run workflow check BEFORE writing ANY production code**
+
+**Why This Exists:**
+- Prevents writing code without tests (TDD violations)
+- Ensures sprint task tracking (no orphan code)
+- Catches low confidence early (missing patterns, agents, context)
+- Makes development transparent to user
+
+**When to Use:**
+- Before implementing ANY feature
+- Before fixing ANY bug (except typos)
+- When starting ANY coding session
+
+**Automatic Workflow Check Template:**
+
+```
+🔍 Code Workflow Check: [Task ID - Task Name]
+================================================================
+
+Prerequisites:
+✅ Sprint task: PROTO-001 - Universal Workflow Check System
+✅ Tests exist: test/services/workflowCheck.test.ts (15 tests written - TDD RED phase)
+✅ Git status: Clean working directory
+✅ Confidence: 0.90 (HIGH) - All criteria met
+
+Gaps: None
+
+Critical Junction: NO (high confidence ≥0.80)
+
+Plan:
+1. Implement WorkflowCheck.ts service (TDD GREEN phase)
+2. Compile TypeScript
+3. Run tests - verify they PASS
+4. Refactor and optimize (TDD REFACTOR phase)
+5. Commit changes
+
+Ready to proceed ✅
+```
+
+**Communication Template:**
+
+Before writing code, Claude MUST announce:
+1. What task is being worked on (with ID)
+2. Prerequisites checked (✅/❌ with details)
+3. Confidence score (percentage + HIGH/MEDIUM/LOW)
+4. Any gaps identified
+5. Whether this is a critical junction (requires approval)
+6. Execution plan (step-by-step)
+
+**Edge Case Guidelines:**
+
+1. **Typo Fix (Non-Feature Code)**
+   - Typo in comment/documentation → Skip workflow check
+   - Typo in variable name → Skip workflow check
+   - Typo in string literal → Skip workflow check
+   - WHY: Typos don't require tests, sprint tasks, or patterns
+
+2. **Bug Fix (Production Code)**
+   - Always run workflow check
+   - Always write test first (TDD RED phase) that reproduces bug
+   - Then fix bug (TDD GREEN phase)
+   - WHY: Bug fixes are production code changes requiring tests
+
+3. **Experimental Code (Spike/POC)**
+   - Run workflow check
+   - Mark as experimental in commit message
+   - Create sprint task or note as "spike"
+   - WHY: Even experiments benefit from context tracking
+
+4. **Refactoring (No Behavior Change)**
+   - Run workflow check
+   - Verify existing tests still pass
+   - No new tests needed (behavior unchanged)
+   - WHY: Refactoring can introduce subtle bugs
+
+**Integration with TodoWrite:**
+
+After workflow check, Claude MUST use TodoWrite to track:
+1. Pre-Task Analysis steps (if not already done)
+2. TDD phases (RED, GREEN, REFACTOR)
+3. Compilation and testing steps
+4. Git commit step
+
+Example:
+```
+TodoWrite:
+- [in_progress] TDD RED: Write tests first
+- [pending] TDD GREEN: Implement to pass tests
+- [pending] TDD REFACTOR: Optimize code
+- [pending] Compile TypeScript
+- [pending] Commit changes
+```
+
+Mark each step [completed] immediately after finishing.
+
+**Enforcement Mechanism:**
+
+- Self-accountability: Claude follows this protocol voluntarily
+- User visibility: User sees workflow check announcement before code
+- Pattern reference: This protocol is Pattern-CODE-001
+- Audit trail: Workflow checks logged in MiddlewareLogger
+
+**Failure Modes:**
+
+If Claude skips workflow check:
+- User doesn't see prerequisites
+- No confidence score → blind coding
+- Gaps missed → rework later
+- No transparency → user distrust
+
+**Example: Full Code Development Flow**
+
+```
+User: "Implement PROTO-001 - Universal Workflow Check System"
+
+Claude: "Running Pre-Task Analysis (Pattern-TASK-ANALYSIS-001)..."
+
+[8-step analysis completed]
+
+Claude: "Pre-Task Analysis COMPLETE ✅
+
+Now running Code Workflow Check..."
+
+🔍 Code Workflow Check: PROTO-001 - Universal Workflow Check System
+================================================================
+
+Prerequisites:
+✅ Sprint task: PROTO-001 assigned to infrastructure-agent
+✅ Tests exist: NO - Will write tests first (TDD RED phase)
+✅ Git status: Clean working directory
+✅ Agent match: infrastructure-agent v2.0 (service orchestration) ✅
+
+Confidence: 0.85 (HIGH)
+- Task completeness: 0.85
+- Pre-task analysis: COMPLETE
+- Known issues reviewed: ✅ Pattern-PUBLISH-003 (no runtime npm deps)
+
+Gaps: None
+
+Critical Junction: NO (high confidence, routine task)
+
+Plan:
+1. Write 15 comprehensive tests (TDD RED phase) - 1 hour
+2. Implement WorkflowCheck.ts service (TDD GREEN phase) - 2 hours
+3. Compile and verify tests pass
+4. Refactor for performance (<500ms target)
+5. Commit with detailed message
+
+Estimated time: 4-5 hours
+Ready to proceed ✅
+
+[Claude proceeds with TodoWrite tracking, then writes tests, then implements]
+```
+
+**Pattern Reference:** Pattern-CODE-001 (Code Development Protocol)
+
+---
+
+### Sprint Planning Protocol (Pattern-SPRINT-PLAN-001) - MANDATORY
+
+**CRITICAL: Run workflow check BEFORE creating ANY sprint**
+
+**Why This Exists:**
+- Ensures workspace analysis complete (context gathered)
+- Verifies git state clean (no uncommitted work blocking)
+- Confirms agents available (skills loaded from AgentRegistry)
+- Prevents creating sprints without proper foundation
+
+**When to Use:**
+- Before creating new sprint TOML file
+- Before modifying ACTIVE_SPRINT.toml
+- When user requests "create sprint" or "plan sprint"
+
+**Automatic Workflow Check Template:**
+
+```
+🔍 Sprint Planning Workflow Check
+================================================================
+
+Prerequisites:
+✅ Workspace analyzed: Context gathered from codebase
+✅ Git status: Clean working directory
+✅ Agent Registry: 9 agents loaded from internal/agents/
+✅ Patterns available: 15 patterns loaded from docs/patterns/
+✅ Skill system: AgentRegistry initialized
+
+Gaps: None
+
+Critical Junction: YES (Always ask user to review sprint plan before creating)
+
+Plan:
+1. Analyze user requirements
+2. Break down into phases and tasks
+3. Assign agents to tasks based on expertise
+4. Estimate time and complexity
+5. Generate sprint TOML
+6. Show plan to user for approval
+7. Create feature branch (if approved)
+8. Commit sprint file
+
+Ready to proceed (will pause for user approval before creating sprint)
+```
+
+**Communication Template:**
+
+Before creating sprint, Claude MUST announce:
+1. Workspace analysis status
+2. Git repository status
+3. Available agents and skills
+4. Sprint scope and estimated timeline
+5. **ASK USER** to review plan before proceeding
+
+**Prerequisites Checklist:**
+
+1. **Workspace Analyzed** ✅
+   - Code structure mapped
+   - Dependencies identified
+   - Existing patterns cataloged
+   - Tech stack confirmed
+
+2. **Git Clean** ✅
+   - No uncommitted changes
+   - Current branch identified
+   - Remote status checked
+
+3. **Agent Registry Loaded** ✅
+   - Agents loaded from internal/agents/
+   - Agent capabilities mapped to task categories
+   - No missing agent definitions
+
+4. **User Requirements Clear** ✅
+   - Sprint goal defined
+   - Success criteria specified
+   - Timeline confirmed
+
+**Critical Junction: ALWAYS ASK USER**
+
+Sprint planning is ALWAYS a critical junction because:
+- High-impact operation (affects entire sprint workflow)
+- User needs to review and approve plan
+- May need adjustments based on priorities
+
+Use `AskUserQuestion` tool:
+```
+Questions:
+- "Review this sprint plan. Does it match your expectations?"
+- Options: "Approve and create", "Modify plan", "Cancel"
+```
+
+**Pattern Reference:** Pattern-SPRINT-PLAN-001 (Sprint Planning Protocol)
+
+---
+
+### Testing Protocol (Pattern-TEST-001) - MANDATORY
+
+**CRITICAL: TDD workflow MUST be followed for all production code**
+
+**Why This Exists:**
+- Pattern-TDD-001 (Test-Driven Development Ratchet)
+- Creates "floor" preventing code without tests
+- Catches bugs early (before implementation)
+- Prevents subtle breakage appearing later
+
+**When to Use:**
+- Before implementing ANY feature
+- Before fixing ANY bug
+- When refactoring production code
+
+**TDD Workflow (RED-GREEN-REFACTOR):**
+
+```
+🔍 Testing Workflow Check
+================================================================
+
+TDD Phase: RED (Write tests first)
+
+Prerequisites:
+✅ Test file created: test/services/myService.test.ts
+✅ Test cases designed: 10 tests covering happy path, errors, edge cases
+✅ Test framework: Mocha/Chai configured
+⏳ Tests run: FAIL (expected - implementation doesn't exist yet)
+
+Next: Implement MyService to make tests pass (GREEN phase)
+```
+
+**Test Requirements by Task Category:**
+
+1. **Infrastructure Tasks** (core services, middleware)
+   - Coverage: **90% required**
+   - Tests: Unit tests for all public methods
+   - Mocking: Mock external services (ConfidenceScorer, TestValidator)
+   - Performance: Benchmark tests for <500ms requirements
+
+2. **API Tasks** (endpoints, routes, controllers)
+   - Coverage: **85% required**
+   - Tests: Integration tests for all endpoints
+   - Error cases: Test all error scenarios (400, 401, 404, 500)
+   - Performance: Test response times
+
+3. **UI Tasks** (components, views, interactions)
+   - Coverage: **70% required**
+   - Tests: Component tests for rendering and interactions
+   - User events: Test clicks, inputs, keyboard navigation
+   - Visual: Snapshot tests for UI consistency
+
+4. **Documentation Tasks** (patterns, guides, README)
+   - Coverage: **0% required**
+   - Validation: Manual review for clarity and accuracy
+   - Examples: Verify all code examples work
+
+**TDD Enforcement (MID-012):**
+
+1. **TestRequirementGenerator**
+   - Auto-generates test requirements based on task category
+   - Calculates coverage requirement
+   - Identifies test file locations
+
+2. **TestContextGatherer**
+   - Scans workspace for test files
+   - Runs test suite and captures output
+   - Calculates coverage from reports
+
+3. **TestValidator**
+   - **BLOCKS** task completion if tests missing or failing
+   - Requires execution proof (not just file existence)
+   - Detects manual script workarounds
+
+4. **ConfidenceScorer**
+   - Test coverage = 30% of total confidence score
+   - passing_tests: +0.15 (highest weight!)
+   - Tasks without passing tests score ≤0.70
+
+5. **Git Pre-Commit Hook**
+   - Runs automatically before every commit
+   - Blocks commits if tests failing
+   - Bypass: `git commit --no-verify` (NOT RECOMMENDED)
+
+**Pattern Reference:** Pattern-TEST-001 (Testing Protocol), Pattern-TDD-001 (Test-Driven Development Ratchet)
+
+---
+
+### Documentation Protocol (Pattern-DOCS-001) - MANDATORY
+
+**CRITICAL: Assess reusability BEFORE creating documentation files**
+
+**Why This Exists:**
+- Prevents ephemeral markdown summaries (clutter codebase)
+- Ensures patterns created for reusable knowledge only
+- Keeps documentation focused and valuable
+
+**Reusability Assessment:**
+
+**HIGH Reusability** → Create Pattern Document
+- Referenced in 3+ places
+- Core architecture or workflow process
+- Will be reused across multiple features
+- Example: Pattern-COMM-001, Pattern-TDD-001
+
+**MEDIUM Reusability** → Ask User
+- Referenced in 2 places
+- Specific feature implementation
+- May be reused in similar features
+- Use `AskUserQuestion`: "Create pattern or explain in chat?"
+
+**LOW Reusability** → Chat Explanation Only
+- Single use case
+- Specific bug fix
+- One-time explanation
+- Don't create file
+
+**EPHEMERAL** → Chat Only (FORBIDDEN to create file)
+- Status update ("I completed X")
+- User question answer ("Here's how Y works")
+- Progress report
+- One-time summary
+
+**Decision Tree:**
+
+```
+Is this reusable knowledge?
+├─ Yes, used in 3+ places → HIGH → Create Pattern Document
+├─ Maybe, used in 2 places → MEDIUM → Ask User
+├─ No, single use case → LOW → Chat explanation only
+└─ No, one-time update → EPHEMERAL → Chat only (no file)
+```
+
+**Documentation Workflow Check:**
+
+```
+🔍 Documentation Workflow Check
+================================================================
+
+Reusability Assessment: HIGH
+
+Reasoning:
+- Referenced in: WorkflowCheck.ts, CLAUDE.md, agent contexts (3+ places)
+- Core workflow process used across all development
+- Will be reused by all future agents
+
+Recommendation: Create Pattern Document
+  File: docs/patterns/Pattern-COMM-001-Universal-Communication.md
+  Sections: Problem, Solution, Implementation, Examples
+
+Alternative: In-chat explanation only (NOT RECOMMENDED for high reusability)
+
+Decision: Create Pattern Document ✅
+```
+
+**Pattern vs. Summary:**
+
+| Aspect | Pattern Document | Ephemeral Summary |
+|--------|------------------|-------------------|
+| Reusability | High/Medium | None |
+| References | 2+ places | This conversation only |
+| Lifespan | Long-term | Ephemeral |
+| Format | Structured (Problem, Solution, Examples) | Freeform chat |
+| File created | Yes | NO |
+
+**Enforcement:**
+
+- Claude MUST assess reusability before creating ANY .md file
+- Claude MUST explain reasoning (why this qualifies as pattern)
+- User can override (always has final say)
+
+**Pattern Reference:** Pattern-DOCS-001 (Documentation Protocol)
+
+---
+
+### Git Workflow Integration Protocol - MANDATORY
+
+**CRITICAL: Check git status BEFORE every workflow**
+
+**Why This Exists:**
+- Uncommitted changes block clean workflow
+- Branch awareness prevents accidental pushes to main
+- Merge conflicts detected early
+- Git state visible in all workflow checks
+
+**Git Status Checks:**
+
+Every workflow check MUST include git status:
+
+```
+Git Status:
+✅ Working directory: Clean (no uncommitted changes)
+✅ Current branch: feature/proto-001 (not main/master)
+✅ Merge conflicts: None
+✅ Unpushed commits: 2 commits ahead of origin/master
+```
+
+**Git States:**
+
+1. **Clean Working Directory** ✅
+   - Status: No uncommitted changes
+   - Action: Proceed with workflow
+   - Remediation: N/A
+
+2. **Uncommitted Changes** ⚠️
+   - Status: Modified files not staged/committed
+   - Action: Warn user (suboptimal but not blocking)
+   - Remediation: "Commit changes: git add . && git commit"
+
+3. **On Main Branch** ⚠️
+   - Status: Current branch is main/master
+   - Action: Critical junction (ask user before push)
+   - Remediation: "Consider feature branch: git checkout -b feature/name"
+
+4. **Merge Conflicts** ❌
+   - Status: Unresolved merge conflicts
+   - Action: Block workflow
+   - Remediation: "Resolve conflicts before proceeding"
+
+5. **Git Not Available** ❌
+   - Status: Git command failed
+   - Action: Warn user (degraded, not blocking)
+   - Remediation: "Check git installation and repository status"
+
+**Git Commands Used:**
+
+```bash
+# Check status
+git status --porcelain
+
+# Check current branch
+git rev-parse --abbrev-ref HEAD
+
+# Check unpushed commits
+git log origin/HEAD..HEAD --oneline
+
+# Check merge conflicts
+git ls-files -u
+```
+
+**Integration with WorkflowCheck.ts:**
+
+- `WorkflowCheck.checkGitStatus()` method
+- Uses `child_process.exec()` (Node.js built-in)
+- Graceful degradation if git fails
+- Cached for performance (<50ms on cache hit)
+
+---
+
+### Gap Detection & Self-Improvement Protocol - MANDATORY
+
+**CRITICAL: Propose creating missing patterns/skills/agents instead of working around**
+
+**Why This Exists:**
+- System improves itself over time
+- Missing patterns get documented
+- Missing agents get created
+- User has visibility and control
+
+**Gap Types:**
+
+1. **Missing Pattern**
+   - Detected: Task references Pattern-XYZ-001 but it doesn't exist
+   - Impact: Degraded (can work without pattern, but suboptimal)
+   - Proposal: Create pattern document (2 hours)
+
+2. **Missing Skill**
+   - Detected: Task requires "publish" skill but not available
+   - Impact: Blocking (can't complete task without skill)
+   - Proposal: Create skill definition (1 hour)
+
+3. **Missing Agent**
+   - Detected: Task assigned to "security-agent" but agent not in registry
+   - Impact: Blocking (no agent to handle task)
+   - Proposal: Create agent context file (2-3 hours)
+
+4. **Missing Test**
+   - Detected: Production code without test file
+   - Impact: Blocking (Pattern-TDD-001 enforcement)
+   - Proposal: Write tests first (TDD RED phase)
+
+5. **Missing Documentation**
+   - Detected: High-reusability knowledge not documented
+   - Impact: Suboptimal (knowledge lost if not documented)
+   - Proposal: Create pattern or update docs (1-2 hours)
+
+**Gap Detection Workflow:**
+
+```
+🔍 Gap Detected: Missing Pattern-GIT-001
+
+Gap Type: Pattern
+Impact: Suboptimal (can work without, but less efficient)
+Description: Git workflow integration pattern referenced but doesn't exist
+
+Proposal: Create Pattern-GIT-001 document
+  File: docs/patterns/Pattern-GIT-001-Git-Workflow.md
+  Estimated time: 2 hours
+  Benefit: Standardizes git workflow across all agents
+
+Options:
+1. Create now (add to current task, extend timeline)
+2. Workaround (proceed without pattern, note for future)
+3. Defer (create separate task, add to backlog)
+
+Recommendation: Defer (don't block current task)
+
+Awaiting your decision...
+```
+
+**User Approval (AskUserQuestion):**
+
+```
+Questions:
+- "I detected a gap: [Gap description]. How should I proceed?"
+- Options:
+  1. "Create now" → Add to current task
+  2. "Workaround" → Continue with degraded functionality
+  3. "Defer" → Create task for later
+```
+
+**Gap Tracking:**
+
+- All gaps logged in MiddlewareLogger
+- Gap log reviewed during sprint retrospectives
+- Patterns emerge (recurring gaps → systematic improvement)
+
+**Self-Improvement Cycle:**
+
+```
+Gap Detected → Proposal Generated → User Approval → Gap Filled → System Improved
+```
+
+**Enforcement:**
+
+- Claude MUST propose gap filling (not work around silently)
+- User ALWAYS has final decision
+- Gaps tracked for retrospective analysis
 
 ---
 
