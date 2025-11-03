@@ -503,23 +503,26 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 this.tabManager.setActiveTab(message.tabId);
                 console.log('[ÆtherLight VoicePanel] Active tab set, getting new content...');
 
-                // UI-ARCH-001: Get the active tab content (Voice removed - now permanent)
+                // UI-ARCH-002: Get the active tab content (only Sprint + Settings active)
                 const activeTab = this.tabManager.getActiveTab();
                 let tabContent: string;
                 switch (activeTab) {
-                    // Voice case removed - voice section is permanent, not a tab
+                    // Voice case removed in UI-ARCH-001 - voice section is permanent, not a tab
                     case TabId.Sprint:
                         tabContent = this.getSprintTabContent();
                         break;
-                    case TabId.Planning:
-                        tabContent = this.getPlanningTabPlaceholder();
-                        break;
-                    case TabId.Patterns:
-                        tabContent = this.getPatternsTabPlaceholder();
-                        break;
-                    case TabId.Activity:
-                        tabContent = this.getActivityTabPlaceholder();
-                        break;
+                    // TODO: UI-ARCH-002 - Planning tab disabled (placeholder, backend incomplete)
+                    // case TabId.Planning:
+                    //     tabContent = this.getPlanningTabPlaceholder();
+                    //     break;
+                    // TODO: UI-ARCH-002 - Patterns tab disabled (waiting for PatternLibrary UI integration)
+                    // case TabId.Patterns:
+                    //     tabContent = this.getPatternsTabPlaceholder();
+                    //     break;
+                    // TODO: UI-ARCH-002 - Activity tab disabled (multi-user features not implemented)
+                    // case TabId.Activity:
+                    //     tabContent = this.getActivityTabPlaceholder();
+                    //     break;
                     case TabId.Settings:
                         tabContent = this.getSettingsTabPlaceholder();
                         break;
@@ -1250,29 +1253,33 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
         // Generate voice section HTML (always visible at top)
         const voiceContent = getVoicePanelBodyContent();
 
-        // Generate tab bar HTML (5 tabs: Sprint, Planning, Patterns, Activity, Settings)
+        // UI-ARCH-002: Generate tab bar HTML (2 tabs: Sprint, Settings)
+        // Planning, Patterns, Activity disabled (not implemented yet)
         const tabBar = this.tabManager.getTabBarHtml();
         const activeTab = this.tabManager.getActiveTab();
 
         /**
-         * Generate tab content based on active tab
-         * Voice case removed - voice section is permanent, not a tab
+         * UI-ARCH-002: Generate tab content based on active tab
+         * Only Sprint + Settings tabs active (Planning, Patterns, Activity disabled)
          */
         let tabContent: string;
         switch (activeTab) {
-            // Voice case removed - voice section is now permanent at top
+            // Voice case removed in UI-ARCH-001 - voice section is now permanent at top
             case TabId.Sprint:
                 tabContent = this.getSprintTabContent();
                 break;
-            case TabId.Planning:
-                tabContent = this.getPlanningTabPlaceholder();
-                break;
-            case TabId.Patterns:
-                tabContent = this.getPatternsTabPlaceholder();
-                break;
-            case TabId.Activity:
-                tabContent = this.getActivityTabPlaceholder();
-                break;
+            // TODO: UI-ARCH-002 - Planning tab disabled (placeholder, backend incomplete)
+            // case TabId.Planning:
+            //     tabContent = this.getPlanningTabPlaceholder();
+            //     break;
+            // TODO: UI-ARCH-002 - Patterns tab disabled (waiting for PatternLibrary UI integration)
+            // case TabId.Patterns:
+            //     tabContent = this.getPatternsTabPlaceholder();
+            //     break;
+            // TODO: UI-ARCH-002 - Activity tab disabled (multi-user features not implemented)
+            // case TabId.Activity:
+            //     tabContent = this.getActivityTabPlaceholder();
+            //     break;
             case TabId.Settings:
                 tabContent = this.getSettingsTabPlaceholder();
                 break;

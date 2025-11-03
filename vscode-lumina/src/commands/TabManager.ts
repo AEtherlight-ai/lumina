@@ -134,23 +134,29 @@ export class TabManager {
         const saved = this.context.workspaceState.get<TabState>(this.storageKey);
 
         if (saved) {
-            // UI-ARCH-001: Validate 5 expected tabs (Voice removed)
-            // Chain of Thought: Voice section now permanent, not a tab
-            const expectedTabIds = [TabId.Sprint, TabId.Planning, TabId.Patterns, TabId.Activity, TabId.Settings];
+            // UI-ARCH-002: Validate 2 expected tabs (Sprint + Settings only)
+            // Chain of Thought: Only show implemented/essential features
+            // Planning, Patterns, Activity disabled (not implemented yet)
+            const expectedTabIds = [TabId.Sprint, TabId.Settings];
             const savedTabIds = saved.tabs.map(t => t.id);
 
-            // Filter out Voice if present in saved state (legacy migration)
-            const filteredTabs = saved.tabs.filter(t => t.id !== TabId.Voice);
+            // Filter out disabled tabs from saved state (legacy migration)
+            const filteredTabs = saved.tabs.filter(t =>
+                t.id === TabId.Sprint || t.id === TabId.Settings
+            );
 
             const hasAllTabs = expectedTabIds.every(id => savedTabIds.includes(id));
 
             if (hasAllTabs && filteredTabs.length === expectedTabIds.length) {
                 console.log('[ÆtherLight TabManager] Loaded valid state from workspace storage');
-                // Return filtered state (Voice removed if present)
+                // Return filtered state (disabled tabs removed if present)
                 return {
                     ...saved,
                     tabs: filteredTabs,
-                    activeTab: saved.activeTab === TabId.Voice ? TabId.Sprint : saved.activeTab
+                    // Ensure active tab is valid (Sprint or Settings)
+                    activeTab: (saved.activeTab === TabId.Sprint || saved.activeTab === TabId.Settings)
+                        ? saved.activeTab
+                        : TabId.Sprint
                 };
             }
 
@@ -159,14 +165,14 @@ export class TabManager {
             console.warn('[ÆtherLight TabManager] Saved tabs:', savedTabIds);
         }
 
-        // UI-ARCH-001: Default state with 5 tabs (Voice removed)
-        // Chain of Thought: Voice section is now permanent at top, not a tab
-        // Default active tab is Sprint (most commonly used after voice)
+        // UI-ARCH-002: Default state with 2 tabs (Sprint + Settings only)
+        // Chain of Thought: Only show implemented/essential features (Progressive Disclosure)
+        // Planning, Patterns, Activity commented out (not implemented yet)
         return {
-            activeTab: TabId.Sprint,  // Default to Sprint tab (Voice is permanent, not a tab)
+            activeTab: TabId.Sprint,  // Default to Sprint tab (most useful)
             promotedTabs: [],         // No promoted tabs by default
             tabs: [
-                // Voice tab removed - voice section is now permanent at top
+                // Voice tab removed in UI-ARCH-001 - voice section is now permanent at top
                 {
                     id: TabId.Sprint,
                     icon: '📊',
@@ -174,27 +180,30 @@ export class TabManager {
                     tooltip: 'Sprint progress and task monitoring',
                     isPromoted: false
                 },
-                {
-                    id: TabId.Planning,
-                    icon: '🗂️',
-                    name: 'Planning',
-                    tooltip: 'Sprint planning and dependency graph',
-                    isPromoted: false
-                },
-                {
-                    id: TabId.Patterns,
-                    icon: '🧩',
-                    name: 'Patterns',
-                    tooltip: 'Pattern library search and management',
-                    isPromoted: false
-                },
-                {
-                    id: TabId.Activity,
-                    icon: '📡',
-                    name: 'Activity',
-                    tooltip: 'Real-time team activity feed',
-                    isPromoted: false
-                },
+                // TODO: UI-ARCH-002 - Planning tab disabled (placeholder, backend incomplete)
+                // {
+                //     id: TabId.Planning,
+                //     icon: '🗂️',
+                //     name: 'Planning',
+                //     tooltip: 'Sprint planning and dependency graph',
+                //     isPromoted: false
+                // },
+                // TODO: UI-ARCH-002 - Patterns tab disabled (waiting for PatternLibrary UI integration)
+                // {
+                //     id: TabId.Patterns,
+                //     icon: '🧩',
+                //     name: 'Patterns',
+                //     tooltip: 'Pattern library search and management',
+                //     isPromoted: false
+                // },
+                // TODO: UI-ARCH-002 - Activity tab disabled (multi-user features not implemented)
+                // {
+                //     id: TabId.Activity,
+                //     icon: '📡',
+                //     name: 'Activity',
+                //     tooltip: 'Real-time team activity feed',
+                //     isPromoted: false
+                // },
                 {
                     id: TabId.Settings,
                     icon: '⚙️',
@@ -297,19 +306,23 @@ export class TabManager {
     /**
      * Get placeholder content for each tab (Phase 1 - skeleton only)
      *
-     * UI-ARCH-001: Voice case removed - voice section is permanent, not a tab
+     * UI-ARCH-002: Only Sprint + Settings tabs active
+     * Planning, Patterns, Activity commented out (not implemented yet)
      */
     private getTabPlaceholderContent(tabId: TabId): string {
         switch (tabId) {
-            // Voice case removed - voice section is now permanent at top
+            // Voice case removed in UI-ARCH-001 - voice section is now permanent at top
             case TabId.Sprint:
                 return `<div class="placeholder">Sprint Tab - To be implemented</div>`;
-            case TabId.Planning:
-                return `<div class="placeholder">Planning Tab - To be implemented</div>`;
-            case TabId.Patterns:
-                return `<div class="placeholder">Patterns Tab - To be implemented</div>`;
-            case TabId.Activity:
-                return `<div class="placeholder">Activity Tab - To be implemented</div>`;
+            // TODO: UI-ARCH-002 - Planning tab disabled
+            // case TabId.Planning:
+            //     return `<div class="placeholder">Planning Tab - To be implemented</div>`;
+            // TODO: UI-ARCH-002 - Patterns tab disabled
+            // case TabId.Patterns:
+            //     return `<div class="placeholder">Patterns Tab - To be implemented</div>`;
+            // TODO: UI-ARCH-002 - Activity tab disabled
+            // case TabId.Activity:
+            //     return `<div class="placeholder">Activity Tab - To be implemented</div>`;
             case TabId.Settings:
                 return `<div class="placeholder">Settings Tab - To be implemented</div>`;
             default:
