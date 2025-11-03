@@ -134,14 +134,24 @@ export class TabManager {
         const saved = this.context.workspaceState.get<TabState>(this.storageKey);
 
         if (saved) {
-            // Validate: Ensure all 6 expected tabs exist
-            const expectedTabIds = [TabId.Voice, TabId.Sprint, TabId.Planning, TabId.Patterns, TabId.Activity, TabId.Settings];
+            // UI-ARCH-001: Validate 5 expected tabs (Voice removed)
+            // Chain of Thought: Voice section now permanent, not a tab
+            const expectedTabIds = [TabId.Sprint, TabId.Planning, TabId.Patterns, TabId.Activity, TabId.Settings];
             const savedTabIds = saved.tabs.map(t => t.id);
+
+            // Filter out Voice if present in saved state (legacy migration)
+            const filteredTabs = saved.tabs.filter(t => t.id !== TabId.Voice);
+
             const hasAllTabs = expectedTabIds.every(id => savedTabIds.includes(id));
 
-            if (hasAllTabs && saved.tabs.length === expectedTabIds.length) {
+            if (hasAllTabs && filteredTabs.length === expectedTabIds.length) {
                 console.log('[ÆtherLight TabManager] Loaded valid state from workspace storage');
-                return saved;
+                // Return filtered state (Voice removed if present)
+                return {
+                    ...saved,
+                    tabs: filteredTabs,
+                    activeTab: saved.activeTab === TabId.Voice ? TabId.Sprint : saved.activeTab
+                };
             }
 
             console.warn('[ÆtherLight TabManager] Invalid tab state detected (missing tabs or wrong count), resetting to defaults');
@@ -149,18 +159,14 @@ export class TabManager {
             console.warn('[ÆtherLight TabManager] Saved tabs:', savedTabIds);
         }
 
-        // Default state
+        // UI-ARCH-001: Default state with 5 tabs (Voice removed)
+        // Chain of Thought: Voice section is now permanent at top, not a tab
+        // Default active tab is Sprint (most commonly used after voice)
         return {
-            activeTab: TabId.Voice,  // Default to Voice tab
-            promotedTabs: [],        // No promoted tabs by default
+            activeTab: TabId.Sprint,  // Default to Sprint tab (Voice is permanent, not a tab)
+            promotedTabs: [],         // No promoted tabs by default
             tabs: [
-                {
-                    id: TabId.Voice,
-                    icon: '🎤',
-                    name: 'Voice',
-                    tooltip: 'Voice capture and terminal commands',
-                    isPromoted: false
-                },
+                // Voice tab removed - voice section is now permanent at top
                 {
                     id: TabId.Sprint,
                     icon: '📊',
@@ -290,11 +296,12 @@ export class TabManager {
 
     /**
      * Get placeholder content for each tab (Phase 1 - skeleton only)
+     *
+     * UI-ARCH-001: Voice case removed - voice section is permanent, not a tab
      */
     private getTabPlaceholderContent(tabId: TabId): string {
         switch (tabId) {
-            case TabId.Voice:
-                return `<div class="placeholder">Voice Tab - To be implemented</div>`;
+            // Voice case removed - voice section is now permanent at top
             case TabId.Sprint:
                 return `<div class="placeholder">Sprint Tab - To be implemented</div>`;
             case TabId.Planning:

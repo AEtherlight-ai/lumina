@@ -433,20 +433,21 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
         };
 
         /**
-         * A-004: Check for requested tab focus from hotkey
-         * DESIGN DECISION: Handle requested tab switch before rendering HTML
-         * WHY: Ensures backtick hotkey always focuses Voice tab
+         * UI-ARCH-001: Legacy requested tab handling
+         * DESIGN DECISION: Clear Voice tab requests (voice now permanent, not a tab)
+         * WHY: Voice section is always visible, no need to switch tabs
          *
          * REASONING CHAIN:
          * 1. Check workspace state for "requestedTab" flag
-         * 2. If flag is "Voice" → Switch to Voice tab (TabManager.setActiveTab)
-         * 3. Clear flag to prevent repeat switching
-         * 4. Render HTML with correct active tab
-         * 5. Result: Hotkey reliably focuses Voice tab
+         * 2. If flag is "Voice" → Clear flag (no tab switch needed)
+         * 3. Voice section is permanent at top, always accessible
+         * 4. Result: Backtick hotkey opens panel with voice always visible
+         *
+         * PATTERN: Pattern-UI-ARCH-001 (Progressive Disclosure)
          */
         const requestedTab = this._context.workspaceState.get<string>('aetherlight.requestedTab');
         if (requestedTab === 'Voice') {
-            this.tabManager.setActiveTab('voice' as any); // TabId enum uses lowercase internally
+            // Voice is now permanent (not a tab), just clear the flag
             this._context.workspaceState.update('aetherlight.requestedTab', undefined);
         }
 
@@ -502,13 +503,11 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 this.tabManager.setActiveTab(message.tabId);
                 console.log('[ÆtherLight VoicePanel] Active tab set, getting new content...');
 
-                // Get the active tab content
+                // UI-ARCH-001: Get the active tab content (Voice removed - now permanent)
                 const activeTab = this.tabManager.getActiveTab();
                 let tabContent: string;
                 switch (activeTab) {
-                    case TabId.Voice:
-                        tabContent = getVoicePanelBodyContent();
-                        break;
+                    // Voice case removed - voice section is permanent, not a tab
                     case TabId.Sprint:
                         tabContent = this.getSprintTabContent();
                         break;
@@ -529,11 +528,12 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 }
 
                 // Send content update message to webview
+                // UI-ARCH-001: needsVoiceScripts always false (voice section is permanent, scripts always initialized)
                 const updateMessage = {
                     type: 'updateTabContent',
                     tabId: message.tabId,
                     content: tabContent,
-                    needsVoiceScripts: activeTab === TabId.Voice
+                    needsVoiceScripts: false  // Voice section permanent, scripts already initialized
                 };
 
                 // Update the webview that sent the message
@@ -591,8 +591,9 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 // Toggle task status (pending → in_progress → completed → pending)
                 const task = this.sprintTasks.find(t => t.id === message.taskId);
                 if (task) {
-                    this.sprintLoader.toggleTaskStatus(task);
-                    await this.sprintLoader.saveTaskStatuses(this.sprintTasks);
+                    // BUG FIX: Removed deprecated saveTaskStatuses() call
+                    // toggleTaskStatus() already calls updateTaskStatus() which writes to TOML
+                    await this.sprintLoader.toggleTaskStatus(task);
 
                     // CRITICAL FIX: Use postMessage instead of HTML regeneration
                     // WHY: Regenerating HTML causes script redeclaration errors
@@ -1196,30 +1197,70 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 await this._context.workspaceState.update('aetherlight.sprintSettings', message.settings);
                 console.log('[ÆtherLight] Settings saved:', message.settings);
                 break;
+
+            case 'saveGlobalSettings':
+                /**
+                 * UI-FIX-003: Save global settings to workspace state
+                 * WHY: Settings tab Save button wasn't wired to persistence
+                 *
+                 * REASONING CHAIN:
+                 * 1. User modifies settings in Settings tab
+                 * 2. Clicks Save button → sends 'saveGlobalSettings' message
+                 * 3. Save to workspaceState for persistence across reloads
+                 * 4. Show confirmation message to user
+                 * 5. Result: Settings persist correctly
+                 */
+                try {
+                    await this._context.workspaceState.update('aetherlight.globalSettings', message.settings);
+                    console.log('[ÆtherLight] Global settings saved:', message.settings);
+
+                    // Send confirmation to webview
+                    webview.postMessage({
+                        type: 'settingsSaved',
+                        success: true
+                    });
+
+                    vscode.window.showInformationMessage('✅ Settings saved successfully');
+                } catch (error) {
+                    console.error('[ÆtherLight] Failed to save settings:', error);
+                    webview.postMessage({
+                        type: 'settingsSaved',
+                        success: false,
+                        error: error instanceof Error ? error.message : 'Unknown error'
+                    });
+                    vscode.window.showErrorMessage('❌ Failed to save settings');
+                }
+                break;
         }
     }
 
     private _getHtmlForWebview(webview: vscode.Webview): string {
         /**
-         * A-002: Use TabManager for HTML generation
+         * UI-ARCH-001: Voice section now permanent, not a tab
          * REASONING:
-         * 1. TabManager generates tab bar HTML with all 6 tabs
-         * 2. TabManager provides CSS styles for tab UI
-         * 3. Generate tab content based on active tab
-         * 4. Result: Consistent tab UI managed by TabManager
+         * 1. Voice is PRIMARY interface (backtick key to activate)
+         * 2. Making voice a "tab" hides the main feature users need most
+         * 3. Voice controls should always be visible at top
+         * 4. Other features (Sprint, Settings, etc.) remain as tabs
+         * 5. Result: Progressive disclosure - primary features prominent, secondary features in tabs
+         *
+         * PATTERN: Pattern-UI-ARCH-001 (Progressive Disclosure)
          */
+
+        // Generate voice section HTML (always visible at top)
+        const voiceContent = getVoicePanelBodyContent();
+
+        // Generate tab bar HTML (5 tabs: Sprint, Planning, Patterns, Activity, Settings)
         const tabBar = this.tabManager.getTabBarHtml();
         const activeTab = this.tabManager.getActiveTab();
 
         /**
-         * A-003: Generate tab content with proper placeholders
-         * REASONING: Each tab shows skeleton UI to give users clear expectations
+         * Generate tab content based on active tab
+         * Voice case removed - voice section is permanent, not a tab
          */
         let tabContent: string;
         switch (activeTab) {
-            case TabId.Voice:
-                tabContent = getVoicePanelBodyContent();
-                break;
+            // Voice case removed - voice section is now permanent at top
             case TabId.Sprint:
                 tabContent = this.getSprintTabContent();
                 break;
@@ -1258,10 +1299,22 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
     </style>
 </head>
 <body>
+    <!-- UI-ARCH-001: Voice section permanent at top (always visible) -->
+    <!-- Chain of Thought: Voice is PRIMARY interface, not a secondary tab -->
+    <!-- WHY: Users access voice with backtick key - must always be visible -->
+    <!-- PATTERN: Pattern-UI-ARCH-001 (Progressive Disclosure) -->
+    <div class="voice-section-permanent">
+        ${voiceContent}
+    </div>
+
+    <!-- Tab bar for secondary features (Sprint, Planning, Patterns, Activity, Settings) -->
     ${tabBar}
+
+    <!-- Tab content area for selected tab -->
     <div class="tab-content active">
         ${tabContent}
     </div>
+
     <script nonce="${nonce}">
         const vscode = acquireVsCodeApi();
 
@@ -2010,24 +2063,40 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
         window.initializeVoiceTab = function() {
             console.log('[ÆtherLight] Initializing Voice tab...');
 
-            // Guard: Skip if already initialized to prevent double-initialization
-            if (window.voiceTabInitialized) {
-                console.log('[ÆtherLight] Voice tab already initialized, skipping...');
+            // BUG FIX: Separate function definitions from event listener attachment
+            // WHY: When tabs switch, new button DOM elements are created
+            // Event listeners must be re-attached to new elements
+            // But functions only need to be defined once
 
-                // Still request terminal list and focus text area on tab switch
-                vscode.postMessage({ type: 'getTerminals' });
-                const voiceTextArea = document.getElementById('transcriptionText');
-                if (voiceTextArea) {
-                    voiceTextArea.focus();
-                }
-                return;
+            // Define functions only once (guard prevents re-definition)
+            if (!window.voiceTabInitialized) {
+                window.voiceTabInitialized = true;
+                console.log('[ÆtherLight] First-time Voice tab initialization - defining functions...');
+
+                // Inject all voice tab scripts (function definitions)
+                ${this.getVoiceTabScripts()}
+            } else {
+                console.log('[ÆtherLight] Voice tab already initialized - re-attaching event listeners...');
+
+                // Functions already defined, just re-attach event listeners to NEW DOM elements
+                setTimeout(() => {
+                    const recordBtn = document.getElementById('recordBtn');
+                    const codeAnalyzerBtn = document.getElementById('codeAnalyzerBtn');
+                    const sprintPlannerBtn = document.getElementById('sprintPlannerBtn');
+                    const enhanceBtn = document.getElementById('enhanceBtn');
+                    const sendBtn = document.getElementById('sendBtn');
+                    const clearBtn = document.getElementById('clearBtn');
+
+                    if (recordBtn) recordBtn.addEventListener('click', () => window.toggleRecording());
+                    if (codeAnalyzerBtn) codeAnalyzerBtn.addEventListener('click', () => window.toggleConfigPanel('code-analyzer'));
+                    if (sprintPlannerBtn) sprintPlannerBtn.addEventListener('click', () => window.toggleConfigPanel('sprint-planner'));
+                    if (enhanceBtn) enhanceBtn.addEventListener('click', () => window.enhanceText());
+                    if (sendBtn) sendBtn.addEventListener('click', () => window.sendToTerminal());
+                    if (clearBtn) clearBtn.addEventListener('click', () => window.clearText());
+
+                    console.log('[ÆtherLight] Event listeners re-attached to voice tab buttons');
+                }, 0);
             }
-
-            window.voiceTabInitialized = true;
-            console.log('[ÆtherLight] First-time Voice tab initialization...');
-
-            // Inject all voice tab scripts (functions, event handlers, etc.)
-            ${this.getVoiceTabScripts()}
 
             // Request terminal list on Voice tab activation
             vscode.postMessage({ type: 'getTerminals' });
@@ -2095,6 +2164,21 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
     private getVoicePanelStyles(): string {
         return `
+        /* UI-ARCH-001: Permanent voice section at top (always visible) */
+        .voice-section-permanent {
+            position: relative;
+            width: 100%;
+            padding: 12px;
+            background-color: var(--vscode-sideBar-background);
+            border-bottom: 2px solid var(--vscode-panel-border);
+            z-index: 100;
+        }
+
+        /* Ensure voice section never hidden (overrides any display:none) */
+        .voice-section-permanent[hidden] {
+            display: block !important;
+        }
+
         .header {
             display: flex;
             align-items: center;
