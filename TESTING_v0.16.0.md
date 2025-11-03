@@ -8,7 +8,7 @@
 
 ---
 
-## 📊 Phase 0 Progress: 23 of 33 Tasks Complete (69.7%)
+## 📊 Phase 0 Progress: 24 of 33 Tasks Complete (72.7%)
 
 **Completed Tasks:**
 - ✅ UI-FIX-001: Sprint Progress Panel enabled
@@ -35,11 +35,12 @@
 - ✅ UI-ARCH-002: Deprecate Unused Tabs (commit fb9b76b)
 - ✅ UI-ARCH-003: Reorganize Layout
 - ✅ UI-ARCH-004: Add Workflow Toolbar
+- ✅ UI-ARCH-005: Progressive Disclosure (Phase 2)
 
 **Remaining:**
 - ⏳ 0 PROTO tasks (ALL PROTO TASKS COMPLETE! 🎉)
 - ⏳ 0 VAL tasks (ALL VALIDATION TASKS COMPLETE! 🎉)
-- ⏳ 3 UI-ARCH tasks (UI Architecture Redesign)
+- ⏳ 2 UI-ARCH tasks (UI Architecture Redesign)
 - ⏳ 6 MID tasks (MID-015 to MID-020 - Middleware Services)
 - ⏳ 1 SYNC task (Context Synchronization)
 

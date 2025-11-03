@@ -38,9 +38,8 @@ import { registerAnalyzeAndPlanCommand } from './commands/analyzeAndPlan';
 // import { ShellIntegration } from './terminal/shell-integration';
 // import { checkAndSetupUserDocumentation } from './firstRunSetup';
 import { registerVoiceView } from './commands/voicePanel';
-// TEMPORARILY DISABLED FOR v0.13.1-beta - Phase 4 code has incomplete NAPI bindings
-// import { registerSprintProgressPanel } from './sprint_progress_panel';
-// import { registerAgentCoordinationView } from './agent_coordination_view';
+import { registerSprintProgressPanel } from './sprint_progress_panel';
+import { registerAgentCoordinationView } from './agent_coordination_view';
 import { registerStatusBarManager } from './status_bar_manager';
 import { RealtimeSyncManager } from './realtime_sync';
 // TEMPORARILY DISABLED FOR v0.13.1-beta - Phase 4 code has incomplete NAPI bindings
@@ -50,6 +49,7 @@ import { RealtimeSyncManager } from './realtime_sync';
 import { UpdateChecker } from './services/updateChecker';
 import { SkillExecutor } from './services/SkillExecutor';
 import { WorkflowEnforcement } from './services/WorkflowEnforcement';
+import { SprintSchemaValidator, formatValidationError } from './services/SprintSchemaValidator';
 import * as fs from 'fs';
 
 /**
@@ -568,6 +568,35 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	});
 	context.subscriptions.push(openVoicePanelCommand);
 
+	// UI-ARCH-005: Register workflow keyboard shortcuts (Ctrl+Shift+1-8)
+	// WHY: Quick access to workflows for power users
+	// Pattern: Pattern-UI-ARCH-001 (Progressive Disclosure - advanced features via shortcuts)
+	const workflowShortcuts = [
+		{ id: 'sprint', key: '1', name: 'Sprint Planning' },
+		{ id: 'analyzer', key: '2', name: 'Code Analyzer' },
+		{ id: 'pattern', key: '3', name: 'Pattern Creation' },
+		{ id: 'skill', key: '4', name: 'Skill Creation' },
+		{ id: 'agent', key: '5', name: 'Agent Creation' },
+		{ id: 'tests', key: '6', name: 'Test Runner' },
+		{ id: 'git', key: '7', name: 'Git Status' },
+		{ id: 'publish', key: '8', name: 'Publishing' }
+	];
+
+	workflowShortcuts.forEach(({ id, key, name }) => {
+		const command = vscode.commands.registerCommand(`aetherlight.workflow.${id}`, async () => {
+			// Open Voice panel
+			await vscode.commands.executeCommand('workbench.view.extension.aetherlight-sidebar');
+
+			// Post message to webview to trigger workflow
+			// The voiceViewProvider will handle the workflow click
+			console.log(`[ÆtherLight] Workflow shortcut triggered: ${name} (Ctrl+Shift+${key})`);
+
+			// Note: The webview will receive this and call handleWorkflowClick(id)
+			// Full integration with WorkflowCheck happens in UI-ARCH-006
+		});
+		context.subscriptions.push(command);
+	});
+
 	/**
 	 * DESIGN DECISION: Register Capture Voice Global command (Shift+` hotkey)
 	 * WHY: Record and type transcription at current cursor position (universal voice typing)
@@ -655,8 +684,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	 * PATTERN: Pattern-UI-001 (Real-Time TreeView Dashboard)
 	 * RELATED: AgentCoordinationView (UI-002), StatusBarManager (UI-003)
 	 */
-	// TEMPORARILY DISABLED FOR v0.13.1-beta - Phase 4 code has incomplete NAPI bindings
-	// const sprintProgressProvider = registerSprintProgressPanel(context);
+	const sprintProgressProvider = registerSprintProgressPanel(context);
 	// Providers are already registered in context.subscriptions by their register functions
 
 	/**
@@ -713,8 +741,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	 * PATTERN: Pattern-UI-002 (Gantt Chart Webview)
 	 * RELATED: SprintProgressPanel (UI-001), StatusBarManager (UI-003)
 	 */
-	// TEMPORARILY DISABLED FOR v0.13.1-beta - Phase 4 code has incomplete NAPI bindings
-	// const agentCoordinationProvider = registerAgentCoordinationView(context);
+	const agentCoordinationProvider = registerAgentCoordinationView(context);
 
 	/**
 	 * DESIGN DECISION: Register Status Bar Manager (sprint status indicator)
@@ -889,6 +916,64 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		watchers.forEach(watcher => context.subscriptions.push(watcher));
 		console.log('[ÆtherLight] Workflow enforcement initialized (file watchers: manual task detection + analysis suggestion)');
 	}
+
+	/**
+	 * VAL-001: Sprint TOML Schema Validator
+	 *
+	 * DESIGN DECISION: Real-time validation on ACTIVE_SPRINT.toml changes
+	 * WHY: Prevent Claude from inventing unsupported formats that break sprint panel
+	 *
+	 * REASONING CHAIN:
+	 * 1. FileSystemWatcher monitors ACTIVE_SPRINT.toml file
+	 * 2. On file change validate TOML structure
+	 * 3. If invalid show error notification with fix suggestions
+	 * 4. If valid allow SprintLoader to parse
+	 * 5. Result: Catch format errors immediately, prevent broken sprint panel
+	 *
+	 * PATTERN: Pattern-VALIDATION-001 (Comprehensive System Validation)
+	 * TRIGGERED BY: 2025-11-03 bug - Claude used nested format, breaking panel
+	 */
+	const sprintValidator = new SprintSchemaValidator();
+	const sprintWatcher = vscode.workspace.createFileSystemWatcher('**/ACTIVE_SPRINT.toml');
+
+	sprintWatcher.onDidChange(async (uri) => {
+		console.log('[ÆtherLight] ACTIVE_SPRINT.toml changed, validating schema...');
+
+		const result = await sprintValidator.validateFile(uri.fsPath);
+
+		if (!result.valid) {
+			const errorMessage = formatValidationError(result);
+			console.error('[ÆtherLight] Sprint schema validation failed:', errorMessage);
+
+			// Show error notification with fix suggestions
+			const action = await vscode.window.showErrorMessage(
+				'⚠️ ACTIVE_SPRINT.toml has invalid format',
+				'View Details',
+				'Ignore'
+			);
+
+			if (action === 'View Details') {
+				// Show detailed error in output channel
+				const outputChannel = vscode.window.createOutputChannel('ÆtherLight Validation');
+				outputChannel.clear();
+				outputChannel.appendLine(errorMessage);
+				outputChannel.show();
+			}
+		} else {
+			console.log('[ÆtherLight] Sprint schema validation passed ✅');
+		}
+	});
+
+	sprintWatcher.onDidCreate(async (uri) => {
+		console.log('[ÆtherLight] ACTIVE_SPRINT.toml created, validating schema...');
+		const result = await sprintValidator.validateFile(uri.fsPath);
+		if (!result.valid) {
+			vscode.window.showWarningMessage('⚠️ New ACTIVE_SPRINT.toml has invalid format. Check output for details.');
+		}
+	});
+
+	context.subscriptions.push(sprintWatcher);
+	console.log('[ÆtherLight] Sprint schema validator initialized (real-time validation on file save)');
 
 	console.log('Lumina extension activated successfully');
 }

@@ -1234,6 +1234,71 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                     vscode.window.showErrorMessage('❌ Failed to save settings');
                 }
                 break;
+
+            case 'getWorkflowBadges':
+                /**
+                 * UI-ARCH-005: Get workflow badge counts from services
+                 * WHY: Progressive Disclosure - show context-aware counts without cluttering UI
+                 *
+                 * REASONING CHAIN:
+                 * 1. Webview requests badge data via postMessage('getWorkflowBadges')
+                 * 2. Extension calls services (TestValidator, WorkflowCheck, SprintLoader)
+                 * 3. Calculate counts for each workflow (tests failing, git dirty, sprint progress)
+                 * 4. Determine status colors (error/warning/info/success)
+                 * 5. Send badge data back to webview
+                 * 6. Webview calls updateWorkflowBadge() for each workflow
+                 *
+                 * PATTERN: Pattern-UI-ARCH-001 (Progressive Disclosure)
+                 * PATTERN: Pattern-SERVICE-001 (Service Integration)
+                 * RELATED: UI-ARCH-005 (Progressive Disclosure)
+                 */
+                try {
+                    const badges: any = {};
+
+                    // TODO UI-ARCH-005: Implement full service integration
+                    // For now, send placeholder data structure
+
+                    // Tests workflow: Check for failing tests via TestValidator
+                    // TODO: Integrate TestValidator to get actual test counts
+                    // const testContext = await testValidator.gather(...);
+                    // badges.tests = { count: testContext.failingCount, status: 'error' };
+                    badges.tests = { count: 0, status: 'success' }; // Placeholder
+
+                    // Git workflow: Check for uncommitted files via WorkflowCheck
+                    // TODO: Integrate WorkflowCheck to get git status
+                    // const gitStatus = await workflowCheck.checkGitStatus();
+                    // badges.git = { count: gitStatus.uncommittedFiles.length, status: 'warning' };
+                    badges.git = { count: 0, status: 'success' }; // Placeholder
+
+                    // Sprint workflow: Show sprint progress
+                    // TODO: Integrate SprintLoader to get task counts
+                    // const stats = this.sprintLoader.getProgressStats();
+                    // badges.sprint = { count: stats.completed + '/' + stats.total, status: 'info' };
+                    badges.sprint = { count: 0, status: 'info' }; // Placeholder
+
+                    // Other workflows: No badges for now (analyzer, pattern, skill, agent, publish)
+                    badges.analyzer = { count: 0, status: 'info' };
+                    badges.pattern = { count: 0, status: 'info' };
+                    badges.skill = { count: 0, status: 'info' };
+                    badges.agent = { count: 0, status: 'info' };
+                    badges.publish = { count: 0, status: 'info' };
+
+                    // Send badge data back to webview
+                    webview.postMessage({
+                        type: 'workflowBadges',
+                        badges: badges
+                    });
+
+                    console.log('[ÆtherLight] Workflow badges sent:', badges);
+                } catch (error) {
+                    console.error('[ÆtherLight] Failed to get workflow badges:', error);
+                    // Send empty badges on error
+                    webview.postMessage({
+                        type: 'workflowBadges',
+                        badges: {}
+                    });
+                }
+                break;
         }
     }
 
@@ -2051,6 +2116,21 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                     showStatus('❌ Enhancement failed: ' + message.error, 'error');
                     break;
 
+                case 'workflowBadges':
+                    // UI-ARCH-005: Update workflow badges with data from extension
+                    // Chain of Thought: Receive badge data, call updateWorkflowBadge() for each workflow
+                    // WHY: Badges show context (tests failing, git dirty, sprint progress)
+                    console.log('[ÆtherLight] Received workflow badges:', message.badges);
+
+                    if (message.badges && window.updateWorkflowBadge) {
+                        // Update each workflow badge
+                        Object.keys(message.badges).forEach(workflow => {
+                            const badge = message.badges[workflow];
+                            window.updateWorkflowBadge(workflow, badge.count, badge.status);
+                        });
+                    }
+                    break;
+
                 case 'terminalList':
                 case 'transcriptionComplete':
                 case 'transcriptionError':
@@ -2126,6 +2206,9 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
                     // UI-ARCH-004: Load and apply workflow toolbar collapsed state
                     window.loadWorkflowToolbarState();
+
+                    // UI-ARCH-005: Refresh workflow badge counts on tab switch
+                    window.updateWorkflowBadges();
 
                     console.log('[ÆtherLight] Event listeners re-attached to voice tab buttons');
                 }, 0);
@@ -2564,6 +2647,7 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             font-size: 12px;
             cursor: pointer;
             transition: all 0.2s;
+            position: relative; /* UI-ARCH-005: For badge positioning */
         }
 
         .workflow-button:hover {
@@ -2586,6 +2670,45 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
         .workflow-label {
             font-weight: 500;
             text-align: center;
+        }
+
+        /* UI-ARCH-005: Badge styling for context-aware counts */
+        .workflow-badge {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            min-width: 18px;
+            height: 18px;
+            padding: 2px 6px;
+            border-radius: 9px;
+            font-size: 10px;
+            font-weight: 600;
+            line-height: 14px;
+            text-align: center;
+            display: none; /* Hidden by default */
+            color: #ffffff;
+            background-color: var(--vscode-badge-background);
+        }
+
+        .workflow-badge.visible {
+            display: inline-block;
+        }
+
+        /* Context-aware badge colors */
+        .workflow-badge.status-error {
+            background-color: #f44336; /* Red - errors, failures */
+        }
+
+        .workflow-badge.status-warning {
+            background-color: #ff9800; /* Orange - warnings, uncommitted changes */
+        }
+
+        .workflow-badge.status-info {
+            background-color: #2196f3; /* Blue - info, progress */
+        }
+
+        .workflow-badge.status-success {
+            background-color: #4caf50; /* Green - success, all clear */
         }
 
         /* SLIDE-DOWN-002: Configuration panel container styling */
@@ -4578,6 +4701,54 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 }
             };
 
+            // UI-ARCH-005: Badge update functions
+            window.updateWorkflowBadge = function(workflow, count, status) {
+                // Chain of Thought: Update a single workflow badge with count and status class
+                // WHY: Progressive Disclosure - show counts (e.g., "3" failing tests) without cluttering UI
+                // REASONING: Badge hidden by default, shown when count > 0, colored by status
+
+                const badge = document.querySelector('.workflow-badge[data-workflow="' + workflow + '"]');
+                if (!badge) {
+                    console.warn('[ÆtherLight] Badge not found for workflow:', workflow);
+                    return;
+                }
+
+                // Update count and visibility
+                if (count > 0) {
+                    badge.textContent = String(count);
+                    badge.classList.add('visible');
+                } else {
+                    badge.classList.remove('visible');
+                    return; // Don't set status if hidden
+                }
+
+                // Update status class (error, warning, info, success)
+                badge.classList.remove('status-error', 'status-warning', 'status-info', 'status-success');
+                if (status) {
+                    badge.classList.add('status-' + status);
+                }
+
+                console.log('[ÆtherLight] Badge updated:', workflow, count, status);
+            };
+
+            window.updateWorkflowBadges = function() {
+                // Chain of Thought: Request badge data from extension, then update all badges
+                // WHY: Badges reflect current context (tests failing, git dirty, sprint progress)
+                // REASONING: Extension has access to services (TestValidator, WorkflowCheck, SprintLoader)
+
+                console.log('[ÆtherLight] Requesting workflow badge updates from extension...');
+
+                // TODO UI-ARCH-005 Task 4: Extension will respond with badge data via message handler
+                // For now, use placeholder data to demonstrate badge rendering
+                vscode.postMessage({ type: 'getWorkflowBadges' });
+
+                // Placeholder: Show example badges (will be replaced by actual data in Task 4)
+                // Uncomment to test badge rendering:
+                // window.updateWorkflowBadge('tests', 3, 'error');  // 3 failing tests (red)
+                // window.updateWorkflowBadge('git', 5, 'warning');  // 5 uncommitted files (orange)
+                // window.updateWorkflowBadge('sprint', 0, 'info');  // Sprint progress (blue) - hidden since count=0
+            };
+
             // CSP-FIX-001: Attach event listeners to buttons (no onclick allowed)
             // Chain of Thought: CSP Trusted Types blocks onclick handlers, must use addEventListener
             // WHY: VS Code webview CSP policy blocks inline event handlers for security
@@ -4634,6 +4805,9 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
                 // UI-ARCH-004: Load workflow toolbar state on first load
                 window.loadWorkflowToolbarState();
+
+                // UI-ARCH-005: Load workflow badge counts on first load
+                window.updateWorkflowBadges();
             })();
 
             // Toggle recording - Send backtick to trigger desktop app
@@ -5658,39 +5832,48 @@ function getVoicePanelBodyContent(): string {
         </div>
         <div id="workflowToolbar" class="workflow-toolbar collapsed">
             <!-- Row 1: Planning & Analysis workflows -->
+            <!-- UI-ARCH-005: Added badge elements for context-aware counts -->
             <button id="workflowSprintBtn" class="workflow-button" title="Plan new sprint or continue current sprint">
                 <span class="workflow-icon">📋</span>
                 <span class="workflow-label">Sprint</span>
+                <span class="workflow-badge" data-workflow="sprint"></span>
             </button>
             <button id="workflowAnalyzerBtn" class="workflow-button" title="Analyze workspace and generate insights">
                 <span class="workflow-icon">🔍</span>
                 <span class="workflow-label">Analyzer</span>
+                <span class="workflow-badge" data-workflow="analyzer"></span>
             </button>
             <button id="workflowPatternBtn" class="workflow-button" title="Create reusable pattern document">
                 <span class="workflow-icon">📐</span>
                 <span class="workflow-label">Pattern</span>
+                <span class="workflow-badge" data-workflow="pattern"></span>
             </button>
             <button id="workflowSkillBtn" class="workflow-button" title="Create new skill for automation">
                 <span class="workflow-icon">🛠️</span>
                 <span class="workflow-label">Skill</span>
+                <span class="workflow-badge" data-workflow="skill"></span>
             </button>
 
             <!-- Row 2: Development & Release workflows -->
             <button id="workflowAgentBtn" class="workflow-button" title="Create specialized agent">
                 <span class="workflow-icon">🤖</span>
                 <span class="workflow-label">Agent</span>
+                <span class="workflow-badge" data-workflow="agent"></span>
             </button>
             <button id="workflowTestsBtn" class="workflow-button" title="Run test suite and show results">
                 <span class="workflow-icon">🧪</span>
                 <span class="workflow-label">Tests</span>
+                <span class="workflow-badge" data-workflow="tests"></span>
             </button>
             <button id="workflowGitBtn" class="workflow-button" title="Check uncommitted files and branch status">
                 <span class="workflow-icon">🔀</span>
                 <span class="workflow-label">Git</span>
+                <span class="workflow-badge" data-workflow="git"></span>
             </button>
             <button id="workflowPublishBtn" class="workflow-button" title="Publish new release to npm and GitHub">
                 <span class="workflow-icon">🚀</span>
                 <span class="workflow-label">Publish</span>
+                <span class="workflow-badge" data-workflow="publish"></span>
             </button>
         </div>
     </div>

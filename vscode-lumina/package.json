@@ -224,6 +224,46 @@
         "key": "ctrl+shift+l",
         "mac": "cmd+shift+l",
         "when": "terminalFocus"
+      },
+      {
+        "command": "aetherlight.workflow.sprint",
+        "key": "ctrl+shift+1",
+        "mac": "cmd+shift+1"
+      },
+      {
+        "command": "aetherlight.workflow.analyzer",
+        "key": "ctrl+shift+2",
+        "mac": "cmd+shift+2"
+      },
+      {
+        "command": "aetherlight.workflow.pattern",
+        "key": "ctrl+shift+3",
+        "mac": "cmd+shift+3"
+      },
+      {
+        "command": "aetherlight.workflow.skill",
+        "key": "ctrl+shift+4",
+        "mac": "cmd+shift+4"
+      },
+      {
+        "command": "aetherlight.workflow.agent",
+        "key": "ctrl+shift+5",
+        "mac": "cmd+shift+5"
+      },
+      {
+        "command": "aetherlight.workflow.tests",
+        "key": "ctrl+shift+6",
+        "mac": "cmd+shift+6"
+      },
+      {
+        "command": "aetherlight.workflow.git",
+        "key": "ctrl+shift+7",
+        "mac": "cmd+shift+7"
+      },
+      {
+        "command": "aetherlight.workflow.publish",
+        "key": "ctrl+shift+8",
+        "mac": "cmd+shift+8"
       }
     ],
     "terminal": {
@@ -637,7 +677,7 @@
   },
   "dependencies": {
     "@iarna/toml": "^2.2.5",
-    "aetherlight-analyzer": "^0.15.34",
+    "aetherlight-analyzer": "file:../packages/aetherlight-analyzer",
     "aetherlight-node": "^0.15.34",
     "form-data": "^4.0.4",
     "node-fetch": "^2.7.0",
