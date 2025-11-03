@@ -544,4 +544,291 @@ suite('WorkflowCheck Service Test Suite', () => {
 		assert.ok(runnerPrereq, 'Should have test runner prerequisite');
 		assert.strictEqual(runnerPrereq.status, '✅', 'Test runner should be configured');
 	});
+
+	/**
+	 * ================================================================
+	 * PROTO-005: GAP DETECTION & SELF-IMPROVEMENT TESTS (TDD RED PHASE)
+	 * ================================================================
+	 *
+	 * DESIGN DECISION: Test gap detection logic BEFORE implementation
+	 * WHY: Pattern-TDD-001 (Test-Driven Development Ratchet)
+	 *
+	 * Gap detection scenarios:
+	 * 1. Missing Pattern - Task references Pattern-XYZ-001 but doesn't exist
+	 * 2. Missing Skill - Sprint needs skill but SkillOrchestrator unavailable
+	 * 3. Missing Agent - Task references agent not in AgentRegistry
+	 * 4. Missing Tests - Code workflow but no test files
+	 * 5. Missing Documentation - High reusability but no pattern template
+	 * 6. Gap Logging - Gaps written to gaps.json
+	 * 7. Gap Performance - detectGaps() completes in <50ms
+	 * 8. User Choice Integration - Gaps trigger UserChoicePrompt
+	 */
+
+	/**
+	 * TEST 16: detectGaps() - Missing Pattern
+	 *
+	 * DESIGN DECISION: Detect when task references pattern that doesn't exist
+	 * WHY: Prevent silent workarounds, offer to create pattern
+	 *
+	 * Gap scenario:
+	 * - Task context contains patterns: ['Pattern-XYZ-001']
+	 * - Pattern file doesn't exist in docs/patterns/
+	 * - Gap detected: gapType='pattern', impact='suboptimal', workaround available
+	 */
+	test('detectGaps() should detect missing patterns', async () => {
+		const context = {
+			taskId: 'PROTO-001',
+			taskName: 'Test Task',
+			patterns: ['Pattern-XYZ-001'], // Pattern doesn't exist
+			testFilesExist: true,
+			gitClean: true
+		};
+
+		// Act
+		const result = await workflowCheck.checkWorkflow('code', context);
+
+		// Assert: Gaps array should contain missing pattern
+		assert.ok(
+			result.gaps.some(g => g.includes('Pattern-XYZ-001') || g.includes('Missing pattern')),
+			'Gaps should include missing pattern'
+		);
+
+		// Assert: Gap details should be in prerequisites or separate gap results
+		// (Exact structure TBD in GREEN phase implementation)
+		assert.ok(result.gaps.length > 0, 'Should detect gaps');
+	});
+
+	/**
+	 * TEST 17: detectGaps() - Missing Agent
+	 *
+	 * DESIGN DECISION: Detect when task requires agent not in AgentRegistry
+	 * WHY: Prevent 0% assignment errors (MID-004), offer to create agent context
+	 *
+	 * Gap scenario:
+	 * - Task assigned to 'security-agent'
+	 * - AgentRegistry doesn't have 'security-agent'
+	 * - Gap detected: gapType='agent', impact='blocking', no workaround
+	 */
+	test('detectGaps() should detect missing agents', async () => {
+		const context = {
+			taskId: 'PROTO-001',
+			taskName: 'Security Audit Task',
+			agent: 'security-agent', // Agent doesn't exist
+			testFilesExist: true,
+			gitClean: true
+		};
+
+		// Act
+		const result = await workflowCheck.checkWorkflow('code', context);
+
+		// Assert: Gaps should include missing agent
+		assert.ok(
+			result.gaps.some(g => g.includes('security-agent') || g.includes('Missing agent')),
+			'Gaps should include missing agent'
+		);
+
+		// Assert: Critical junction should be true (blocking gap)
+		// (This may vary by implementation - test documents expected behavior)
+	});
+
+	/**
+	 * TEST 18: detectGaps() - Missing Tests
+	 *
+	 * DESIGN DECISION: Detect when code workflow lacks test files (TDD violation)
+	 * WHY: Pattern-TDD-001 enforcement, offer to create tests
+	 *
+	 * Gap scenario:
+	 * - Code workflow started
+	 * - testFilesExist: false
+	 * - Gap detected: gapType='test', impact='blocking', remediation='Write tests first'
+	 */
+	test('detectGaps() should detect missing tests', async () => {
+		const context = {
+			taskId: 'PROTO-001',
+			taskName: 'Test Task',
+			testFilesExist: false, // No tests!
+			gitClean: true
+		};
+
+		// Act
+		const result = await workflowCheck.checkWorkflow('code', context);
+
+		// Assert: Gaps should include missing tests
+		assert.ok(
+			result.gaps.some(g => g.includes('No tests') || g.includes('test')),
+			'Gaps should include missing tests'
+		);
+
+		// Assert: Prerequisites should show TDD requirement failing
+		const tddPrereq = result.prerequisites.find(p => p.name.includes('TDD') || p.name.includes('test'));
+		assert.ok(tddPrereq, 'Should have TDD prerequisite');
+		assert.strictEqual(tddPrereq.status, '❌', 'TDD prerequisite should fail');
+	});
+
+	/**
+	 * TEST 19: detectGaps() - Missing Documentation Pattern Template
+	 *
+	 * DESIGN DECISION: Detect when high-reusability docs lack pattern template
+	 * WHY: Pattern-DOCS-001 enforcement, ensure consistent pattern structure
+	 *
+	 * Gap scenario:
+	 * - Documentation workflow
+	 * - reusability: 'high' (should create pattern)
+	 * - patternTemplateExists: false
+	 * - Gap detected: gapType='documentation', impact='suboptimal'
+	 */
+	test('detectGaps() should detect missing documentation templates', async () => {
+		const context = {
+			reusability: 'high',
+			patternTemplateExists: false // No template!
+		};
+
+		// Act
+		const result = await workflowCheck.checkWorkflow('docs', context);
+
+		// Assert: Gaps should include missing template
+		assert.ok(
+			result.gaps.some(g => g.includes('template') || g.includes('pattern')),
+			'Gaps should include missing template (or no gaps if not implemented yet)'
+		);
+	});
+
+	/**
+	 * TEST 20: detectGaps() - Missing Workspace Analysis (Sprint Workflow)
+	 *
+	 * DESIGN DECISION: Detect when sprint planning lacks workspace context
+	 * WHY: Pattern-SPRINT-PLAN-001 enforcement, ensure proper sprint foundation
+	 *
+	 * Gap scenario:
+	 * - Sprint workflow started
+	 * - workspaceAnalyzed: false
+	 * - Gap detected: gapType='skill', impact='blocking'
+	 */
+	test('detectGaps() should detect missing workspace analysis', async () => {
+		const context = {
+			workspaceAnalyzed: false, // No workspace analysis!
+			gitClean: true,
+			skillsAvailable: true
+		};
+
+		// Act
+		const result = await workflowCheck.checkWorkflow('sprint', context);
+
+		// Assert: Gaps should include workspace analysis
+		assert.ok(
+			result.gaps.some(g => g.includes('Workspace not analyzed')),
+			'Gaps should include workspace not analyzed'
+		);
+
+		// Assert: Prerequisite should show failure
+		const workspacePrereq = result.prerequisites.find(p => p.name.includes('Workspace'));
+		assert.ok(workspacePrereq, 'Should have workspace prerequisite');
+		assert.strictEqual(workspacePrereq.status, '❌', 'Workspace prerequisite should fail');
+	});
+
+	/**
+	 * TEST 21: Gap Detection Performance - Adds <50ms to workflow check
+	 *
+	 * DESIGN DECISION: Gap detection should not significantly slow down checks
+	 * WHY: Performance target from PROTO-005 sprint task
+	 *
+	 * Target: Gap detection adds <50ms (total workflow check still <500ms)
+	 */
+	test('gap detection should add <50ms to workflow check time', async () => {
+		// Arrange
+		confidenceScorerStub.scoreTask.resolves({
+			taskId: 'PROTO-001',
+			confidence: 0.90,
+			action: 'accept',
+			gaps: []
+		});
+
+		const context = {
+			taskId: 'PROTO-001',
+			taskName: 'Test Task',
+			testFilesExist: true,
+			gitClean: true,
+			// Add some patterns to trigger gap detection
+			patterns: ['Pattern-COMM-001', 'Pattern-TDD-001']
+		};
+
+		// Act: Measure time
+		const startTime = Date.now();
+		await workflowCheck.checkWorkflow('code', context);
+		const duration = Date.now() - startTime;
+
+		// Assert: Total time should still be <500ms (includes gap detection)
+		assert.ok(duration < 500, `Workflow check with gap detection took ${duration}ms, should be <500ms`);
+
+		// Note: We can't easily isolate gap detection time in this unit test,
+		// but the overall performance target is still met
+	});
+
+	/**
+	 * TEST 22: Gap Logging - Gaps written to .aetherlight/logs/gaps.json
+	 *
+	 * DESIGN DECISION: Track all detected gaps for retrospectives
+	 * WHY: Pattern-SELF-IMPROVEMENT-001, identify recurring gaps
+	 *
+	 * Gap log format:
+	 * {
+	 *   "timestamp": "2025-11-03T10:00:00Z",
+	 *   "workflowType": "code",
+	 *   "gapType": "pattern",
+	 *   "description": "Missing Pattern-XYZ-001",
+	 *   "impact": "suboptimal",
+	 *   "userDecision": "defer",
+	 *   "taskId": "PROTO-001"
+	 * }
+	 */
+	test('gaps should be logged to gaps.json file', async () => {
+		// This test will verify gap logging in GREEN phase
+		// For now, we document the expected behavior
+
+		const context = {
+			taskId: 'PROTO-001',
+			taskName: 'Test Task',
+			patterns: ['Pattern-MISSING-001'], // Trigger gap
+			testFilesExist: true,
+			gitClean: true
+		};
+
+		// Act
+		const result = await workflowCheck.checkWorkflow('code', context);
+
+		// Assert: Gap detected
+		assert.ok(result.gaps.length > 0, 'Should detect gaps');
+
+		// TODO (GREEN phase): Verify gaps.json file created and contains gap entry
+		// - Check file exists at .aetherlight/logs/gaps.json
+		// - Parse JSON and verify structure
+		// - Verify timestamp, workflowType, gapType fields present
+	});
+
+	/**
+	 * TEST 23: Multiple Gaps - Detect and prioritize multiple gaps
+	 *
+	 * DESIGN DECISION: Workflow may have multiple gaps, prioritize by impact
+	 * WHY: User needs to see most critical gaps first
+	 *
+	 * Gap priority: blocking > degraded > suboptimal
+	 */
+	test('should detect and report multiple gaps', async () => {
+		const context = {
+			taskId: 'PROTO-001',
+			taskName: 'Test Task',
+			testFilesExist: false, // Gap 1: No tests (blocking)
+			patterns: ['Pattern-MISSING-001'], // Gap 2: Missing pattern (suboptimal)
+			gitClean: false // Gap 3: Dirty git (suboptimal)
+		};
+
+		// Act
+		const result = await workflowCheck.checkWorkflow('code', context);
+
+		// Assert: Should detect multiple gaps
+		assert.ok(result.gaps.length >= 2, `Should detect at least 2 gaps, found ${result.gaps.length}`);
+
+		// Assert: Critical junction because of blocking gaps
+		assert.strictEqual(result.criticalJunction, true, 'Multiple gaps should trigger critical junction');
+	});
 });

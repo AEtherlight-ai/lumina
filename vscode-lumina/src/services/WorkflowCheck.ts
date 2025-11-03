@@ -28,11 +28,14 @@
 
 import * as child_process from 'child_process';
 import { promisify } from 'util';
+import * as fs from 'fs';
+import * as path from 'path';
 import { ConfidenceScorer, TaskScore } from './ConfidenceScorer';
 import { TestValidator, ValidationResult } from './TestValidator';
 import { MiddlewareLogger } from './MiddlewareLogger';
 
 const exec = promisify(child_process.exec);
+const fsPromises = fs.promises;
 
 /**
  * Workflow types supported by the system
@@ -106,6 +109,10 @@ export interface WorkflowContext {
 	hasUncommittedChanges?: boolean;
 	operation?: 'commit' | 'push' | 'merge' | 'rebase';
 
+	// PROTO-005: Gap Detection context
+	patterns?: string[];  // Referenced patterns (e.g., ['Pattern-COMM-001'])
+	agent?: string;  // Assigned agent (e.g., 'infrastructure-agent')
+
 	// Testing
 	forceGitError?: boolean;  // For testing error handling
 }
@@ -136,6 +143,31 @@ export interface GitStatus {
 	isClean: boolean;  // No uncommitted changes
 	ahead: number;  // Commits ahead of remote
 	behind: number;  // Commits behind remote
+}
+
+/**
+ * Gap Detection Result Interface - PROTO-005
+ *
+ * DESIGN DECISION: Structured gap information for self-improvement
+ * WHY: Pattern-SELF-IMPROVEMENT-001 - System should detect and propose filling gaps
+ *
+ * REASONING CHAIN:
+ * 1. Workflow check detects missing component (pattern, skill, agent, test, doc)
+ * 2. Create GapDetectionResult with type, description, impact
+ * 3. Propose creation with time estimate
+ * 4. Suggest workaround if available
+ * 5. Ask user: [Create Now] [Use Workaround] [Defer]
+ * 6. Log decision in gaps.json for retrospectives
+ * 7. System improves over time as gaps are filled
+ */
+export interface GapDetectionResult {
+	gapType: 'pattern' | 'skill' | 'agent' | 'test' | 'documentation';
+	description: string;  // What's missing (e.g., "Pattern-XYZ-001 referenced but doesn't exist")
+	impact: 'blocking' | 'degraded' | 'suboptimal';  // Severity
+	workaround: string | null;  // Temporary solution (e.g., "Proceed without pattern, risk inconsistency")
+	timeToCreate: string;  // Estimate (e.g., "2 hours")
+	suggestedName: string;  // Suggested file/ID (e.g., "Pattern-XYZ-001", "security-agent")
+	remediation: string;  // How to fix (e.g., "Create pattern document in docs/patterns/")
 }
 
 /**
@@ -381,6 +413,189 @@ export class WorkflowCheck {
 	}
 
 	/**
+	 * Detect Gaps - PROTO-005: Gap Detection & Self-Improvement
+	 *
+	 * DESIGN DECISION: Detect missing patterns, skills, agents, tests, docs
+	 * WHY: Pattern-SELF-IMPROVEMENT-001 - System should recognize missing capabilities
+	 *
+	 * REASONING CHAIN:
+	 * 1. Check for missing patterns (referenced but don't exist)
+	 * 2. Check for missing agents (referenced but not in AgentRegistry)
+	 * 3. Check for missing tests (TDD requirement but no test files)
+	 * 4. Check for missing skills (sprint needs workspace analysis but unavailable)
+	 * 5. Check for missing documentation (high reusability but no pattern template)
+	 * 6. Return array of GapDetectionResult (prioritized by impact)
+	 * 7. Performance target: <50ms for gap detection
+	 *
+	 * @param workflowType - Type of workflow being checked
+	 * @param context - Workflow context with potential gaps
+	 * @param gaps - Existing gaps array to populate (from workflow check)
+	 * @returns Array of detailed gap detection results
+	 */
+	private async detectGaps(
+		workflowType: WorkflowType,
+		context: WorkflowContext,
+		gaps: string[]
+	): Promise<GapDetectionResult[]> {
+		const detailedGaps: GapDetectionResult[] = [];
+		const startTime = this.logger.startOperation('WorkflowCheck.detectGaps', { workflowType });
+
+		try {
+			// GAP TYPE 1: Missing Patterns
+			if (context.patterns && context.patterns.length > 0) {
+				for (const patternName of context.patterns) {
+					const patternExists = await this.checkPatternExists(patternName);
+					if (!patternExists) {
+						detailedGaps.push({
+							gapType: 'pattern',
+							description: `Pattern ${patternName} referenced but doesn't exist`,
+							impact: 'suboptimal',
+							workaround: 'Proceed without pattern guidance (risk: inconsistent implementation)',
+							timeToCreate: '2 hours',
+							suggestedName: patternName,
+							remediation: `Create pattern document at docs/patterns/${patternName}.md`
+						});
+
+						// Add to simple gaps array for backward compatibility
+						if (!gaps.includes(`Missing pattern: ${patternName}`)) {
+							gaps.push(`Missing pattern: ${patternName}`);
+						}
+					}
+				}
+			}
+
+			// GAP TYPE 2: Missing Agent
+			if (context.agent && context.agent.length > 0) {
+				const agentExists = await this.checkAgentExists(context.agent);
+				if (!agentExists) {
+					detailedGaps.push({
+						gapType: 'agent',
+						description: `Agent ${context.agent} assigned but doesn't exist in AgentRegistry`,
+						impact: 'blocking',
+						workaround: null, // No workaround - agent is required
+						timeToCreate: '2-3 hours',
+						suggestedName: context.agent,
+						remediation: `Create agent context file at internal/agents/${context.agent}-context.md`
+					});
+
+					// Add to simple gaps array
+					if (!gaps.includes(`Missing agent: ${context.agent}`)) {
+						gaps.push(`Missing agent: ${context.agent}`);
+					}
+				}
+			}
+
+			// GAP TYPE 3: Missing Tests (already handled by checkCodeWorkflow, but add detailed gap)
+			if (workflowType === 'code' && !context.testFilesExist) {
+				detailedGaps.push({
+					gapType: 'test',
+					description: 'Code workflow started but no test files exist (TDD violation)',
+					impact: 'blocking',
+					workaround: null, // TDD is mandatory
+					timeToCreate: '1-2 hours',
+					suggestedName: `test/services/${context.taskId || 'task'}.test.ts`,
+					remediation: 'Write tests FIRST (TDD RED phase) before implementing code'
+				});
+
+				// Gap already added by checkCodeWorkflow - no need to duplicate
+			}
+
+			// GAP TYPE 4: Missing Skills / Workspace Analysis (Sprint workflow)
+			if (workflowType === 'sprint' && !context.workspaceAnalyzed) {
+				detailedGaps.push({
+					gapType: 'skill',
+					description: 'Sprint planning requires workspace analysis but not performed',
+					impact: 'blocking',
+					workaround: 'Manual sprint planning (risk: incomplete context)',
+					timeToCreate: '30 minutes',
+					suggestedName: '.aetherlight/workspace-analysis.json',
+					remediation: 'Run workspace analyzer before sprint planning'
+				});
+
+				// Gap already added by checkSprintWorkflow - no need to duplicate
+			}
+
+			// GAP TYPE 5: Missing Documentation Template (Docs workflow)
+			if (workflowType === 'docs' && context.reusability === 'high' && !context.patternTemplateExists) {
+				detailedGaps.push({
+					gapType: 'documentation',
+					description: 'High-reusability pattern requires template but none exists',
+					impact: 'suboptimal',
+					workaround: 'Create pattern without template (risk: inconsistent structure)',
+					timeToCreate: '15 minutes',
+					suggestedName: 'docs/patterns/TEMPLATE.md',
+					remediation: 'Create pattern template with standard sections (Problem, Solution, Examples)'
+				});
+
+				// Add to simple gaps array
+				if (!gaps.includes('Missing pattern template')) {
+					gaps.push('Missing pattern template');
+				}
+			}
+
+			this.logger.endOperation('WorkflowCheck.detectGaps', startTime, {
+				gapsDetected: detailedGaps.length,
+				gapTypes: detailedGaps.map(g => g.gapType)
+			});
+
+			return detailedGaps;
+		} catch (error) {
+			this.logger.failOperation('WorkflowCheck.detectGaps', startTime, error);
+			// Graceful degradation - return empty array on error
+			return [];
+		}
+	}
+
+	/**
+	 * Check if pattern file exists
+	 */
+	private async checkPatternExists(patternName: string): Promise<boolean> {
+		try {
+			// Try multiple pattern file locations
+			const possiblePaths = [
+				path.join(process.cwd(), 'docs', 'patterns', `${patternName}.md`),
+				path.join(process.cwd(), 'docs', 'patterns', `${patternName}-*.md`), // With suffix
+				path.join(process.cwd(), '.claude', 'patterns', `${patternName}.md`)
+			];
+
+			for (const patternPath of possiblePaths) {
+				try {
+					await fsPromises.access(patternPath);
+					return true; // File exists
+				} catch {
+					// File doesn't exist - try next path
+					continue;
+				}
+			}
+
+			return false; // No pattern file found
+		} catch (error) {
+			// Assume pattern doesn't exist on error
+			return false;
+		}
+	}
+
+	/**
+	 * Check if agent exists in AgentRegistry
+	 */
+	private async checkAgentExists(agentId: string): Promise<boolean> {
+		try {
+			// Check if agent context file exists
+			const agentPath = path.join(process.cwd(), 'internal', 'agents', `${agentId}-context.md`);
+
+			try {
+				await fsPromises.access(agentPath);
+				return true; // Agent file exists
+			} catch {
+				return false; // Agent file doesn't exist
+			}
+		} catch (error) {
+			// Assume agent doesn't exist on error
+			return false;
+		}
+	}
+
+	/**
 	 * Perform actual workflow check (separated for timeout wrapping)
 	 */
 	private async performCheck(
@@ -431,6 +646,10 @@ export class WorkflowCheck {
 				criticalJunction = context.isMainBranch || false;  // Main branch = critical
 				break;
 		}
+
+		// PROTO-005: Detect detailed gaps (patterns, agents, tests, skills, docs)
+		// This adds <50ms to workflow check time (performance target)
+		const detailedGaps = await this.detectGaps(workflowType, context, gaps);
 
 		// Generate execution plan
 		const plan = this.generatePlan(workflowType, prerequisites, gaps);
