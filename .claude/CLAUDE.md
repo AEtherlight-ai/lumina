@@ -97,6 +97,79 @@
 
 ---
 
+## Sprint Schema Validation (VAL-001)
+
+**Implemented:** 2025-11-03
+**Status:** ✅ Active - Real-time validation + Pre-commit hook
+
+### Automatic Validation Layers
+
+The system now has **4-layer validation** to prevent TOML format bugs:
+
+1. **Real-time (FileSystemWatcher)** - Validates on file save
+   - Watches `**/ACTIVE_SPRINT.toml`
+   - Shows error notification with fix suggestions
+   - Blocks sprint panel loading if invalid
+
+2. **Pre-commit (Git Hook)** - Validates before commit
+   - Run: `node scripts/validate-sprint-schema.js`
+   - Blocks commit if validation fails
+   - Prevents broken files reaching repository
+
+3. **Manual Check** - Validate anytime
+   - Command: `node scripts/validate-sprint-schema.js`
+   - Use when debugging TOML issues
+
+4. **Extension Activation** - Validates on VS Code startup
+   - Automatic check when extension loads
+   - Logs errors to ÆtherLight output channel
+
+### Validation Rules
+
+The SprintSchemaValidator enforces these rules:
+
+1. ✅ **Tasks must use [tasks.ID] format**
+   - ❌ FORBIDDEN: `[[epic.middleware.tasks]]`
+   - ✅ CORRECT: `[tasks.MID-015]`
+   - Why: SprintLoader expects `data.tasks` flat object
+
+2. ✅ **Required fields must be present**
+   - id, name, status, phase, agent
+   - Missing fields = validation fails
+
+3. ✅ **Status must be valid**
+   - Valid: pending, in_progress, completed
+   - Invalid status = validation fails
+
+4. ✅ **No circular dependencies**
+   - Dependencies form directed acyclic graph (DAG)
+   - Circular deps = validation fails
+
+5. ✅ **ID consistency**
+   - Task id field must match section key
+   - Example: `[tasks.MID-015]` must have `id = "MID-015"`
+
+### Error Messages
+
+When validation fails, you'll see:
+- ❌ Clear error message
+- 💡 Fix suggestions
+- Line numbers (when available)
+- Correct format examples
+
+### Files Added
+
+- `vscode-lumina/src/services/SprintSchemaValidator.ts` - Validation service
+- `scripts/validate-sprint-schema.js` - Pre-commit hook script
+- `vscode-lumina/src/extension.ts` - FileSystemWatcher integration (lines 891-947)
+
+### Pattern Reference
+
+- Pattern-VALIDATION-001 (Comprehensive System Validation)
+- 4-layer defense: Real-time → Pre-commit → CI/CD → Runtime
+
+---
+
 ## Project Overview
 
 ÆtherLight is a VS Code extension + desktop app that provides:
@@ -1129,6 +1202,181 @@ Gap Detected → Proposal Generated → User Approval → Gap Filled → System 
 - Claude MUST propose gap filling (not work around silently)
 - User ALWAYS has final decision
 - Gaps tracked for retrospective analysis
+
+---
+
+### Task Tracking & Pre-Commit Protocol (Pattern-TRACKING-001) - MANDATORY
+
+**CRITICAL: Maintain sprint-level visibility + quality control checkpoints**
+
+**Why This Exists:**
+- User needs to see overall sprint progress (strategic view)
+- Within-task steps provide execution visibility (tactical view)
+- Pre-commit checklist prevents "forgot to test/document" bugs
+- Artifact consolidation enables easy breadcrumb navigation
+- Quality control checkpoint saves 2-9 hours debugging (10-20x token ROI)
+
+**Two-Level Todo System:**
+
+**Strategic Level** (Sprint Progress):
+```
+✅ PROTO-001: Universal Workflow Check System - Files: WorkflowCheck.ts, workflowCheck.test.ts
+✅ PROTO-002: Update CLAUDE.md with Communication Protocol - Files: CLAUDE.md (+689 lines)
+🔄 PROTO-003: Create Pattern-COMM-001 Document - Files: docs/patterns/Pattern-COMM-001.md
+⏳ PROTO-004: Git Workflow Integration - Files: WorkflowCheck.ts (git methods)
+⏳ PROTO-005: Gap Detection - Files: WorkflowCheck.ts (gap detection)
+⏳ PROTO-006: Documentation Philosophy - Files: WorkflowCheck.ts (docs assessment)
+```
+
+**Tactical Level** (Within Complex Tasks Only):
+```
+PROTO-001 Subtasks (for complex >2 hour tasks):
+✅ Pre-task analysis (8 steps)
+✅ Write 15 tests (TDD RED phase)
+✅ Implement WorkflowCheck.ts (TDD GREEN phase)
+✅ Compile TypeScript
+✅ Commit changes
+```
+
+**Rules:**
+
+1. **Always Maintain Strategic List**
+   - Shows ALL sprint tasks
+   - Updated after EVERY commit
+   - Includes artifact links (files created/modified)
+
+2. **Add Tactical Steps Selectively**
+   - Complex tasks (>2 hours, 5+ steps)
+   - User requests detailed visibility
+   - Learning/training scenarios
+
+3. **Artifact Consolidation**
+   - List all files associated with task
+   - Include file paths (clickable in VS Code)
+   - Makes breadcrumb navigation easy
+   - Example: `Files: WorkflowCheck.ts, workflowCheck.test.ts, CLAUDE.md`
+
+4. **Update Triggers**
+   - Start task → Mark `in_progress`
+   - Complete subtask (tactical) → Mark subtask `completed`
+   - Commit task → Run Pre-Commit Checklist → Mark task `completed`, next task `in_progress`
+
+**Pre-Commit Quality Control Checklist:**
+
+**MANDATORY: Run this checklist BEFORE committing ANY task**
+
+```
+🔍 Pre-Commit Checklist: [TASK-ID]
+================================================================
+
+Strategic Todo Review:
+□ Current task marked with ✅ status indicators?
+□ Artifact links accurate and complete?
+□ Next task ready to mark in_progress?
+
+Tactical Todo Review (if applicable):
+□ All subtasks marked completed?
+  - If YES: ✅ Verify each was actually done (spot check)
+  - If NO: ❌ Complete missing subtasks OR explain why skipped
+
+Deliverables Check:
+□ All files created/modified as specified?
+  - Check sprint TOML deliverables list
+  - Verify each deliverable exists and is complete
+
+Quality Check (by task type):
+□ Infrastructure tasks:
+  - ✅ Tests written and passing? (90% coverage)
+  - ✅ TypeScript compiles without errors?
+  - ✅ Performance targets met? (<500ms)
+□ Documentation tasks:
+  - ✅ All sections complete?
+  - ✅ Examples provided?
+  - ✅ Links/references accurate?
+□ API tasks:
+  - ✅ Tests written and passing? (85% coverage)
+  - ✅ Error cases tested?
+□ UI tasks:
+  - ✅ Tests written and passing? (70% coverage)
+  - ✅ Manual verification done?
+
+Git Workflow:
+□ Git status clean or changes intentional?
+□ Commit message descriptive and follows convention?
+□ All related changes included in commit?
+
+Ready to Commit?
+□ ALL checkboxes above checked
+□ Task truly complete (not "good enough for now")
+□ Confident this passes quality bar
+
+If ANY checkbox is ❌:
+- STOP and fix before committing
+- Or explicitly note why skipped in commit message
+```
+
+**Update Workflow (After Commit):**
+
+1. **Run Pre-Commit Checklist** (above)
+2. **Update Strategic Todo**:
+   ```
+   ✅ [TASK-ID]: Task Name - Files: file1.ts, file2.md
+   🔄 [NEXT-TASK-ID]: Next Task Name
+   ```
+3. **Clear Tactical Todos** (if any - they're task-specific)
+4. **Start Next Task** with fresh tactical list if needed
+
+**Example: Complete Workflow**
+
+```
+Starting PROTO-003:
+
+Strategic:
+✅ PROTO-001: Complete
+✅ PROTO-002: Complete
+🔄 PROTO-003: Create Pattern-COMM-001 Document - Files: (TBD)
+⏳ PROTO-004: Git Workflow Integration
+
+Work... work... work...
+
+Before Committing PROTO-003:
+🔍 Pre-Commit Checklist:
+✅ Strategic todo has artifact link
+✅ Pattern document created: docs/patterns/Pattern-COMM-001-Universal-Communication.md
+✅ All 10 sections complete (Problem, Solution, Examples, etc.)
+✅ Examples provided for all 5 workflow types
+✅ Related patterns listed (4+ patterns)
+✅ Git status clean
+
+Ready to commit ✅
+
+After Committing PROTO-003:
+
+Strategic (updated):
+✅ PROTO-001: Universal Workflow Check System - Files: WorkflowCheck.ts, workflowCheck.test.ts
+✅ PROTO-002: Update CLAUDE.md with Communication Protocol - Files: CLAUDE.md
+✅ PROTO-003: Create Pattern-COMM-001 Document - Files: docs/patterns/Pattern-COMM-001-Universal-Communication.md
+🔄 PROTO-004: Git Workflow Integration - Files: WorkflowCheck.ts (git methods)
+⏳ PROTO-005: Gap Detection
+```
+
+**Benefits:**
+
+1. **Sprint Visibility**: User always sees where we are in sprint
+2. **Quality Control**: Pre-commit checklist catches forgotten steps
+3. **Bug Prevention**: Saves 2-9 hours debugging per caught issue
+4. **Breadcrumb Navigation**: Artifact links make it easy to find task files
+5. **Accountability**: Clear record of what was done
+6. **Token Efficient**: ~100-200 tokens per task (10-20x ROI)
+
+**Enforcement:**
+
+- Self-accountability: Claude follows protocol voluntarily
+- User visibility: Can see if tasks truly complete
+- Pre-commit hook: Could add automated validation (future)
+- Pattern reference: This protocol is Pattern-TRACKING-001
+
+**Pattern Reference:** Pattern-TRACKING-001 (Task Tracking & Pre-Commit Protocol)
 
 ---
 
