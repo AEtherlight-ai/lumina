@@ -2447,12 +2447,15 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             color: var(--vscode-descriptionForeground);
         }
 
+        /* UI-ARCH-007: Multi-row terminal list with flex-wrap */
         .terminal-list {
             display: flex;
-            flex-direction: column;
-            gap: 4px;
+            flex-wrap: wrap;  /* Allow wrapping to multiple rows */
+            gap: 8px;  /* Spacing between terminals (both horizontal and vertical) */
+            justify-content: flex-start;
             max-height: none;
             overflow-y: visible;
+            overflow-x: hidden;  /* No horizontal scrollbars */
         }
 
         .terminal-item {
@@ -2466,6 +2469,9 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             cursor: pointer;
             font-size: 13px;
             min-height: 24px;
+            min-width: 120px;  /* Prevent too narrow */
+            max-width: 160px;  /* Prevent too wide */
+            flex: 0 1 auto;  /* Allow wrapping, don't grow, allow shrinking */
             transition: all 0.2s;
         }
 
