@@ -26,7 +26,7 @@
 - ✅ VAL-002: Package Dependency Validator (commit c751142)
 - ✅ VAL-003: Extension Package Size Validator (commit c3e16ed)
 - ✅ UI-ARCH-001: Remove Voice Tab (commit 7ff6545)
-- ✅ UI-ARCH-002: Deprecate Unused Tabs (commit pending)
+- ✅ UI-ARCH-002: Deprecate Unused Tabs (commit fb9b76b)
 
 **Remaining:**
 - ⏳ 0 PROTO tasks (ALL PROTO TASKS COMPLETE! 🎉)
