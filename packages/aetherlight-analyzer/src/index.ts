@@ -29,6 +29,9 @@ export { SprintGenerator } from './generators/sprint-generator';
 export { PatternExtractor } from './generators/pattern-extractor';
 export { CoTDocumenter } from './generators/cot-documenter';
 
+// Validators
+export { ValidationConfigGenerator } from './validators/ValidationConfigGenerator';
+
 // Types
 export * from './analyzers/types';
 export * from './generators/types';
