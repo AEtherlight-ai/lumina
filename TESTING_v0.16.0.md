@@ -33,7 +33,7 @@
 - ✅ MID-014: Middleware Logger & Telemetry (commit 3715e35)
 - ✅ MID-015: Error Handler & Recovery Service (commit 570cb84)
 - ✅ MID-016: Configuration Manager (commit 9f42734)
-- ✅ MID-017: Cache Manager (commit TBD)
+- ✅ MID-017: Cache Manager (commit 1d6cf1c)
 - ✅ UI-ARCH-001: Remove Voice Tab (commit 7ff6545)
 - ✅ UI-ARCH-002: Deprecate Unused Tabs (commit fb9b76b)
 - ✅ UI-ARCH-003: Reorganize Layout
