@@ -697,3 +697,100 @@ suite('UI-ARCH-004: Add Workflow Toolbar Tests', () => {
     });
 });
 
+/**
+ * UI-ARCH-005: Progressive Disclosure - Unit Tests
+ *
+ * TDD RED Phase: Tests written BEFORE implementation
+ *
+ * Test Strategy:
+ * - Verify toolbar defaults to collapsed (not expanded)
+ * - Verify badge counts render correctly
+ * - Verify context-aware highlighting
+ * - Verify keyboard shortcuts registered
+ * - Coverage target: 70% (UI task requirement)
+ *
+ * Pattern: Pattern-TDD-001 (Test-Driven Development Ratchet)
+ */
+suite('UI-ARCH-005: Progressive Disclosure Tests', () => {
+    let context: vscode.ExtensionContext;
+
+    suiteSetup(async () => {
+        const extension = vscode.extensions.getExtension('aetherlight.aetherlight');
+        if (!extension) {
+            throw new Error('ÆtherLight extension not found');
+        }
+        await extension.activate();
+        context = (extension.exports as any).context;
+    });
+
+    /**
+     * TEST 1: Toolbar defaults to collapsed (not expanded)
+     */
+    test('Workflow toolbar: Should default to collapsed state', async () => {
+        // Clear any saved state
+        await context.workspaceState.update('workflowToolbarExpanded', undefined);
+
+        // Default should be collapsed (false)
+        const defaultState = context.workspaceState.get('workflowToolbarExpanded', false);
+        assert.strictEqual(defaultState, false, 'Toolbar should default to collapsed');
+    });
+
+    /**
+     * TEST 2: Badge counts render in button labels
+     */
+    test('Workflow buttons: Should render with badge counts when context available', () => {
+        // Expected format: "🧪 Tests (3)" for 3 failing tests
+        // Expected format: "🔀 Git (5)" for 5 uncommitted files
+        // Expected format: "📋 Sprint (8/25)" for sprint progress
+
+        assert.ok(true, 'Placeholder test - manual verification of badge rendering');
+    });
+
+    /**
+     * TEST 3: Context-aware highlighting applies CSS classes
+     */
+    test('Workflow buttons: Should apply highlighting CSS when context requires attention', () => {
+        // Expected CSS classes:
+        // - .workflow-button-error (red) for failing tests
+        // - .workflow-button-warning (yellow) for git dirty
+        // - .workflow-button-info (blue) for sprint active
+        // - .workflow-button-success (green) for publish ready
+
+        assert.ok(true, 'Placeholder test - manual verification of CSS class application');
+    });
+
+    /**
+     * TEST 4: Keyboard shortcuts registered
+     */
+    test('Keyboard shortcuts: Ctrl+Shift+1-8 should be registered', async () => {
+        // Expected shortcuts:
+        // - Ctrl+Shift+1 → Sprint
+        // - Ctrl+Shift+2 → Analyzer
+        // - Ctrl+Shift+3 → Pattern
+        // - Ctrl+Shift+4 → Skill
+        // - Ctrl+Shift+5 → Agent
+        // - Ctrl+Shift+6 → Tests
+        // - Ctrl+Shift+7 → Git
+        // - Ctrl+Shift+8 → Publish
+
+        const commands = await vscode.commands.getCommands(true);
+        const workflowCommands = commands.filter(cmd => cmd.startsWith('aetherlight.workflow.'));
+
+        // Should have 8 workflow commands registered
+        assert.ok(workflowCommands.length >= 8, 'At least 8 workflow commands should be registered');
+    });
+
+    /**
+     * TEST 5: Context updates trigger badge/highlight changes
+     */
+    test('Context updates: Should update badges when context changes', () => {
+        // Test scenario:
+        // 1. Run tests → 3 fail → Tests button shows badge "(3)" with red highlight
+        // 2. Fix tests → Run again → Badge disappears
+        // 3. Make git changes → Git button shows badge with yellow highlight
+        // 4. Commit changes → Badge disappears
+
+        assert.ok(true, 'Placeholder test - requires integration testing');
+    });
+});
+

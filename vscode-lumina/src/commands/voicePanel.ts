@@ -4525,9 +4525,10 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
                 if (!toolbar || !toggleIcon) return;
 
-                // Load saved state (default: expanded)
+                // UI-ARCH-005: Load saved state (default: collapsed for Progressive Disclosure)
+                // WHY: Toolbar starts collapsed to save space, users expand when needed
                 const state = vscode.getState() || {};
-                const isExpanded = state.workflowToolbarExpanded !== undefined ? state.workflowToolbarExpanded : true;
+                const isExpanded = state.workflowToolbarExpanded !== undefined ? state.workflowToolbarExpanded : false;
 
                 if (!isExpanded) {
                     // Apply collapsed state
@@ -5651,11 +5652,11 @@ function getVoicePanelBodyContent(): string {
     <div class="workflow-toolbar-container">
         <div class="workflow-toolbar-header">
             <button id="workflowToggleBtn" class="workflow-toggle" title="Toggle workflow toolbar">
-                <span class="workflow-toggle-icon">▼</span>
+                <span class="workflow-toggle-icon collapsed">▶</span>
                 <span class="workflow-toolbar-label">Workflows</span>
             </button>
         </div>
-        <div id="workflowToolbar" class="workflow-toolbar">
+        <div id="workflowToolbar" class="workflow-toolbar collapsed">
             <!-- Row 1: Planning & Analysis workflows -->
             <button id="workflowSprintBtn" class="workflow-button" title="Plan new sprint or continue current sprint">
                 <span class="workflow-icon">📋</span>
