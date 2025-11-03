@@ -1299,6 +1299,71 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                     });
                 }
                 break;
+
+            case 'checkWorkflow':
+                /**
+                 * UI-ARCH-006: Run workflow check and send results to webview
+                 * WHY: Pattern-COMM-001 - Check prerequisites before execution
+                 *
+                 * REASONING CHAIN:
+                 * 1. User clicks workflow button → webview sends 'checkWorkflow' message
+                 * 2. Extension calls WorkflowCheck.checkWorkflow(type, context)
+                 * 3. WorkflowCheck returns prerequisites, confidence, gaps, plan
+                 * 4. Send results back to webview via 'workflowCheckResult' message
+                 * 5. Webview shows modal with results
+                 * 6. User reviews → clicks Proceed or Cancel
+                 *
+                 * PATTERN: Pattern-COMM-001 (Universal Communication Protocol)
+                 * RELATED: PROTO-001 (WorkflowCheck implementation)
+                 */
+                try {
+                    const { WorkflowCheck } = require('../services/WorkflowCheck');
+                    const workflowCheck = new WorkflowCheck();
+
+                    // Map workflow type to WorkflowCheck type
+                    const workflowTypeMap: {[key: string]: any} = {
+                        'sprint': 'sprint',
+                        'analyzer': 'code',
+                        'pattern': 'docs',
+                        'skill': 'docs',
+                        'agent': 'docs',
+                        'tests': 'test',
+                        'git': 'git',
+                        'publish': 'publish'
+                    };
+
+                    const mappedType = workflowTypeMap[message.workflowType] || message.workflowType;
+
+                    // Run workflow check
+                    const result = await workflowCheck.checkWorkflow(mappedType, {});
+
+                    // Send results back to webview
+                    webview.postMessage({
+                        type: 'workflowCheckResult',
+                        workflowType: message.workflowType,
+                        result: result
+                    });
+
+                    console.log('[ÆtherLight] Workflow check complete:', message.workflowType, result.confidence);
+                } catch (error) {
+                    console.error('[ÆtherLight] Workflow check failed:', error);
+                    // Send error state
+                    webview.postMessage({
+                        type: 'workflowCheckResult',
+                        workflowType: message.workflowType,
+                        result: {
+                            workflowType: message.workflowType,
+                            prerequisites: [{ name: 'Error', status: '❌', details: error instanceof Error ? error.message : 'Unknown error', remediation: 'Check console for details', impact: 'blocking' }],
+                            confidence: 0,
+                            gaps: ['Workflow check failed'],
+                            criticalJunction: true,
+                            plan: ['Fix error and try again'],
+                            timestamp: Date.now(),
+                            cacheKey: ''
+                        }
+                    });
+                }
+                break;
         }
     }
 
@@ -2131,6 +2196,17 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                     }
                     break;
 
+                case 'workflowCheckResult':
+                    // UI-ARCH-006: Receive workflow check results and show modal
+                    // Chain of Thought: Extension ran WorkflowCheck → send results to webview → show modal
+                    // WHY: Pattern-COMM-001 - Display prerequisites, confidence, gaps, plan
+                    console.log('[ÆtherLight] Received workflow check result:', message);
+
+                    if (message.result && window.showWorkflowCheckModal) {
+                        window.showWorkflowCheckModal(message.workflowType, message.result);
+                    }
+                    break;
+
                 case 'terminalList':
                 case 'transcriptionComplete':
                 case 'transcriptionError':
@@ -2259,6 +2335,43 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             window.initializeVoiceTab();
         }
     </script>
+
+    <!-- UI-ARCH-006: Workflow Check Modal -->
+    <div id="workflowCheckModal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalWorkflowTitle">Workflow Check</h2>
+                <button id="modalCloseBtn" class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="modalPrerequisites" class="modal-section">
+                    <h3>Prerequisites</h3>
+                    <div id="prerequisitesList"></div>
+                </div>
+                <div id="modalConfidence" class="modal-section">
+                    <h3>Confidence Score</h3>
+                    <div class="confidence-bar-container">
+                        <div id="confidenceBar" class="confidence-bar"></div>
+                        <span id="confidenceText">0%</span>
+                    </div>
+                </div>
+                <div id="modalGaps" class="modal-section">
+                    <h3>Gaps</h3>
+                    <div id="gapsList"></div>
+                </div>
+                <div id="modalPlan" class="modal-section">
+                    <h3>Execution Plan</h3>
+                    <ol id="planSteps"></ol>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="modalProceedBtn" class="button-primary">Proceed</button>
+                <button id="modalCancelBtn" class="button-secondary">Cancel</button>
+                <button id="modalHelpBtn" class="button-secondary">Help</button>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>`;
     }
@@ -2709,6 +2822,94 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
         .workflow-badge.status-success {
             background-color: #4caf50; /* Green - success, all clear */
+        }
+
+        /* UI-ARCH-006: Workflow Check Modal styling */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+        }
+
+        .modal-content {
+            background-color: var(--vscode-editor-background);
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 6px;
+            max-width: 700px;
+            width: 90%;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--vscode-panel-border);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+
+        .modal-body {
+            padding: 20px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .confidence-bar-container {
+            position: relative;
+            height: 24px;
+            background-color: var(--vscode-input-background);
+            border: 1px solid var(--vscode-input-border);
+            border-radius: 12px;
+        }
+
+        .confidence-bar {
+            height: 100%;
+            background-color: var(--vscode-progressBar-background);
+            transition: width 0.3s;
+            border-radius: 12px 0 0 12px;
+        }
+
+        .modal-footer {
+            padding: 16px 20px;
+            border-top: 1px solid var(--vscode-panel-border);
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
+        .button-primary {
+            padding: 8px 20px;
+            background-color: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .button-secondary {
+            padding: 8px 20px;
+            background-color: var(--vscode-button-secondaryBackground);
+            border: 1px solid var(--vscode-button-border);
+            border-radius: 4px;
+            cursor: pointer;
         }
 
         /* SLIDE-DOWN-002: Configuration panel container styling */
@@ -4669,35 +4870,28 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             };
 
             window.handleWorkflowClick = function(workflowType) {
-                // UI-ARCH-004: Placeholder handler (full logic in UI-ARCH-006)
-                // Chain of Thought: Log workflow type for now, will integrate WorkflowCheck later
-                // WHY: UI-ARCH-004 focuses on UI skeleton, UI-ARCH-006 implements workflow integration
+                // UI-ARCH-006: Request workflow check from extension
+                // Chain of Thought: Send message to extension → WorkflowCheck.checkWorkflow() → show modal
+                // WHY: Pattern-COMM-001 - Check prerequisites before execution
 
                 console.log('[ÆtherLight] Workflow button clicked:', workflowType);
 
-                // TODO UI-ARCH-006: Replace with WorkflowCheck.checkWorkflow(workflowType)
-                // For now, just show a status message
-                const workflowNames = {
-                    'sprint': 'Sprint Planning',
-                    'analyzer': 'Code Analyzer',
-                    'pattern': 'Pattern Creation',
-                    'skill': 'Skill Creation',
-                    'agent': 'Agent Creation',
-                    'tests': 'Test Runner',
-                    'git': 'Git Status Check',
-                    'publish': 'Publishing'
-                };
+                // Send message to extension to run workflow check
+                vscode.postMessage({
+                    type: 'checkWorkflow',
+                    workflowType: workflowType
+                });
 
-                const workflowName = workflowNames[workflowType] || workflowType;
+                // Show loading state
                 const statusEl = document.getElementById('statusMessage');
                 if (statusEl) {
-                    statusEl.textContent = 'Workflow: ' + workflowName + ' (full integration in UI-ARCH-006)';
+                    statusEl.textContent = 'Checking workflow prerequisites...';
                     statusEl.className = 'status-message info';
                     statusEl.style.display = 'block';
 
                     setTimeout(() => {
                         statusEl.style.display = 'none';
-                    }, 3000);
+                    }, 2000);
                 }
             };
 
@@ -4747,6 +4941,111 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 // window.updateWorkflowBadge('tests', 3, 'error');  // 3 failing tests (red)
                 // window.updateWorkflowBadge('git', 5, 'warning');  // 5 uncommitted files (orange)
                 // window.updateWorkflowBadge('sprint', 0, 'info');  // Sprint progress (blue) - hidden since count=0
+            };
+
+            // UI-ARCH-006: Workflow Check Modal functions
+            window.showWorkflowCheckModal = function(workflowType, checkResult) {
+                // Chain of Thought: Display workflow check results in modal
+                // WHY: Pattern-COMM-001 - Show prerequisites, confidence, gaps, plan before execution
+                // REASONING: User reviews → approves or cancels
+
+                const modal = document.getElementById('workflowCheckModal');
+                if (!modal) {
+                    console.error('[ÆtherLight] Modal not found');
+                    return;
+                }
+
+                // Update modal title
+                const titleEl = document.getElementById('modalWorkflowTitle');
+                const workflowNames = {
+                    'sprint': 'Sprint Planning',
+                    'analyzer': 'Code Analyzer',
+                    'pattern': 'Pattern Creation',
+                    'skill': 'Skill Creation',
+                    'agent': 'Agent Creation',
+                    'test': 'Test Runner',
+                    'git': 'Git Status',
+                    'publish': 'Publishing'
+                };
+                if (titleEl) {
+                    titleEl.textContent = workflowNames[workflowType] || 'Workflow Check';
+                }
+
+                // Populate prerequisites
+                const prerequisitesList = document.getElementById('prerequisitesList');
+                if (prerequisitesList && checkResult.prerequisites) {
+                    prerequisitesList.innerHTML = '';
+                    checkResult.prerequisites.forEach(prereq => {
+                        const div = document.createElement('div');
+                        div.innerHTML = '<span>' + prereq.status + '</span> <strong>' + prereq.name + '</strong>: ' + prereq.details;
+                        prerequisitesList.appendChild(div);
+                    });
+                }
+
+                // Populate confidence
+                const confidenceBar = document.getElementById('confidenceBar');
+                const confidenceText = document.getElementById('confidenceText');
+                if (confidenceBar && confidenceText && checkResult.confidence !== undefined) {
+                    const percent = Math.round(checkResult.confidence * 100);
+                    confidenceBar.style.width = percent + '%';
+                    confidenceText.textContent = percent + '%';
+                }
+
+                // Populate gaps
+                const gapsList = document.getElementById('gapsList');
+                if (gapsList && checkResult.gaps) {
+                    gapsList.innerHTML = '';
+                    if (checkResult.gaps.length === 0) {
+                        gapsList.innerHTML = '<div style="color: var(--vscode-testing-iconPassed);">✅ No gaps detected</div>';
+                    } else {
+                        checkResult.gaps.forEach(gap => {
+                            const div = document.createElement('div');
+                            div.textContent = gap;
+                            gapsList.appendChild(div);
+                        });
+                    }
+                }
+
+                // Populate plan
+                const planSteps = document.getElementById('planSteps');
+                if (planSteps && checkResult.plan) {
+                    planSteps.innerHTML = '';
+                    checkResult.plan.forEach(step => {
+                        const li = document.createElement('li');
+                        li.textContent = step;
+                        planSteps.appendChild(li);
+                    });
+                }
+
+                // Store workflow type for Proceed button
+                modal.dataset.workflowType = workflowType;
+
+                // Show modal
+                modal.style.display = 'flex';
+                console.log('[ÆtherLight] Workflow check modal shown:', workflowType);
+            };
+
+            window.closeWorkflowCheckModal = function() {
+                const modal = document.getElementById('workflowCheckModal');
+                if (modal) {
+                    modal.style.display = 'none';
+                    console.log('[ÆtherLight] Workflow check modal closed');
+                }
+            };
+
+            window.proceedWithWorkflow = function() {
+                const modal = document.getElementById('workflowCheckModal');
+                const workflowType = modal ? modal.dataset.workflowType : null;
+
+                if (workflowType) {
+                    console.log('[ÆtherLight] Proceeding with workflow:', workflowType);
+                    // Send message to extension to execute workflow
+                    vscode.postMessage({
+                        type: 'executeWorkflow',
+                        workflowType: workflowType
+                    });
+                    window.closeWorkflowCheckModal();
+                }
             };
 
             // CSP-FIX-001: Attach event listeners to buttons (no onclick allowed)
@@ -4808,6 +5107,29 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
                 // UI-ARCH-005: Load workflow badge counts on first load
                 window.updateWorkflowBadges();
+
+                // UI-ARCH-006: Workflow Check Modal event listeners
+                const modalCloseBtn = document.getElementById('modalCloseBtn');
+                const modalCancelBtn = document.getElementById('modalCancelBtn');
+                const modalProceedBtn = document.getElementById('modalProceedBtn');
+                const modalHelpBtn = document.getElementById('modalHelpBtn');
+
+                if (modalCloseBtn) modalCloseBtn.addEventListener('click', () => window.closeWorkflowCheckModal());
+                if (modalCancelBtn) modalCancelBtn.addEventListener('click', () => window.closeWorkflowCheckModal());
+                if (modalProceedBtn) modalProceedBtn.addEventListener('click', () => window.proceedWithWorkflow());
+                if (modalHelpBtn) modalHelpBtn.addEventListener('click', () => {
+                    alert('Workflow Help: Review prerequisites, confidence, and gaps before proceeding. Click Proceed to execute workflow.');
+                });
+
+                // Close modal on overlay click
+                const modalOverlay = document.getElementById('workflowCheckModal');
+                if (modalOverlay) {
+                    modalOverlay.addEventListener('click', (e) => {
+                        if (e.target === modalOverlay) {
+                            window.closeWorkflowCheckModal();
+                        }
+                    });
+                }
             })();
 
             // Toggle recording - Send backtick to trigger desktop app
