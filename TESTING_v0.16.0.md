@@ -8,7 +8,7 @@
 
 ---
 
-## 📊 Phase 0 Progress: 13 of 33 Tasks Complete (39.4%)
+## 📊 Phase 0 Progress: 15 of 33 Tasks Complete (45.5%)
 
 **Completed Tasks:**
 - ✅ UI-FIX-001: Sprint Progress Panel enabled
@@ -23,13 +23,15 @@
 - ✅ PROTO-005: Gap Detection & Self-Improvement (commit 54925a6)
 - ✅ PROTO-006: Documentation Philosophy Enforcement (commit a58c2bc)
 - ✅ ANALYZER-001: Validation Config Generator (commit c667861)
+- ✅ VAL-002: Package Dependency Validator (commit c751142)
+- ✅ VAL-003: Extension Package Size Validator (commit c3e16ed)
 - ✅ UI-ARCH-001: Remove Voice Tab (commit 7ff6545)
 
 **Remaining:**
 - ⏳ 0 PROTO tasks (ALL PROTO TASKS COMPLETE! 🎉)
 - ⏳ 6 UI-ARCH tasks (UI Architecture Redesign)
 - ⏳ 8 MID tasks (Middleware Services)
-- ⏳ 6 VAL tasks (VAL-002 to VAL-007)
+- ⏳ 4 VAL tasks (VAL-004 to VAL-007)
 - ⏳ 1 SYNC task (Context Synchronization)
 
 ---
@@ -116,6 +118,39 @@
 - Performance: Analysis <2s, config generation <500ms (targets met)
 - Status: ✅ Complete - All 21 tests passing (100%), integrated with analyzer and VS Code
 - Manual Test: Run `aetherlight-analyzer generate-validation --auto-save` or trigger via workspace analysis
+
+**Package Dependency Validator** (VAL-002) ✅ NEW
+- What: Prevents Pattern-PUBLISH-003 violations (native and runtime npm dependencies that break VS Code extensions)
+- Where: `vscode-lumina/src/services/DependencyValidator.ts` (288 lines)
+- Tests: `vscode-lumina/src/test/services/dependencyValidator.test.ts` (538 lines, 24 test cases)
+- Script: `scripts/validate-dependencies.js` (189 lines) - Pre-publish validation CLI
+- Features:
+  - Detects native dependencies (node-gyp, napi, @nut-tree-fork/nut-js, robotjs)
+  - Detects runtime npm dependencies (glob, lodash, moment, axios, chalk)
+  - Allows whitelisted dependencies (@iarna/toml, node-fetch, ws, form-data)
+  - Allows sub-packages (aetherlight-analyzer, aetherlight-sdk, aetherlight-node)
+  - Performance: <50ms validation time (target met)
+- Integration: `scripts/publish-release.js` Step 4.5 - Blocks publish if validation fails
+- Historical Bugs Prevented:
+  - v0.13.23: @nut-tree-fork/nut-js (native) → Extension activation failed (9 hours to fix)
+  - v0.15.31-32: glob (runtime npm) → Extension activation failed (2 hours to fix)
+- Status: ✅ Complete - All tests passing, integrated into publish workflow
+- Manual Test: Run `node scripts/validate-dependencies.js` to validate current package.json
+
+**Extension Package Size Validator** (VAL-003) ✅ NEW
+- What: Prevents VS Code marketplace rejection due to oversized packages (>50MB limit)
+- Where: `vscode-lumina/src/services/PackageSizeValidator.ts` (199 lines)
+- Tests: `vscode-lumina/src/test/services/packageSizeValidator.test.ts` (320 lines, 15 test cases)
+- Script: `scripts/validate-package-size.js` (140 lines) - Pre-publish size validation CLI
+- Features:
+  - Validates .vsix package size against 50MB marketplace limit
+  - Provides size reduction suggestions based on package size
+  - Suggests .vscodeignore patterns for common exclusions
+  - Performance: <200ms validation time (target met)
+- Integration: `scripts/publish-release.js` Step 6.5 - Blocks publish if package >50MB
+- Current Package Size: aetherlight-0.15.34.vsix = 9.96MB (19.9% of limit) ✅
+- Status: ✅ Complete - All tests passing, integrated into publish workflow
+- Manual Test: Run `node scripts/validate-package-size.js` to validate latest .vsix package
 
 **Remove Voice Tab** (UI-ARCH-001) ✅ NEW
 - What: Voice section now permanent at top (not a tab), always visible regardless of active tab
