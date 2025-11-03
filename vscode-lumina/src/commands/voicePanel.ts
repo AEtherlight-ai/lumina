@@ -4160,7 +4160,7 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
         .pattern-tag {
             background-color: var(--vscode-inputValidation-infoBorder);
-            color: var(--vscode-inputValidation-infoForeground);
+            color: var(--vscode-editor-foreground);
         }
 
         .performance-target {
