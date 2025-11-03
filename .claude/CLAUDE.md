@@ -1650,6 +1650,76 @@ const agentFiles = allFiles
 
 ## Design Patterns
 
+### Pattern-DOCS-001: Documentation Philosophy - Only Create Patterns for Reusable Knowledge
+
+**Problem:** Claude creates ephemeral markdown summaries (e.g., "SPRINT_REFACTORING_SUMMARY.md") that are used once then never referenced again, creating file clutter and wasting tokens.
+
+**Solution:** Assess reusability BEFORE creating documentation files. Only create pattern documents for reusable knowledge.
+
+**Reusability Levels:**
+
+1. **HIGH Reusability** → Create Pattern Document
+   - Referenced in 3+ places (code comments, CLAUDE.md, other patterns)
+   - Core architecture or workflow process
+   - Permanent design decisions
+   - Examples: Pattern-COMM-001, Pattern-PUBLISH-002, Pattern-TDD-001
+
+2. **MEDIUM Reusability** → Ask User
+   - Referenced in 2 places
+   - Specific feature implementation
+   - Might be reused in similar features
+   - User decides: Create pattern or explain in chat
+
+3. **LOW Reusability** → Chat Explanation Only
+   - Single use case
+   - Specific bug fix or one-time optimization
+   - Not likely to be referenced again
+   - Examples: Individual bug fix notes, performance tweak explanations
+
+4. **EPHEMERAL** → Block File Creation (Chat Only)
+   - One-time explanation or status update
+   - Used for immediate decision then obsolete
+   - User question answer
+   - Temporary planning document
+   - Examples: Sprint refactoring summary, current status updates, one-time approvals
+
+**Enforcement:**
+- WorkflowCheck.assessDocumentation() evaluates reusability before docs workflow
+- PROTO-006: Documentation Philosophy Enforcement implemented in WorkflowCheck service
+- Pattern-DOCS-001 protocol prevents ephemeral file creation
+
+**Examples:**
+
+✅ **High Reusability - Create Pattern:**
+- Topic: "Universal Communication Protocol"
+- Usage: Referenced across codebase in 5+ places
+- Action: Create `Pattern-COMM-001.md`
+- Reasoning: Core workflow process, permanent architecture
+
+❌ **Ephemeral - Chat Only:**
+- Topic: "Sprint Refactoring Summary"
+- Usage: One-time plan for user approval
+- Action: Explain in chat, DON'T create file
+- Reasoning: Used once then obsolete, creates clutter
+
+✅ **High Reusability - Create Pattern:**
+- Topic: "Publishing Workflow"
+- Usage: Used every release
+- Action: Already exists as `Pattern-PUBLISH-002.md`
+- Reasoning: Repeated process, prevents bugs
+
+❌ **Ephemeral - Chat Only:**
+- Topic: "Bug Fix Explanation"
+- Usage: One-time debug session
+- Action: Explain in chat, DON'T create file
+- Reasoning: Not reusable knowledge, specific to one bug
+
+**Benefits:**
+1. Cleaner repository (only reusable patterns in docs/)
+2. Lower token usage (fewer ephemeral files to read)
+3. Better pattern library (only high-quality reusable content)
+4. User gets explanations when needed (in chat, not cluttered files)
+
 ### Pattern-UPDATE-002: VS Code Extension Update Flow
 When updating the extension:
 1. `npm install -g aetherlight@latest` downloads package

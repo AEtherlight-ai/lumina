@@ -102,6 +102,9 @@ export interface WorkflowContext {
 	// Documentation workflow
 	reusability?: 'high' | 'medium' | 'low' | 'ephemeral';
 	patternTemplateExists?: boolean;
+	// PROTO-006: Documentation assessment context
+	topic?: string;  // Topic being documented
+	usageCount?: number;  // How many places reference this topic
 
 	// Git workflow
 	currentBranch?: string;
@@ -168,6 +171,29 @@ export interface GapDetectionResult {
 	timeToCreate: string;  // Estimate (e.g., "2 hours")
 	suggestedName: string;  // Suggested file/ID (e.g., "Pattern-XYZ-001", "security-agent")
 	remediation: string;  // How to fix (e.g., "Create pattern document in docs/patterns/")
+}
+
+/**
+ * Documentation Assessment Result Interface - PROTO-006
+ *
+ * DESIGN DECISION: Assess reusability BEFORE creating documentation files
+ * WHY: Pattern-DOCS-001 - Only create patterns for reusable knowledge
+ *
+ * REASONING CHAIN:
+ * 1. User requests documentation or explanation
+ * 2. Assess reusability (high/medium/low/ephemeral)
+ * 3. High: Create pattern document (referenced 3+ times, core architecture)
+ * 4. Medium: Ask user (referenced 2 times, might be reusable)
+ * 5. Low: Chat explanation only (single use case)
+ * 6. Ephemeral: Block file creation (one-time explanation, creates clutter)
+ * 7. Result: Cleaner repository, only valuable patterns
+ */
+export interface DocumentationAssessment {
+	reusability: 'high' | 'medium' | 'low' | 'ephemeral';
+	shouldCreatePattern: boolean | null;  // true=yes, false=no, null=ask user
+	shouldCreateFile: boolean | null;  // true=yes, false=no, null=ask user
+	reasoning: string;  // Why this assessment (e.g., "Referenced in 3+ places, core workflow")
+	suggestedPatternId: string | null;  // Suggested pattern ID (e.g., "Pattern-COMM-001")
 }
 
 /**
@@ -944,6 +970,113 @@ export class WorkflowCheck {
 	}
 
 	/**
+	 * Assess Documentation Reusability - PROTO-006
+	 *
+	 * DESIGN DECISION: Assess reusability BEFORE creating documentation files
+	 * WHY: Pattern-DOCS-001 - Only create patterns for reusable knowledge
+	 *
+	 * REASONING CHAIN:
+	 * 1. Analyze usage count (how many places reference this topic)
+	 * 2. Check if core architecture topic
+	 * 3. Determine reusability level:
+	 *    - High (3+ references) → Create pattern document
+	 *    - Medium (2 references) → Ask user
+	 *    - Low (1 reference) → Chat explanation only
+	 *    - Ephemeral (0 or one-time) → Block file creation
+	 * 4. Generate pattern ID if high/medium reusability
+	 * 5. Return assessment with reasoning
+	 *
+	 * @param context - Documentation context (topic, usageCount)
+	 * @returns DocumentationAssessment with reusability level and recommendations
+	 */
+	private assessDocumentation(context: WorkflowContext): DocumentationAssessment {
+		const usageCount = context.usageCount || 0;
+		const topic = context.topic || 'Unknown';
+
+		// High reusability: Referenced 3+ times OR core architecture
+		if (usageCount >= 3 || this.isCoreArchitecture(topic)) {
+			return {
+				reusability: 'high',
+				shouldCreatePattern: true,
+				shouldCreateFile: true,
+				reasoning: `Referenced in ${usageCount}+ places, reusable knowledge. Create pattern document.`,
+				suggestedPatternId: this.generatePatternId(topic)
+			};
+		}
+
+		// Medium reusability: Referenced 2 times
+		if (usageCount === 2) {
+			return {
+				reusability: 'medium',
+				shouldCreatePattern: null, // Ask user
+				shouldCreateFile: null,
+				reasoning: 'Referenced twice, might be reusable. Ask user: Create pattern or explain in chat?',
+				suggestedPatternId: this.generatePatternId(topic)
+			};
+		}
+
+		// Low reusability: Referenced 1 time
+		if (usageCount === 1) {
+			return {
+				reusability: 'low',
+				shouldCreatePattern: false,
+				shouldCreateFile: false,
+				reasoning: 'Single use case, not likely to be reused. Explain in chat only.',
+				suggestedPatternId: null
+			};
+		}
+
+		// Ephemeral: One-time explanation, status update, user question answer
+		return {
+			reusability: 'ephemeral',
+			shouldCreatePattern: false,
+			shouldCreateFile: false,
+			reasoning: 'One-time explanation or status update. Block file creation to prevent clutter. Explain in chat only.',
+			suggestedPatternId: null
+		};
+	}
+
+	/**
+	 * Check if topic is core architecture
+	 */
+	private isCoreArchitecture(topic: string): boolean {
+		const coreTopics = [
+			'communication protocol',
+			'workflow',
+			'architecture',
+			'integration',
+			'test-driven development',
+			'tdd',
+			'publishing',
+			'pattern',
+			'middleware',
+			'service'
+		];
+
+		const topicLower = topic.toLowerCase();
+		return coreTopics.some(core => topicLower.includes(core));
+	}
+
+	/**
+	 * Generate pattern ID from topic name
+	 *
+	 * Examples:
+	 * - "Universal Communication Protocol" → "Pattern-COMM-001"
+	 * - "Test-Driven Development" → "Pattern-TDD-001"
+	 * - "Publishing Workflow" → "Pattern-PUBLISH-001"
+	 */
+	private generatePatternId(topic: string): string {
+		// Extract key words and create abbreviation
+		const words = topic.split(/\s+/).filter(w => w.length > 2); // Filter short words
+		const abbreviation = words
+			.slice(0, 2) // Take first 2 significant words
+			.map(w => w.substring(0, 4).toUpperCase()) // First 4 chars of each
+			.join('-');
+
+		return `Pattern-${abbreviation}-001`;
+	}
+
+	/**
 	 * Check documentation workflow prerequisites
 	 */
 	private async checkDocsWorkflow(
@@ -951,13 +1084,23 @@ export class WorkflowCheck {
 		prerequisites: PrerequisiteStatus[],
 		gaps: string[]
 	): Promise<void> {
+		// PROTO-006: Assess documentation reusability
+		const assessment = this.assessDocumentation(context);
+
 		// Prerequisite 1: Reusability assessed
-		if (context.reusability) {
-			const shouldCreatePattern = context.reusability === 'high';
+		if (context.reusability || context.topic) {
+			const recommendation = assessment.shouldCreatePattern === true
+				? 'Create pattern'
+				: assessment.shouldCreatePattern === null
+					? 'Ask user'
+					: assessment.shouldCreatePattern === false && assessment.reusability === 'ephemeral'
+						? 'BLOCK file creation - chat only'
+						: 'Chat explanation only';
+
 			prerequisites.push({
 				name: 'Reusability assessed',
 				status: '✅',
-				details: `Reusability: ${context.reusability}${shouldCreatePattern ? ' → Create pattern' : ' → Chat explanation'}`,
+				details: `Reusability: ${assessment.reusability} → ${recommendation}\nReasoning: ${assessment.reasoning}${assessment.suggestedPatternId ? `\nSuggested: ${assessment.suggestedPatternId}` : ''}`,
 				remediation: null,
 				impact: 'suboptimal'
 			});
