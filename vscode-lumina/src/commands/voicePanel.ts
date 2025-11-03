@@ -2210,6 +2210,9 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             background-color: #0078D4;
         }
 
+        /* UI-ARCH-003: Terminal list appears FIRST (see context before taking action) */
+        /* WHY: Workflow-driven layout - user sees terminal context before using toolbar */
+        /* REASONING: 16px margin-bottom provides clear separation from toolbar below */
         .terminal-selector {
             margin-bottom: 16px;
         }
@@ -2314,17 +2317,21 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             50% { opacity: 0.4; }
         }
 
+        /* UI-ARCH-003: Textarea appears THIRD (see result after action) */
+        /* WHY: Workflow-driven layout - user takes action (toolbar) then sees result (textarea) */
+        /* REASONING: 16px margin-bottom provides clear separation from secondary toolbar below */
         .transcription-editor {
             margin-bottom: 16px;
         }
 
-        .transcription-editor label {
+        /* UI-ARCH-003: Label CSS removed (label removed from HTML - redundant) */
+        /* .transcription-editor label {
             display: block;
             margin-bottom: 4px;
             font-size: 12px;
             font-weight: 600;
             color: var(--vscode-descriptionForeground);
-        }
+        } */
 
         .transcription-editor textarea {
             width: 100%;
@@ -2349,6 +2356,9 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
         }
 
         /* B-001: Icon bar for compact Voice tab (replaces .controls) */
+        /* UI-ARCH-003: Toolbar appears SECOND (take action after seeing context) */
+        /* WHY: Workflow-driven layout - user sees terminal context, then uses toolbar to take action */
+        /* REASONING: 12px margin-bottom provides moderate separation from textarea below */
         .icon-bar {
             display: flex;
             gap: 4px;
@@ -5328,9 +5338,10 @@ Be specific about features, timeline, and any constraints.">\${lastIntent}</text
  * WHY: Enables embedding in tabbed interface without nested HTML documents
  */
 function getVoicePanelBodyContent(): string {
-    // Chain of Thought: Redesigned Voice tab for compactness (B-001)
-    // WHY: Reduce height from 500px to ~200px by using icon bar instead of buttons
-    // REASONING: Icon bar (32px) + terminal list (72px) + textarea (60px) + hints (20px) = ~200px
+    // UI-ARCH-003: Reorganized layout for better workflow
+    // WHY: Visual hierarchy guides user workflow (top to bottom)
+    // REASONING: See context (terminals) → Take action (toolbar) → See result (textarea)
+    // Pattern: Pattern-UI-ARCH-001 (Progressive Disclosure - workflow-driven layout)
     return `
     <div class="header">
         <h2>
@@ -5341,6 +5352,14 @@ function getVoicePanelBodyContent(): string {
 
     <div id="statusMessage"></div>
 
+    <!-- UI-ARCH-003: Terminal list FIRST (see context before taking action) -->
+    <div class="terminal-selector">
+        <div id="terminalList" class="terminal-list">
+            <!-- Terminals will be populated here -->
+        </div>
+    </div>
+
+    <!-- UI-ARCH-003: Toolbar SECOND (take action after seeing context) -->
     <!-- UI-002: Primary icon toolbar (6 icons, 32px height) -->
     <!-- CSP-FIX: Removed onclick handlers, using event listeners instead to comply with Trusted Types -->
     <div class="icon-bar primary-toolbar">
@@ -5364,14 +5383,9 @@ function getVoicePanelBodyContent(): string {
         </button>
     </div>
 
-    <div class="terminal-selector">
-        <div id="terminalList" class="terminal-list">
-            <!-- Terminals will be populated here -->
-        </div>
-    </div>
-
+    <!-- UI-ARCH-003: Textarea THIRD (see result after action) -->
+    <!-- UI-ARCH-003: Removed redundant 'Command / Transcription:' label (purpose is obvious) -->
     <div class="transcription-editor">
-        <label for="transcriptionText">Command / Transcription:</label>
         <textarea
             id="transcriptionText"
             placeholder="Click 🎤 to record, or type directly..."
