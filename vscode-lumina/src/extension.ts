@@ -210,8 +210,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	if (!phase0WelcomeShown) {
 		// Show welcome modal asynchronously (don't block activation)
 		setTimeout(async () => {
+			// Get version dynamically from package.json (fixes v0.15.33 hardcoded version bug)
+			const version = context.extension.packageJSON.version;
+
 			const action = await vscode.window.showInformationMessage(
-				`🎉 Welcome to ÆtherLight v0.16.0!\n\n` +
+				`🎉 Welcome to ÆtherLight v${version}!\n\n` +
 				`✨ New: Phase 0 Middleware\n` +
 				`• Auto-analyze tasks with AI (60-76% token savings)\n` +
 				`• Smart agent assignment (0% errors)\n` +
