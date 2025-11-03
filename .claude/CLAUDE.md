@@ -241,6 +241,209 @@ test_coverage_requirement = 0.9  # 90% for core services
 
 ---
 
+### Pre-Task Analysis Protocol (Pattern-TASK-ANALYSIS-001) - MANDATORY
+
+**CRITICAL: Run this analysis BEFORE writing ANY code for ANY task**
+
+**Why This Exists:**
+- Prevents rework and costly bugs (2-9 hour fixes for missed issues)
+- Ensures best-first-try outcomes through comprehensive context gathering
+- Catches known issues before they become bugs (Pattern-PUBLISH-003, native deps)
+- Optimizes library selection (Node.js built-ins vs npm packages)
+- Designs TDD strategy appropriate for task type
+- Makes context-aware decisions about tech stack and integration
+
+**When to Use:**
+- Starting ANY task from a sprint
+- Before implementing ANY new feature
+- When uncertain about implementation approach
+- When multiple solution paths exist
+
+**Required Analysis Steps:**
+
+**1. Agent Verification**
+   - Read assigned agent context file (`internal/agents/{agent}-context.md`)
+   - Verify agent expertise matches task requirements
+   - If mismatch: Update agent assignment in sprint TOML
+   - If agent context incomplete: Update agent context with new responsibilities
+
+**2. Tech Stack Analysis**
+   - TypeScript version: Check `vscode-lumina/package.json` → `"typescript": "^5.x"`
+   - VS Code API compatibility: Check `vscode-lumina/package.json` → `engines.vscode`
+   - Node.js version: Check `.nvmrc` or package.json `engines.node`
+   - Compilation requirements: Does this need special tsconfig settings?
+
+**3. Integration Points**
+   - What existing services does this integrate with?
+   - Read each integration point's source file to understand:
+     - Interface/API surface
+     - Error handling patterns
+     - Performance characteristics
+     - Dependencies and side effects
+   - Example: WorkflowCheck integrates with ConfidenceScorer, TestValidator, Git APIs
+   - Check for circular dependencies or coupling issues
+
+**4. Known Issues Check**
+   - **Pattern-PUBLISH-003**: Will this add runtime npm dependencies? (❌ FORBIDDEN)
+   - **Native Dependencies**: Will this require C++ addons? (❌ FORBIDDEN)
+   - Check "Known Issues & Fixes" section in this file for past bugs
+   - Review agent "Common Pitfalls" section for category-specific issues
+
+**5. Library Selection**
+   - **Default:** Use Node.js built-in modules (`fs`, `path`, `child_process`)
+   - **VS Code APIs:** Use `vscode.*` APIs when available (text editing, terminal, etc.)
+   - **Forbidden:** npm packages at runtime (will be excluded by `vsce package --no-dependencies`)
+   - **Exceptions:** Sub-packages (`aetherlight-analyzer`, `aetherlight-sdk`, `aetherlight-node`)
+   - Ask: "Can this be done with built-ins?" If yes, use built-ins. If no, reconsider design.
+
+**6. Performance Requirements**
+   - Calculate target based on task type:
+     - Workflow checks: <500ms (Pattern-COMM-001)
+     - Agent assignment: <50ms (caching required)
+     - Confidence scoring: <100ms
+     - Test validation: <200ms
+     - Extension activation: <200ms (VS Code requirement)
+   - Design caching strategy if needed (>80% hit rate target)
+   - Add timeout protection for operations >1s
+
+**7. TDD Strategy Design**
+   - Determine coverage requirement by task category:
+     - Infrastructure: 90% coverage (core services, critical paths)
+     - API: 85% coverage (all endpoints, error cases)
+     - UI: 70% coverage (components, interactions)
+     - Documentation: 0% coverage (manual validation)
+   - Design test cases BEFORE implementation:
+     - Happy path scenarios
+     - Error cases and edge cases
+     - Integration with other services
+     - Performance benchmarks
+   - Identify test dependencies (mocks, fixtures, test data)
+
+**8. Clarification Questions**
+   - If ANY of the above is unclear or ambiguous: **ASK USER**
+   - Use AskUserQuestion tool for:
+     - Multiple valid implementation approaches
+     - Unclear requirements or acceptance criteria
+     - Trade-offs that need user decision
+     - Missing information about integration points
+   - Do NOT proceed with uncertain assumptions
+
+**Workflow:**
+
+```
+┌─────────────────────────────────────┐
+│ 1. Read sprint task from TOML      │
+└──────────────┬──────────────────────┘
+               │
+               ▼
+┌─────────────────────────────────────┐
+│ 2. Run Pre-Task Analysis (8 steps) │
+│    - Agent verification             │
+│    - Tech stack analysis            │
+│    - Integration points             │
+│    - Known issues check             │
+│    - Library selection              │
+│    - Performance requirements       │
+│    - TDD strategy design            │
+│    - Clarification questions        │
+└──────────────┬──────────────────────┘
+               │
+               ▼
+┌─────────────────────────────────────┐
+│ 3. Document analysis results        │
+│    (in chat for user visibility)    │
+└──────────────┬──────────────────────┘
+               │
+               ▼
+┌─────────────────────────────────────┐
+│ 4. Update agent/sprint if needed    │
+│    - Update agent context           │
+│    - Update task in sprint TOML     │
+└──────────────┬──────────────────────┘
+               │
+               ▼
+┌─────────────────────────────────────┐
+│ 5. Proceed to TDD implementation    │
+│    - RED: Write tests first         │
+│    - GREEN: Implement to pass       │
+│    - REFACTOR: Optimize             │
+└─────────────────────────────────────┘
+```
+
+**Example Pre-Task Analysis Output:**
+
+```
+Pre-Task Analysis: PROTO-001 - Universal Workflow Check System
+================================================================
+
+1. Agent Verification
+   ✅ Assigned: infrastructure-agent
+   ✅ Match: Service orchestration, TypeScript services
+   ✅ Action: None needed
+
+2. Tech Stack
+   ✅ TypeScript: 5.3.3 (vscode-lumina/package.json)
+   ✅ VS Code API: ^1.80.0
+   ✅ Node.js: >=18.0.0
+   ✅ Special config: None needed
+
+3. Integration Points
+   ✅ ConfidenceScorer.ts (scoring logic)
+   ✅ TestValidator.ts (test validation)
+   ✅ Git APIs (child_process.exec)
+   ✅ MiddlewareLogger.ts (structured logging)
+   Action: Read all 4 files to understand interfaces
+
+4. Known Issues Check
+   ✅ Pattern-PUBLISH-003: No runtime npm deps planned
+   ✅ Native deps: None required
+   ✅ Past bugs: Reviewed - no relevant patterns
+
+5. Library Selection
+   ✅ Git operations: child_process.exec() (built-in)
+   ✅ File operations: fs, path (built-ins)
+   ✅ No npm packages needed ✅
+
+6. Performance Requirements
+   ✅ Target: <500ms (workflow check)
+   ✅ Caching: Required (>80% hit rate)
+   ✅ Timeout: 10s max per check
+
+7. TDD Strategy
+   ✅ Category: Infrastructure → 90% coverage required
+   ✅ Test cases:
+      - checkWorkflow('code') → validates TDD, tests, sprint task
+      - checkWorkflow('sprint') → validates workspace, git, skills
+      - checkWorkflow('publish') → validates tests, artifacts, git
+      - Service integration failures (graceful degradation)
+      - Performance benchmarks (<500ms)
+   ✅ Test file: vscode-lumina/test/services/workflowCheck.test.ts
+
+8. Clarifications
+   ✅ No clarifications needed - requirements clear
+
+Ready to proceed: YES ✅
+Estimated time: 4-5 hours
+Confidence: HIGH (0.90)
+```
+
+**Benefits:**
+- **Reduces rework:** 57% token savings vs debugging after implementation
+- **Catches issues early:** Known pattern violations detected before coding
+- **Optimizes decisions:** Best library/approach chosen with full context
+- **Improves outcomes:** Best-first-try through comprehensive analysis
+- **Documents decisions:** Clear reasoning for future reference
+
+**Enforcement:**
+- Agents document this protocol in workflow section
+- Sprint tasks should note which agent was used
+- Update agent context if new patterns learned during task
+- This protocol becomes part of the development culture
+
+**Pattern Reference:** Pattern-TASK-ANALYSIS-001 (Pre-Task Analysis Protocol)
+
+---
+
 ## Common Tasks
 
 ### Publishing a New Version
