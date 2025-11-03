@@ -428,8 +428,84 @@ if (editor) {
 **Safe Alternatives:**
 - VS Code APIs: `vscode.window`, `vscode.workspace`, `vscode.env` ✅
 - Pure JavaScript/TypeScript libraries ✅
+- Node.js built-in APIs: `fs`, `path`, `util` ✅
 - External processes via child_process (if necessary) ✅
 - IPC to desktop app for native features ✅
+
+### Issue: Extension fails to activate - Cannot find module 'glob' (v0.15.31-0.15.32)
+**Status:** FIXED in v0.15.33
+**Time to Fix:** 2 hours (deep investigation approach)
+**Severity:** CRITICAL - Extension completely non-functional for all users
+**Cause:** Runtime dependency on npm package `glob` that gets excluded by `--no-dependencies` flag
+**Impact:** Extension failed to activate on install, showing error: "Cannot find module 'glob'"
+
+**Timeline:**
+1. **v0.13.29** (Oct 30, 2025): Added `--no-dependencies` flag to reduce package size from 246MB to 251KB
+2. **v0.15.30**: No runtime npm dependencies → extension worked
+3. **v0.15.31**: Added `AgentRegistry.ts` (MID-004) which imports and uses `glob` at runtime
+4. **v0.15.31**: Extension activation fails - `glob` excluded by `--no-dependencies`
+5. **v0.15.32**: Moved `glob` from devDependencies to dependencies (attempted fix) - **STILL BROKEN**
+6. **v0.15.33**: Replaced `glob` with Node.js built-in `fs.readdirSync()` - **FIXED**
+
+**Root Cause Analysis:**
+- Package script uses `--no-dependencies` flag to reduce package size
+- This flag excludes **ALL node_modules** (even production dependencies) from .vsix
+- AgentRegistry.ts line 111 called `await glob(pattern)` to find agent files
+- `glob` is npm package, gets excluded from packaged extension
+- Moving to dependencies didn't help - `--no-dependencies` excludes it anyway
+
+**Why v0.15.32 Failed (User-Requested Deep Dive):**
+User requested: "lets do a deep dive. lets look at what was in the new release and what might have broken it. goal is to identify the issue and fix it not react to the problem and try to fix what is broke without fixing what caused it"
+
+Investigation revealed:
+- AgentRegistry.ts **did not exist in v0.15.30** (confirmed via git show)
+- It was added in v0.15.31 as part of Phase 0 User Visibility improvements
+- Initial fix (moving to dependencies) addressed symptom, not cause
+- Root cause: runtime npm dependency incompatible with `--no-dependencies` packaging
+
+**Fix:** Replaced npm `glob` with Node.js built-in APIs
+**Files Changed:**
+- `vscode-lumina/src/services/AgentRegistry.ts:23` - Removed `import { glob } from 'glob'`
+- `vscode-lumina/src/services/AgentRegistry.ts:111-114` - Replaced `glob()` with `fs.readdirSync()` + filter
+- `vscode-lumina/package.json:643` - Removed `glob` from dependencies
+- `vscode-lumina/package.json:647` - Removed `@types/glob` from devDependencies
+
+**Solution Details:**
+```typescript
+// BEFORE (v0.15.31-0.15.32): Used npm glob package
+import { glob } from 'glob';
+const agentFiles = await glob(pattern); // Excluded by --no-dependencies
+
+// AFTER (v0.15.33): Use Node.js built-in fs
+const allFiles = fs.readdirSync(this.agentsPath);
+const agentFiles = allFiles
+  .filter(file => file.endsWith('-agent-context.md'))
+  .map(file => path.join(this.agentsPath, file));
+```
+
+**Prevention Rules (CRITICAL - MUST FOLLOW):**
+1. **NEVER add runtime npm dependencies to VS Code extensions**
+   - Package script uses `--no-dependencies` to keep extension small
+   - ANY npm package used at runtime will cause activation failures
+   - Only built-in Node.js modules (`fs`, `path`, etc.) are available at runtime
+2. **Use Node.js built-in APIs instead:**
+   - File operations: `fs.readdirSync()`, `fs.readFileSync()` ✅
+   - Path operations: `path.join()`, `path.basename()` ✅
+   - File globbing: `fs.readdirSync()` + `.filter()` ✅
+3. **Pre-publish validation:**
+   - Check `vscode-lumina/package.json` dependencies section
+   - If ANY production dependencies exist, they MUST be bundled differently or removed
+   - Current exception: Sub-packages (`aetherlight-analyzer`, `aetherlight-sdk`, `aetherlight-node`)
+
+**Pattern Reference:** Pattern-PUBLISH-003 (Avoid Runtime npm Dependencies)
+
+**Red Flags - Runtime Dependencies to Avoid:**
+- `glob`, `fast-glob` ❌ (use `fs.readdirSync()` + filter)
+- `lodash`, `underscore` ❌ (use native JS array methods)
+- `moment`, `date-fns` ❌ (use native `Date` or inline utilities)
+- `axios`, `got` ❌ (use `node-fetch` from dependencies or `https` built-in)
+- `chalk`, `colors` ❌ (use VS Code output channel styling)
+- Any pure utility library ❌ (inline the code or use built-ins)
 
 ---
 
@@ -449,6 +525,34 @@ All releases go through:
 4. User confirmation
 5. Publish to npm
 6. Create git tag and GitHub release
+
+### Pattern-PUBLISH-003: Avoid Runtime npm Dependencies
+**Problem:** VS Code extensions packaged with `vsce package --no-dependencies` cannot use npm packages at runtime.
+
+**Why:** The `--no-dependencies` flag excludes ALL node_modules (including production dependencies) from the .vsix package to keep it small.
+
+**Rule:** Use Node.js built-in APIs instead of npm packages for runtime code.
+
+**Examples:**
+- ❌ `import { glob } from 'glob'` → ✅ `fs.readdirSync()` + `.filter()`
+- ❌ `import _ from 'lodash'` → ✅ Native array methods
+- ❌ `import moment from 'moment'` → ✅ Native `Date` or inline utilities
+- ❌ `import axios from 'axios'` → ✅ `https` built-in or VS Code APIs
+
+**Allowed Dependencies:**
+- Node.js built-in modules: `fs`, `path`, `util`, `crypto`, `https`, etc.
+- VS Code APIs: `vscode.workspace`, `vscode.window`, etc.
+- Project sub-packages: `aetherlight-analyzer`, `aetherlight-sdk`, `aetherlight-node` (these are handled specially)
+
+**Verification:**
+Before publishing, check `vscode-lumina/package.json` dependencies. If you see ANY package besides sub-packages, either:
+1. Remove it and use built-in APIs
+2. Bundle it with webpack/esbuild (advanced, not currently implemented)
+3. Move functionality to desktop app (Tauri)
+
+**Related Incidents:**
+- v0.13.23: `@nut-tree-fork/nut-js` (native dependency) - 9 hours to fix
+- v0.15.31-0.15.32: `glob` (npm package) - 2 hours to fix
 
 ---
 
@@ -492,6 +596,26 @@ Check package.json for red flag dependencies:
 - [ ] NO packages requiring C++ compilation
 
 **If ANY native deps found:** Remove them and use VS Code APIs instead
+
+### 2b. Runtime npm Dependency Check (CRITICAL - Pattern-PUBLISH-003)
+**This prevents the v0.15.31-0.15.32 bug that took 2 hours to fix**
+
+Check `vscode-lumina/package.json` dependencies section:
+```bash
+cat vscode-lumina/package.json | grep -A 10 '"dependencies"'
+```
+
+Verify ONLY these dependencies exist:
+- [ ] `aetherlight-analyzer` ✅ (sub-package)
+- [ ] `aetherlight-sdk` ✅ (sub-package)
+- [ ] `aetherlight-node` ✅ (sub-package)
+- [ ] `@iarna/toml` ✅ (TOML parser)
+- [ ] `form-data` ✅ (HTTP multipart)
+- [ ] `node-fetch` ✅ (HTTP client)
+- [ ] `ws` ✅ (WebSocket)
+- [ ] NO `glob`, `lodash`, `moment`, `axios`, or ANY other utility libraries ❌
+
+**If ANY disallowed deps found:** Remove them and use Node.js built-in APIs instead (see Pattern-PUBLISH-003)
 
 ### 3. Package and Test (MANDATORY)
 **Test the packaged .vsix BEFORE publishing - v0.13.23 worked in dev but failed when packaged**

@@ -20,7 +20,6 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { glob } from 'glob';
 import { showUserChoicePrompt, ChoiceOption, UserChoiceContext } from '../utils/UserChoicePrompt';
 import { MiddlewareLogger } from './MiddlewareLogger';
 
@@ -106,9 +105,13 @@ export class AgentRegistry {
 				return;
 			}
 
-			// Find all agent context files
-			const pattern = path.join(this.agentsPath, '*-agent-context.md').replace(/\\/g, '/');
-			const agentFiles = await glob(pattern);
+			// Find all agent context files using built-in fs instead of glob
+			// WHY: glob is an npm dependency that gets excluded by vsce package --no-dependencies
+			// PATTERN: Use Node.js built-in APIs (Pattern-PUBLISH-003: Avoid runtime npm deps)
+			const allFiles = fs.readdirSync(this.agentsPath);
+			const agentFiles = allFiles
+				.filter(file => file.endsWith('-agent-context.md'))
+				.map(file => path.join(this.agentsPath, file));
 			this.logger.info(`Found ${agentFiles.length} agent files in ${this.agentsPath}`);
 
 			// Load each agent
