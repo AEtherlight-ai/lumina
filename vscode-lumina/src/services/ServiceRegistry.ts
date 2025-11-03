@@ -155,6 +155,15 @@ export class ServiceRegistry {
 	}
 
 	/**
+	 * Get all registered service names
+	 *
+	 * @returns Array of service names
+	 */
+	public getAllServiceNames(): string[] {
+		return Array.from(this.factories.keys());
+	}
+
+	/**
 	 * Clear all registered services
 	 *
 	 * DESIGN DECISION: Clear both factories and instances
