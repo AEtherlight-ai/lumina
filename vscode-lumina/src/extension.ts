@@ -877,6 +877,110 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	});
 
 	/**
+	 * Initialize Context Sync Manager (SYNC-001)
+	 *
+	 * DESIGN DECISION: Auto-sync context files (CLAUDE.md, patterns, validators) on version change
+	 * WHY: Existing users stuck with old patterns/rules from initial install
+	 *
+	 * REASONING CHAIN:
+	 * 1. Extension updates → new CLAUDE.md rules, patterns, validators added
+	 * 2. New installs get latest context (via initialize skill)
+	 * 3. Existing installs get NOTHING → users frozen at old version
+	 * 4. ContextSyncManager detects version mismatch → shows update preview → user approves → files synced
+	 * 5. Result: All users stay current with latest patterns/rules/validators
+	 *
+	 * PATTERN: Pattern-SYNC-001 (Context Synchronization)
+	 * TASK: SYNC-001
+	 */
+	const { ContextSyncManager } = require('./services/ContextSyncManager');
+	const contextSyncManager = new ContextSyncManager();
+
+	// Status bar item for context updates
+	const contextUpdateStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+	contextUpdateStatusBar.command = 'aetherlight.updateContext';
+	context.subscriptions.push(contextUpdateStatusBar);
+
+	// Check for context updates on activation
+	(async () => {
+		try {
+			const updatePreview = await contextSyncManager.checkForUpdates();
+
+			if (updatePreview.hasUpdates) {
+				// Show status bar indicator
+				contextUpdateStatusBar.text = `$(sync) ÆtherLight Context Update: v${updatePreview.newVersion}`;
+				contextUpdateStatusBar.tooltip = `Context update available (${updatePreview.filesToUpdate.length} files)`;
+				contextUpdateStatusBar.show();
+
+				console.log('[ÆtherLight] Context update available:', updatePreview);
+			}
+		} catch (error) {
+			console.error('[ÆtherLight] Context sync check failed:', error);
+		}
+	})();
+
+	// Register updateContext command
+	context.subscriptions.push(
+		vscode.commands.registerCommand('aetherlight.updateContext', async () => {
+			try {
+				const updatePreview = await contextSyncManager.checkForUpdates();
+
+				if (!updatePreview.hasUpdates) {
+					vscode.window.showInformationMessage('✅ Context is up to date');
+					return;
+				}
+
+				// Show update preview with file list
+				const fileList = updatePreview.filesToUpdate
+					.map((f: any) => `  ${f.status === 'added' ? '➕' : '📝'} ${f.path}`)
+					.join('\n');
+
+				const conflictWarning = updatePreview.conflicts.length > 0
+					? `\n\n⚠️  ${updatePreview.conflicts.length} conflict(s) detected - files modified by user`
+					: '';
+
+				const message = `Context Update Available: v${updatePreview.currentVersion} → v${updatePreview.newVersion}\n\nFiles to update (${updatePreview.filesToUpdate.length}):\n${fileList}${conflictWarning}\n\nApply updates?`;
+
+				const result = await vscode.window.showInformationMessage(
+					message,
+					{ modal: true },
+					'Apply Update',
+					'Show Details',
+					'Cancel'
+				);
+
+				if (result === 'Apply Update') {
+					await vscode.window.withProgress({
+						location: vscode.ProgressLocation.Notification,
+						title: 'Updating ÆtherLight context...',
+						cancellable: false
+					}, async (progress) => {
+						progress.report({ increment: 0, message: 'Creating backup...' });
+
+						await contextSyncManager.applyUpdates(updatePreview);
+
+						progress.report({ increment: 100, message: 'Complete!' });
+					});
+
+					// Hide status bar indicator
+					contextUpdateStatusBar.hide();
+
+					vscode.window.showInformationMessage(
+						`✅ Context updated to v${updatePreview.newVersion}\n\n${updatePreview.filesToUpdate.length} files updated successfully.`
+					);
+
+				} else if (result === 'Show Details') {
+					// TODO: Open diff view for each file
+					vscode.window.showInformationMessage('Diff view coming soon - for now, review changes manually');
+				}
+
+			} catch (error) {
+				vscode.window.showErrorMessage(`Context sync failed: ${error}`);
+				console.error('[ÆtherLight] Context sync error:', error);
+			}
+		})
+	);
+
+	/**
 	 * Initialize Skill Executor for running skills
 	 *
 	 * DESIGN DECISION: Skills are markdown-defined workflows that need execution

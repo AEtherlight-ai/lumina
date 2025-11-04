@@ -18,6 +18,7 @@
     ".vscode-test",
     "test",
     "src/**/__tests__/**",
+    "src/test/**/*.test.ts",
     "src/integration/extension.ts",
     "src/workflow/controller.ts"
   ]
