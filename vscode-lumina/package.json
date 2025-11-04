@@ -2,7 +2,7 @@
   "name": "aetherlight",
   "displayName": "ÆtherLight",
   "description": "Voice-to-intelligence platform for developers. Capture voice, match patterns, prevent AI hallucinations.",
-  "version": "0.15.34",
+  "version": "0.16.0",
   "publisher": "aetherlight",
   "repository": {
     "type": "git",
@@ -677,8 +677,8 @@
   },
   "dependencies": {
     "@iarna/toml": "^2.2.5",
-    "aetherlight-analyzer": "file:../packages/aetherlight-analyzer",
-    "aetherlight-node": "^0.15.34",
+    "aetherlight-analyzer": "^0.16.0",
+    "aetherlight-node": "^0.16.0",
     "form-data": "^4.0.4",
     "node-fetch": "^2.7.0",
     "ws": "^8.14.0"
