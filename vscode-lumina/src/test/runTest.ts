@@ -17,13 +17,17 @@ async function main() {
         console.log('process.cwd():', process.cwd());
 
         // Download VS Code, unzip it and run the integration test
-        // Use explicit directories to avoid Windows path space issue
+        // Use explicit directories and quote paths to handle spaces (Windows compatibility)
+        // IMPORTANT: Pass empty workspace folder to avoid VS Code scanning parent directories
+        // which can cause module resolution issues with paths containing spaces
         await runTests({
             extensionDevelopmentPath,
             extensionTestsPath,
             launchArgs: [
-                '--user-data-dir=' + path.join(extensionDevelopmentPath, '.vscode-test-user-data'),
-                '--extensions-dir=' + path.join(extensionDevelopmentPath, '.vscode-test-extensions'),
+                '--new-window',
+                '--skip-welcome',
+                `--user-data-dir="${path.join(extensionDevelopmentPath, '.vscode-test-user-data')}"`,
+                `--extensions-dir="${path.join(extensionDevelopmentPath, '.vscode-test-extensions')}"`,
                 '--no-sandbox',
                 '--disable-workspace-trust'
             ]

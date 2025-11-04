@@ -1,212 +1,30 @@
-# ÆtherLight .gitignore
-# Public release - exclude all development, build, and internal files
+# AetherLight Development Files
+# These files are used for developing AetherLight itself and should not be published
 
-# ============================================================================
-# Downloaded Data & Large Files (CRITICAL - 8.7GB+)
-# ============================================================================
-scripts/data/
-scripts/codesearchnet_data/
-*.npy
-*.h5
-*.pkl
-*.pickle
-
-# ============================================================================
-# Build Artifacts & Dependencies
-# ============================================================================
-# Rust
-target/
-**/*.rs.bk
-*.pdb
-
-# Node.js
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-package-lock.json
-.npm
-.yarn/
-.pnp.*
-
-# TypeScript
-*.tsbuildinfo
-dist/
-build/
-
-# Tauri
-**/src-tauri/target/
-**/src-tauri/WixTools
-*.msi
-*.exe
-*.app
-*.dmg
-*.deb
-*.AppImage
-
-# Next.js
-.next/
-out/
-*.vercel
-
-# ============================================================================
-# Private Business Website (Separate Private Repo)
-# ============================================================================
-products/lumina-web/
-
-# ============================================================================
-# Discord Automation (Separate Repo)
-# ============================================================================
-# Discord automation moved to: https://github.com/AEtherlight-ai/aetherlight_discord
-../lumina-discord/
-
-# ============================================================================
-# Logs & Temporary Files
-# ============================================================================
-logs/
-*.log
-debug.log
-*.log.*
-push_output.log
-.DS_Store
-Thumbs.db
-
-# ============================================================================
-# Environment & Secrets
-# ============================================================================
-.env
-.env.local
-.env.*.local
-*.key
-*.pem
-credentials.json
-service-account.json
-
-# ============================================================================
-# IDE & Editor Files
-# ============================================================================
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-.idea/
-*.swp
-*.swo
-*~
-.project
-.classpath
-.settings/
-
-# ============================================================================
-# Testing
-# ============================================================================
-coverage/
-.nyc_output/
-playwright-report/
-test-results/
-*.spec.js.snap
-
-# ============================================================================
-# Archives & Packages
-# ============================================================================
-*.tar
-*.tar.gz
-*.zip
-*.rar
-*.7z
-sprint-system/packages/*.zip
-
-# ============================================================================
-# OS Generated Files
-# ============================================================================
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-
-# ============================================================================
-# Database & Supabase
-# ============================================================================
-*.db
-*.db-shm
-*.db-wal
-*.sqlite
-*.sqlite3
-supabase/.branches/
-supabase/.temp/
-
-# ============================================================================
-# Internal Documentation (Not for Public Release)
-# ============================================================================
-# Keep these patterns but move files to internal/
-COMPREHENSIVE_AUDIT_*.md
-*_AUDIT_*.md
-AUDIT_PROMPT_*.md
-*_FIXES_APPLIED.md
-.claude/AUDIT_STRATEGY.md
-SESSION_SUMMARY_*.md
-*_COMPLETION_*.md
-*_TEST_REPORT.md
-*_FINDINGS.md
-HOTKEY_ACTUAL_STATE.md
-STATUS_BAR_MISSING.md
-POST_COMMIT_HOOK_TEST.md
-PUBLIC_RELEASE_*.md
-PUBLIC_REPO_*.md
-SECURITY_CRITICAL_*.md
-FRESH_REPO_CHECKLIST.md
-PROJECT_STATUS_*.md
-
-# ============================================================================
-# Test Files & Experiments
-# ============================================================================
-test-regex*.js
-**/test-*.js
-!tests/**/*.test.js
-!**/*.test.ts
-
-# ============================================================================
-# Internal/Personal Files (NOT published to public repo)
-# ============================================================================
-
-# Internal documentation and tracking
+# Internal development sprints (dogfooding)
 internal/
 
-# Cleanup/planning documents (temporary)
-ORGANIZE_INTERNAL_VS_PUBLIC.md
-AGGRESSIVE_CLEANUP_PLAN.md
-CLEANUP_COMPLETE.md
-PRE_RELEASE_CLEANUP_PLAN.md
+# Node modules
+node_modules/
+**/node_modules/
 
-# Personal notes (convention: *.local.md, *.private.md, *.internal.md)
-*.local.md
-*.private.md
-*.internal.md
-
-# Personal configurations
-.env.local
-config.local.*
-.lumina/
-
-# VS Code workspace settings (local)
-.vscode/
-
-# Temporary build artifacts
+# Build outputs
+dist/
+out/
 *.vsix
 
-# Utility scripts (local)
-cleanup-old-extensions.ps1
+# OS files
+.DS_Store
+Thumbs.db
 
-# Sprint files (workspace-specific)
-sprints/
+# IDE files
+.vscode/launch.json
+.vscode/tasks.json
 
-# Extension resources (included via package)
-vscode-lumina/resources/
-.claude/commands/
-.claude/skills/
-.claude/commands/
-.claude/skills/
+# Logs
+*.log
+npm-debug.log*
+
+# Temporary files
+*.tmp
+.temp/

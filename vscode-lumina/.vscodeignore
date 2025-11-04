@@ -1,21 +1,59 @@
+# Development files
 .vscode/**
 .vscode-test/**
 src/**
-.gitignore
+test/**
+tests/**
+*.ts
+*.map
 tsconfig.json
-**/*.map
-**/test/**
-**/*.ts
-!out/**/*.js
-# Include node_modules for runtime dependencies
-!node_modules/**
-# Exclude dev dependencies
-node_modules/@types/**
-node_modules/@vscode/test-electron/**
-node_modules/@vscode/vsce/**
-node_modules/typescript/**
-# Exclude local package symlinks (vsce can't handle them)
-../packages/**
-node_modules/aetherlight-sdk/**
-node_modules/aetherlight-analyzer/**
-node_modules/aetherlight-node/**
+tslint.json
+.eslintrc.json
+
+# Node modules - keep only runtime dependencies
+node_modules/**/@types/**
+node_modules/**/test/**
+node_modules/**/tests/**
+node_modules/**/*.md
+!node_modules/**/README.md
+node_modules/**/.github/**
+
+# Exclude analyzer development files (it's a file: dependency)
+node_modules/@aetherlight/analyzer/src/**
+node_modules/@aetherlight/analyzer/test/**
+node_modules/@aetherlight/analyzer/node_modules/**
+node_modules/@aetherlight/analyzer/*.ts
+node_modules/@aetherlight/analyzer/tsconfig.json
+
+# Git files
+.git
+.gitignore
+.gitattributes
+
+# Documentation (keep only README)
+*.md
+!README.md
+!NPM_README.md
+!LICENSE
+
+# Build artifacts not needed
+.nyc_output
+coverage
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Internal directory (not for distribution)
+internal/**
+
+# Test and development
+*.test.js
+*.spec.js
+
+# Documentation files we created
+PRE_PUBLISH_CHECKLIST.md
+V1_0_RELEASE_READY.md
+SPRINT_FIX_SUMMARY.md
+SPRINT_FILE_BEHAVIOR.md
+TEST_AUDIT_UPDATE.md

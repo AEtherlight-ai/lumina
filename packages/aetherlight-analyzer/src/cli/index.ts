@@ -68,34 +68,6 @@ program
   });
 
 /**
- * Command: generate-validation
- *
- * DESIGN DECISION: Auto-generate project-specific validation.toml configuration
- * WHY: Validators need project-specific config to be effective, manual config is error-prone
- *
- * REASONING CHAIN:
- * 1. Analyze project structure (type, packages, dependencies)
- * 2. Detect potential issues (native deps, runtime npm deps, version mismatches)
- * 3. Generate intelligent defaults based on detection
- * 4. Present findings to user with clear communication
- * 5. Save .aetherlight/validation.toml after confirmation
- * 6. Result: Project-specific validation rules ready for use
- *
- * PATTERN: Pattern-ANALYZER-001 (Auto-Configuration)
- * RELATED: ANALYZER-001, VAL-002, VAL-007
- */
-program
-  .command('generate-validation')
-  .description('Generate project-specific validation.toml configuration')
-  .option('-p, --path <dir>', 'Project root directory', '.')
-  .option('--auto-save', 'Save config without confirmation', false)
-  .option('--force', 'Overwrite existing config', false)
-  .action(async (options) => {
-    const { generateValidationCommand } = await import('./commands/generate-validation');
-    await generateValidationCommand(options);
-  });
-
-/**
  * Command: generate-sprints
  *
  * DESIGN DECISION: Generate all 3 sprint plans in single command

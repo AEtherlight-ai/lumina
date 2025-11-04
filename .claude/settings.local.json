@@ -1,17 +1,15 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm publish:*)",
-      "Bash(git tag:*)",
-      "Bash(node scripts/publish-release.js:*)",
-      "Bash(git add:*)",
-      "Bash(git commit:*)",
-      "Bash(gh release view:*)",
-      "Bash(npm view:*)",
-      "Bash(node -e:*)",
-      "Bash(git log:*)",
+      "Bash(test:*)",
+      "Bash(npm test)",
+      "Bash(tasklist:*)",
+      "Bash(findstr:*)",
       "Bash(npm run compile:*)",
-      "Bash(printf:*)"
+      "Bash(npm run build:all:*)",
+      "Bash(vsce package:*)",
+      "Bash(dir dist /b 2)",
+      "Bash(nul)"
     ],
     "deny": [],
     "ask": []

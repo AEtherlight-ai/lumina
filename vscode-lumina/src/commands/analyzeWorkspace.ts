@@ -19,14 +19,14 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import { TypeScriptParser } from 'aetherlight-analyzer';
-import { ArchitectureAnalyzer, ComplexityAnalyzer, TechnicalDebtAnalyzer } from 'aetherlight-analyzer';
-import { SprintGenerator, ValidationConfigGenerator } from 'aetherlight-analyzer';
+import { TypeScriptParser } from '@aetherlight/analyzer';
+import { ArchitectureAnalyzer, ComplexityAnalyzer, TechnicalDebtAnalyzer } from '@aetherlight/analyzer';
+import { SprintGenerator } from '@aetherlight/analyzer';
 import type {
 	ArchitectureAnalysis,
 	ComplexityAnalysis,
 	TechnicalDebtAnalysis
-} from 'aetherlight-analyzer';
+} from '@aetherlight/analyzer';
 
 /**
  * Register analyze workspace commands
@@ -125,32 +125,6 @@ async function analyzeWorkspace(context: vscode.ExtensionContext, generateSprint
 			const debtData = debtResult.data as TechnicalDebtAnalysis;
 
 			outputChannel.appendLine(`✅ Debt score: ${debtData.score}/100, ${debtData.totalIssues} issues found`);
-
-			// Step 5: Generate validation config (ANALYZER-001)
-			outputChannel.appendLine('🔧 Generating validation configuration...');
-			progress.report({ increment: 15, message: 'Generating validation config...' });
-
-			try {
-				const validationGenerator = new ValidationConfigGenerator();
-				const validationResult = await validationGenerator.analyzeAndGenerateConfig(workspaceRoot, {
-					autoSave: true // Auto-save during workspace analysis
-				});
-
-				outputChannel.appendLine(`✅ Validation config saved: ${validationResult.projectType} detected`);
-
-				if (validationResult.issues.length > 0) {
-					outputChannel.appendLine(`⚠️  Found ${validationResult.issues.length} potential issue(s):`);
-					for (const issue of validationResult.issues) {
-						const severity = issue.severity === 'critical' ? '🔴' : issue.severity === 'warning' ? '🟡' : '🔵';
-						outputChannel.appendLine(`   ${severity} ${issue.type}: ${issue.message}`);
-						if (issue.suggestion) {
-							outputChannel.appendLine(`      💡 ${issue.suggestion}`);
-						}
-					}
-				}
-			} catch (error: any) {
-				outputChannel.appendLine(`⚠️  Validation config generation skipped: ${error.message}`);
-			}
 
 			// Save analysis results
 			const analysisOutput = {

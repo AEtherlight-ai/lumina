@@ -24,32 +24,24 @@ import * as path from 'path';
 import { IPCClient } from './ipc/client';
 import { registerCaptureVoiceCommand } from './commands/captureVoice';
 import { checkAndSetupUserDocumentation } from './firstRunSetup';
-// Enhancement commands now implemented (v0.15.2):
-import { registerCaptureVoiceGlobalCommand } from './commands/captureVoiceGlobal';
-import { registerEnhanceTerminalInputCommand } from './commands/enhanceTerminalInput';
-import { registerAnalyzeSprintCommand } from './commands/analyzeSprint';
-// MID-011: Middleware integration commands
-import { registerCreateSkillCommand } from './commands/createSkill';
-import { registerCreateAgentCommand } from './commands/createAgent';
-import { registerAnalyzeAndPlanCommand } from './commands/analyzeAndPlan';
+// REMOVED - These files don't exist (work-in-progress features):
+// import { registerSimpleVoiceCaptureCommand } from './commands/simpleVoiceCapture';
+// import { registerCaptureVoiceGlobalCommand } from './commands/captureVoiceGlobal';
+// import { registerEnhanceTerminalInputCommand } from './commands/enhanceTerminalInput';
 // import { registerOpenAetherlightTerminalCommand } from './commands/openAetherlightTerminal';
 // import { registerQuickVoiceCommand } from './commands/quickVoice';
 // import { registerLuminaControlStatusBar } from './lumina_status_bar';
 // import { ShellIntegration } from './terminal/shell-integration';
 // import { checkAndSetupUserDocumentation } from './firstRunSetup';
 import { registerVoiceView } from './commands/voicePanel';
-import { registerSprintProgressPanel } from './sprint_progress_panel';
-import { registerAgentCoordinationView } from './agent_coordination_view';
+// TEMPORARILY DISABLED FOR v0.13.1-beta - Phase 4 code has incomplete NAPI bindings
+// import { registerSprintProgressPanel } from './sprint_progress_panel';
+// import { registerAgentCoordinationView } from './agent_coordination_view';
 import { registerStatusBarManager } from './status_bar_manager';
 import { RealtimeSyncManager } from './realtime_sync';
 // TEMPORARILY DISABLED FOR v0.13.1-beta - Phase 4 code has incomplete NAPI bindings
 // import { SprintLoader } from './commands/SprintLoader';
-// TEMPORARILY DISABLED - Missing @aetherlight/analyzer package
-// import { registerAnalyzeWorkspaceCommands } from './commands/analyzeWorkspace';
-import { UpdateChecker } from './services/updateChecker';
-import { SkillExecutor } from './services/SkillExecutor';
-import { WorkflowEnforcement } from './services/WorkflowEnforcement';
-import { SprintSchemaValidator, formatValidationError } from './services/SprintSchemaValidator';
+import { registerAnalyzeWorkspaceCommands } from './commands/analyzeWorkspace';
 import * as fs from 'fs';
 
 /**
@@ -100,9 +92,14 @@ function launchDesktopApp(context: vscode.ExtensionContext): void {
 		}
 
 		// Determine executable name and path based on platform
+		// Check both release and debug builds (prefer release for production)
 		if (platform === 'win32') {
 			executableName = 'lumina-desktop.exe';
-			executablePath = path.join(workspaceRoot, 'products', 'lumina-desktop', 'src-tauri', 'target', 'debug', executableName);
+			const releasePath = path.join(workspaceRoot, 'products', 'lumina-desktop', 'src-tauri', 'target', 'release', executableName);
+			const debugPath = path.join(workspaceRoot, 'products', 'lumina-desktop', 'src-tauri', 'target', 'debug', executableName);
+
+			// Prefer release, fallback to debug
+			executablePath = fs.existsSync(releasePath) ? releasePath : debugPath;
 		} else if (platform === 'darwin') {
 			// macOS: Tauri builds .app bundle
 			executableName = 'Lumina Desktop.app';
@@ -189,72 +186,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	 * PATTERN: Pattern-WORKSPACE-001 (Per-Workspace Setup)
 	 */
 	await checkAndSetupUserDocumentation(context);
-
-	/**
-	 * MID-020: Show Phase 0 welcome message on first activation
-	 *
-	 * DESIGN DECISION: Show welcome modal on first v0.16.0 activation
-	 * WHY: Gap #2 - Users don't know Phase 0 exists or what commands do
-	 *
-	 * REASONING CHAIN:
-	 * 1. Check global state for 'phase0WelcomeShown' flag
-	 * 2. If false → Show welcome modal with Phase 0 overview
-	 * 3. Three buttons: 'Show Me' (opens docs), 'Maybe Later', 'Don't Show Again'
-	 * 4. Set flag = true to prevent showing again (unless user clicked 'Maybe Later')
-	 * 5. Result: Users discover Phase 0 features on first use
-	 *
-	 * PATTERN: Pattern-ONBOARDING-001 (First-Run Experience)
-	 * RELATED: MID-017 (Phase 0 documentation in aetherlight.md)
-	 */
-	const phase0WelcomeShown = context.globalState.get<boolean>('phase0WelcomeShown', false);
-	if (!phase0WelcomeShown) {
-		// Show welcome modal asynchronously (don't block activation)
-		setTimeout(async () => {
-			// Get version dynamically from package.json (fixes v0.15.33 hardcoded version bug)
-			const version = context.extension.packageJSON.version;
-
-			const action = await vscode.window.showInformationMessage(
-				`🎉 Welcome to ÆtherLight v${version}!\n\n` +
-				`✨ New: Phase 0 Middleware\n` +
-				`• Auto-analyze tasks with AI (60-76% token savings)\n` +
-				`• Smart agent assignment (0% errors)\n` +
-				`• TDD enforcement (prevents regressions)\n` +
-				`• Pattern library (neural network for code)\n\n` +
-				`Ready to get started?`,
-				{ modal: true },
-				'Show Me',
-				'Maybe Later',
-				"Don't Show Again"
-			);
-
-			if (action === 'Show Me') {
-				// Open aetherlight.md at Phase 0 section
-				const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-				if (workspaceRoot) {
-					const aetherlightMdPath = path.join(workspaceRoot, '.vscode', 'aetherlight.md');
-					if (fs.existsSync(aetherlightMdPath)) {
-						const doc = await vscode.workspace.openTextDocument(aetherlightMdPath);
-						const editor = await vscode.window.showTextDocument(doc);
-
-						// Find "Phase 0" section and scroll to it
-						const text = doc.getText();
-						const phase0Index = text.indexOf('## 🤖 Phase 0 - Intelligent Middleware System');
-						if (phase0Index !== -1) {
-							const position = doc.positionAt(phase0Index);
-							editor.selection = new vscode.Selection(position, position);
-							editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenter);
-						}
-					}
-				}
-				// Mark as shown (don't show again)
-				context.globalState.update('phase0WelcomeShown', true);
-			} else if (action === "Don't Show Again") {
-				// Permanently dismiss
-				context.globalState.update('phase0WelcomeShown', true);
-			}
-			// If "Maybe Later" or dismissed → don't update flag, show again next time
-		}, 2000); // Wait 2 seconds after activation for better UX
-	}
 
 	/**
 	 * DESIGN DECISION: Setup docs when workspace folders change (user opens new repo)
@@ -568,35 +499,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	});
 	context.subscriptions.push(openVoicePanelCommand);
 
-	// UI-ARCH-005: Register workflow keyboard shortcuts (Ctrl+Shift+1-8)
-	// WHY: Quick access to workflows for power users
-	// Pattern: Pattern-UI-ARCH-001 (Progressive Disclosure - advanced features via shortcuts)
-	const workflowShortcuts = [
-		{ id: 'sprint', key: '1', name: 'Sprint Planning' },
-		{ id: 'analyzer', key: '2', name: 'Code Analyzer' },
-		{ id: 'pattern', key: '3', name: 'Pattern Creation' },
-		{ id: 'skill', key: '4', name: 'Skill Creation' },
-		{ id: 'agent', key: '5', name: 'Agent Creation' },
-		{ id: 'tests', key: '6', name: 'Test Runner' },
-		{ id: 'git', key: '7', name: 'Git Status' },
-		{ id: 'publish', key: '8', name: 'Publishing' }
-	];
-
-	workflowShortcuts.forEach(({ id, key, name }) => {
-		const command = vscode.commands.registerCommand(`aetherlight.workflow.${id}`, async () => {
-			// Open Voice panel
-			await vscode.commands.executeCommand('workbench.view.extension.aetherlight-sidebar');
-
-			// Post message to webview to trigger workflow
-			// The voiceViewProvider will handle the workflow click
-			console.log(`[ÆtherLight] Workflow shortcut triggered: ${name} (Ctrl+Shift+${key})`);
-
-			// Note: The webview will receive this and call handleWorkflowClick(id)
-			// Full integration with WorkflowCheck happens in UI-ARCH-006
-		});
-		context.subscriptions.push(command);
-	});
-
 	/**
 	 * DESIGN DECISION: Register Capture Voice Global command (Shift+` hotkey)
 	 * WHY: Record and type transcription at current cursor position (universal voice typing)
@@ -604,63 +506,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	 * REASONING CHAIN:
 	 * 1. User presses ~ (Shift+`)
 	 * 2. Desktop app records via IPC (native microphone access)
-	 * 3. Transcription chunks typed using VS Code editor API
-	 * 4. Text appears at current cursor position (editor)
+	 * 3. Transcription chunks typed using nut-js keyboard simulation
+	 * 4. Text appears wherever cursor is focused (terminal, editor, any input)
 	 * 5. Result: Universal voice-to-text that works everywhere ✅
 	 *
 	 * PATTERN: Pattern-VOICE-005 (Global Voice Typing)
-	 * RELATED: captureVoiceGlobal.ts, IPC client, desktop app
+	 * RELATED: captureVoiceGlobal.ts, IPC client, nut-js keyboard
 	 */
-	registerCaptureVoiceGlobalCommand(context);
-
-	/**
-	 * DESIGN DECISION: Register Enhance Terminal Input command
-	 * WHY: User can type text and enhance it with project context via button or hotkey
-	 *
-	 * REASONING CHAIN:
-	 * 1. User types natural language request in Voice Panel
-	 * 2. User clicks Enhancement button (lightning bolt) or uses hotkey
-	 * 3. System gathers project context (patterns, files, git status, errors)
-	 * 4. Combines user input + context into enhanced prompt
-	 * 5. Enhanced prompt ready to send to Claude Code
-	 * 6. Result: Rich contextual prompts with minimal effort
-	 *
-	 * PATTERN: Pattern-ENHANCEMENT-001 (Context-Aware Enhancement)
-	 * RELATED: enhanceTerminalInput.ts, voicePanel.ts, PromptEnhancer
-	 */
-	registerEnhanceTerminalInputCommand(context);
-
-	/**
-	 * DESIGN DECISION: Register Analyze Sprint command (MID-009)
-	 * WHY: Users need visibility into sprint confidence and gaps before execution
-	 *
-	 * REASONING CHAIN:
-	 * 1. User clicks "Analyze Sprint" button in Sprint tab
-	 * 2. Load ACTIVE_SPRINT.toml
-	 * 3. Score confidence via SkillOrchestrator
-	 * 4. Show confidence report modal with overall score, task breakdown, gaps
-	 * 5. Provide actions: 'Fill Gaps', 'Regenerate Low Confidence', 'Cancel'
-	 * 6. Result: User can identify and fix low confidence tasks before sprint execution
-	 *
-	 * PATTERN: Pattern-ORCHESTRATION-001 (Smart Skill Chaining)
-	 * PATTERN: Pattern-INCREMENTAL-001 (Smart Gap Filling)
-	 * RELATED: analyzeSprint.ts, SkillOrchestrator, ConfidenceScorer
-	 */
-	registerAnalyzeSprintCommand(context);
-
-	/**
-	 * Register Middleware Commands (MID-011)
-	 *
-	 * DESIGN DECISION: Wizard commands for skill/agent creation + full pipeline orchestration
-	 * WHY: Users need guided workflow to create skills/agents and run analyze-and-plan pipeline
-	 *
-	 * PATTERN: Pattern-TEMPLATE-001 (Template-Based Code Generation)
-	 * PATTERN: Pattern-ORCHESTRATION-001 (Smart Skill Chaining)
-	 * RELATED: MID-006 (Skill Builder), MID-007 (Agent Builder), MID-008 (Skill Orchestrator)
-	 */
-	registerCreateSkillCommand(context);
-	registerCreateAgentCommand(context);
-	registerAnalyzeAndPlanCommand(context);
+	// REMOVED - captureVoiceGlobal.ts doesn't exist (work-in-progress feature)
+	// registerCaptureVoiceGlobalCommand(context);
 
 	/**
 	 * OLD APPROACH: IPC-based voice capture (Ctrl+Shift+V hotkey)
@@ -684,7 +538,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	 * PATTERN: Pattern-UI-001 (Real-Time TreeView Dashboard)
 	 * RELATED: AgentCoordinationView (UI-002), StatusBarManager (UI-003)
 	 */
-	const sprintProgressProvider = registerSprintProgressPanel(context);
+	// TEMPORARILY DISABLED FOR v0.13.1-beta - Phase 4 code has incomplete NAPI bindings
+	// const sprintProgressProvider = registerSprintProgressPanel(context);
 	// Providers are already registered in context.subscriptions by their register functions
 
 	/**
@@ -741,7 +596,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	 * PATTERN: Pattern-UI-002 (Gantt Chart Webview)
 	 * RELATED: SprintProgressPanel (UI-001), StatusBarManager (UI-003)
 	 */
-	const agentCoordinationProvider = registerAgentCoordinationView(context);
+	// TEMPORARILY DISABLED FOR v0.13.1-beta - Phase 4 code has incomplete NAPI bindings
+	// const agentCoordinationProvider = registerAgentCoordinationView(context);
 
 	/**
 	 * DESIGN DECISION: Register Status Bar Manager (sprint status indicator)
@@ -814,20 +670,17 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	 * PERFORMANCE: <10ms hook overhead, <50ms event broadcast
 	 *
 	 * NOTE: Real-time sync is optional - only initializes if enabled in settings
-	 *
-	 * TEMPORARILY DISABLED v0.15.25: WebSocket code has Node.js compatibility issues
-	 * TODO: Fix WebSocket to use 'ws' package properly instead of browser WebSocket API
 	 */
-	// try {
-	// 	const realtimeSyncManager = await RealtimeSyncManager.initialize(context);
-	// 	context.subscriptions.push({
-	// 		dispose: () => realtimeSyncManager.dispose()
-	// 	});
-	// 	console.log('Real-time sync manager initialized');
-	// } catch (error) {
-	// 	console.log('Real-time sync disabled or failed to initialize:', error);
-	// 	// Continue without real-time sync - not a critical failure
-	// }
+	try {
+		const realtimeSyncManager = await RealtimeSyncManager.initialize(context);
+		context.subscriptions.push({
+			dispose: () => realtimeSyncManager.dispose()
+		});
+		console.log('Real-time sync manager initialized');
+	} catch (error) {
+		console.log('Real-time sync disabled or failed to initialize:', error);
+		// Continue without real-time sync - not a critical failure
+	}
 
 	/**
 	 * DESIGN DECISION: Register workspace analyzer commands (integrates @aetherlight/analyzer)
@@ -844,240 +697,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	 * PATTERN: Pattern-ANALYZER-INTEGRATION-001 (Hybrid Bundling)
 	 * RELATED: @aetherlight/analyzer package (packages/aetherlight-analyzer)
 	 */
-	// TEMPORARILY DISABLED - Missing @aetherlight/analyzer package
-	// registerAnalyzeWorkspaceCommands(context);
-
-	/**
-	 * DESIGN DECISION: Initialize Update Checker on activation
-	 * WHY: Notify users when new versions are available (respect auto-update preference)
-	 *
-	 * REASONING CHAIN:
-	 * 1. Check npm registry for latest version on activation (after 10s delay)
-	 * 2. Compare with current extension version (from package.json)
-	 * 3. If newer version exists → Show notification with update options
-	 * 4. User can update now, view changes, skip version, or auto-update
-	 * 5. Check every 12 hours in background (configurable)
-	 * 6. Result: Users stay updated without manual checking
-	 *
-	 * PATTERN: Pattern-UPDATE-001 (Auto-Update Detection)
-	 */
-	const updateChecker = new UpdateChecker(context);
-	updateChecker.start();
-
-	// Register manual update check command
-	context.subscriptions.push(
-		vscode.commands.registerCommand('aetherlight.checkForUpdates', () => {
-			updateChecker.checkNow();
-		})
-	);
-
-	// Clean up update checker on deactivation
-	context.subscriptions.push({
-		dispose: () => updateChecker.stop()
-	});
-
-	/**
-	 * Initialize Context Sync Manager (SYNC-001)
-	 *
-	 * DESIGN DECISION: Auto-sync context files (CLAUDE.md, patterns, validators) on version change
-	 * WHY: Existing users stuck with old patterns/rules from initial install
-	 *
-	 * REASONING CHAIN:
-	 * 1. Extension updates → new CLAUDE.md rules, patterns, validators added
-	 * 2. New installs get latest context (via initialize skill)
-	 * 3. Existing installs get NOTHING → users frozen at old version
-	 * 4. ContextSyncManager detects version mismatch → shows update preview → user approves → files synced
-	 * 5. Result: All users stay current with latest patterns/rules/validators
-	 *
-	 * PATTERN: Pattern-SYNC-001 (Context Synchronization)
-	 * TASK: SYNC-001
-	 */
-	const { ContextSyncManager } = require('./services/ContextSyncManager');
-	const contextSyncManager = new ContextSyncManager();
-
-	// Status bar item for context updates
-	const contextUpdateStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-	contextUpdateStatusBar.command = 'aetherlight.updateContext';
-	context.subscriptions.push(contextUpdateStatusBar);
-
-	// Check for context updates on activation
-	(async () => {
-		try {
-			const updatePreview = await contextSyncManager.checkForUpdates();
-
-			if (updatePreview.hasUpdates) {
-				// Show status bar indicator
-				contextUpdateStatusBar.text = `$(sync) ÆtherLight Context Update: v${updatePreview.newVersion}`;
-				contextUpdateStatusBar.tooltip = `Context update available (${updatePreview.filesToUpdate.length} files)`;
-				contextUpdateStatusBar.show();
-
-				console.log('[ÆtherLight] Context update available:', updatePreview);
-			}
-		} catch (error) {
-			console.error('[ÆtherLight] Context sync check failed:', error);
-		}
-	})();
-
-	// Register updateContext command
-	context.subscriptions.push(
-		vscode.commands.registerCommand('aetherlight.updateContext', async () => {
-			try {
-				const updatePreview = await contextSyncManager.checkForUpdates();
-
-				if (!updatePreview.hasUpdates) {
-					vscode.window.showInformationMessage('✅ Context is up to date');
-					return;
-				}
-
-				// Show update preview with file list
-				const fileList = updatePreview.filesToUpdate
-					.map((f: any) => `  ${f.status === 'added' ? '➕' : '📝'} ${f.path}`)
-					.join('\n');
-
-				const conflictWarning = updatePreview.conflicts.length > 0
-					? `\n\n⚠️  ${updatePreview.conflicts.length} conflict(s) detected - files modified by user`
-					: '';
-
-				const message = `Context Update Available: v${updatePreview.currentVersion} → v${updatePreview.newVersion}\n\nFiles to update (${updatePreview.filesToUpdate.length}):\n${fileList}${conflictWarning}\n\nApply updates?`;
-
-				const result = await vscode.window.showInformationMessage(
-					message,
-					{ modal: true },
-					'Apply Update',
-					'Show Details',
-					'Cancel'
-				);
-
-				if (result === 'Apply Update') {
-					await vscode.window.withProgress({
-						location: vscode.ProgressLocation.Notification,
-						title: 'Updating ÆtherLight context...',
-						cancellable: false
-					}, async (progress) => {
-						progress.report({ increment: 0, message: 'Creating backup...' });
-
-						await contextSyncManager.applyUpdates(updatePreview);
-
-						progress.report({ increment: 100, message: 'Complete!' });
-					});
-
-					// Hide status bar indicator
-					contextUpdateStatusBar.hide();
-
-					vscode.window.showInformationMessage(
-						`✅ Context updated to v${updatePreview.newVersion}\n\n${updatePreview.filesToUpdate.length} files updated successfully.`
-					);
-
-				} else if (result === 'Show Details') {
-					// TODO: Open diff view for each file
-					vscode.window.showInformationMessage('Diff view coming soon - for now, review changes manually');
-				}
-
-			} catch (error) {
-				vscode.window.showErrorMessage(`Context sync failed: ${error}`);
-				console.error('[ÆtherLight] Context sync error:', error);
-			}
-		})
-	);
-
-	/**
-	 * Initialize Skill Executor for running skills
-	 *
-	 * DESIGN DECISION: Skills are markdown-defined workflows that need execution
-	 * WHY: Bridges gap between .claude/skills/ definitions and VS Code commands
-	 *
-	 * REASONING CHAIN:
-	 * 1. Skills defined in .claude/skills/[skill-name]/SKILL.md
-	 * 2. SkillExecutor reads and executes them
-	 * 3. Each skill becomes a VS Code command
-	 * 4. Result: /initialize, /sprint-plan, /code-analyze work in VS Code
-	 *
-	 * PATTERN: Pattern-SKILLS-001 (Skill Execution Bridge)
-	 */
-	const skillExecutor = new SkillExecutor();
-	await skillExecutor.discoverSkills();
-	skillExecutor.registerCommands(context);
-	console.log('[ÆtherLight] Skill executor initialized');
-
-	/**
-	 * Initialize Workflow Enforcement (MID-026)
-	 *
-	 * DESIGN DECISION: Proactive workflow guidance for manual task creation
-	 * WHY: Users don't know about analyzeAndPlan when manually creating tasks
-	 *
-	 * REASONING CHAIN:
-	 * 1. Watch ACTIVE_SPRINT.toml for manual edits
-	 * 2. Detect when 3+ tasks added manually
-	 * 3. Suggest using analyzeAndPlan instead
-	 * 4. Result: Users learn about middleware at the perfect moment
-	 *
-	 * PATTERN: Pattern-WORKFLOW-INTEGRATION-001
-	 */
-	const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-	if (workspaceRoot) {
-		const workflowEnforcement = new WorkflowEnforcement(context);
-		const watchers = workflowEnforcement.initialize(workspaceRoot);
-		watchers.forEach(watcher => context.subscriptions.push(watcher));
-		console.log('[ÆtherLight] Workflow enforcement initialized (file watchers: manual task detection + analysis suggestion)');
-	}
-
-	/**
-	 * VAL-001: Sprint TOML Schema Validator
-	 *
-	 * DESIGN DECISION: Real-time validation on ACTIVE_SPRINT.toml changes
-	 * WHY: Prevent Claude from inventing unsupported formats that break sprint panel
-	 *
-	 * REASONING CHAIN:
-	 * 1. FileSystemWatcher monitors ACTIVE_SPRINT.toml file
-	 * 2. On file change validate TOML structure
-	 * 3. If invalid show error notification with fix suggestions
-	 * 4. If valid allow SprintLoader to parse
-	 * 5. Result: Catch format errors immediately, prevent broken sprint panel
-	 *
-	 * PATTERN: Pattern-VALIDATION-001 (Comprehensive System Validation)
-	 * TRIGGERED BY: 2025-11-03 bug - Claude used nested format, breaking panel
-	 */
-	const sprintValidator = new SprintSchemaValidator();
-	const sprintWatcher = vscode.workspace.createFileSystemWatcher('**/ACTIVE_SPRINT.toml');
-
-	sprintWatcher.onDidChange(async (uri) => {
-		console.log('[ÆtherLight] ACTIVE_SPRINT.toml changed, validating schema...');
-
-		const result = await sprintValidator.validateFile(uri.fsPath);
-
-		if (!result.valid) {
-			const errorMessage = formatValidationError(result);
-			console.error('[ÆtherLight] Sprint schema validation failed:', errorMessage);
-
-			// Show error notification with fix suggestions
-			const action = await vscode.window.showErrorMessage(
-				'⚠️ ACTIVE_SPRINT.toml has invalid format',
-				'View Details',
-				'Ignore'
-			);
-
-			if (action === 'View Details') {
-				// Show detailed error in output channel
-				const outputChannel = vscode.window.createOutputChannel('ÆtherLight Validation');
-				outputChannel.clear();
-				outputChannel.appendLine(errorMessage);
-				outputChannel.show();
-			}
-		} else {
-			console.log('[ÆtherLight] Sprint schema validation passed ✅');
-		}
-	});
-
-	sprintWatcher.onDidCreate(async (uri) => {
-		console.log('[ÆtherLight] ACTIVE_SPRINT.toml created, validating schema...');
-		const result = await sprintValidator.validateFile(uri.fsPath);
-		if (!result.valid) {
-			vscode.window.showWarningMessage('⚠️ New ACTIVE_SPRINT.toml has invalid format. Check output for details.');
-		}
-	});
-
-	context.subscriptions.push(sprintWatcher);
-	console.log('[ÆtherLight] Sprint schema validator initialized (real-time validation on file save)');
+	registerAnalyzeWorkspaceCommands(context);
 
 	console.log('Lumina extension activated successfully');
 }
