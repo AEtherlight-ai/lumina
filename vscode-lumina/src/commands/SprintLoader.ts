@@ -85,6 +85,7 @@ export class SprintLoader {
     private engineers: Engineer[] = [];
     private teamSize: number = 1;
     private currentEngineer: string = '';
+    private sprintFilePath: string | null = null;  // BUG FIX: Store actual sprint file path for writes
 
     constructor(private readonly context: vscode.ExtensionContext) {}
 
@@ -204,6 +205,9 @@ export class SprintLoader {
                     `Configure location in Settings: aetherlight.sprint.filePath`
                 );
             }
+
+            // BUG FIX: Store the actual sprint file path for use in updateTaskStatus
+            this.sprintFilePath = sprintPath;
 
             // 3. Read and parse TOML file
             const tomlContent = fs.readFileSync(sprintPath, 'utf-8');
@@ -420,13 +424,13 @@ export class SprintLoader {
      */
     public async updateTaskStatus(taskId: string, newStatus: TaskStatus): Promise<void> {
         try {
-            const workspaceRoot = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
-            if (!workspaceRoot) {
-                throw new Error('No workspace open');
+            // BUG FIX: Use actual sprint file path instead of hardcoded 'sprints/ACTIVE_SPRINT.toml'
+            // WHY: Sprint file may be in internal/sprints/ or user-configured location
+            if (!this.sprintFilePath) {
+                throw new Error('Sprint file not loaded yet - call loadSprint() first');
             }
 
-            const sprintPath = path.join(workspaceRoot, 'sprints', 'ACTIVE_SPRINT.toml');
-            const tomlContent = fs.readFileSync(sprintPath, 'utf-8');
+            const tomlContent = fs.readFileSync(this.sprintFilePath, 'utf-8');
             const data = toml.parse(tomlContent) as any;
 
             // Find task in TOML
@@ -444,7 +448,7 @@ export class SprintLoader {
 
             // Write back to TOML
             const updatedToml = toml.stringify(data as toml.JsonMap);
-            fs.writeFileSync(sprintPath, updatedToml, 'utf-8');
+            fs.writeFileSync(this.sprintFilePath, updatedToml, 'utf-8');
 
             console.log(`[ÆtherLight] Updated task ${taskId} status: ${newStatus}`);
 
