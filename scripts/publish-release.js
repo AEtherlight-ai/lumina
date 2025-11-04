@@ -91,12 +91,17 @@ async function confirmAction(question) {
 async function main() {
   // Parse arguments
   const versionType = process.argv[2];
+  const autoYes = process.argv.includes('--yes') || process.argv.includes('-y');
+
   if (!['patch', 'minor', 'major'].includes(versionType)) {
-    log('Usage: node scripts/publish-release.js [patch|minor|major]', 'red');
+    log('Usage: node scripts/publish-release.js [patch|minor|major] [--yes]', 'red');
     process.exit(1);
   }
 
   log(`\n🚀 Starting ÆtherLight Release Pipeline (${versionType} bump)\n`, 'cyan');
+  if (autoYes) {
+    log('⚡ Auto-confirm mode enabled (--yes flag)\n', 'cyan');
+  }
 
   // Step 1: Verify npm authentication
   log('\n📋 Step 1: Verify npm authentication', 'yellow');
@@ -126,9 +131,12 @@ async function main() {
     log('  5. Pull latest: git pull origin master', 'yellow');
     log('  6. Run publish script from clean master', 'yellow');
 
-    const continueFromBranch = await confirmAction('\nContinue from feature branch? (not recommended) (yes/no): ');
+    const continueFromBranch = autoYes || await confirmAction('\nContinue from feature branch? (not recommended) (yes/no): ');
     if (!continueFromBranch) {
       process.exit(1);
+    }
+    if (autoYes) {
+      log('✓ Auto-confirmed (--yes flag)', 'green');
     }
     log(`⚠ Continuing from ${currentBranch} (should be master/main for releases)`, 'yellow');
   }
@@ -276,10 +284,13 @@ async function main() {
   log(`  4. Create GitHub release with VSIX`, 'yellow');
   log(`  5. Publish to npm registry (last)`, 'yellow');
 
-  const confirmed = await confirmAction('\nContinue? (yes/no): ');
+  const confirmed = autoYes || await confirmAction('\nContinue? (yes/no): ');
   if (!confirmed) {
     log('\n✗ Publish cancelled', 'yellow');
     process.exit(0);
+  }
+  if (autoYes) {
+    log('\n✓ Auto-confirmed (--yes flag)', 'green');
   }
 
   // Step 9: Commit and tag
