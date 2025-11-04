@@ -163,7 +163,7 @@ suite('Performance Benchmark Tests', () => {
 
 			// Benchmark
 			const avgTime = await benchmarkAsync(async () => {
-				await errorHandler.handle(new Error('Test error'), { context: 'test' });
+				await errorHandler.handle(async () => { throw new Error('Test error'); }, { operationName: 'test', context: { test: true } });
 			}, 1000);
 
 			// Assert
@@ -177,8 +177,9 @@ suite('Performance Benchmark Tests', () => {
 
 			// Benchmark
 			const avgTime = await benchmarkAsync(async () => {
-				await errorHandler.handle(new Error('Test error'), {
-					context: 'test',
+				await errorHandler.handle(async () => { throw new Error('Test error'); }, {
+					operationName: 'test',
+					context: { test: true },
 					fallback: () => 'fallback_value'
 				});
 			}, 1000);
@@ -191,7 +192,8 @@ suite('Performance Benchmark Tests', () => {
 	suite('CacheManager Performance', () => {
 		test('should get cached value in <0.1ms (cache hit)', () => {
 			// Setup
-			const cache = new CacheManager();
+			const logger = MiddlewareLogger.getInstance();
+			const cache = new CacheManager(logger);
 			cache.set('test_key', 'test_value');
 
 			// Benchmark
@@ -205,7 +207,8 @@ suite('Performance Benchmark Tests', () => {
 
 		test('should get null for missing value in <1ms (cache miss)', () => {
 			// Setup
-			const cache = new CacheManager();
+			const logger = MiddlewareLogger.getInstance();
+			const cache = new CacheManager(logger);
 
 			// Benchmark
 			const avgTime = benchmark(() => {
@@ -218,7 +221,8 @@ suite('Performance Benchmark Tests', () => {
 
 		test('should set value in <1ms', () => {
 			// Setup
-			const cache = new CacheManager();
+			const logger = MiddlewareLogger.getInstance();
+			const cache = new CacheManager(logger);
 
 			// Benchmark
 			let counter = 0;
@@ -232,7 +236,8 @@ suite('Performance Benchmark Tests', () => {
 
 		test('should invalidate in <1ms', () => {
 			// Setup
-			const cache = new CacheManager();
+			const logger = MiddlewareLogger.getInstance();
+			const cache = new CacheManager(logger);
 			for (let i = 0; i < 100; i++) {
 				cache.set('key_' + i, 'value_' + i);
 			}
@@ -249,7 +254,8 @@ suite('Performance Benchmark Tests', () => {
 
 		test('should get statistics in <1ms', () => {
 			// Setup
-			const cache = new CacheManager();
+			const logger = MiddlewareLogger.getInstance();
+			const cache = new CacheManager(logger);
 			cache.set('test', 'value');
 			cache.get('test'); // Hit
 			cache.get('missing'); // Miss
@@ -333,7 +339,8 @@ suite('Performance Benchmark Tests', () => {
 	suite('ConfigurationManager Performance', () => {
 		test('should get configuration in <1ms', () => {
 			// Setup
-			const config = new ConfigurationManager();
+			const logger = MiddlewareLogger.getInstance();
+			const config = new ConfigurationManager(logger);
 
 			// Benchmark
 			const avgTime = benchmark(() => {
@@ -346,11 +353,12 @@ suite('Performance Benchmark Tests', () => {
 
 		test('should set configuration in <100ms', () => {
 			// Setup
-			const config = new ConfigurationManager();
+			const logger = MiddlewareLogger.getInstance();
+			const config = new ConfigurationManager(logger);
 
 			// Benchmark (fewer iterations due to validation overhead)
 			const avgTime = benchmark(() => {
-				config.set('api', { timeout: 10000 });
+				config.set('api', { whisperEndpoint: 'https://test.example.com', timeout: 10000, maxRetries: 3 });
 			}, 100);
 
 			// Assert
@@ -453,8 +461,8 @@ suite('Performance Benchmark Tests', () => {
 			// Setup - Full middleware stack
 			const logger = MiddlewareLogger.getInstance();
 			const errorHandler = new ErrorHandler(logger);
-			const config = new ConfigurationManager();
-			const cache = new CacheManager();
+			const config = new ConfigurationManager(logger);
+			const cache = new CacheManager(logger);
 			const eventBus = new EventBus(logger);
 			const healthMonitor = new HealthMonitor(registry, logger, eventBus);
 
@@ -511,7 +519,7 @@ suite('Performance Benchmark Tests', () => {
 		test('should handle 100 concurrent requests in <5s', async () => {
 			// Setup
 			const logger = MiddlewareLogger.getInstance();
-			const cache = new CacheManager();
+			const cache = new CacheManager(logger);
 			const eventBus = new EventBus(logger);
 
 			registry.register('logger', () => logger);
@@ -547,7 +555,8 @@ suite('Performance Benchmark Tests', () => {
 
 		test('should maintain <1ms response time under load', async () => {
 			// Setup
-			const cache = new CacheManager();
+			const logger = MiddlewareLogger.getInstance();
+			const cache = new CacheManager(logger);
 
 			// Pre-populate cache with 1000 entries
 			for (let i = 0; i < 1000; i++) {

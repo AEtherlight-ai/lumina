@@ -47,19 +47,17 @@ export interface SprintTask {
     required_expertise: string[];
     performance_target?: string;
     patterns?: string[];
-    pattern_context?: string;        // Pattern descriptions (inline, not just IDs)
     deliverables?: string[];
     completed_date?: string;
     files_to_create?: string[];
     files_to_modify?: string[];
     validation_criteria?: string[];
-
-    // Chain of Thought fields (Pattern-SPRINT-001, ENORM-010)
-    why?: string;                    // Business justification - why this task matters
-    context?: string;                // Strategic alignment & documentation links
-    reasoning_chain?: string[];      // Step-by-step logical progression
-    success_impact?: string;         // Concrete outcomes when task completed
-    notes?: string;                  // Additional context, warnings, or meta-information
+    // Enhanced prompt fields (used by SprintRenderer)
+    why?: string;
+    context?: string;
+    reasoning_chain?: string[];
+    pattern_context?: string;
+    success_impact?: string;
 }
 
 export interface SprintMetadata {
@@ -85,104 +83,25 @@ export class SprintLoader {
     private engineers: Engineer[] = [];
     private teamSize: number = 1;
     private currentEngineer: string = '';
-    private sprintFilePath: string | null = null;  // BUG FIX: Store actual sprint file path for writes
+    private lastErrorShown: string = ''; // Prevent error spam
+    private lastErrorTime: number = 0;
+    private currentSprintPath: string | null = null; // Track resolved sprint file path
 
     constructor(private readonly context: vscode.ExtensionContext) {}
 
     /**
-     * Find sprint file by checking multiple locations
-     *
-     * DESIGN DECISION: Check user config → internal/ → sprints/ → root
-     * WHY: Support both ÆtherLight development and user projects
-     */
-    private async findSprintFile(workspaceRoot: string): Promise<string | null> {
-        // Check user-configured path first
-        const config = vscode.workspace.getConfiguration('aetherlight');
-        const userPath = config.get<string>('sprint.filePath');
-        if (userPath) {
-            const fullPath = path.join(workspaceRoot, userPath);
-            if (fs.existsSync(fullPath)) {
-                return fullPath;
-            }
-        }
-
-        // Check common locations
-        const locations = [
-            'internal/sprints/ACTIVE_SPRINT.toml',  // ÆtherLight development
-            'sprints/ACTIVE_SPRINT.toml',           // User projects
-            'ACTIVE_SPRINT.toml'                    // Root level
-        ];
-
-        for (const loc of locations) {
-            const fullPath = path.join(workspaceRoot, loc);
-            if (fs.existsSync(fullPath)) {
-                // Save this path for future use
-                await config.update('sprint.filePath', loc, vscode.ConfigurationTarget.Workspace);
-                return fullPath;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Get the relative path to the sprint file (for display in UI)
-     */
-    public getSprintFilePath(): string {
-        const config = vscode.workspace.getConfiguration('aetherlight');
-        return config.get<string>('sprint.filePath') || 'sprints/ACTIVE_SPRINT.toml';
-    }
-
-    /**
-     * Set the sprint file path (for switching between sprint files)
-     */
-    public async setSprintFilePath(relativePath: string): Promise<void> {
-        const config = vscode.workspace.getConfiguration('aetherlight');
-        await config.update('sprint.filePath', relativePath, vscode.ConfigurationTarget.Workspace);
-    }
-
-    /**
-     * Discover all ACTIVE_SPRINT.toml files in workspace
-     */
-    public async discoverAllSprintFiles(workspaceRoot: string): Promise<string[]> {
-        const glob = require('glob');
-        const sprintFiles: string[] = [];
-
-        // Search for all ACTIVE_SPRINT.toml files
-        const pattern = '**/ACTIVE_SPRINT.toml';
-        const options = {
-            cwd: workspaceRoot,
-            ignore: ['**/node_modules/**', '**/.git/**'],
-            nodir: true
-        };
-
-        return new Promise((resolve, reject) => {
-            glob(pattern, options, (err: Error | null, files: string[]) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve(files);
-                }
-            });
-        });
-    }
-
-    /**
      * Load sprint plan from TOML file
      *
-     * DESIGN DECISION: Check multiple locations for ACTIVE_SPRINT.toml + allow user configuration
-     * WHY: Support both internal/ (ÆtherLight development) and root-level sprints/ (user projects)
+     * DESIGN DECISION: Read from sprints/ACTIVE_SPRINT.toml
+     * WHY: Single source of truth for autonomous agents + continuous sprint loading
      *
      * REASONING CHAIN:
-     * 1. Check user-configured path first (workspaceState: aetherlight.sprint.path)
-     * 2. Fallback: Check internal/sprints/ACTIVE_SPRINT.toml (ÆtherLight dev)
-     * 3. Fallback: Check sprints/ACTIVE_SPRINT.toml (user projects)
-     * 4. Fallback: Check ACTIVE_SPRINT.toml (root level)
-     * 5. Parse TOML → extract metadata + tasks (< 5ms)
-     * 6. Check if sprint completed (100% tasks done)
-     * 7. If completed → Archive current → Promote next from backlog
-     * 8. FileSystemWatcher detects change → UI auto-refreshes
-     * 9. Result: Flexible file location, continuous sprint execution
+     * 1. Check if sprints/ACTIVE_SPRINT.toml exists
+     * 2. Parse TOML → extract metadata + tasks (< 5ms)
+     * 3. Check if sprint completed (100% tasks done)
+     * 4. If completed → Archive current → Promote next from backlog
+     * 5. FileSystemWatcher detects change → UI auto-refreshes
+     * 6. Result: Continuous sprint execution, zero manual intervention
      */
     public async loadSprint(): Promise<{ tasks: SprintTask[], metadata: SprintMetadata | null }> {
         try {
@@ -192,26 +111,61 @@ export class SprintLoader {
                 throw new Error('No workspace open - cannot load sprint plan');
             }
 
-            // 2. Find sprint file (check multiple locations)
-            const sprintPath = await this.findSprintFile(workspaceRoot);
+            // 2. Resolve sprint file path with fallback logic
+            const sprintPath = this.resolveSprintFilePath(workspaceRoot);
             if (!sprintPath) {
-                const locations = [
-                    'internal/sprints/ACTIVE_SPRINT.toml',
-                    'sprints/ACTIVE_SPRINT.toml',
-                    'ACTIVE_SPRINT.toml'
-                ];
-                throw new Error(
-                    `Sprint file not found. Checked:\n${locations.map(l => `  - ${l}`).join('\n')}\n\n` +
-                    `Configure location in Settings: aetherlight.sprint.filePath`
-                );
+                // Silently return empty state - sprint features are optional
+                console.log('[ÆtherLight] No sprint file found - sprint features disabled');
+                return { tasks: [], metadata: null };
             }
 
-            // BUG FIX: Store the actual sprint file path for use in updateTaskStatus
-            this.sprintFilePath = sprintPath;
+            // Store the resolved path for sprint promotion
+            this.currentSprintPath = sprintPath;
+
+            console.log(`[ÆtherLight] Loading sprint from: ${sprintPath}`);
 
             // 3. Read and parse TOML file
             const tomlContent = fs.readFileSync(sprintPath, 'utf-8');
-            const data = toml.parse(tomlContent) as any;
+
+            // Try to parse TOML - if it fails, help user fix the syntax error
+            let data: any;
+            try {
+                data = toml.parse(tomlContent) as any;
+            } catch (parseError) {
+                // IMPORTANT: Don't delete the file! User's work is in there.
+                // Show helpful error message and offer to open the file
+                const errorMsg = parseError instanceof Error ? parseError.message : 'Unknown parse error';
+                console.error('[ÆtherLight] TOML parsing failed:', errorMsg);
+
+                // Throttle error notifications (max once per 30 seconds for same error)
+                const now = Date.now();
+                const shouldShowError = (
+                    this.lastErrorShown !== errorMsg ||
+                    (now - this.lastErrorTime) > 30000
+                );
+
+                if (shouldShowError) {
+                    this.lastErrorShown = errorMsg;
+                    this.lastErrorTime = now;
+
+                    vscode.window.showErrorMessage(
+                        `Sprint file has syntax error: ${errorMsg}`,
+                        'Open Sprint File',
+                        'View Docs'
+                    ).then(selection => {
+                        if (selection === 'Open Sprint File') {
+                            vscode.workspace.openTextDocument(sprintPath).then(doc => {
+                                vscode.window.showTextDocument(doc);
+                            });
+                        } else if (selection === 'View Docs') {
+                            vscode.env.openExternal(vscode.Uri.parse('https://toml.io/en/v1.0.0'));
+                        }
+                    });
+                }
+
+                // Return empty state but don't delete the file
+                return { tasks: [], metadata: null };
+            }
 
             // 4. Extract metadata
             this.metadata = this.parseTomlMetadata(data.meta);
@@ -251,8 +205,150 @@ export class SprintLoader {
             return { tasks: this.tasks, metadata: this.metadata };
         } catch (error) {
             const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-            vscode.window.showErrorMessage(`Failed to load sprint plan: ${errorMsg}`);
+            // Log error but don't show modal notification (prevents spam)
+            console.error('[ÆtherLight] Failed to load sprint plan:', errorMsg);
             return { tasks: [], metadata: null };
+        }
+    }
+
+    /**
+     * Resolve sprint file path with auto-creation
+     *
+     * DESIGN DECISION: Auto-create sprint file if missing (never fail)
+     * WHY: Better UX - extension works out of the box with template sprint
+     *
+     * DEV MODE (aetherlight.devMode = true):
+     * 1. User-configured path from settings (aetherlight.sprintFile)
+     * 2. internal/sprints/ACTIVE_SPRINT.toml (dev - not in git)
+     * 3. sprints/ACTIVE_SPRINT.toml (fallback)
+     * 4. Auto-create internal/sprints/ACTIVE_SPRINT.toml if none exist
+     *
+     * PRODUCTION MODE (aetherlight.devMode = false):
+     * 1. User-configured path from settings (aetherlight.sprintFile)
+     * 2. sprints/ACTIVE_SPRINT.toml ONLY (simulates production user experience)
+     * 3. Auto-create sprints/ACTIVE_SPRINT.toml if missing
+     *
+     * This enables dogfooding: develop AetherLight using AetherLight sprints,
+     * while testing how production users will experience the extension.
+     */
+    private resolveSprintFilePath(workspaceRoot: string): string | null {
+        const config = vscode.workspace.getConfiguration('aetherlight');
+        const devMode = config.get<boolean>('devMode', false);
+
+        // 1. Always check user-configured path first
+        const configuredPath = config.get<string>('sprintFile');
+        if (configuredPath) {
+            const fullPath = path.join(workspaceRoot, configuredPath);
+            if (fs.existsSync(fullPath)) {
+                console.log(`[ÆtherLight] Using configured sprint file: ${configuredPath}`);
+                return fullPath;
+            }
+            // Create configured path if it doesn't exist
+            console.log(`[ÆtherLight] Configured sprint file not found, creating: ${configuredPath}`);
+            this.createDefaultSprintFile(fullPath);
+            return fullPath;
+        }
+
+        if (devMode) {
+            // DEV MODE: Check internal/ first, then fall back to sprints/
+            const internalPath = path.join(workspaceRoot, 'internal', 'sprints', 'ACTIVE_SPRINT.toml');
+            if (fs.existsSync(internalPath)) {
+                console.log('[ÆtherLight] DEV MODE: Using internal sprint file');
+                return internalPath;
+            }
+
+            const productionPath = path.join(workspaceRoot, 'sprints', 'ACTIVE_SPRINT.toml');
+            if (fs.existsSync(productionPath)) {
+                console.log('[ÆtherLight] DEV MODE: Falling back to production sprint file');
+                return productionPath;
+            }
+
+            // Auto-create internal sprint file in dev mode
+            console.log('[ÆtherLight] DEV MODE: No sprint file found, creating internal sprint');
+            this.createDefaultSprintFile(internalPath);
+            return internalPath;
+        } else {
+            // PRODUCTION MODE: Only check sprints/ (simulates production user)
+            const productionPath = path.join(workspaceRoot, 'sprints', 'ACTIVE_SPRINT.toml');
+            if (fs.existsSync(productionPath)) {
+                console.log('[ÆtherLight] PRODUCTION MODE: Using production sprint file');
+                return productionPath;
+            }
+
+            // Auto-create production sprint file
+            console.log('[ÆtherLight] PRODUCTION MODE: No sprint file found, creating template');
+            this.createDefaultSprintFile(productionPath);
+            return productionPath;
+        }
+    }
+
+    /**
+     * Create default sprint file with template content
+     *
+     * DESIGN DECISION: Create blank but valid TOML file
+     * WHY: Extension works immediately, users can customize later
+     */
+    private createDefaultSprintFile(filePath: string): void {
+        try {
+            // Ensure directory exists
+            const dir = path.dirname(filePath);
+            if (!fs.existsSync(dir)) {
+                fs.mkdirSync(dir, { recursive: true });
+            }
+
+            // Template sprint content
+            const template = `# ÆtherLight Sprint Plan
+# Generated automatically by ÆtherLight extension
+# Customize this file to manage your project sprints
+
+[meta]
+sprint_name = "My First Sprint"
+version = "1.0"
+total_tasks = 1
+estimated_weeks = "1"
+priority = "medium"
+status = "active"
+created = "${new Date().toISOString().split('T')[0]}"
+phase = "Planning"
+
+# Example task - customize or delete this
+[tasks.TASK-001]
+id = "TASK-001"
+name = "Get started with ÆtherLight"
+phase = "Current Sprint"
+description = "Learn how to use ÆtherLight sprint features"
+estimated_time = "30 minutes"
+estimated_lines = 0
+dependencies = []
+status = "pending"
+agent = "general-purpose"
+assigned_engineer = "engineer_1"
+required_expertise = []
+
+# Add more tasks as needed:
+# [tasks.TASK-002]
+# id = "TASK-002"
+# name = "Your task name"
+# ...
+`;
+
+            fs.writeFileSync(filePath, template, 'utf-8');
+            console.log(`[ÆtherLight] Created template sprint file: ${filePath}`);
+
+            // Show notification to user
+            vscode.window.showInformationMessage(
+                `ÆtherLight: Created template sprint file at ${path.basename(path.dirname(filePath))}/${path.basename(filePath)}`,
+                'Open Sprint File'
+            ).then(selection => {
+                if (selection === 'Open Sprint File') {
+                    vscode.workspace.openTextDocument(filePath).then(doc => {
+                        vscode.window.showTextDocument(doc);
+                    });
+                }
+            });
+        } catch (error) {
+            console.error('[ÆtherLight] Failed to create default sprint file:', error);
+            // Don't throw - just log the error and continue
         }
     }
 
@@ -313,19 +409,11 @@ export class SprintLoader {
                 required_expertise: task.required_expertise || [],
                 performance_target: task.performance_target,
                 patterns: task.patterns,
-                pattern_context: task.pattern_context,  // Load pattern descriptions
                 deliverables: task.deliverables,
                 completed_date: task.completed_date,
                 files_to_create: task.files_to_create,
                 files_to_modify: task.files_to_modify,
-                validation_criteria: task.validation_criteria,
-
-                // Chain of Thought fields (Pattern-SPRINT-001, ENORM-010)
-                why: task.why,
-                context: task.context,
-                reasoning_chain: task.reasoning_chain,
-                success_impact: task.success_impact,
-                notes: task.notes
+                validation_criteria: task.validation_criteria
             });
         }
 
@@ -366,8 +454,15 @@ export class SprintLoader {
      */
     private async promoteNextSprint(workspaceRoot: string): Promise<void> {
         try {
-            const currentPath = path.join(workspaceRoot, 'sprints', 'ACTIVE_SPRINT.toml');
-            const nextSprintPath = path.join(workspaceRoot, 'sprints', this.metadata!.progression!.next_sprint!);
+            // Use the resolved sprint path (supports both dev and production modes)
+            if (!this.currentSprintPath) {
+                console.error('[ÆtherLight] Cannot promote sprint: current sprint path not set');
+                return;
+            }
+
+            const currentPath = this.currentSprintPath;
+            const sprintDir = path.dirname(currentPath);
+            const nextSprintPath = path.join(sprintDir, this.metadata!.progression!.next_sprint!);
 
             if (!fs.existsSync(nextSprintPath)) {
                 vscode.window.showWarningMessage(`Next sprint not found: ${this.metadata!.progression!.next_sprint}`);
@@ -376,11 +471,16 @@ export class SprintLoader {
 
             // 1. Archive current sprint
             const archivePath = path.join(
-                workspaceRoot,
-                'sprints',
+                sprintDir,
                 'archive',
                 `${this.metadata!.sprint_name.replace(/[^a-zA-Z0-9_-]/g, '_')}_COMPLETE.toml`
             );
+
+            // Ensure archive directory exists
+            const archiveDir = path.dirname(archivePath);
+            if (!fs.existsSync(archiveDir)) {
+                fs.mkdirSync(archiveDir, { recursive: true });
+            }
 
             fs.renameSync(currentPath, archivePath);
             console.log(`[ÆtherLight] Archived sprint: ${archivePath}`);
@@ -424,13 +524,13 @@ export class SprintLoader {
      */
     public async updateTaskStatus(taskId: string, newStatus: TaskStatus): Promise<void> {
         try {
-            // BUG FIX: Use actual sprint file path instead of hardcoded 'sprints/ACTIVE_SPRINT.toml'
-            // WHY: Sprint file may be in internal/sprints/ or user-configured location
-            if (!this.sprintFilePath) {
-                throw new Error('Sprint file not loaded yet - call loadSprint() first');
+            // Use the resolved sprint path (supports both dev and production modes)
+            if (!this.currentSprintPath) {
+                throw new Error('Sprint not loaded - cannot update task status');
             }
 
-            const tomlContent = fs.readFileSync(this.sprintFilePath, 'utf-8');
+            const sprintPath = this.currentSprintPath;
+            const tomlContent = fs.readFileSync(sprintPath, 'utf-8');
             const data = toml.parse(tomlContent) as any;
 
             // Find task in TOML
@@ -448,7 +548,7 @@ export class SprintLoader {
 
             // Write back to TOML
             const updatedToml = toml.stringify(data as toml.JsonMap);
-            fs.writeFileSync(this.sprintFilePath, updatedToml, 'utf-8');
+            fs.writeFileSync(sprintPath, updatedToml, 'utf-8');
 
             console.log(`[ÆtherLight] Updated task ${taskId} status: ${newStatus}`);
 

@@ -43,8 +43,8 @@ suite('End-to-End Workflow Tests', () => {
 			// Step 1: Create all middleware services
 			const logger = MiddlewareLogger.getInstance();
 			const errorHandler = new ErrorHandler(logger);
-			const config = new ConfigurationManager();
-			const cache = new CacheManager();
+			const config = new ConfigurationManager(logger);
+			const cache = new CacheManager(logger);
 			const eventBus = new EventBus(logger);
 			const healthMonitor = new HealthMonitor(registry, logger, eventBus);
 
@@ -70,7 +70,7 @@ suite('End-to-End Workflow Tests', () => {
 			const retrievedCache = registry.get<CacheManager>('cache');
 
 			retrievedLogger.info('Application started');
-			retrievedConfig.set('api', { whisperEndpoint: 'https://test.com' });
+			retrievedConfig.set('api', { whisperEndpoint: 'https://test.com', timeout: 30000, maxRetries: 3 });
 			retrievedCache.set('test', 'value');
 
 			// Step 5: Verify no errors
@@ -101,7 +101,7 @@ suite('End-to-End Workflow Tests', () => {
 				await service.initialize();
 			} catch (error: any) {
 				await errorHandler.handle(error, {
-					service: 'failingService',
+					operationName: 'failingService',
 					fallback: () => {
 						fallbackUsed = true;
 						// Use default/mock service instead
@@ -122,7 +122,7 @@ suite('End-to-End Workflow Tests', () => {
 
 			const logger = MiddlewareLogger.getInstance();
 			const errorHandler = new ErrorHandler(logger);
-			const cache = new CacheManager();
+			const cache = new CacheManager(logger);
 
 			registry.register('errorHandler', () => errorHandler);
 			registry.register('cache', () => cache);
@@ -156,8 +156,7 @@ suite('End-to-End Workflow Tests', () => {
 					if (retry === 2) {
 						// Final attempt - handle error
 						await errorHandler.handle(error, {
-							service: 'ApiService',
-							requestId: 'test123',
+							operationName: 'ApiService',
 							fallback: () => {
 								// Use cached data as fallback
 								return cache.get('data_test123') || 'fallback_data';
@@ -180,7 +179,7 @@ suite('End-to-End Workflow Tests', () => {
 
 			const logger = MiddlewareLogger.getInstance();
 			const errorHandler = new ErrorHandler(logger);
-			const cache = new CacheManager();
+			const cache = new CacheManager(logger);
 
 			registry.register('errorHandler', () => errorHandler);
 			registry.register('cache', () => cache);
@@ -203,7 +202,7 @@ suite('End-to-End Workflow Tests', () => {
 				result = await dataService.getUserData();
 			} catch (error: any) {
 				await errorHandler.handle(error, {
-					service: 'DataService',
+					operationName: 'DataService',
 					fallback: () => {
 						// Check cache
 						const cached = cache.get('user_data');
@@ -226,11 +225,12 @@ suite('End-to-End Workflow Tests', () => {
 		test('should propagate configuration changes to all services', () => {
 			// Workflow: User updates config → All services see new config → Behavior changes
 
-			const config = new ConfigurationManager();
+			const logger = MiddlewareLogger.getInstance();
+			const config = new ConfigurationManager(logger);
 			registry.register('config', () => config);
 
 			// Initial configuration
-			config.set('api', { timeout: 30000 });
+			config.set('api', { whisperEndpoint: 'https://test.example.com', timeout: 30000, maxRetries: 3 });
 
 			class ServiceA {
 				getTimeout() {
@@ -257,7 +257,7 @@ suite('End-to-End Workflow Tests', () => {
 			assert.strictEqual(serviceB.getTimeout(), 30000, 'ServiceB should have initial timeout');
 
 			// User updates configuration
-			config.set('api', { timeout: 5000 });
+			config.set('api', { whisperEndpoint: 'https://test.example.com', timeout: 5000, maxRetries: 3 });
 
 			// Verify all services see new config
 			assert.strictEqual(serviceA.getTimeout(), 5000, 'ServiceA should have updated timeout');
@@ -267,16 +267,17 @@ suite('End-to-End Workflow Tests', () => {
 		test('should validate configuration changes before applying', () => {
 			// Workflow: User updates config → Validation → Accept valid / Reject invalid
 
-			const config = new ConfigurationManager();
+			const logger = MiddlewareLogger.getInstance();
+			const config = new ConfigurationManager(logger);
 
 			// Valid configuration - should succeed
 			assert.doesNotThrow(() => {
-				config.set('api', { timeout: 10000 });
+				config.set('api', { whisperEndpoint: 'https://test.example.com', timeout: 10000, maxRetries: 3 });
 			}, 'Valid config should be accepted');
 
 			// Invalid configuration - should reject
 			assert.throws(() => {
-				config.set('api', { timeout: 500 }); // Below minimum 1000ms
+				config.set('api', { whisperEndpoint: 'https://test.example.com', timeout: 500, maxRetries: 3 }); // Below minimum 1000ms
 			}, 'Invalid config should be rejected');
 
 			// Verify config unchanged after failed validation
@@ -288,7 +289,8 @@ suite('End-to-End Workflow Tests', () => {
 		test('should invalidate cache when data changes', () => {
 			// Workflow: Data cached → Data changes → Cache invalidated → Fresh data fetched
 
-			const cache = new CacheManager();
+			const logger = MiddlewareLogger.getInstance();
+			const cache = new CacheManager(logger);
 			registry.register('cache', () => cache);
 
 			let fetchCount = 0;
@@ -346,7 +348,8 @@ suite('End-to-End Workflow Tests', () => {
 		test('should invalidate multiple cache entries by pattern', () => {
 			// Workflow: Multiple items cached → Pattern invalidation → All matching items cleared
 
-			const cache = new CacheManager();
+			const logger = MiddlewareLogger.getInstance();
+			const cache = new CacheManager(logger);
 
 			// Cache multiple user-related items
 			cache.set('user_123', { name: 'User 123' });
@@ -361,7 +364,7 @@ suite('End-to-End Workflow Tests', () => {
 			assert.ok(cache.get('settings_global'), 'Settings should be cached');
 
 			// Invalidate all user cache entries
-			cache.invalidatePattern(/^user_/);
+			cache.invalidatePattern('^user_');
 
 			// Verify only user entries cleared
 			assert.strictEqual(cache.get('user_123'), null, 'User 123 should be invalidated');

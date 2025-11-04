@@ -4,11 +4,10 @@ import * as path from 'path';
 import { SprintLoader, SprintTask, Engineer } from './SprintLoader';
 import { TabManager, TabId } from './TabManager';
 import { recordVoiceWithWebview } from './voiceRecorder';
-// Removed @nut-tree-fork/nut-js - using VS Code APIs instead (Chain of Thought: native deps don't package well)
+// REMOVED: import { keyboard } from '@nut-tree-fork/nut-js'; (v0.16.1 - Pattern-PUBLISH-003)
 import { IPCClient } from '../ipc/client';
 import { AutoTerminalSelector } from './AutoTerminalSelector';
 import { checkAndSetupUserDocumentation } from '../firstRunSetup';
-import { PromptEnhancer } from '../services/PromptEnhancer';
 
 /**
  * DESIGN DECISION: Tabbed sidebar webview with 6 tabs managed by TabManager
@@ -35,7 +34,6 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
     private _view?: vscode.WebviewView;
     private tabManager: TabManager; // A-002: Tab state management
     private sprintLoader: SprintLoader;
-    private promptEnhancer: PromptEnhancer; // ENHANCE-001: AI-powered prompt enhancement
     private autoTerminalSelector: AutoTerminalSelector; // B-003: Intelligent terminal selection
     private sprintTasks: SprintTask[] = [];
     private selectedTaskId: string | null = null;
@@ -44,8 +42,7 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
     private phaseFileCache: Map<string, string> = new Map(); // Cache for phase file contents
     private taskDetailsCache: Map<string, string> = new Map(); // Cache for extracted task sections
     private poppedOutPanels: vscode.WebviewPanel[] = []; // Track all popped-out panels
-    private sprintFileWatcher?: vscode.FileSystemWatcher; // Auto-refresh on TOML changes
-    private showCompletedTasks: boolean = true; // Show completed tasks by default (users can toggle off if needed)
+    private sprintFileWatchers: vscode.FileSystemWatcher[] = []; // Auto-refresh on TOML changes
 
     constructor(
         private readonly _extensionUri: vscode.Uri,
@@ -59,9 +56,6 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
         // Initialize SprintLoader
         this.sprintLoader = new SprintLoader(_context);
-
-        // ENHANCE-001: Initialize PromptEnhancer for AI-powered prompt generation
-        this.promptEnhancer = new PromptEnhancer(_context);
 
         /**
          * B-003: Initialize AutoTerminalSelector for intelligent terminal selection
@@ -81,11 +75,7 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             }
         });
 
-        // BUG-002 FIX: Load sprint tasks asynchronously
-        // Chain of Thought: Constructor can't be async, but we need tasks loaded before first render
-        // FIX-WEBVIEW-CRASH: Removed automatic webview update here to prevent duplicate HTML generation
-        // WHY: resolveWebviewView() already calls _getHtmlForWebview which includes sprint content
-        // REASONING: Let resolveWebviewView handle initial render, this just preloads the data
+        // Load sprint tasks
         this.loadSprintTasks();
 
         // Setup file watcher for automatic sprint refresh
@@ -133,13 +123,21 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             return;
         }
 
-        // Watch ACTIVE_SPRINT.toml at discovered location (internal/sprints, sprints, or root)
-        const sprintFilePath = this.sprintLoader.getSprintFilePath();
-        const pattern = new vscode.RelativePattern(workspaceRoot, sprintFilePath);
+        // Watch ACTIVE_SPRINT.toml in multiple possible locations
+        // This supports both dev mode (internal/) and production mode (sprints/)
+        const patterns: string[] = [
+            'internal/sprints/ACTIVE_SPRINT.toml',  // Dev mode (not in git)
+            'sprints/ACTIVE_SPRINT.toml'            // Production mode
+        ];
 
-        this.sprintFileWatcher = vscode.workspace.createFileSystemWatcher(pattern);
+        // Check user-configured path
+        const config = vscode.workspace.getConfiguration('aetherlight');
+        const configuredPath = config.get<string>('sprintFile');
+        if (configuredPath) {
+            patterns.unshift(configuredPath);
+        }
 
-        // Debounce timer to avoid rapid refreshes
+        // Debounce timer to avoid rapid refreshes (shared across all watchers)
         let debounceTimer: NodeJS.Timeout | null = null;
 
         const handleFileChange = async () => {
@@ -169,11 +167,17 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             }, 500);
         };
 
-        this.sprintFileWatcher.onDidChange(handleFileChange);
-        this.sprintFileWatcher.onDidCreate(handleFileChange);
+        // Create a watcher for each possible location
+        for (const patternPath of patterns) {
+            const pattern = new vscode.RelativePattern(workspaceRoot, patternPath);
+            const watcher = vscode.workspace.createFileSystemWatcher(pattern);
 
-        // Cleanup on dispose
-        this._context.subscriptions.push(this.sprintFileWatcher);
+            watcher.onDidChange(handleFileChange);
+            watcher.onDidCreate(handleFileChange);
+
+            this.sprintFileWatchers.push(watcher);
+            this._context.subscriptions.push(watcher);
+        }
     }
 
     /**
@@ -270,6 +274,9 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
     /**
      * Simulate typing text using keyboard automation
      *
+     * DEPRECATED: Disabled in v0.16.1 per Pattern-PUBLISH-003
+     * WHY: Native keyboard automation (@nut-tree-fork/nut-js) breaks VS Code extension packaging
+     *
      * DESIGN DECISION: Use robotjs to simulate real keyboard typing
      * WHY: Allows transcription to appear anywhere cursor is positioned
      *
@@ -283,30 +290,14 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
      * PATTERN: Pattern-VOICE-003 (Keyboard Simulation for Transcription)
      * RELATED: recordVoiceWithWebview, robotjs
      * PERFORMANCE: ~50ms per character (adjustable via config)
+     *
+     * MIGRATION PATH: Move to ÆtherLight Desktop App (Tauri) via IPC
+     * STATUS: Feature disabled until desktop app IPC integration complete
      */
     private async simulateTyping(text: string, delayMs: number = 50): Promise<void> {
-        // Chain of Thought: Replaced keyboard.type() with VS Code APIs
-        // Reason: @nut-tree-fork/nut-js has native deps that don't package well
-
-        // Try to insert in active text editor first
-        const editor = vscode.window.activeTextEditor;
-        if (editor) {
-            await editor.edit(editBuilder => {
-                editBuilder.insert(editor.selection.active, text);
-            });
-            return;
-        }
-
-        // Try to send to active terminal
-        const terminal = vscode.window.activeTerminal;
-        if (terminal) {
-            terminal.sendText(text, false); // false = don't add newline
-            return;
-        }
-
-        // Fallback: Copy to clipboard and notify user
-        await vscode.env.clipboard.writeText(text);
-        vscode.window.showInformationMessage('Transcription copied to clipboard (no active editor/terminal)');
+        // DISABLED: Native dependency removed in v0.16.1
+        // This feature now requires ÆtherLight Desktop App
+        throw new Error('simulateTyping() disabled - requires desktop app (native dependency removed in v0.16.1)');
     }
 
     /**
@@ -433,21 +424,20 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
         };
 
         /**
-         * UI-ARCH-001: Legacy requested tab handling
-         * DESIGN DECISION: Clear Voice tab requests (voice now permanent, not a tab)
-         * WHY: Voice section is always visible, no need to switch tabs
+         * A-004: Check for requested tab focus from hotkey
+         * DESIGN DECISION: Handle requested tab switch before rendering HTML
+         * WHY: Ensures backtick hotkey always focuses Voice tab
          *
          * REASONING CHAIN:
          * 1. Check workspace state for "requestedTab" flag
-         * 2. If flag is "Voice" → Clear flag (no tab switch needed)
-         * 3. Voice section is permanent at top, always accessible
-         * 4. Result: Backtick hotkey opens panel with voice always visible
-         *
-         * PATTERN: Pattern-UI-ARCH-001 (Progressive Disclosure)
+         * 2. If flag is "Voice" → Switch to Voice tab (TabManager.setActiveTab)
+         * 3. Clear flag to prevent repeat switching
+         * 4. Render HTML with correct active tab
+         * 5. Result: Hotkey reliably focuses Voice tab
          */
         const requestedTab = this._context.workspaceState.get<string>('aetherlight.requestedTab');
         if (requestedTab === 'Voice') {
-            // Voice is now permanent (not a tab), just clear the flag
+            this.tabManager.setActiveTab('voice' as any); // TabId enum uses lowercase internally
             this._context.workspaceState.update('aetherlight.requestedTab', undefined);
         }
 
@@ -503,26 +493,25 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 this.tabManager.setActiveTab(message.tabId);
                 console.log('[ÆtherLight VoicePanel] Active tab set, getting new content...');
 
-                // UI-ARCH-002: Get the active tab content (only Sprint + Settings active)
+                // Get the active tab content
                 const activeTab = this.tabManager.getActiveTab();
                 let tabContent: string;
                 switch (activeTab) {
-                    // Voice case removed in UI-ARCH-001 - voice section is permanent, not a tab
+                    case TabId.Voice:
+                        tabContent = getVoicePanelBodyContent();
+                        break;
                     case TabId.Sprint:
                         tabContent = this.getSprintTabContent();
                         break;
-                    // TODO: UI-ARCH-002 - Planning tab disabled (placeholder, backend incomplete)
-                    // case TabId.Planning:
-                    //     tabContent = this.getPlanningTabPlaceholder();
-                    //     break;
-                    // TODO: UI-ARCH-002 - Patterns tab disabled (waiting for PatternLibrary UI integration)
-                    // case TabId.Patterns:
-                    //     tabContent = this.getPatternsTabPlaceholder();
-                    //     break;
-                    // TODO: UI-ARCH-002 - Activity tab disabled (multi-user features not implemented)
-                    // case TabId.Activity:
-                    //     tabContent = this.getActivityTabPlaceholder();
-                    //     break;
+                    case TabId.Planning:
+                        tabContent = this.getPlanningTabPlaceholder();
+                        break;
+                    case TabId.Patterns:
+                        tabContent = this.getPatternsTabPlaceholder();
+                        break;
+                    case TabId.Activity:
+                        tabContent = this.getActivityTabPlaceholder();
+                        break;
                     case TabId.Settings:
                         tabContent = this.getSettingsTabPlaceholder();
                         break;
@@ -531,12 +520,11 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 }
 
                 // Send content update message to webview
-                // UI-ARCH-001: needsVoiceScripts always false (voice section is permanent, scripts always initialized)
                 const updateMessage = {
                     type: 'updateTabContent',
                     tabId: message.tabId,
                     content: tabContent,
-                    needsVoiceScripts: false  // Voice section permanent, scripts already initialized
+                    needsVoiceScripts: activeTab === TabId.Voice
                 };
 
                 // Update the webview that sent the message
@@ -594,97 +582,22 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 // Toggle task status (pending → in_progress → completed → pending)
                 const task = this.sprintTasks.find(t => t.id === message.taskId);
                 if (task) {
-                    // BUG FIX: Removed deprecated saveTaskStatuses() call
-                    // toggleTaskStatus() already calls updateTaskStatus() which writes to TOML
-                    await this.sprintLoader.toggleTaskStatus(task);
+                    this.sprintLoader.toggleTaskStatus(task);
+                    await this.sprintLoader.saveTaskStatuses(this.sprintTasks);
 
-                    // CRITICAL FIX: Use postMessage instead of HTML regeneration
-                    // WHY: Regenerating HTML causes script redeclaration errors
-                    // PATTERN: Pattern-UPDATE-003 (Targeted Content Updates)
-                    const sprintContent = this.getSprintTabContent();
-                    const updateMessage = {
-                        type: 'updateTabContent',
-                        tabId: TabId.Sprint,
-                        content: sprintContent,
-                        needsVoiceScripts: false
-                    };
+                    // Refresh the webview that sent the message (could be sidebar or popped-out panel)
+                    webview.html = this._getHtmlForWebview(webview);
 
-                    // Update the webview that sent the message
-                    webview.postMessage(updateMessage);
-
-                    // Update sidebar if different
+                    // Also refresh the sidebar view if it exists and is different from the sender
                     if (this._view && this._view.webview !== webview) {
-                        this._view.webview.postMessage(updateMessage);
-                    }
-
-                    // Update all popped-out panels
-                    for (const poppedPanel of this.poppedOutPanels) {
-                        if (poppedPanel.webview !== webview) {
-                            poppedPanel.webview.postMessage(updateMessage);
-                        }
+                        this._view.webview.html = this._getHtmlForWebview(this._view.webview);
                     }
                 }
-                break;
 
-            case 'discoverSprintFiles':
-                // Discover all sprint files in workspace
-                {
-                    const workspaceRoot = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
-                    if (workspaceRoot) {
-                        const sprintFiles = await this.sprintLoader.discoverAllSprintFiles(workspaceRoot);
-                        const currentPath = this.sprintLoader.getSprintFilePath();
-
-                        // Send discovered files to all webviews
-                        const updateMessage = {
-                            type: 'updateSprintFileList',
-                            sprintFiles,
-                            currentPath
-                        };
-
-                        if (this._view) {
-                            this._view.webview.postMessage(updateMessage);
-                        }
-
-                        for (const panel of this.poppedOutPanels) {
-                            panel.webview.postMessage(updateMessage);
-                        }
-
-                        vscode.window.showInformationMessage(`Found ${sprintFiles.length} sprint file(s)`);
-                    }
-                }
-                break;
-
-            case 'switchSprintFile':
-                // Switch to a different sprint file
-                {
-                    const newSprintPath = message.sprintPath;
-                    if (newSprintPath) {
-                        // Update the sprint file path
-                        await this.sprintLoader.setSprintFilePath(newSprintPath);
-
-                        // Reload sprint data from new file
-                        await this.loadSprintTasks();
-
-                        // CRITICAL FIX: Use postMessage instead of HTML regeneration
-                        // WHY: Regenerating HTML causes script redeclaration errors
-                        const sprintContent = this.getSprintTabContent();
-                        const updateMessage = {
-                            type: 'updateTabContent',
-                            tabId: TabId.Sprint,
-                            content: sprintContent,
-                            needsVoiceScripts: false
-                        };
-
-                        // Update all webviews
-                        if (this._view) {
-                            this._view.webview.postMessage(updateMessage);
-                        }
-
-                        for (const panel of this.poppedOutPanels) {
-                            panel.webview.postMessage(updateMessage);
-                        }
-
-                        vscode.window.showInformationMessage(`✅ Switched to: ${newSprintPath}`);
+                // Refresh all popped-out panels that are different from the sender
+                for (const poppedPanel of this.poppedOutPanels) {
+                    if (poppedPanel.webview !== webview) {
+                        poppedPanel.webview.html = this._getHtmlForWebview(poppedPanel.webview);
                     }
                 }
                 break;
@@ -696,100 +609,40 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 // Reload sprint data from TOML file (refresh after file changes)
                 await this.loadSprintTasks();
 
-                // CRITICAL FIX: Use postMessage instead of HTML regeneration
-                // WHY: Regenerating HTML causes script redeclaration errors
-                {
-                    const sprintContent = this.getSprintTabContent();
-                    const updateMessage = {
-                        type: 'updateTabContent',
-                        tabId: TabId.Sprint,
-                        content: sprintContent,
-                        needsVoiceScripts: false
-                    };
+                // Refresh the webview that sent the message
+                webview.html = this._getHtmlForWebview(webview);
 
-                    // Update the webview that sent the message
-                    webview.postMessage(updateMessage);
-
-                    // Update sidebar if different
-                    if (this._view && this._view.webview !== webview) {
-                        this._view.webview.postMessage(updateMessage);
-                    }
-
-                    // Update all popped-out panels
-                    for (const poppedPanel of this.poppedOutPanels) {
-                        if (poppedPanel.webview !== webview) {
-                            poppedPanel.webview.postMessage(updateMessage);
-                        }
-                    }
-
-                    // Show full relative path to clarify which sprint file was loaded
-                    const sprintFilePath = this.sprintLoader.getSprintFilePath();
-                    const stats = this.sprintLoader.getProgressStats();
-                    vscode.window.showInformationMessage(
-                        `✅ Sprint data reloaded from ${sprintFilePath} (${stats.total} tasks, ${stats.completed} completed)`
-                    );
+                // Also refresh the sidebar view if it exists and is different from the sender
+                if (this._view && this._view.webview !== webview) {
+                    this._view.webview.html = this._getHtmlForWebview(this._view.webview);
                 }
+
+                // Refresh all popped-out panels
+                for (const poppedPanel of this.poppedOutPanels) {
+                    if (poppedPanel.webview !== webview) {
+                        poppedPanel.webview.html = this._getHtmlForWebview(poppedPanel.webview);
+                    }
+                }
+
+                vscode.window.showInformationMessage('✅ Sprint data reloaded from CURRENT_SPRINT.md');
                 break;
 
             case 'selectEngineer':
                 // Switch engineer view
                 this.selectedEngineerId = message.engineerId;
 
-                // CRITICAL FIX: Use postMessage instead of HTML regeneration
-                // WHY: Regenerating HTML causes script redeclaration errors
-                {
-                    const sprintContent = this.getSprintTabContent();
-                    const updateMessage = {
-                        type: 'updateTabContent',
-                        tabId: TabId.Sprint,
-                        content: sprintContent,
-                        needsVoiceScripts: false
-                    };
+                // Refresh the webview that sent the message (could be sidebar or popped-out panel)
+                webview.html = this._getHtmlForWebview(webview);
 
-                    // Update the webview that sent the message
-                    webview.postMessage(updateMessage);
-
-                    // Update sidebar if different
-                    if (this._view && this._view.webview !== webview) {
-                        this._view.webview.postMessage(updateMessage);
-                    }
-
-                    // Update all popped-out panels
-                    for (const poppedPanel of this.poppedOutPanels) {
-                        if (poppedPanel.webview !== webview) {
-                            poppedPanel.webview.postMessage(updateMessage);
-                        }
-                    }
+                // Also refresh the sidebar view if it exists and is different from the sender
+                if (this._view && this._view.webview !== webview) {
+                    this._view.webview.html = this._getHtmlForWebview(this._view.webview);
                 }
-                break;
 
-            case 'toggleCompletedTasks':
-                // FIX-WEBVIEW-CRASH: Toggle visibility of completed tasks
-                this.showCompletedTasks = message.show;
-
-                // Update sprint tab content with filtered tasks
-                {
-                    const sprintContent = this.getSprintTabContent();
-                    const updateMessage = {
-                        type: 'updateTabContent',
-                        tabId: TabId.Sprint,
-                        content: sprintContent,
-                        needsVoiceScripts: false
-                    };
-
-                    // Update the webview that sent the message
-                    webview.postMessage(updateMessage);
-
-                    // Update sidebar if different
-                    if (this._view && this._view.webview !== webview) {
-                        this._view.webview.postMessage(updateMessage);
-                    }
-
-                    // Update all popped-out panels
-                    for (const poppedPanel of this.poppedOutPanels) {
-                        if (poppedPanel.webview !== webview) {
-                            poppedPanel.webview.postMessage(updateMessage);
-                        }
+                // Refresh all popped-out panels that are different from the sender
+                for (const poppedPanel of this.poppedOutPanels) {
+                    if (poppedPanel.webview !== webview) {
+                        poppedPanel.webview.html = this._getHtmlForWebview(poppedPanel.webview);
                     }
                 }
                 break;
@@ -1049,12 +902,12 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                                 text: response.text
                             });
                         } else {
-                            // Type globally
-                            try {
-                                await this.simulateTyping(response.text);
-                            } catch (error) {
-                                console.error('[ÆtherLight] Failed to simulate typing:', error);
-                            }
+                            // Type globally - DISABLED in v0.16.1 (requires desktop app via IPC)
+                            // Native keyboard simulation removed per Pattern-PUBLISH-003
+                            vscode.window.showWarningMessage(
+                                '⚠️ Global typing requires ÆtherLight Desktop App. Please use "inputField" target or install desktop app for global typing support.'
+                            );
+                            console.warn('[ÆtherLight] Global typing disabled - requires desktop app (native dependency removed in v0.16.1)');
                         }
 
                         webview.postMessage({
@@ -1083,17 +936,6 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                         message: errorMsg
                     });
                     vscode.window.showErrorMessage(`ÆtherLight: Recording failed - ${errorMsg}`);
-                }
-                break;
-
-            case 'sendKeystroke':
-                // BUG FIX v0.15.1: Record button should trigger same behavior as backtick key
-                // WHY: Record button was calling non-existent 'captureVoiceGlobal' command
-                // Chain of Thought: Backtick key → openVoicePanel → startRecording action
-                // FIX: Call the same command that backtick key uses
-                if (message.key === 'backtick') {
-                    // Execute the openVoicePanel command which handles recording
-                    vscode.commands.executeCommand('aetherlight.openVoicePanel');
                 }
                 break;
 
@@ -1142,274 +984,42 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             case 'error':
                 vscode.window.showErrorMessage(message.message);
                 break;
-
-            case 'openUrl':
-                // UI-003: Handle opening URLs (bug reports, feature requests)
-                vscode.env.openExternal(vscode.Uri.parse(message.url));
-                break;
-
-            case 'enhancePrompt':
-                // ENHANCE-002: Enhance user's natural language intent into comprehensive prompt
-                // Chain of Thought: User provides intent → PromptEnhancer analyzes + enhances → send back to webview
-                // WHY: Users know what they want but may not know how to structure it for AI
-                // REASONING: Combine user intent + codebase context + SOPs = expert-level prompt
-                try {
-                    const { userIntent, promptType } = message;
-
-                    if (!userIntent || !userIntent.trim()) {
-                        webview.postMessage({
-                            type: 'enhancementError',
-                            error: 'Please describe what you want to analyze or plan.'
-                        });
-                        return;
-                    }
-
-                    // Show status in webview
-                    webview.postMessage({
-                        type: 'enhancementStarted'
-                    });
-
-                    // Enhance the prompt
-                    const result = await this.promptEnhancer.enhancePrompt(userIntent, promptType);
-
-                    // Send enhanced prompt back to webview
-                    webview.postMessage({
-                        type: 'enhancementComplete',
-                        prompt: result.prompt,
-                        confidence: result.confidence,
-                        warnings: result.warnings
-                    });
-
-                    // Save user intent for next time
-                    const stateKey = promptType === 'code-analyzer'
-                        ? 'lastCodeAnalyzerIntent'
-                        : 'lastSprintPlannerIntent';
-                    await this._context.workspaceState.update(`aetherlight.${stateKey}`, userIntent);
-
-                } catch (error) {
-                    console.error('[ÆtherLight] Prompt enhancement failed:', error);
-                    webview.postMessage({
-                        type: 'enhancementError',
-                        error: error instanceof Error ? error.message : 'Failed to enhance prompt'
-                    });
-                }
-                break;
-
-            case 'saveSettings':
-                // SETTINGS-001: Save sprint planning settings to workspace state
-                await this._context.workspaceState.update('aetherlight.sprintSettings', message.settings);
-                console.log('[ÆtherLight] Settings saved:', message.settings);
-                break;
-
-            case 'saveGlobalSettings':
-                /**
-                 * UI-FIX-003: Save global settings to workspace state
-                 * WHY: Settings tab Save button wasn't wired to persistence
-                 *
-                 * REASONING CHAIN:
-                 * 1. User modifies settings in Settings tab
-                 * 2. Clicks Save button → sends 'saveGlobalSettings' message
-                 * 3. Save to workspaceState for persistence across reloads
-                 * 4. Show confirmation message to user
-                 * 5. Result: Settings persist correctly
-                 */
-                try {
-                    await this._context.workspaceState.update('aetherlight.globalSettings', message.settings);
-                    console.log('[ÆtherLight] Global settings saved:', message.settings);
-
-                    // Send confirmation to webview
-                    webview.postMessage({
-                        type: 'settingsSaved',
-                        success: true
-                    });
-
-                    vscode.window.showInformationMessage('✅ Settings saved successfully');
-                } catch (error) {
-                    console.error('[ÆtherLight] Failed to save settings:', error);
-                    webview.postMessage({
-                        type: 'settingsSaved',
-                        success: false,
-                        error: error instanceof Error ? error.message : 'Unknown error'
-                    });
-                    vscode.window.showErrorMessage('❌ Failed to save settings');
-                }
-                break;
-
-            case 'getWorkflowBadges':
-                /**
-                 * UI-ARCH-005: Get workflow badge counts from services
-                 * WHY: Progressive Disclosure - show context-aware counts without cluttering UI
-                 *
-                 * REASONING CHAIN:
-                 * 1. Webview requests badge data via postMessage('getWorkflowBadges')
-                 * 2. Extension calls services (TestValidator, WorkflowCheck, SprintLoader)
-                 * 3. Calculate counts for each workflow (tests failing, git dirty, sprint progress)
-                 * 4. Determine status colors (error/warning/info/success)
-                 * 5. Send badge data back to webview
-                 * 6. Webview calls updateWorkflowBadge() for each workflow
-                 *
-                 * PATTERN: Pattern-UI-ARCH-001 (Progressive Disclosure)
-                 * PATTERN: Pattern-SERVICE-001 (Service Integration)
-                 * RELATED: UI-ARCH-005 (Progressive Disclosure)
-                 */
-                try {
-                    const badges: any = {};
-
-                    // TODO UI-ARCH-005: Implement full service integration
-                    // For now, send placeholder data structure
-
-                    // Tests workflow: Check for failing tests via TestValidator
-                    // TODO: Integrate TestValidator to get actual test counts
-                    // const testContext = await testValidator.gather(...);
-                    // badges.tests = { count: testContext.failingCount, status: 'error' };
-                    badges.tests = { count: 0, status: 'success' }; // Placeholder
-
-                    // Git workflow: Check for uncommitted files via WorkflowCheck
-                    // TODO: Integrate WorkflowCheck to get git status
-                    // const gitStatus = await workflowCheck.checkGitStatus();
-                    // badges.git = { count: gitStatus.uncommittedFiles.length, status: 'warning' };
-                    badges.git = { count: 0, status: 'success' }; // Placeholder
-
-                    // Sprint workflow: Show sprint progress
-                    // TODO: Integrate SprintLoader to get task counts
-                    // const stats = this.sprintLoader.getProgressStats();
-                    // badges.sprint = { count: stats.completed + '/' + stats.total, status: 'info' };
-                    badges.sprint = { count: 0, status: 'info' }; // Placeholder
-
-                    // Other workflows: No badges for now (analyzer, pattern, skill, agent, publish)
-                    badges.analyzer = { count: 0, status: 'info' };
-                    badges.pattern = { count: 0, status: 'info' };
-                    badges.skill = { count: 0, status: 'info' };
-                    badges.agent = { count: 0, status: 'info' };
-                    badges.publish = { count: 0, status: 'info' };
-
-                    // Send badge data back to webview
-                    webview.postMessage({
-                        type: 'workflowBadges',
-                        badges: badges
-                    });
-
-                    console.log('[ÆtherLight] Workflow badges sent:', badges);
-                } catch (error) {
-                    console.error('[ÆtherLight] Failed to get workflow badges:', error);
-                    // Send empty badges on error
-                    webview.postMessage({
-                        type: 'workflowBadges',
-                        badges: {}
-                    });
-                }
-                break;
-
-            case 'checkWorkflow':
-                /**
-                 * UI-ARCH-006: Run workflow check and send results to webview
-                 * WHY: Pattern-COMM-001 - Check prerequisites before execution
-                 *
-                 * REASONING CHAIN:
-                 * 1. User clicks workflow button → webview sends 'checkWorkflow' message
-                 * 2. Extension calls WorkflowCheck.checkWorkflow(type, context)
-                 * 3. WorkflowCheck returns prerequisites, confidence, gaps, plan
-                 * 4. Send results back to webview via 'workflowCheckResult' message
-                 * 5. Webview shows modal with results
-                 * 6. User reviews → clicks Proceed or Cancel
-                 *
-                 * PATTERN: Pattern-COMM-001 (Universal Communication Protocol)
-                 * RELATED: PROTO-001 (WorkflowCheck implementation)
-                 */
-                try {
-                    const { WorkflowCheck } = require('../services/WorkflowCheck');
-                    const workflowCheck = new WorkflowCheck();
-
-                    // Map workflow type to WorkflowCheck type
-                    const workflowTypeMap: {[key: string]: any} = {
-                        'sprint': 'sprint',
-                        'analyzer': 'code',
-                        'pattern': 'docs',
-                        'skill': 'docs',
-                        'agent': 'docs',
-                        'tests': 'test',
-                        'git': 'git',
-                        'publish': 'publish'
-                    };
-
-                    const mappedType = workflowTypeMap[message.workflowType] || message.workflowType;
-
-                    // Run workflow check
-                    const result = await workflowCheck.checkWorkflow(mappedType, {});
-
-                    // Send results back to webview
-                    webview.postMessage({
-                        type: 'workflowCheckResult',
-                        workflowType: message.workflowType,
-                        result: result
-                    });
-
-                    console.log('[ÆtherLight] Workflow check complete:', message.workflowType, result.confidence);
-                } catch (error) {
-                    console.error('[ÆtherLight] Workflow check failed:', error);
-                    // Send error state
-                    webview.postMessage({
-                        type: 'workflowCheckResult',
-                        workflowType: message.workflowType,
-                        result: {
-                            workflowType: message.workflowType,
-                            prerequisites: [{ name: 'Error', status: '❌', details: error instanceof Error ? error.message : 'Unknown error', remediation: 'Check console for details', impact: 'blocking' }],
-                            confidence: 0,
-                            gaps: ['Workflow check failed'],
-                            criticalJunction: true,
-                            plan: ['Fix error and try again'],
-                            timestamp: Date.now(),
-                            cacheKey: ''
-                        }
-                    });
-                }
-                break;
         }
     }
 
-    private _getHtmlForWebview(webview: vscode.Webview): string {
+    private _getHtmlForWebview(webview: vscode.Webview) {
         /**
-         * UI-ARCH-001: Voice section now permanent, not a tab
+         * A-002: Use TabManager for HTML generation
          * REASONING:
-         * 1. Voice is PRIMARY interface (backtick key to activate)
-         * 2. Making voice a "tab" hides the main feature users need most
-         * 3. Voice controls should always be visible at top
-         * 4. Other features (Sprint, Settings, etc.) remain as tabs
-         * 5. Result: Progressive disclosure - primary features prominent, secondary features in tabs
-         *
-         * PATTERN: Pattern-UI-ARCH-001 (Progressive Disclosure)
+         * 1. TabManager generates tab bar HTML with all 6 tabs
+         * 2. TabManager provides CSS styles for tab UI
+         * 3. Generate tab content based on active tab
+         * 4. Result: Consistent tab UI managed by TabManager
          */
-
-        // Generate voice section HTML (always visible at top)
-        const voiceContent = getVoicePanelBodyContent();
-
-        // UI-ARCH-002: Generate tab bar HTML (2 tabs: Sprint, Settings)
-        // Planning, Patterns, Activity disabled (not implemented yet)
         const tabBar = this.tabManager.getTabBarHtml();
         const activeTab = this.tabManager.getActiveTab();
 
         /**
-         * UI-ARCH-002: Generate tab content based on active tab
-         * Only Sprint + Settings tabs active (Planning, Patterns, Activity disabled)
+         * A-003: Generate tab content with proper placeholders
+         * REASONING: Each tab shows skeleton UI to give users clear expectations
          */
         let tabContent: string;
         switch (activeTab) {
-            // Voice case removed in UI-ARCH-001 - voice section is now permanent at top
+            case TabId.Voice:
+                tabContent = getVoicePanelBodyContent();
+                break;
             case TabId.Sprint:
                 tabContent = this.getSprintTabContent();
                 break;
-            // TODO: UI-ARCH-002 - Planning tab disabled (placeholder, backend incomplete)
-            // case TabId.Planning:
-            //     tabContent = this.getPlanningTabPlaceholder();
-            //     break;
-            // TODO: UI-ARCH-002 - Patterns tab disabled (waiting for PatternLibrary UI integration)
-            // case TabId.Patterns:
-            //     tabContent = this.getPatternsTabPlaceholder();
-            //     break;
-            // TODO: UI-ARCH-002 - Activity tab disabled (multi-user features not implemented)
-            // case TabId.Activity:
-            //     tabContent = this.getActivityTabPlaceholder();
-            //     break;
+            case TabId.Planning:
+                tabContent = this.getPlanningTabPlaceholder();
+                break;
+            case TabId.Patterns:
+                tabContent = this.getPatternsTabPlaceholder();
+                break;
+            case TabId.Activity:
+                tabContent = this.getActivityTabPlaceholder();
+                break;
             case TabId.Settings:
                 tabContent = this.getSettingsTabPlaceholder();
                 break;
@@ -1417,17 +1027,12 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 tabContent = `<div class="placeholder-error">Unknown Tab: ${activeTab}</div>`;
         }
 
-        // Chain of Thought: Generate nonce for script-src CSP to prevent TrustedScript violations
-        // WHY: VS Code webviews now enforce Trusted Types policy, 'unsafe-inline' causes security errors
-        // REASONING: Using webview.cspSource and nonce is the recommended VS Code pattern
-        const nonce = this.getNonce();
-
         return `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}' 'unsafe-hashes' 'unsafe-inline'; media-src * blob: data: mediastream:; img-src ${webview.cspSource} https: data: blob:; font-src ${webview.cspSource} data:; connect-src https://api.openai.com;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; media-src * blob: data: mediastream:; img-src * blob: data:; font-src * data:; connect-src https://api.openai.com;">
     <title>ÆtherLight</title>
     <style>
         ${this.tabManager.getTabStyles()}
@@ -1436,54 +1041,22 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
     </style>
 </head>
 <body>
-    <!-- UI-ARCH-001: Voice section permanent at top (always visible) -->
-    <!-- Chain of Thought: Voice is PRIMARY interface, not a secondary tab -->
-    <!-- WHY: Users access voice with backtick key - must always be visible -->
-    <!-- PATTERN: Pattern-UI-ARCH-001 (Progressive Disclosure) -->
-    <div class="voice-section-permanent">
-        ${voiceContent}
-    </div>
-
-    <!-- Tab bar for secondary features (Sprint, Planning, Patterns, Activity, Settings) -->
     ${tabBar}
-
-    <!-- Tab content area for selected tab -->
     <div class="tab-content active">
         ${tabContent}
     </div>
-
-    <script nonce="${nonce}">
+    <script>
         const vscode = acquireVsCodeApi();
 
-        // DIAGNOSTIC: Log script execution
-        console.log('[ÆtherLight WebView] Script started');
-        console.log('[ÆtherLight WebView] Looking for tab buttons...');
-
         // Tab switching
-        const tabButtons = document.querySelectorAll('.tab-button');
-        console.log('[ÆtherLight WebView] Found', tabButtons.length, 'tab buttons');
-
-        tabButtons.forEach((button, index) => {
-            console.log('[ÆtherLight WebView] Attaching listener to button', index, 'with tabId:', button.dataset.tabId);
-            button.addEventListener('click', (event) => {
-                console.log('[ÆtherLight WebView] Click event fired on button', index);
-
-                // Save voice tab text before switching tabs
-                const textAreaEl = document.getElementById('transcriptionText');
-                if (textAreaEl) {
-                    const state = vscode.getState() || {};
-                    state.voiceTextContent = textAreaEl.value;
-                    vscode.setState(state);
-                }
-
+        document.querySelectorAll('.tab-button').forEach(button => {
+            button.addEventListener('click', () => {
                 const tabId = button.dataset.tabId;
                 console.log('[ÆtherLight WebView] Tab clicked:', tabId);
                 vscode.postMessage({ type: 'switchTab', tabId });
                 console.log('[ÆtherLight WebView] Message sent to backend');
             });
         });
-
-        console.log('[ÆtherLight WebView] All event listeners attached');
 
         // Global functions for Sprint Tab
 
@@ -1502,14 +1075,6 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             vscode.postMessage({ type: 'selectEngineer', engineerId });
         };
 
-        // FIX-WEBVIEW-CRASH: Toggle completed tasks visibility
-        const completedToggle = document.getElementById('show-completed-toggle');
-        if (completedToggle) {
-            completedToggle.addEventListener('change', function(e) {
-                vscode.postMessage({ type: 'toggleCompletedTasks', show: e.target.checked });
-            });
-        }
-
         // Open sprint settings
         window.openSprintSettings = function() {
             vscode.postMessage({ type: 'openSprintSettings' });
@@ -1523,492 +1088,6 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
         window.reloadSprint = function() {
             vscode.postMessage({ type: 'reloadSprint' });
         };
-
-        // Discover all sprint files in workspace
-        window.discoverSprintFiles = function() {
-            vscode.postMessage({ type: 'discoverSprintFiles' });
-        };
-
-        // Switch to a different sprint file
-        window.switchSprintFile = function(sprintPath) {
-            vscode.postMessage({ type: 'switchSprintFile', sprintPath });
-        };
-
-        // GLOBAL-PERSIST-001: Configuration Panel Functions
-        // Chain of Thought: These functions must be at global scope to persist across tab switches
-        // WHY: Tab content updates replace HTML but don't re-run script, so functions defined
-        //      later in the script are lost when tabs switch
-        // REASONING: Define toggleConfigPanel, generate*Prompt, and panel getter functions
-        //            at global scope so they survive content updates
-        // PATTERN: Pattern-PERSIST-001 (Global Function Persistence)
-
-        // Show status message (used by configuration panels)
-        window.showStatus = function(message, type) {
-            const statusEl = document.getElementById('statusMessage');
-            if (statusEl) {
-                statusEl.textContent = message;
-                statusEl.className = 'status-message ' + type;
-                statusEl.style.display = 'block';
-
-                // Auto-hide after 5 seconds
-                setTimeout(() => {
-                    statusEl.style.display = 'none';
-                }, 5000);
-            }
-        };
-
-        // Toggle configuration panel for Code Analyzer or Sprint Planner
-        window.toggleConfigPanel = function(panelType) {
-            const container = document.getElementById('configPanelContainer');
-            if (!container) return;
-
-            // If clicking same panel, close it
-            if (container.dataset.activePanel === panelType && container.classList.contains('open')) {
-                container.classList.remove('open');
-                container.style.display = 'none';
-                delete container.dataset.activePanel;
-                return;
-            }
-
-            // Load panel content based on type
-            let panelHtml = '';
-            if (panelType === 'code-analyzer') {
-                panelHtml = window.getCodeAnalyzerPanel();
-            } else if (panelType === 'sprint-planner') {
-                panelHtml = window.getSprintPlannerPanel();
-            }
-
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(panelHtml, 'text/html');
-            container.replaceChildren(...doc.body.childNodes);
-
-            // Show panel with animation
-            container.dataset.activePanel = panelType;
-            container.style.display = 'block';
-            container.offsetHeight; // Force reflow
-            container.classList.add('open');
-
-            // Attach event listeners to dynamically added panel buttons
-            setTimeout(() => {
-                if (panelType === 'code-analyzer') {
-                    const closeBtn = document.getElementById('closeCodeAnalyzerPanel');
-                    const cancelBtn = document.getElementById('cancelCodeAnalyzer');
-                    const generateBtn = document.getElementById('generateCodeAnalyzerPrompt');
-
-                    if (closeBtn) closeBtn.addEventListener('click', () => window.toggleConfigPanel(panelType));
-                    if (cancelBtn) cancelBtn.addEventListener('click', () => window.toggleConfigPanel(panelType));
-                    if (generateBtn) generateBtn.addEventListener('click', () => window.generateCodeAnalyzerPrompt());
-                } else if (panelType === 'sprint-planner') {
-                    const closeBtn = document.getElementById('closeSprintPlannerPanel');
-                    const cancelBtn = document.getElementById('cancelSprintPlanner');
-                    const generateBtn = document.getElementById('generateSprintPrompt');
-
-                    if (closeBtn) closeBtn.addEventListener('click', () => window.toggleConfigPanel(panelType));
-                    if (cancelBtn) cancelBtn.addEventListener('click', () => window.toggleConfigPanel(panelType));
-                    if (generateBtn) generateBtn.addEventListener('click', () => window.generateSprintPlannerPrompt());
-                }
-            }, 0);
-        };
-
-        // Generate Code Analyzer prompt from user intent + configuration
-        // Chain of Thought: Collect all config values including checkboxes and save to state for persistence
-        window.generateCodeAnalyzerPrompt = function() {
-            const intentTextarea = document.getElementById('codeAnalyzerIntent');
-            if (!intentTextarea) return;
-
-            const userIntent = intentTextarea.value.trim();
-            if (!userIntent) {
-                window.showStatus('⚠️ Please describe what you want to analyze.', 'warning');
-                intentTextarea.focus();
-                return;
-            }
-
-            // Collect Code Analyzer configuration values
-            const goalsTextarea = document.getElementById('analyzerGoals');
-            const depthSelect = document.getElementById('analyzerDepth');
-            const outputSelect = document.getElementById('analyzerOutput');
-            const exclusionsTextarea = document.getElementById('analyzerExclusions');
-
-            // Collect checked focus areas
-            const focusAreas = [];
-            ['bugs', 'features', 'debt', 'tests', 'docs', 'security', 'performance'].forEach(area => {
-                const checkbox = document.getElementById('focus-' + area);
-                if (checkbox && checkbox.checked) {
-                    focusAreas.push(area);
-                }
-            });
-
-            const config = {
-                goals: goalsTextarea ? goalsTextarea.value.trim() : '',
-                focusAreas: focusAreas,
-                depth: depthSelect ? depthSelect.value : 'standard',
-                output: outputSelect ? outputSelect.value : 'sprint-toml',
-                exclusions: exclusionsTextarea ? exclusionsTextarea.value.trim() : ''
-            };
-
-            // Save config to state for persistence
-            const state = vscode.getState() || {};
-            state.sprintSettings = state.sprintSettings || {};
-            state.sprintSettings.analyzerGoals = config.goals;
-            state.sprintSettings.focusAreas = config.focusAreas;
-            state.sprintSettings.analyzerDepth = config.depth;
-            state.sprintSettings.analyzerOutput = config.output;
-            state.sprintSettings.analyzerExclusions = config.exclusions;
-            state.lastCodeAnalyzerIntent = userIntent;
-            vscode.setState(state);
-
-            // Show enhancement status
-            const statusDiv = document.getElementById('enhancementStatus');
-            if (statusDiv) statusDiv.style.display = 'flex';
-
-            // Disable button during enhancement
-            const generateBtn = document.getElementById('generateCodeAnalyzerPrompt');
-            if (generateBtn) {
-                generateBtn.disabled = true;
-                generateBtn.textContent = '⏳ Enhancing...';
-            }
-
-            // Send to extension for enhancement with config
-            vscode.postMessage({
-                type: 'enhancePrompt',
-                userIntent,
-                config,
-                promptType: 'code-analyzer'
-            });
-        };
-
-        // Generate Sprint Planner prompt from user intent + configuration
-        // Chain of Thought: Collect all config values and save to state for persistence
-        window.generateSprintPlannerPrompt = function() {
-            const intentTextarea = document.getElementById('sprintPlannerIntent');
-            if (!intentTextarea) return;
-
-            const userIntent = intentTextarea.value.trim();
-            if (!userIntent) {
-                window.showStatus('⚠️ Please describe the sprint you want to plan.', 'warning');
-                intentTextarea.focus();
-                return;
-            }
-
-            // Collect Sprint Planner configuration values
-            const teamSizeInput = document.getElementById('teamSize');
-            const structureSelect = document.getElementById('sprintStructure');
-            const typeSelect = document.getElementById('sprintType');
-            const formatSelect = document.getElementById('docFormat');
-
-            const config = {
-                teamSize: teamSizeInput ? parseInt(teamSizeInput.value) : 1,
-                structure: structureSelect ? structureSelect.value : 'phases',
-                type: typeSelect ? typeSelect.value : 'feature',
-                format: formatSelect ? formatSelect.value : 'toml'
-            };
-
-            // Save config to state for persistence
-            const state = vscode.getState() || {};
-            state.sprintSettings = state.sprintSettings || {};
-            state.sprintSettings.teamSize = config.teamSize;
-            state.sprintSettings.sprintStructure = config.structure;
-            state.sprintSettings.sprintType = config.type;
-            state.sprintSettings.docFormat = config.format;
-            state.lastSprintPlannerIntent = userIntent;
-            vscode.setState(state);
-
-            // Show enhancement status
-            const statusDiv = document.getElementById('enhancementStatus');
-            if (statusDiv) statusDiv.style.display = 'flex';
-
-            // Disable button during enhancement
-            const generateBtn = document.getElementById('generateSprintPrompt');
-            if (generateBtn) {
-                generateBtn.disabled = true;
-                generateBtn.textContent = '⏳ Enhancing...';
-            }
-
-            // Send to extension for enhancement with config
-            vscode.postMessage({
-                type: 'enhancePrompt',
-                userIntent,
-                config,
-                promptType: 'sprint-planner'
-            });
-        };
-
-        // Get Code Analyzer panel HTML
-        // Chain of Thought: Merged configuration UI + natural language intent
-        // WHY: User wants config checkboxes/dropdowns merged with textarea in single slide-down panel
-        // REASONING: Restore Code Analyzer config (focus areas, depth, output, exclusions) from git history
-        window.getCodeAnalyzerPanel = function() {
-            const state = vscode.getState() || {};
-            const lastIntent = state.lastCodeAnalyzerIntent || '';
-            const savedSettings = state.sprintSettings || {};
-            const focusAreas = savedSettings.focusAreas || ['bugs', 'features'];
-
-            return \`
-                <div class="config-panel-header">
-                    <h3>🔍 Code Analyzer</h3>
-                    <button id="closeCodeAnalyzerPanel" class="config-panel-close">×</button>
-                </div>
-                <div class="config-panel-body">
-                    <div class="settings-group">
-                        <label for="codeAnalyzerIntent">What would you like to analyze?</label>
-                        <textarea
-                            id="codeAnalyzerIntent"
-                            class="settings-textarea enhanced-textarea"
-                            rows="3"
-                            placeholder="Example: 'Find all authentication bugs and security vulnerabilities in the API layer'">\${lastIntent}</textarea>
-                        <span class="settings-hint">💡 Describe your analysis goal - AI will enhance with config below</span>
-                    </div>
-
-                    <div class="settings-group">
-                        <label for="analyzerGoals">Additional Analysis Goals (optional)</label>
-                        <textarea id="analyzerGoals" class="settings-textarea" rows="2" placeholder="e.g., Identify technical debt, Find missing tests, Review security vulnerabilities">\${savedSettings.analyzerGoals || ''}</textarea>
-                        <span class="settings-hint">One per line or comma-separated</span>
-                    </div>
-
-                    <div class="settings-group">
-                        <label>Focus Areas</label>
-                        <div class="settings-checkboxes">
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="focus-bugs" value="bugs" \${focusAreas.includes('bugs') ? 'checked' : ''}>
-                                <span>🐛 Bugs</span>
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="focus-features" value="features" \${focusAreas.includes('features') ? 'checked' : ''}>
-                                <span>✨ Features</span>
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="focus-debt" value="debt" \${focusAreas.includes('debt') ? 'checked' : ''}>
-                                <span>⚠️ Technical Debt</span>
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="focus-tests" value="tests" \${focusAreas.includes('tests') ? 'checked' : ''}>
-                                <span>🧪 Tests</span>
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="focus-docs" value="docs" \${focusAreas.includes('docs') ? 'checked' : ''}>
-                                <span>📚 Documentation</span>
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="focus-security" value="security" \${focusAreas.includes('security') ? 'checked' : ''}>
-                                <span>🔒 Security</span>
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="focus-performance" value="performance" \${focusAreas.includes('performance') ? 'checked' : ''}>
-                                <span>⚡ Performance</span>
-                            </label>
-                        </div>
-                        <span class="settings-hint">Select areas to focus analysis on</span>
-                    </div>
-
-                    <div class="settings-group">
-                        <label for="analyzerDepth">Analysis Depth</label>
-                        <select id="analyzerDepth" class="settings-select">
-                            <option value="quick" \${savedSettings.analyzerDepth === 'quick' ? 'selected' : ''}>Quick (5 min - surface level)</option>
-                            <option value="standard" \${savedSettings.analyzerDepth === 'standard' || !savedSettings.analyzerDepth ? 'selected' : ''}>Standard (15 min - thorough)</option>
-                            <option value="deep" \${savedSettings.analyzerDepth === 'deep' ? 'selected' : ''}>Deep (30+ min - comprehensive)</option>
-                        </select>
-                        <span class="settings-hint">Deeper analysis takes longer but finds more issues</span>
-                    </div>
-
-                    <div class="settings-group">
-                        <label for="analyzerOutput">Output Format</label>
-                        <select id="analyzerOutput" class="settings-select">
-                            <option value="sprint-toml" \${savedSettings.analyzerOutput === 'sprint-toml' || !savedSettings.analyzerOutput ? 'selected' : ''}>Sprint TOML (ÆtherLight format)</option>
-                            <option value="markdown" \${savedSettings.analyzerOutput === 'markdown' ? 'selected' : ''}>Markdown Report</option>
-                            <option value="github-issues" \${savedSettings.analyzerOutput === 'github-issues' ? 'selected' : ''}>GitHub Issues JSON</option>
-                            <option value="csv" \${savedSettings.analyzerOutput === 'csv' ? 'selected' : ''}>CSV Export</option>
-                        </select>
-                        <span class="settings-hint">How analysis results should be formatted</span>
-                    </div>
-
-                    <div class="settings-group">
-                        <label for="analyzerExclusions">Exclusions (paths to skip)</label>
-                        <textarea id="analyzerExclusions" class="settings-textarea" rows="2" placeholder="e.g., node_modules/, dist/, *.test.ts">\${savedSettings.analyzerExclusions || ''}</textarea>
-                        <span class="settings-hint">Files/folders to exclude from analysis (one per line)</span>
-                    </div>
-
-                    <div id="enhancementStatus" class="enhancement-status" style="display: none;">
-                        <div class="enhancement-spinner"></div>
-                        <span>Enhancing prompt with codebase context...</span>
-                    </div>
-                </div>
-                <div class="config-panel-actions">
-                    <button id="generateCodeAnalyzerPrompt" class="settings-button primary">✨ Enhance & Generate Prompt</button>
-                    <button id="cancelCodeAnalyzer" class="settings-button">Cancel</button>
-                </div>
-            \`;
-        };
-
-        // Get Sprint Planner panel HTML
-        // Chain of Thought: Merged configuration UI + natural language intent
-        // WHY: User wants config dropdowns merged with textarea in single slide-down panel
-        // REASONING: Restore Sprint Planning config (team size, structure, type, format) from git history
-        window.getSprintPlannerPanel = function() {
-            const state = vscode.getState() || {};
-            const lastIntent = state.lastSprintPlannerIntent || '';
-            const savedSettings = state.sprintSettings || {};
-
-            return \`
-                <div class="config-panel-header">
-                    <h3>📋 Sprint Planner</h3>
-                    <button id="closeSprintPlannerPanel" class="config-panel-close">×</button>
-                </div>
-                <div class="config-panel-body">
-                    <div class="settings-group">
-                        <label for="sprintPlannerIntent">What sprint would you like to plan?</label>
-                        <textarea
-                            id="sprintPlannerIntent"
-                            class="settings-textarea enhanced-textarea"
-                            rows="4"
-                            placeholder="Example: 'Plan a 2-week sprint for fixing authentication bugs and adding OAuth support'">\${lastIntent}</textarea>
-                        <span class="settings-hint">💡 Describe your sprint goal - AI will enhance with config below</span>
-                    </div>
-
-                    <div class="settings-group">
-                        <label for="teamSize">Team Size</label>
-                        <input type="number" id="teamSize" min="1" max="999" value="\${savedSettings.teamSize || 1}" class="settings-input">
-                        <span class="settings-hint">Number of engineers (1-999)</span>
-                    </div>
-
-                    <div class="settings-group">
-                        <label for="sprintStructure">Structure Terminology</label>
-                        <select id="sprintStructure" class="settings-select">
-                            <option value="phases" \${savedSettings.sprintStructure === 'phases' || !savedSettings.sprintStructure ? 'selected' : ''}>Phases (ÆtherLight default)</option>
-                            <option value="epics" \${savedSettings.sprintStructure === 'epics' ? 'selected' : ''}>Epics</option>
-                            <option value="user-stories" \${savedSettings.sprintStructure === 'user-stories' ? 'selected' : ''}>User Stories</option>
-                            <option value="sprints" \${savedSettings.sprintStructure === 'sprints' ? 'selected' : ''}>Sprints</option>
-                            <option value="kanban" \${savedSettings.sprintStructure === 'kanban' ? 'selected' : ''}>Kanban</option>
-                            <option value="milestones" \${savedSettings.sprintStructure === 'milestones' ? 'selected' : ''}>Milestones</option>
-                        </select>
-                        <span class="settings-hint">Choose terminology that matches your workflow</span>
-                    </div>
-
-                    <div class="settings-group">
-                        <label for="sprintType">Sprint Type</label>
-                        <select id="sprintType" class="settings-select">
-                            <option value="feature" \${savedSettings.sprintType === 'feature' || !savedSettings.sprintType ? 'selected' : ''}>Feature Development</option>
-                            <option value="bugfix" \${savedSettings.sprintType === 'bugfix' ? 'selected' : ''}>Bug Fix Sprint</option>
-                            <option value="research" \${savedSettings.sprintType === 'research' ? 'selected' : ''}>Research & Design</option>
-                            <option value="refactor" \${savedSettings.sprintType === 'refactor' ? 'selected' : ''}>Refactoring</option>
-                            <option value="mixed" \${savedSettings.sprintType === 'mixed' ? 'selected' : ''}>Mixed (Feature + Bugs)</option>
-                            <option value="maintenance" \${savedSettings.sprintType === 'maintenance' ? 'selected' : ''}>Maintenance</option>
-                        </select>
-                        <span class="settings-hint">Type of work for sprint planning context</span>
-                    </div>
-
-                    <div class="settings-group">
-                        <label for="docFormat">Documentation Format</label>
-                        <select id="docFormat" class="settings-select">
-                            <option value="toml" \${savedSettings.docFormat === 'toml' || !savedSettings.docFormat ? 'selected' : ''}>TOML (ÆtherLight default)</option>
-                            <option value="markdown" \${savedSettings.docFormat === 'markdown' ? 'selected' : ''}>Markdown</option>
-                            <option value="json" \${savedSettings.docFormat === 'json' ? 'selected' : ''}>JSON</option>
-                            <option value="yaml" \${savedSettings.docFormat === 'yaml' ? 'selected' : ''}>YAML</option>
-                            <option value="xml" \${savedSettings.docFormat === 'xml' ? 'selected' : ''}>XML</option>
-                        </select>
-                        <span class="settings-hint">Sprint plan output format</span>
-                    </div>
-
-                    <div id="enhancementStatus" class="enhancement-status" style="display: none;">
-                        <div class="enhancement-spinner"></div>
-                        <span>Enhancing prompt with codebase context...</span>
-                    </div>
-                </div>
-                <div class="config-panel-actions">
-                    <button id="generateSprintPrompt" class="settings-button primary">✨ Enhance & Generate Prompt</button>
-                    <button id="cancelSprintPlanner" class="settings-button">Cancel</button>
-                </div>
-            \`;
-        };
-
-        // GLOBAL-PERSIST-002: Sprint Tab Event Delegation
-        // Chain of Thought: Event listeners must persist across tab switches
-        // WHY: Sprint tab content gets replaced when switching tabs, losing event listeners
-        // REASONING: Attach to document.body which never gets replaced, use event delegation
-        // PATTERN: Pattern-PERSIST-002 (Global Event Delegation for Tab-Switched Content)
-        document.body.addEventListener('click', function(e) {
-            const target = e.target;
-
-            // Task status icon click (Sprint tab)
-            if (target.classList.contains('task-status-icon')) {
-                e.stopPropagation();
-                const taskItem = target.closest('.task-item');
-                if (taskItem && taskItem.dataset.taskId) {
-                    window.toggleStatus(taskItem.dataset.taskId);
-                }
-                return;
-            }
-
-            // Task item click - select task to show details (Sprint tab)
-            const taskItem = target.classList.contains('task-item') ? target : target.closest('.task-item');
-            if (taskItem && taskItem.dataset.taskId) {
-                window.selectTask(taskItem.dataset.taskId);
-                return;
-            }
-
-            // Status toggle button in detail panel (Sprint tab)
-            const statusBtn = target.classList.contains('status-toggle-btn') ? target : target.closest('.status-toggle-btn');
-            if (statusBtn && statusBtn.dataset.taskId) {
-                window.toggleStatus(statusBtn.dataset.taskId);
-                return;
-            }
-
-            // Sprint header action buttons
-            const actionBtn = target.closest('[data-action]');
-            if (actionBtn) {
-                const action = actionBtn.dataset.action;
-                if (action === 'reloadSprint' && window.reloadSprint) window.reloadSprint();
-                else if (action === 'openSprintSettings' && window.openSprintSettings) window.openSprintSettings();
-                else if (action === 'popOutSprint' && window.popOutSprint) window.popOutSprint();
-                else if (action === 'discoverSprintFiles' && window.discoverSprintFiles) window.discoverSprintFiles();
-                return;
-            }
-
-            // Engineer tab clicks (Sprint tab)
-            const engineerTab = target.closest('[data-engineer-id]');
-            if (engineerTab && engineerTab.dataset.engineerId && window.selectEngineer) {
-                window.selectEngineer(engineerTab.dataset.engineerId);
-                return;
-            }
-
-            // Voice tab button clicks
-            // CRITICAL FIX: Handle Voice tab buttons globally to persist across tab switches
-            if (target.id === 'recordBtn' && window.toggleRecording) {
-                window.toggleRecording();
-                return;
-            }
-            if (target.id === 'codeAnalyzerBtn' && window.toggleConfigPanel) {
-                window.toggleConfigPanel('code-analyzer');
-                return;
-            }
-            if (target.id === 'sprintPlannerBtn' && window.toggleConfigPanel) {
-                window.toggleConfigPanel('sprint-planner');
-                return;
-            }
-            if (target.id === 'enhanceBtn' && window.enhanceText) {
-                window.enhanceText();
-                return;
-            }
-            if (target.id === 'sendBtn' && window.sendToTerminal) {
-                window.sendToTerminal();
-                return;
-            }
-            if (target.id === 'clearBtn' && window.clearText) {
-                window.clearText();
-                return;
-            }
-            if (target.id === 'settingsBtn' && window.openVoiceSettings) {
-                window.openVoiceSettings();
-                return;
-            }
-        });
-
-        // Sprint file dropdown change handler (needs dedicated listener since 'change' event)
-        document.body.addEventListener('change', function(e) {
-            const target = e.target;
-            if (target.id === 'sprint-file-dropdown' && window.switchSprintFile) {
-                window.switchSprintFile(target.value);
-            }
-        });
 
         // Global message listener for ALL tabs (Sprint and Voice)
         window.addEventListener('message', event => {
@@ -2028,23 +1107,10 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                         }
                     });
 
-                    // Update content area (CSP-safe with DOMParser)
+                    // Update content area
                     const contentArea = document.querySelector('.tab-content');
                     if (contentArea) {
-                        // CSP-FIX: Use DOMParser instead of innerHTML
-                        const parser = new DOMParser();
-                        const doc = parser.parseFromString(message.content, 'text/html');
-
-                        // CRITICAL FIX: Filter out <script> tags to prevent infinite re-execution
-                        // WHY: Settings tab includes inline scripts that re-run on every tab switch
-                        // REASONING: Scripts should only execute on initial page load, not on content updates
-                        // PATTERN: Pattern-SCRIPT-FILTER-001 (Prevent Script Re-execution in Dynamic Content)
-                        const nodesToInsert = Array.from(doc.body.childNodes).filter(node => {
-                            // Keep all nodes except <script> elements
-                            return node.nodeName !== 'SCRIPT';
-                        });
-
-                        contentArea.replaceChildren(...nodesToInsert);
+                        contentArea.innerHTML = message.content;
                         contentArea.classList.add('active');
                     }
 
@@ -2058,16 +1124,10 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                     break;
 
                 case 'updateTaskDetail':
-                    // Update just the detail panel without full page refresh (CSP-safe)
+                    // Update just the detail panel without full page refresh
                     const detailPanel = document.querySelector('.task-detail-panel');
                     if (detailPanel) {
-                        // CSP-FIX: Use DOMParser instead of outerHTML
-                        const parser = new DOMParser();
-                        const doc = parser.parseFromString(message.detailHtml, 'text/html');
-                        const newPanel = doc.body.firstElementChild;
-                        if (newPanel) {
-                            detailPanel.replaceWith(newPanel);
-                        }
+                        detailPanel.outerHTML = message.detailHtml;
                     }
 
                     // Update selected state on task items
@@ -2078,133 +1138,6 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                             item.classList.remove('selected');
                         }
                     });
-                    break;
-
-                case 'updateSprintFileList':
-                    // Update dropdown with discovered sprint files (CSP-safe)
-                    const dropdown = document.getElementById('sprint-file-dropdown');
-                    if (dropdown && message.sprintFiles) {
-                        const currentValue = dropdown.value;
-                        // CSP-FIX: Clear children without innerHTML
-                        while (dropdown.firstChild) {
-                            dropdown.removeChild(dropdown.firstChild);
-                        }
-
-                        message.sprintFiles.forEach(filePath => {
-                            const option = document.createElement('option');
-                            option.value = filePath;
-                            option.textContent = filePath;
-                            option.selected = filePath === message.currentPath;
-                            dropdown.appendChild(option);
-                        });
-
-                        console.log('[ÆtherLight] Updated sprint file list:', message.sprintFiles);
-                    }
-                    break;
-
-                case 'enhancementStarted':
-                    // Show enhancement in progress
-                    const statusDiv = document.getElementById('enhancementStatus');
-                    if (statusDiv) {
-                        statusDiv.style.display = 'flex';
-                    }
-                    break;
-
-                case 'enhancementComplete':
-                    // ENHANCE-002: Insert enhanced prompt into textarea
-                    // Chain of Thought: PromptEnhancer generated comprehensive prompt → insert + close panel
-                    // WHY: User can review/edit before sending
-                    const textarea = document.getElementById('transcriptionText');
-                    if (textarea) {
-                        textarea.value = message.prompt;
-                        textarea.focus();
-                        if (window.autoResizeTextarea) window.autoResizeTextarea();
-                        if (window.updateSendButton) window.updateSendButton();
-
-                        // Save to state
-                        const state = vscode.getState() || {};
-                        state.voiceTextContent = textarea.value;
-                        vscode.setState(state);
-                    }
-
-                    // Close config panel
-                    if (window.toggleConfigPanel) {
-                        window.toggleConfigPanel('code-analyzer'); // or 'sprint-planner'
-                    }
-
-                    // Hide enhancement status
-                    const statusDiv2 = document.getElementById('enhancementStatus');
-                    if (statusDiv2) {
-                        statusDiv2.style.display = 'none';
-                    }
-
-                    // Re-enable button
-                    const generateBtn = document.getElementById('generateCodeAnalyzerPrompt')
-                        || document.getElementById('generateSprintPrompt');
-                    if (generateBtn) {
-                        generateBtn.disabled = false;
-                        generateBtn.textContent = generateBtn.id === 'generateCodeAnalyzerPrompt'
-                            ? '✨ Enhance & Generate Prompt'
-                            : '✨ Enhance & Generate Prompt';
-                    }
-
-                    // Show confidence and warnings if any
-                    let statusMessage = '✨ Enhanced prompt generated!';
-                    if (message.confidence === 'medium') {
-                        statusMessage += ' (Medium confidence - some context missing)';
-                    } else if (message.confidence === 'low') {
-                        statusMessage += ' (Low confidence - limited context available)';
-                    }
-                    if (message.warnings && message.warnings.length > 0) {
-                        statusMessage += ' Warnings: ' + message.warnings.join(', ');
-                    }
-                    showStatus(statusMessage, 'info');
-                    break;
-
-                case 'enhancementError':
-                    // Hide enhancement status
-                    const statusDiv3 = document.getElementById('enhancementStatus');
-                    if (statusDiv3) {
-                        statusDiv3.style.display = 'none';
-                    }
-
-                    // Re-enable button
-                    const generateBtn2 = document.getElementById('generateCodeAnalyzerPrompt')
-                        || document.getElementById('generateSprintPrompt');
-                    if (generateBtn2) {
-                        generateBtn2.disabled = false;
-                        generateBtn2.textContent = generateBtn2.id === 'generateCodeAnalyzerPrompt'
-                            ? '✨ Enhance & Generate Prompt'
-                            : '✨ Enhance & Generate Prompt';
-                    }
-
-                    showStatus('❌ Enhancement failed: ' + message.error, 'error');
-                    break;
-
-                case 'workflowBadges':
-                    // UI-ARCH-005: Update workflow badges with data from extension
-                    // Chain of Thought: Receive badge data, call updateWorkflowBadge() for each workflow
-                    // WHY: Badges show context (tests failing, git dirty, sprint progress)
-                    console.log('[ÆtherLight] Received workflow badges:', message.badges);
-
-                    if (message.badges && window.updateWorkflowBadge) {
-                        // Update each workflow badge
-                        Object.keys(message.badges).forEach(workflow => {
-                            const badge = message.badges[workflow];
-                            window.updateWorkflowBadge(workflow, badge.count, badge.status);
-                        });
-                    }
-                    break;
-
-                case 'workflowCheckResult':
-                    // UI-ARCH-006: Receive workflow check results and show modal
-                    // Chain of Thought: Extension ran WorkflowCheck → send results to webview → show modal
-                    // WHY: Pattern-COMM-001 - Display prerequisites, confidence, gaps, plan
-                    console.log('[ÆtherLight] Received workflow check result:', message);
-
-                    if (message.result && window.showWorkflowCheckModal) {
-                        window.showWorkflowCheckModal(message.workflowType, message.result);
-                    }
                     break;
 
                 case 'terminalList':
@@ -2220,114 +1153,8 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
         });
 
         // Voice Tab initialization function (called on load and tab switch)
-        // CRITICAL FIX: Scripts MUST be inside initializeVoiceTab(), not at global scope
-        // WHY: Global scripts get re-executed on every HTML update (updateTabContent)
-        // PATTERN: Pattern-UPDATE-004 (Idempotent Script Initialization)
         window.initializeVoiceTab = function() {
-            console.log('[ÆtherLight] Initializing Voice tab...');
-
-            // BUG FIX: Separate function definitions from event listener attachment
-            // WHY: When tabs switch, new button DOM elements are created
-            // Event listeners must be re-attached to new elements
-            // But functions only need to be defined once
-
-            // Define functions only once (guard prevents re-definition)
-            if (!window.voiceTabInitialized) {
-                window.voiceTabInitialized = true;
-                console.log('[ÆtherLight] First-time Voice tab initialization - defining functions...');
-
-                // Inject all voice tab scripts (function definitions)
-                ${this.getVoiceTabScripts()}
-            } else {
-                console.log('[ÆtherLight] Voice tab already initialized - re-attaching event listeners...');
-
-                // Functions already defined, just re-attach event listeners to NEW DOM elements
-                setTimeout(() => {
-                    const recordBtn = document.getElementById('recordBtn');
-                    const codeAnalyzerBtn = document.getElementById('codeAnalyzerBtn');
-                    const sprintPlannerBtn = document.getElementById('sprintPlannerBtn');
-                    const enhanceBtn = document.getElementById('enhanceBtn');
-                    const sendBtn = document.getElementById('sendBtn');
-                    const clearBtn = document.getElementById('clearBtn');
-
-                    if (recordBtn) recordBtn.addEventListener('click', () => window.toggleRecording());
-                    if (codeAnalyzerBtn) codeAnalyzerBtn.addEventListener('click', () => window.toggleConfigPanel('code-analyzer'));
-                    if (sprintPlannerBtn) sprintPlannerBtn.addEventListener('click', () => window.toggleConfigPanel('sprint-planner'));
-                    if (enhanceBtn) enhanceBtn.addEventListener('click', () => window.enhanceText());
-                    if (sendBtn) sendBtn.addEventListener('click', () => window.sendToTerminal());
-                    if (clearBtn) clearBtn.addEventListener('click', () => window.clearText());
-
-                    // UI-ARCH-004: Workflow toolbar event listeners
-                    const workflowToggleBtn = document.getElementById('workflowToggleBtn');
-                    if (workflowToggleBtn) workflowToggleBtn.addEventListener('click', () => window.toggleWorkflowToolbar());
-
-                    // UI-ARCH-004: Workflow button event listeners (placeholder handlers for UI-ARCH-004)
-                    const workflowSprintBtn = document.getElementById('workflowSprintBtn');
-                    const workflowAnalyzerBtn = document.getElementById('workflowAnalyzerBtn');
-                    const workflowPatternBtn = document.getElementById('workflowPatternBtn');
-                    const workflowSkillBtn = document.getElementById('workflowSkillBtn');
-                    const workflowAgentBtn = document.getElementById('workflowAgentBtn');
-                    const workflowTestsBtn = document.getElementById('workflowTestsBtn');
-                    const workflowGitBtn = document.getElementById('workflowGitBtn');
-                    const workflowPublishBtn = document.getElementById('workflowPublishBtn');
-
-                    if (workflowSprintBtn) workflowSprintBtn.addEventListener('click', () => window.handleWorkflowClick('sprint'));
-                    if (workflowAnalyzerBtn) workflowAnalyzerBtn.addEventListener('click', () => window.handleWorkflowClick('analyzer'));
-                    if (workflowPatternBtn) workflowPatternBtn.addEventListener('click', () => window.handleWorkflowClick('pattern'));
-                    if (workflowSkillBtn) workflowSkillBtn.addEventListener('click', () => window.handleWorkflowClick('skill'));
-                    if (workflowAgentBtn) workflowAgentBtn.addEventListener('click', () => window.handleWorkflowClick('agent'));
-                    if (workflowTestsBtn) workflowTestsBtn.addEventListener('click', () => window.handleWorkflowClick('tests'));
-                    if (workflowGitBtn) workflowGitBtn.addEventListener('click', () => window.handleWorkflowClick('git'));
-                    if (workflowPublishBtn) workflowPublishBtn.addEventListener('click', () => window.handleWorkflowClick('publish'));
-
-                    // UI-ARCH-004: Load and apply workflow toolbar collapsed state
-                    window.loadWorkflowToolbarState();
-
-                    // UI-ARCH-005: Refresh workflow badge counts on tab switch
-                    window.updateWorkflowBadges();
-
-                    console.log('[ÆtherLight] Event listeners re-attached to voice tab buttons');
-                }, 0);
-            }
-
-            // Request terminal list on Voice tab activation
-            vscode.postMessage({ type: 'getTerminals' });
-
-            // Auto-focus text area when Voice tab shows
-            const voiceTextArea = document.getElementById('transcriptionText');
-            if (voiceTextArea) {
-                voiceTextArea.focus();
-            }
-
-            // Restore saved text from webview state (if any)
-            const state = vscode.getState() || {};
-            const savedText = state.voiceTextContent || '';
-            const savedHeight = state.textareaHeight || 200; // UI-001: Default 200px
-
-            if (voiceTextArea && savedText) {
-                voiceTextArea.value = savedText;
-            }
-
-            // UI-001: Restore saved textarea height
-            if (voiceTextArea && savedHeight) {
-                voiceTextArea.style.height = savedHeight + 'px';
-            }
-
-            // UI-001: ResizeObserver to persist textarea height
-            if (voiceTextArea && typeof ResizeObserver !== 'undefined') {
-                const resizeObserver = new ResizeObserver((entries) => {
-                    for (const entry of entries) {
-                        const newHeight = entry.contentRect.height;
-                        // Only save if height changed significantly (> 5px)
-                        if (Math.abs(newHeight - savedHeight) > 5) {
-                            const currentState = vscode.getState() || {};
-                            currentState.textareaHeight = newHeight;
-                            vscode.setState(currentState);
-                        }
-                    }
-                });
-                resizeObserver.observe(voiceTextArea);
-            }
+            ${this.getVoiceTabScripts()}
         };
 
         // Initialize Voice tab if it's active on page load
@@ -2335,79 +1162,12 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             window.initializeVoiceTab();
         }
     </script>
-
-    <!-- UI-ARCH-006: Workflow Check Modal -->
-    <div id="workflowCheckModal" class="modal-overlay" style="display: none;">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="modalWorkflowTitle">Workflow Check</h2>
-                <button id="modalCloseBtn" class="modal-close">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div id="modalPrerequisites" class="modal-section">
-                    <h3>Prerequisites</h3>
-                    <div id="prerequisitesList"></div>
-                </div>
-                <div id="modalConfidence" class="modal-section">
-                    <h3>Confidence Score</h3>
-                    <div class="confidence-bar-container">
-                        <div id="confidenceBar" class="confidence-bar"></div>
-                        <span id="confidenceText">0%</span>
-                    </div>
-                </div>
-                <div id="modalGaps" class="modal-section">
-                    <h3>Gaps</h3>
-                    <div id="gapsList"></div>
-                </div>
-                <div id="modalPlan" class="modal-section">
-                    <h3>Execution Plan</h3>
-                    <ol id="planSteps"></ol>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button id="modalProceedBtn" class="button-primary">Proceed</button>
-                <button id="modalCancelBtn" class="button-secondary">Cancel</button>
-                <button id="modalHelpBtn" class="button-secondary">Help</button>
-            </div>
-        </div>
-    </div>
-
 </body>
 </html>`;
     }
 
-    /**
-     * Generate a cryptographically secure nonce for Content Security Policy
-     * Chain of Thought: Required for script-src CSP to prevent TrustedScript violations
-     * WHY: VS Code enforces Trusted Types, inline scripts need nonce verification
-     * PATTERN: Standard VS Code webview security pattern
-     */
-    private getNonce(): string {
-        let text = '';
-        const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-        for (let i = 0; i < 32; i++) {
-            text += possible.charAt(Math.floor(Math.random() * possible.length));
-        }
-        return text;
-    }
-
     private getVoicePanelStyles(): string {
         return `
-        /* UI-ARCH-001: Permanent voice section at top (always visible) */
-        .voice-section-permanent {
-            position: relative;
-            width: 100%;
-            padding: 12px;
-            background-color: var(--vscode-sideBar-background);
-            border-bottom: 2px solid var(--vscode-panel-border);
-            z-index: 100;
-        }
-
-        /* Ensure voice section never hidden (overrides any display:none) */
-        .voice-section-permanent[hidden] {
-            display: block !important;
-        }
-
         .header {
             display: flex;
             align-items: center;
@@ -2432,9 +1192,6 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             background-color: #0078D4;
         }
 
-        /* UI-ARCH-003: Terminal list appears FIRST (see context before taking action) */
-        /* WHY: Workflow-driven layout - user sees terminal context before using toolbar */
-        /* REASONING: 16px margin-bottom provides clear separation from toolbar below */
         .terminal-selector {
             margin-bottom: 16px;
         }
@@ -2447,15 +1204,12 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             color: var(--vscode-descriptionForeground);
         }
 
-        /* UI-ARCH-007: Multi-row terminal list with flex-wrap */
         .terminal-list {
             display: flex;
-            flex-wrap: wrap;  /* Allow wrapping to multiple rows */
-            gap: 8px;  /* Spacing between terminals (both horizontal and vertical) */
-            justify-content: flex-start;
+            flex-direction: column;
+            gap: 4px;
             max-height: none;
             overflow-y: visible;
-            overflow-x: hidden;  /* No horizontal scrollbars */
         }
 
         .terminal-item {
@@ -2469,9 +1223,6 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             cursor: pointer;
             font-size: 13px;
             min-height: 24px;
-            min-width: 120px;  /* Prevent too narrow */
-            max-width: 160px;  /* Prevent too wide */
-            flex: 0 1 auto;  /* Allow wrapping, don't grow, allow shrinking */
             transition: all 0.2s;
         }
 
@@ -2531,7 +1282,24 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             box-shadow: 0 0 0 1px var(--vscode-focusBorder);
         }
 
-        /* BUG-010: Removed terminal-edit-icon styles (pencil icon removed) */
+        /* B-002: Pencil edit icon */
+        .terminal-edit-icon {
+            opacity: 0;
+            font-size: 12px;
+            cursor: pointer;
+            padding: 2px 4px;
+            border-radius: 2px;
+            transition: opacity 0.2s, background-color 0.2s;
+        }
+
+        .terminal-item:hover .terminal-edit-icon {
+            opacity: 0.6;
+        }
+
+        .terminal-edit-icon:hover {
+            opacity: 1 !important;
+            background-color: rgba(255, 255, 255, 0.1);
+        }
 
         /* B-003: Executing terminal indicator */
         .terminal-executing-icon {
@@ -2545,27 +1313,22 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             50% { opacity: 0.4; }
         }
 
-        /* UI-ARCH-003: Textarea appears THIRD (see result after action) */
-        /* WHY: Workflow-driven layout - user takes action (toolbar) then sees result (textarea) */
-        /* REASONING: 16px margin-bottom provides clear separation from secondary toolbar below */
         .transcription-editor {
             margin-bottom: 16px;
         }
 
-        /* UI-ARCH-003: Label CSS removed (label removed from HTML - redundant) */
-        /* .transcription-editor label {
+        .transcription-editor label {
             display: block;
             margin-bottom: 4px;
             font-size: 12px;
             font-weight: 600;
             color: var(--vscode-descriptionForeground);
-        } */
+        }
 
         .transcription-editor textarea {
             width: 100%;
-            height: 200px; /* UI-001: Default 200px (user-draggable) */
-            min-height: 100px; /* UI-001: Prevent collapse */
-            max-height: 600px; /* UI-001: Prevent takeover */
+            height: 60px; /* B-005: Default 60px height */
+            max-height: 120px; /* B-005: Auto-resize max */
             padding: 8px;
             background-color: var(--vscode-input-background);
             color: var(--vscode-input-foreground);
@@ -2573,8 +1336,8 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             border-radius: 4px;
             font-family: var(--vscode-editor-font-family);
             font-size: 13px;
-            resize: vertical; /* UI-001: User-draggable resize */
-            overflow-y: auto;
+            resize: none; /* B-005: Disable manual resize, use auto-resize */
+            overflow-y: auto; /* B-005: Scrollbar when exceeds max */
             box-sizing: border-box;
         }
 
@@ -2583,408 +1346,13 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             border-color: var(--vscode-focusBorder);
         }
 
-        /* B-001: Icon bar for compact Voice tab (replaces .controls) */
-        /* UI-ARCH-003: Toolbar appears SECOND (take action after seeing context) */
-        /* WHY: Workflow-driven layout - user sees terminal context, then uses toolbar to take action */
-        /* REASONING: 12px margin-bottom provides moderate separation from textarea below */
-        .icon-bar {
+        .controls {
             display: flex;
-            gap: 4px;
-            padding: 4px;
-            margin-bottom: 12px;
-            background-color: var(--vscode-sideBar-background);
-            border: 1px solid var(--vscode-panel-border);
-            border-radius: 4px;
-            height: 32px;
-            align-items: center;
-        }
-
-        .icon-button {
-            flex: 0 0 auto;
-            width: 32px;
-            height: 24px;
-            padding: 0;
-            background-color: transparent;
-            color: var(--vscode-button-foreground);
-            border: 1px solid transparent;
-            border-radius: 3px;
-            font-size: 16px;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .icon-button .icon {
-            display: inline-block;
-            line-height: 1;
-        }
-
-        .icon-button:hover:not(:disabled) {
-            background-color: var(--vscode-button-hoverBackground);
-            border-color: var(--vscode-button-border);
-            transform: scale(1.05); /* UI-002: Hover scale effect */
-        }
-
-        .icon-button:disabled {
-            opacity: 0.4;
-            cursor: not-allowed;
-        }
-
-        .icon-button.primary {
-            background-color: rgba(0, 120, 212, 0.1);
-        }
-
-        .icon-button.primary:hover:not(:disabled) {
-            background-color: #0078D4;
-        }
-
-        /* UI-003: Secondary toolbar styling (smaller, bottom placement) */
-        .secondary-toolbar {
-            margin-top: 12px;
-            margin-bottom: 8px;
-            height: 28px;
-            justify-content: center;
-            opacity: 0.8;
-        }
-
-        .secondary-toolbar:hover {
-            opacity: 1;
-        }
-
-        .icon-button-small {
-            flex: 0 0 auto;
-            width: 28px;
-            height: 20px;
-            padding: 0;
-            background-color: transparent;
-            color: var(--vscode-button-foreground);
-            border: 1px solid transparent;
-            border-radius: 3px;
-            font-size: 14px;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .icon-button-small .icon {
-            display: inline-block;
-            line-height: 1;
-        }
-
-        .icon-button-small:hover {
-            background-color: var(--vscode-button-hoverBackground);
-            border-color: var(--vscode-button-border);
-            transform: scale(1.05);
-        }
-
-        /* UI-ARCH-004: Workflow toolbar styling */
-        /* WHY: One-click access to major workflows with collapsible UI */
-        /* REASONING: Flex layout with wrapping, smooth animation, professional styling */
-        /* Pattern: Pattern-UI-ARCH-001 (Progressive Disclosure - hide advanced features until needed) */
-        .workflow-toolbar-container {
-            margin: 16px 0;
-            border: 1px solid var(--vscode-panel-border);
-            border-radius: 4px;
-            background-color: var(--vscode-editor-background);
-            overflow: hidden;
-        }
-
-        .workflow-toolbar-header {
-            display: flex;
-            align-items: center;
-            background-color: var(--vscode-sideBar-background);
-            border-bottom: 1px solid var(--vscode-panel-border);
-        }
-
-        .workflow-toggle {
-            width: 100%;
-            display: flex;
-            align-items: center;
             gap: 8px;
-            padding: 8px 12px;
-            background: transparent;
-            border: none;
-            color: var(--vscode-foreground);
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-
-        .workflow-toggle:hover {
-            background-color: var(--vscode-list-hoverBackground);
-        }
-
-        .workflow-toggle-icon {
-            font-size: 12px;
-            transition: transform 0.3s ease-in-out;
-            display: inline-block;
-        }
-
-        .workflow-toggle-icon.collapsed {
-            transform: rotate(-90deg);
-        }
-
-        .workflow-toolbar-label {
-            flex: 1;
-            text-align: left;
-        }
-
-        .workflow-toolbar {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            padding: 12px;
-            max-height: 500px;
-            opacity: 1;
-            transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out, padding 0.3s ease-in-out;
-            overflow: hidden;
-        }
-
-        .workflow-toolbar.collapsed {
-            max-height: 0;
-            opacity: 0;
-            padding: 0 12px;
-        }
-
-        .workflow-button {
-            flex: 1 1 calc(25% - 8px);
-            min-width: 100px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 4px;
-            padding: 12px 8px;
-            background-color: var(--vscode-button-secondaryBackground);
-            color: var(--vscode-button-secondaryForeground);
-            border: 1px solid var(--vscode-button-border);
-            border-radius: 4px;
-            font-size: 12px;
-            cursor: pointer;
-            transition: all 0.2s;
-            position: relative; /* UI-ARCH-005: For badge positioning */
-        }
-
-        .workflow-button:hover {
-            background-color: var(--vscode-button-hoverBackground);
-            color: var(--vscode-button-foreground);
-            border-color: var(--vscode-focusBorder);
-            transform: translateY(-2px);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-        }
-
-        .workflow-button:active {
-            transform: translateY(0);
-        }
-
-        .workflow-icon {
-            font-size: 20px;
-            line-height: 1;
-        }
-
-        .workflow-label {
-            font-weight: 500;
-            text-align: center;
-        }
-
-        /* UI-ARCH-005: Badge styling for context-aware counts */
-        .workflow-badge {
-            position: absolute;
-            top: 4px;
-            right: 4px;
-            min-width: 18px;
-            height: 18px;
-            padding: 2px 6px;
-            border-radius: 9px;
-            font-size: 10px;
-            font-weight: 600;
-            line-height: 14px;
-            text-align: center;
-            display: none; /* Hidden by default */
-            color: #ffffff;
-            background-color: var(--vscode-badge-background);
-        }
-
-        .workflow-badge.visible {
-            display: inline-block;
-        }
-
-        /* Context-aware badge colors */
-        .workflow-badge.status-error {
-            background-color: #f44336; /* Red - errors, failures */
-        }
-
-        .workflow-badge.status-warning {
-            background-color: #ff9800; /* Orange - warnings, uncommitted changes */
-        }
-
-        .workflow-badge.status-info {
-            background-color: #2196f3; /* Blue - info, progress */
-        }
-
-        .workflow-badge.status-success {
-            background-color: #4caf50; /* Green - success, all clear */
-        }
-
-        /* UI-ARCH-006: Workflow Check Modal styling */
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.6);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 10000;
-        }
-
-        .modal-content {
-            background-color: var(--vscode-editor-background);
-            border: 1px solid var(--vscode-panel-border);
-            border-radius: 6px;
-            max-width: 700px;
-            width: 90%;
-            max-height: 80vh;
-            display: flex;
-            flex-direction: column;
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-        }
-
-        .modal-header {
-            padding: 16px 20px;
-            border-bottom: 1px solid var(--vscode-panel-border);
-            display: flex;
-            justify-content: space-between;
-        }
-
-        .modal-close {
-            background: none;
-            border: none;
-            font-size: 24px;
-            cursor: pointer;
-            border-radius: 4px;
-            transition: background-color 0.2s;
-        }
-
-        .modal-body {
-            padding: 20px;
-            overflow-y: auto;
-            flex: 1;
-        }
-
-        .confidence-bar-container {
-            position: relative;
-            height: 24px;
-            background-color: var(--vscode-input-background);
-            border: 1px solid var(--vscode-input-border);
-            border-radius: 12px;
-        }
-
-        .confidence-bar {
-            height: 100%;
-            background-color: var(--vscode-progressBar-background);
-            transition: width 0.3s;
-            border-radius: 12px 0 0 12px;
-        }
-
-        .modal-footer {
-            padding: 16px 20px;
-            border-top: 1px solid var(--vscode-panel-border);
-            display: flex;
-            gap: 12px;
-            justify-content: flex-end;
-        }
-
-        .button-primary {
-            padding: 8px 20px;
-            background-color: var(--vscode-button-background);
-            color: var(--vscode-button-foreground);
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-
-        .button-secondary {
-            padding: 8px 20px;
-            background-color: var(--vscode-button-secondaryBackground);
-            border: 1px solid var(--vscode-button-border);
-            border-radius: 4px;
-            cursor: pointer;
-        }
-
-        /* SLIDE-DOWN-002: Configuration panel container styling */
-        /* Chain of Thought: Smooth slide-down animation for config panels */
-        /* WHY: User requested configs appear below toolbar with smooth transition */
-        /* REASONING: Use max-height for slide animation, padding for spacing */
-        .config-panel-container {
-            overflow: hidden;
-            max-height: 0;
-            opacity: 0;
-            transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out, padding 0.3s ease-in-out;
-            background-color: var(--vscode-editor-background);
-            border: 1px solid var(--vscode-panel-border);
-            border-radius: 4px;
-            margin: 12px 0;
-        }
-
-        .config-panel-container.open {
-            max-height: 800px;
-            opacity: 1;
-            padding: 16px;
-        }
-
-        .config-panel-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
             margin-bottom: 16px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid var(--vscode-panel-border);
         }
 
-        .config-panel-header h3 {
-            margin: 0;
-            font-size: 16px;
-            font-weight: 600;
-            color: var(--vscode-foreground);
-        }
-
-        .config-panel-close {
-            background: transparent;
-            border: none;
-            font-size: 20px;
-            cursor: pointer;
-            color: var(--vscode-descriptionForeground);
-            padding: 0 8px;
-            line-height: 1;
-        }
-
-        .config-panel-close:hover {
-            color: var(--vscode-foreground);
-        }
-
-        .config-panel-body {
-            max-height: 600px;
-            overflow-y: auto;
-        }
-
-        .config-panel-actions {
-            margin-top: 16px;
-            padding-top: 16px;
-            border-top: 1px solid var(--vscode-panel-border);
-            display: flex;
-            gap: 8px;
-            justify-content: flex-end;
-        }
-
-        /* Legacy button styles (still used in Sprint tab) */
-        button:not(.icon-button) {
+        button {
             padding: 8px 16px;
             background-color: var(--vscode-button-background);
             color: var(--vscode-button-foreground);
@@ -2995,21 +1363,21 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             transition: background-color 0.2s;
         }
 
-        button:not(.icon-button):hover {
+        button:hover {
             background-color: var(--vscode-button-hoverBackground);
         }
 
-        button:not(.icon-button):disabled {
+        button:disabled {
             opacity: 0.5;
             cursor: not-allowed;
         }
 
-        button:not(.icon-button).primary {
+        button.primary {
             background-color: #0078D4;
             color: white;
         }
 
-        button:not(.icon-button).primary:hover {
+        button.primary:hover {
             background-color: #005a9e;
         }
 
@@ -3060,190 +1428,6 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             opacity: 0.5;
             margin: 0 4px;
         }
-
-        /* SETTINGS-001: Settings Panel Styling */
-        .settings-panel {
-            padding: 16px;
-            max-width: 800px;
-        }
-
-        .settings-header {
-            margin-bottom: 24px;
-            border-bottom: 1px solid var(--vscode-panel-border);
-            padding-bottom: 12px;
-        }
-
-        .settings-header h2 {
-            margin: 0 0 8px 0;
-            color: var(--vscode-foreground);
-        }
-
-        .settings-subtitle {
-            margin: 0;
-            color: var(--vscode-descriptionForeground);
-            font-size: 12px;
-        }
-
-        .settings-section {
-            margin-bottom: 32px;
-            padding: 16px;
-            background-color: var(--vscode-sideBar-background);
-            border: 1px solid var(--vscode-panel-border);
-            border-radius: 4px;
-        }
-
-        .settings-section-title {
-            margin: 0 0 16px 0;
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--vscode-foreground);
-        }
-
-        .settings-group {
-            margin-bottom: 20px;
-        }
-
-        .settings-group label {
-            display: block;
-            margin-bottom: 6px;
-            font-size: 13px;
-            font-weight: 600;
-            color: var(--vscode-foreground);
-        }
-
-        .settings-input,
-        .settings-select {
-            width: 100%;
-            padding: 6px 8px;
-            background-color: var(--vscode-input-background);
-            color: var(--vscode-input-foreground);
-            border: 1px solid var(--vscode-input-border);
-            border-radius: 3px;
-            font-size: 13px;
-            font-family: var(--vscode-font-family);
-        }
-
-        /* Chain of Thought: Fix white-on-white dropdown text issue */
-        /* WHY: User reported dropdowns have white text on white background */
-        /* REASONING: option elements inside select need explicit color styling */
-        .settings-select option {
-            background-color: var(--vscode-dropdown-background);
-            color: var(--vscode-dropdown-foreground);
-        }
-
-        .settings-input:focus,
-        .settings-select:focus {
-            outline: none;
-            border-color: var(--vscode-focusBorder);
-        }
-
-        .settings-hint {
-            display: block;
-            margin-top: 4px;
-            font-size: 11px;
-            color: var(--vscode-descriptionForeground);
-            font-style: italic;
-        }
-
-        .settings-status {
-            margin-top: 16px;
-            padding: 12px;
-            background-color: var(--vscode-editor-background);
-            border-radius: 3px;
-        }
-
-        .status-badge {
-            display: inline-block;
-            margin-left: 8px;
-            padding: 2px 8px;
-            background-color: var(--vscode-badge-background);
-            color: var(--vscode-badge-foreground);
-            border-radius: 3px;
-            font-size: 11px;
-            font-weight: 600;
-        }
-
-        .settings-actions {
-            display: flex;
-            gap: 12px;
-            margin-top: 24px;
-        }
-
-        .settings-button {
-            padding: 8px 16px;
-            background-color: var(--vscode-button-background);
-            color: var(--vscode-button-foreground);
-            border: none;
-            border-radius: 4px;
-            font-size: 13px;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-
-        .settings-button:hover {
-            background-color: var(--vscode-button-hoverBackground);
-        }
-
-        .settings-button.primary {
-            background-color: #0078D4;
-            color: white;
-        }
-
-        .settings-button.primary:hover {
-            background-color: #005a9e;
-        }
-
-        .settings-footer {
-            margin-top: 16px;
-            padding-top: 16px;
-            border-top: 1px solid var(--vscode-panel-border);
-            font-size: 11px;
-            color: var(--vscode-descriptionForeground);
-            text-align: center;
-        }
-
-        /* SETTINGS-002: Code Analyzer Settings Styling */
-        .settings-textarea {
-            width: 100%;
-            padding: 8px;
-            background-color: var(--vscode-input-background);
-            color: var(--vscode-input-foreground);
-            border: 1px solid var(--vscode-input-border);
-            border-radius: 3px;
-            font-size: 13px;
-            font-family: var(--vscode-editor-font-family);
-            resize: vertical;
-            min-height: 60px;
-        }
-
-        .settings-textarea:focus {
-            outline: none;
-            border-color: var(--vscode-focusBorder);
-        }
-
-        .settings-checkboxes {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-            margin-top: 8px;
-        }
-
-        .checkbox-label {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            cursor: pointer;
-            font-size: 13px;
-            color: var(--vscode-foreground);
-        }
-
-        .checkbox-label input[type="checkbox"] {
-            cursor: pointer;
-        }
-
-        .checkbox-label span {
-            user-select: none;
-        }
         `;
     }
 
@@ -3253,7 +1437,7 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
         let html = `
         <div class="engineer-tabs">
             <button class="engineer-tab ${this.selectedEngineerId === 'all' ? 'active' : ''}"
-                    data-engineer-id="all">
+                    onclick="selectEngineer('all')">
                 📊 All Engineers
             </button>
         `;
@@ -3266,7 +1450,7 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
             html += `
             <button class="engineer-tab ${isActive ? 'active' : ''}"
-                    data-engineer-id="${engineer.id}"
+                    onclick="selectEngineer('${engineer.id}')"
                     title="${engineer.expertise.join(', ')}">
                 👤 ${engineer.name} (${completedTasks}/${totalTasks})
             </button>
@@ -3278,19 +1462,10 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
     }
 
     private getFilteredTasks(): SprintTask[] {
-        // FIX-WEBVIEW-CRASH: Filter by engineer first
-        let tasks = this.selectedEngineerId === 'all'
-            ? this.sprintTasks
-            : this.sprintLoader.getTasksByEngineer(this.selectedEngineerId);
-
-        // FIX-WEBVIEW-CRASH: Hide completed tasks by default to reduce HTML size
-        // WHY: Large sprints (90+ tasks) generate 50KB+ HTML which crashes VS Code webview
-        // REASONING: Show only active work (pending + in_progress), user can toggle to see completed
-        if (!this.showCompletedTasks) {
-            tasks = tasks.filter(t => t.status !== 'completed');
+        if (this.selectedEngineerId === 'all') {
+            return this.sprintTasks;
         }
-
-        return tasks;
+        return this.sprintLoader.getTasksByEngineer(this.selectedEngineerId);
     }
 
     /**
@@ -3315,13 +1490,7 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
         }
 
         const aetherlightDocPath = path.join(workspaceRoot, '.vscode', 'aetherlight.md');
-
-        // FIX: Use configured sprint path instead of hardcoded "sprints/ACTIVE_SPRINT.toml"
-        // WHY: User may configure sprint file in different locations (e.g., internal/sprints/)
-        // PATTERN: Respect user configuration, don't assume file structure
-        const config = vscode.workspace.getConfiguration('aetherlight');
-        const configuredPath = config.get<string>('sprint.filePath') || 'sprints/ACTIVE_SPRINT.toml';
-        const sprintFilePath = path.join(workspaceRoot, configuredPath);
+        const sprintFilePath = path.join(workspaceRoot, 'sprints', 'ACTIVE_SPRINT.toml');
 
         const docExists = fs.existsSync(aetherlightDocPath);
         const sprintExists = fs.existsSync(sprintFilePath);
@@ -3330,17 +1499,6 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
     }
 
     private getSprintTabContent(): string {
-        /**
-         * DESIGN DECISION: Sprint file discovery happens on-demand
-         * WHY: _getHtmlForWebview must be synchronous for proper webview rendering
-         *
-         * REASONING CHAIN:
-         * 1. User opens Sprint tab - shows current sprint file immediately
-         * 2. User clicks "Discover Sprint Files" button - triggers async discovery
-         * 3. Dropdown populates with all found files
-         * 4. Result: Fast initial render, discovery happens when needed
-         */
-
         /**
          * DESIGN DECISION: Automatically run setup if files don't exist
          * WHY: Better UX - no button needed, setup happens automatically
@@ -3374,48 +1532,31 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
         }
         const teamSize = this.sprintLoader.getTeamSize();
         const engineers = this.sprintLoader.getEngineers();
-        const currentSprintPath = this.sprintLoader.getSprintFilePath();
 
         let html = `
         <div class="sprint-panel">
             <div class="sprint-header">
                 <h2>Sprint</h2>
                 <div class="sprint-header-actions">
-                    <button class="icon-btn" data-action="reloadSprint" title="Refresh Sprint Data">
+                    <button class="icon-btn" onclick="reloadSprint()" title="Refresh Sprint Data">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                             <path d="M13.5 2.5a1 1 0 011 1v9a1 1 0 01-1 1h-11a1 1 0 01-1-1v-9a1 1 0 011-1h11zM8 12a4 4 0 100-8 4 4 0 000 8zm0-1.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5z"/>
                             <path d="M10 8a.5.5 0 01-.5.5h-1v1a.5.5 0 01-1 0v-1h-1a.5.5 0 010-1h1v-1a.5.5 0 011 0v1h1a.5.5 0 01.5.5z"/>
                         </svg>
                         🔄
                     </button>
-                    <button class="icon-btn" data-action="openSprintSettings" title="Sprint Settings">
+                    <button class="icon-btn" onclick="openSprintSettings()" title="Sprint Settings">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                             <path d="M8 10.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z"/>
                             <path d="M14 8a1.5 1.5 0 01-1.5 1.5h-.39a.5.5 0 00-.48.36l-.12.45a.5.5 0 00.11.54l.27.27a1.5 1.5 0 010 2.12l-.71.71a1.5 1.5 0 01-2.12 0l-.27-.27a.5.5 0 00-.54-.11l-.45.12a.5.5 0 00-.36.48v.39A1.5 1.5 0 016 16H5.5a1.5 1.5 0 01-1.5-1.5v-.39a.5.5 0 00-.36-.48l-.45-.12a.5.5 0 00-.54.11l-.27.27a1.5 1.5 0 01-2.12 0l-.71-.71a1.5 1.5 0 010-2.12l.27-.27a.5.5 0 00.11-.54l-.12-.45a.5.5 0 00-.48-.36H1.5A1.5 1.5 0 010 8v-.5a1.5 1.5 0 011.5-1.5h.39a.5.5 0 00.48-.36l.12-.45a.5.5 0 00-.11-.54L2.11 4.38a1.5 1.5 0 010-2.12l.71-.71a1.5 1.5 0 012.12 0l.27.27a.5.5 0 00.54.11l.45-.12a.5.5 0 00.36-.48V1.5A1.5 1.5 0 017.5 0H8a1.5 1.5 0 011.5 1.5v.39a.5.5 0 00.36.48l.45.12a.5.5 0 00.54-.11l.27-.27a1.5 1.5 0 012.12 0l.71.71a1.5 1.5 0 010 2.12l-.27.27a.5.5 0 00-.11.54l.12.45a.5.5 0 00.48.36h.39A1.5 1.5 0 0116 7.5V8z"/>
                         </svg>
                     </button>
-                    <button class="icon-btn" data-action="popOutSprint" title="Pop Out Sprint View">
+                    <button class="icon-btn" onclick="popOutSprint()" title="Pop Out Sprint View">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                             <path d="M9 2h5v5l-1.5-1.5L9 9 7 7l3.5-3.5L9 2zM2 7v7h7V7H2z"/>
                         </svg>
                     </button>
                 </div>
-            </div>
-
-            <!-- CONFIG-CONSOLIDATION: Configuration section removed per user request -->
-            <!-- Sprint tab should focus on sprint management, not configuration -->
-
-            <div class="sprint-file-selector">
-                <label for="sprint-file-dropdown">Sprint File:</label>
-                <select id="sprint-file-dropdown" title="Select which sprint file to view">
-                    <option value="${currentSprintPath}" selected>${currentSprintPath}</option>
-                </select>
-                <button class="icon-btn" data-action="discoverSprintFiles" title="Discover all sprint files in workspace">
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                        <path d="M15.7 13.3l-3.81-3.83A5.93 5.93 0 0 0 13 6c0-3.31-2.69-6-6-6S1 2.69 1 6s2.69 6 6 6c1.3 0 2.48-.41 3.47-1.11l3.83 3.81c.19.2.45.3.7.3.25 0 .52-.09.7-.3a.996.996 0 0 0 0-1.41v.01zM7 10.7c-2.59 0-4.7-2.11-4.7-4.7 0-2.59 2.11-4.7 4.7-4.7 2.59 0 4.7 2.11 4.7 4.7 0 2.59-2.11 4.7-4.7 4.7z"/>
-                    </svg>
-                    🔍
-                </button>
             </div>
 
             <div class="progress-section">
@@ -3426,13 +1567,6 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                     ${stats.completed}/${stats.total} tasks completed (${stats.percentage}%)
                     <span class="progress-detail">| ${stats.inProgress} in progress | ${stats.pending} pending</span>
                 </div>
-            </div>
-
-            <div class="filter-section">
-                <label class="filter-toggle">
-                    <input type="checkbox" id="show-completed-toggle" ${this.showCompletedTasks ? 'checked' : ''} />
-                    Show completed tasks
-                </label>
             </div>
 
             ${teamSize > 1 ? this.getEngineerTabs(engineers) : ''}
@@ -3458,15 +1592,11 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 const selectedClass = this.selectedTaskId === task.id ? 'selected' : '';
 
                 html += `
-                <div class="task-item ${statusClass} ${selectedClass}" data-task-id="${task.id}" title="Click to view task details">
-                    <span class="task-status-icon" title="Click to toggle status">${statusIcon}</span>
-                    <div class="task-content">
-                        <div class="task-header">
-                            <span class="task-id">${task.id}</span>
-                            <span class="task-time">${task.estimated_time}</span>
-                        </div>
-                        <div class="task-description">${task.name}</div>
-                    </div>
+                <div class="task-item ${statusClass} ${selectedClass}" data-task-id="${task.id}" onclick="selectTask('${task.id}')" title="Click to view task details">
+                    <span class="task-status-icon" onclick="event.stopPropagation(); toggleStatus('${task.id}')" title="Click to toggle status">${statusIcon}</span>
+                    <span class="task-id">${task.id}</span>
+                    <span class="task-name">${task.name}</span>
+                    <span class="task-time">${task.estimated_time}</span>
                 </div>
                 `;
             }
@@ -3480,11 +1610,6 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
         html += this.getTaskDetailPanel();
 
         html += `</div></div>`; // End sprint-content and sprint-panel
-
-        // NOTE: Sprint tab event listeners moved to global scope (GLOBAL-PERSIST-002)
-        // All task clicks, status toggles, and action buttons now handled by document.body event delegation
-        // This ensures event listeners persist across tab switches
-
         return html;
     }
 
@@ -3508,9 +1633,6 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             </div>`;
         }
 
-        // DEBUG: Log patterns to diagnose blank badges
-        console.log(`[voicePanel] Task ${task.id} patterns:`, task.patterns, 'Type:', typeof task.patterns, 'IsArray:', Array.isArray(task.patterns));
-
         const statusIcon = this.getStatusIcon(task.status);
         const statusText = task.status.replace('_', ' ').toUpperCase();
 
@@ -3518,7 +1640,7 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
         <div class="task-detail-panel">
             <div class="detail-header">
                 <h3>${statusIcon} ${task.id}: ${task.name}</h3>
-                <button class="status-toggle-btn" data-task-id="${task.id}" title="Toggle status">
+                <button class="status-toggle-btn" onclick="toggleStatus('${task.id}')" title="Toggle status">
                     ${statusIcon} ${statusText}
                 </button>
             </div>
@@ -3557,11 +1679,10 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             <div class="detail-section">
                 <h4>🎨 Patterns</h4>
                 <div class="tag-list">
-                    ${task.patterns.map((pattern, idx) => `<span class="tag pattern-tag" title="Pattern ${idx}: ${pattern}">${pattern || '[EMPTY]'}</span>`).join('')}
+                    ${task.patterns.map(pattern => `<span class="tag pattern-tag">${pattern}</span>`).join('')}
                 </div>
-                <!-- DEBUG: Patterns array JSON: ${JSON.stringify(task.patterns)} -->
             </div>
-            ` : `<!-- DEBUG: No patterns - task.patterns = ${JSON.stringify(task.patterns)} -->`}
+            ` : ''}
 
             ${task.performance_target ? `
             <div class="detail-section">
@@ -3574,78 +1695,6 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 <h4>📂 Phase</h4>
                 <p>${task.phase}</p>
             </div>
-
-            ${task.why ? `
-            <div class="detail-section cot-section">
-                <h4>💡 Why This Task Matters</h4>
-                <div class="cot-content why-content">
-                    ${this.convertMarkdownToHtml(task.why)}
-                </div>
-            </div>
-            ` : ''}
-
-            ${task.context ? `
-            <div class="detail-section cot-section">
-                <h4>📚 Context & Documentation</h4>
-                <div class="cot-content context-content">
-                    ${this.convertMarkdownToHtml(task.context)}
-                </div>
-            </div>
-            ` : ''}
-
-            ${task.reasoning_chain && task.reasoning_chain.length > 0 ? `
-            <div class="detail-section cot-section">
-                <h4>🧠 Reasoning Chain</h4>
-                <ol class="reasoning-chain">
-                    ${task.reasoning_chain.map(step => `<li>${this.convertMarkdownToHtml(step)}</li>`).join('')}
-                </ol>
-            </div>
-            ` : ''}
-
-            ${task.success_impact ? `
-            <div class="detail-section cot-section">
-                <h4>🎯 Success Impact</h4>
-                <div class="cot-content success-impact-content">
-                    ${this.convertMarkdownToHtml(task.success_impact)}
-                </div>
-            </div>
-            ` : ''}
-
-            ${task.validation_criteria && task.validation_criteria.length > 0 ? `
-            <div class="detail-section cot-section">
-                <h4>✅ Validation Criteria</h4>
-                <ul class="validation-list">
-                    ${task.validation_criteria.map(criteria => `<li>${this.convertMarkdownToHtml(criteria)}</li>`).join('')}
-                </ul>
-            </div>
-            ` : ''}
-
-            ${task.files_to_create && task.files_to_create.length > 0 ? `
-            <div class="detail-section">
-                <h4>📝 Files to Create</h4>
-                <div class="tag-list">
-                    ${task.files_to_create.map(file => `<span class="tag file-tag">${file}</span>`).join('')}
-                </div>
-            </div>
-            ` : ''}
-
-            ${task.files_to_modify && task.files_to_modify.length > 0 ? `
-            <div class="detail-section">
-                <h4>✏️ Files to Modify</h4>
-                <div class="tag-list">
-                    ${task.files_to_modify.map(file => `<span class="tag file-tag">${file}</span>`).join('')}
-                </div>
-            </div>
-            ` : ''}
-
-            ${task.notes ? `
-            <div class="detail-section cot-section notes-section">
-                <h4>📌 Notes</h4>
-                <div class="cot-content notes-content">
-                    ${this.convertMarkdownToHtml(task.notes)}
-                </div>
-            </div>
-            ` : ''}
 
             ${this.selectedTaskDetails ? `
             <div class="detail-section full-task-details">
@@ -3875,38 +1924,6 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             font-size: 16px;
         }
 
-        /* FIX-WEBVIEW-CRASH: Filter section styling */
-        .filter-section {
-            margin: 12px 0;
-            padding: 8px 0;
-            border-bottom: 1px solid var(--vscode-panel-border);
-        }
-
-        .filter-toggle {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            cursor: pointer;
-            font-size: 13px;
-            color: var(--vscode-foreground);
-        }
-
-        .filter-toggle input[type="checkbox"] {
-            cursor: pointer;
-            margin: 0;
-        }
-
-        /* Removed sprint-config-redirect and info-box styles - no longer needed */
-
-        .info-box li {
-            margin: 4px 0;
-        }
-
-        .info-box em {
-            color: var(--vscode-descriptionForeground);
-            font-size: 12px;
-        }
-
         .progress-section {
             margin-bottom: 24px;
         }
@@ -3962,10 +1979,9 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             gap: 4px;
         }
 
-        /* UI-COMPACT-001: Compact task list layout */
         .task-item {
             display: flex;
-            align-items: flex-start; /* Changed from center to support two-row layout */
+            align-items: center;
             padding: 8px;
             margin: 2px 0;
             border-radius: 4px;
@@ -3994,47 +2010,23 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
         .task-status-icon {
             margin-right: 8px;
             font-size: 14px;
-            flex-shrink: 0; /* Prevent checkbox from shrinking */
-            width: 20px; /* Fixed width for alignment */
-        }
-
-        /* UI-COMPACT-001: Container for task content (two rows) */
-        .task-content {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            flex: 1;
-        }
-
-        /* UI-COMPACT-001: First row - ID and time */
-        .task-header {
-            display: flex;
-            align-items: center;
-            gap: 12px;
         }
 
         .task-id {
             font-weight: bold;
+            margin-right: 12px;
+            min-width: 60px;
             font-family: var(--vscode-editor-font-family);
-            white-space: nowrap;
+        }
+
+        .task-name {
+            flex: 1;
         }
 
         .task-time {
             color: var(--vscode-descriptionForeground);
             font-size: 11px;
             white-space: nowrap;
-            margin-left: auto; /* Push to right side of header */
-        }
-
-        /* UI-COMPACT-001: Second row - description */
-        .task-description {
-            color: var(--vscode-foreground);
-            line-height: 1.4;
-        }
-
-        /* DEPRECATED: Old .task-name style - replaced by .task-description */
-        .task-name {
-            flex: 1;
         }
 
         /* Sprint Content Layout */
@@ -4160,7 +2152,7 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
         .pattern-tag {
             background-color: var(--vscode-inputValidation-infoBorder);
-            color: var(--vscode-editor-foreground);
+            color: var(--vscode-inputValidation-infoForeground);
         }
 
         .performance-target {
@@ -4285,46 +2277,6 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             fill: currentColor;
         }
 
-        /* Sprint File Selector */
-        .sprint-file-selector {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 16px;
-            padding: 12px;
-            background-color: var(--vscode-editor-background);
-            border: 1px solid var(--vscode-panel-border);
-            border-radius: 6px;
-        }
-
-        .sprint-file-selector label {
-            font-size: 13px;
-            font-weight: 500;
-            color: var(--vscode-foreground);
-            white-space: nowrap;
-        }
-
-        .sprint-file-selector select {
-            flex: 1;
-            padding: 6px 8px;
-            background-color: var(--vscode-dropdown-background);
-            color: var(--vscode-dropdown-foreground);
-            border: 1px solid var(--vscode-dropdown-border);
-            border-radius: 4px;
-            font-size: 13px;
-            font-family: var(--vscode-font-family);
-            cursor: pointer;
-        }
-
-        .sprint-file-selector select:hover {
-            background-color: var(--vscode-dropdown-listBackground);
-        }
-
-        .sprint-file-selector select:focus {
-            outline: 1px solid var(--vscode-focusBorder);
-            outline-offset: -1px;
-        }
-
         /* Engineer Tabs */
         .engineer-tabs {
             display: flex;
@@ -4422,312 +2374,24 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             color: var(--vscode-descriptionForeground);
             opacity: 0.8;
         }
-
-        /* Chain of Thought Sections */
-        .cot-section {
-            background: var(--vscode-editor-background);
-            border-left: 3px solid var(--vscode-charts-blue);
-            padding-left: 12px;
-            margin-top: 16px;
-        }
-
-        .cot-content {
-            font-size: 13px;
-            line-height: 1.6;
-            white-space: pre-wrap;
-        }
-
-        .why-content {
-            color: var(--vscode-charts-purple);
-        }
-
-        .context-content {
-            color: var(--vscode-charts-green);
-        }
-
-        .reasoning-chain {
-            list-style: decimal;
-            padding-left: 24px;
-            margin: 8px 0;
-        }
-
-        .reasoning-chain li {
-            margin: 6px 0;
-            line-height: 1.5;
-        }
-
-        .success-impact-content {
-            color: var(--vscode-charts-green);
-            font-weight: 500;
-        }
-
-        .validation-list {
-            list-style: none;
-            padding-left: 0;
-        }
-
-        .validation-list li {
-            margin: 6px 0;
-            padding-left: 24px;
-            position: relative;
-        }
-
-        .validation-list li::before {
-            content: '☑️';
-            position: absolute;
-            left: 0;
-        }
-
-        .file-tag {
-            background: var(--vscode-editorWidget-background);
-            color: var(--vscode-editor-foreground);
-            font-family: var(--vscode-editor-font-family);
-            font-size: 11px;
-        }
-
-        .notes-section {
-            border-left-color: var(--vscode-charts-orange);
-        }
-        `;
-    }
-
-    /**
-     * Extract global configuration panel functions for re-injection
-     * Chain of Thought: These functions need to be available after tab switches
-     * WHY: Tab content replacement loses global functions, causing button failures
-     * PATTERN: Pattern-PERSIST-002 (Global Function Re-injection)
-     */
-    private getGlobalConfigPanelFunctions(): string {
-        return `
-            // Show status message (used by configuration panels)
-            window.showStatus = function(message, type) {
-                const statusEl = document.getElementById('statusMessage');
-                if (statusEl) {
-                    statusEl.textContent = message;
-                    statusEl.className = 'status-' + (type || 'info');
-                    statusEl.style.display = 'block';
-
-                    // Auto-hide after 5 seconds
-                    setTimeout(() => {
-                        if (statusEl.textContent === message) {
-                            statusEl.style.display = 'none';
-                        }
-                    }, 5000);
-                }
-            };
-
-            // Toggle configuration panel for Code Analyzer or Sprint Planner
-            window.toggleConfigPanel = function(panelType) {
-                const container = document.getElementById('configPanelContainer');
-                if (!container) return;
-
-                // If clicking same panel, close it
-                if (container.dataset.activePanel === panelType && container.classList.contains('open')) {
-                    container.classList.remove('open');
-                    container.style.display = 'none';
-                    delete container.dataset.activePanel;
-                    return;
-                }
-
-                // Load panel content based on type
-                let panelHtml = '';
-                if (panelType === 'code-analyzer') {
-                    panelHtml = window.getCodeAnalyzerPanel();
-                } else if (panelType === 'sprint-planner') {
-                    panelHtml = window.getSprintPlannerPanel();
-                }
-
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(panelHtml, 'text/html');
-                container.replaceChildren(...doc.body.childNodes);
-
-                // Show panel with animation
-                container.dataset.activePanel = panelType;
-                container.style.display = 'block';
-                container.offsetHeight; // Force reflow
-                container.classList.add('open');
-
-                // Attach event listeners to dynamically added panel buttons
-                setTimeout(() => {
-                    if (panelType === 'code-analyzer') {
-                        const closeBtn = document.getElementById('closeCodeAnalyzerPanel');
-                        const cancelBtn = document.getElementById('cancelCodeAnalyzer');
-                        const generateBtn = document.getElementById('generateCodeAnalyzerPrompt');
-
-                        if (closeBtn) closeBtn.addEventListener('click', () => window.toggleConfigPanel(panelType));
-                        if (cancelBtn) cancelBtn.addEventListener('click', () => window.toggleConfigPanel(panelType));
-                        if (generateBtn) generateBtn.addEventListener('click', () => window.generateCodeAnalyzerPrompt());
-                    } else if (panelType === 'sprint-planner') {
-                        const closeBtn = document.getElementById('closeSprintPlannerPanel');
-                        const cancelBtn = document.getElementById('cancelSprintPlanner');
-                        const generateBtn = document.getElementById('generateSprintPrompt');
-
-                        if (closeBtn) closeBtn.addEventListener('click', () => window.toggleConfigPanel(panelType));
-                        if (cancelBtn) cancelBtn.addEventListener('click', () => window.toggleConfigPanel(panelType));
-                        if (generateBtn) generateBtn.addEventListener('click', () => window.generateSprintPlannerPrompt());
-                    }
-                }, 0);
-            };
-
-            // Generate Code Analyzer prompt from user intent + configuration
-            window.generateCodeAnalyzerPrompt = function() {
-                const intentTextarea = document.getElementById('analyzerIntent');
-                if (!intentTextarea || !intentTextarea.value.trim()) {
-                    window.showStatus('⚠️ Please describe what you want to analyze', 'warning');
-                    return;
-                }
-
-                // Show enhancement status
-                const statusDiv = document.getElementById('enhancementStatus');
-                if (statusDiv) {
-                    statusDiv.style.display = 'flex';
-                }
-
-                // Disable button
-                const generateBtn = document.getElementById('generateCodeAnalyzerPrompt');
-                if (generateBtn) {
-                    generateBtn.disabled = true;
-                }
-
-                // Send to extension for enhancement
-                vscode.postMessage({
-                    type: 'enhancePrompt',
-                    promptType: 'code-analyzer',
-                    userIntent: intentTextarea.value.trim()
-                });
-
-                window.showStatus('✨ Enhancing with ÆtherLight patterns...', 'info');
-            };
-
-            // Generate Sprint Planner prompt from user intent + configuration
-            window.generateSprintPlannerPrompt = function() {
-                const intentTextarea = document.getElementById('plannerIntent');
-                if (!intentTextarea || !intentTextarea.value.trim()) {
-                    window.showStatus('⚠️ Please describe what you want to plan', 'warning');
-                    return;
-                }
-
-                // Show enhancement status
-                const statusDiv = document.getElementById('enhancementStatus');
-                if (statusDiv) {
-                    statusDiv.style.display = 'flex';
-                }
-
-                // Disable button
-                const generateBtn = document.getElementById('generateSprintPrompt');
-                if (generateBtn) {
-                    generateBtn.disabled = true;
-                }
-
-                // Send to extension for enhancement
-                vscode.postMessage({
-                    type: 'enhancePrompt',
-                    promptType: 'sprint-planner',
-                    userIntent: intentTextarea.value.trim()
-                });
-
-                window.showStatus('✨ Enhancing with ÆtherLight patterns...', 'info');
-            };
-
-            // Get Code Analyzer panel HTML
-            window.getCodeAnalyzerPanel = function() {
-                const state = vscode.getState() || {};
-                const savedIntent = state.analyzerIntent || '';
-
-                return \`
-                    <div class="config-panel-header">
-                        <h3>🔍 Code Analyzer</h3>
-                        <button id="closeCodeAnalyzerPanel" class="config-panel-close">×</button>
-                    </div>
-
-                    <div class="config-panel-body">
-                        <div class="config-section">
-                            <label for="analyzerIntent" class="config-label">What would you like to analyze?</label>
-                            <textarea
-                                id="analyzerIntent"
-                                class="config-textarea"
-                                placeholder="Examples:\n• Review the authentication system for security issues\n• Find all API endpoints and their usage patterns\n• Analyze component dependencies and coupling\n• Check for performance bottlenecks in data processing"
-                                rows="4">\${savedIntent}</textarea>
-                        </div>
-
-                        <div id="enhancementStatus" style="display: none; align-items: center; gap: 10px; margin: 10px 0;">
-                            <div class="spinner"></div>
-                            <span>Enhancing with ÆtherLight patterns...</span>
-                        </div>
-
-                        <div class="config-actions">
-                            <button id="generateCodeAnalyzerPrompt" class="config-button primary">
-                                ✨ Generate Enhanced Prompt
-                            </button>
-                            <button id="cancelCodeAnalyzer" class="config-button secondary">
-                                Cancel
-                            </button>
-                        </div>
-                    </div>
-                \`;
-            };
-
-            // Get Sprint Planner panel HTML
-            window.getSprintPlannerPanel = function() {
-                const state = vscode.getState() || {};
-                const savedIntent = state.plannerIntent || '';
-
-                return \`
-                    <div class="config-panel-header">
-                        <h3>📋 Sprint Planner</h3>
-                        <button id="closeSprintPlannerPanel" class="config-panel-close">×</button>
-                    </div>
-
-                    <div class="config-panel-body">
-                        <div class="config-section">
-                            <label for="plannerIntent" class="config-label">What would you like to plan?</label>
-                            <textarea
-                                id="plannerIntent"
-                                class="config-textarea"
-                                placeholder="Examples:\n• Create a 2-week sprint for implementing user authentication\n• Plan refactoring of the payment processing module\n• Design sprint for migrating to microservices\n• Build roadmap for mobile app development"
-                                rows="4">\${savedIntent}</textarea>
-                        </div>
-
-                        <div id="enhancementStatus" style="display: none; align-items: center; gap: 10px; margin: 10px 0;">
-                            <div class="spinner"></div>
-                            <span>Enhancing with ÆtherLight patterns...</span>
-                        </div>
-
-                        <div class="config-actions">
-                            <button id="generateSprintPrompt" class="config-button primary">
-                                ✨ Generate Enhanced Prompt
-                            </button>
-                            <button id="cancelSprintPlanner" class="config-button secondary">
-                                Cancel
-                            </button>
-                        </div>
-                    </div>
-                \`;
-            };
         `;
     }
 
     private getVoiceTabScripts(): string {
         return `
-            // Recording state stored in window object to survive tab switches and avoid re-declaration
-            // CRITICAL FIX: Variables were re-declared on every tab switch, causing errors
-            // WHY: Initialize once globally, persist across tab switches
-            window.voiceTabState = window.voiceTabState || {
-                mediaRecorder: null,
-                audioChunks: [],
-                isRecording: false,
-                selectedTerminal: null
-            };
+            // Recording state (declared once at top)
+            let mediaRecorder = null;
+            let audioChunks = [];
+            let isRecording = false;
+            let selectedTerminal = null;
 
-            // BUG FIX: Check if global config panel functions exist before re-attaching event listeners
-            // Chain of Thought: When tabs switch, HTML is replaced and global functions may be lost
-            // WHY: Global functions defined in main template are not in Voice tab scripts
-            // SOLUTION: Re-define critical functions if they don't exist
-            if (typeof window.toggleConfigPanel === 'undefined') {
-                console.log('[ÆtherLight] Re-defining global config panel functions after tab switch...');
+            // Request terminal list on Voice tab activation
+            vscode.postMessage({ type: 'getTerminals' });
 
-                // Re-define the functions that were lost when tab switched
-                ${this.getGlobalConfigPanelFunctions()}
+            // Auto-focus text area when Voice tab shows
+            const transcriptionText = document.getElementById('transcriptionText');
+            if (transcriptionText) {
+                transcriptionText.focus();
             }
 
             /**
@@ -4755,411 +2419,90 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             }
 
             // Attach auto-resize to textarea
-            // CRITICAL FIX: Don't use const/let/var to avoid redeclaration error on tab switch
-            (function() {
-                const textarea = document.getElementById('transcriptionText');
-                if (textarea) {
-                    textarea.addEventListener('input', autoResizeTextarea);
-                    // Initial resize in case there's pre-filled content
-                    autoResizeTextarea();
-                }
-            })();
-
-            // CSP-FIX-002: Define functions BEFORE attaching event listeners
-            // Chain of Thought: Event listeners were calling undefined functions
-            // WHY: Functions must exist before event listeners can reference them
-            // REASONING: JavaScript function expressions (not declarations) aren't hoisted
+            if (transcriptionText) {
+                transcriptionText.addEventListener('input', autoResizeTextarea);
+                // Initial resize in case there's pre-filled content
+                autoResizeTextarea();
+            }
 
             window.refreshTerminals = function() {
                 vscode.postMessage({ type: 'getTerminals' });
             };
 
-            window.sendToTerminal = function() {
-                const text = document.getElementById('transcriptionText').value;
-
-                if (!window.voiceTabState.selectedTerminal) {
-                    showStatus('⚠️ Please select a terminal', 'error');
-                    return;
-                }
-
-                if (!text.trim()) {
-                    showStatus('⚠️ Nothing to send', 'error');
-                    return;
-                }
-
-                vscode.postMessage({
-                    type: 'sendToTerminal',
-                    terminalName: window.voiceTabState.selectedTerminal,
-                    text
-                });
-
-                // Clear input box after sending
-                document.getElementById('transcriptionText').value = '';
-                updateSendButton();
-
-                // Clear saved state after sending to terminal
-                const state = vscode.getState() || {};
-                state.voiceTextContent = '';
-                vscode.setState(state);
-
-                showStatus('📤 Sent to ' + window.voiceTabState.selectedTerminal + ' ✓', 'info');
-            };
-
-            window.clearText = function() {
-                document.getElementById('transcriptionText').value = '';
-                updateSendButton();
-
-                // Clear saved state when manually clearing text
-                const state = vscode.getState() || {};
-                state.voiceTextContent = '';
-                vscode.setState(state);
-            };
-
-            // UI-ARCH-004: Workflow toolbar functions
-            // WHY: Collapsible toolbar for one-click access to major workflows
-            // REASONING: State persistence via vscode.getState/setState, smooth animation via CSS
-            // Pattern: Pattern-UI-ARCH-001 (Progressive Disclosure)
-
-            window.toggleWorkflowToolbar = function() {
-                const toolbar = document.getElementById('workflowToolbar');
-                const toggleIcon = document.querySelector('.workflow-toggle-icon');
-
-                if (!toolbar || !toggleIcon) return;
-
-                // Toggle collapsed class
-                const isCollapsed = toolbar.classList.contains('collapsed');
-
-                if (isCollapsed) {
-                    // Expand
-                    toolbar.classList.remove('collapsed');
-                    toggleIcon.classList.remove('collapsed');
-                    toggleIcon.textContent = '▼';
-                } else {
-                    // Collapse
-                    toolbar.classList.add('collapsed');
-                    toggleIcon.classList.add('collapsed');
-                    toggleIcon.textContent = '▶';
-                }
-
-                // Save state
-                const state = vscode.getState() || {};
-                state.workflowToolbarExpanded = !isCollapsed;
-                vscode.setState(state);
-
-                console.log('[ÆtherLight] Workflow toolbar toggled:', !isCollapsed ? 'expanded' : 'collapsed');
-            };
-
-            window.loadWorkflowToolbarState = function() {
-                const toolbar = document.getElementById('workflowToolbar');
-                const toggleIcon = document.querySelector('.workflow-toggle-icon');
-
-                if (!toolbar || !toggleIcon) return;
-
-                // UI-ARCH-005: Load saved state (default: collapsed for Progressive Disclosure)
-                // WHY: Toolbar starts collapsed to save space, users expand when needed
-                const state = vscode.getState() || {};
-                const isExpanded = state.workflowToolbarExpanded !== undefined ? state.workflowToolbarExpanded : false;
-
-                if (!isExpanded) {
-                    // Apply collapsed state
-                    toolbar.classList.add('collapsed');
-                    toggleIcon.classList.add('collapsed');
-                    toggleIcon.textContent = '▶';
-                } else {
-                    // Ensure expanded state
-                    toolbar.classList.remove('collapsed');
-                    toggleIcon.classList.remove('collapsed');
-                    toggleIcon.textContent = '▼';
-                }
-
-                console.log('[ÆtherLight] Workflow toolbar state loaded:', isExpanded ? 'expanded' : 'collapsed');
-            };
-
-            window.handleWorkflowClick = function(workflowType) {
-                // UI-ARCH-006: Request workflow check from extension
-                // Chain of Thought: Send message to extension → WorkflowCheck.checkWorkflow() → show modal
-                // WHY: Pattern-COMM-001 - Check prerequisites before execution
-
-                console.log('[ÆtherLight] Workflow button clicked:', workflowType);
-
-                // Send message to extension to run workflow check
-                vscode.postMessage({
-                    type: 'checkWorkflow',
-                    workflowType: workflowType
-                });
-
-                // Show loading state
-                const statusEl = document.getElementById('statusMessage');
-                if (statusEl) {
-                    statusEl.textContent = 'Checking workflow prerequisites...';
-                    statusEl.className = 'status-message info';
-                    statusEl.style.display = 'block';
-
-                    setTimeout(() => {
-                        statusEl.style.display = 'none';
-                    }, 2000);
-                }
-            };
-
-            // UI-ARCH-005: Badge update functions
-            window.updateWorkflowBadge = function(workflow, count, status) {
-                // Chain of Thought: Update a single workflow badge with count and status class
-                // WHY: Progressive Disclosure - show counts (e.g., "3" failing tests) without cluttering UI
-                // REASONING: Badge hidden by default, shown when count > 0, colored by status
-
-                const badge = document.querySelector('.workflow-badge[data-workflow="' + workflow + '"]');
-                if (!badge) {
-                    console.warn('[ÆtherLight] Badge not found for workflow:', workflow);
-                    return;
-                }
-
-                // Update count and visibility
-                if (count > 0) {
-                    badge.textContent = String(count);
-                    badge.classList.add('visible');
-                } else {
-                    badge.classList.remove('visible');
-                    return; // Don't set status if hidden
-                }
-
-                // Update status class (error, warning, info, success)
-                badge.classList.remove('status-error', 'status-warning', 'status-info', 'status-success');
-                if (status) {
-                    badge.classList.add('status-' + status);
-                }
-
-                console.log('[ÆtherLight] Badge updated:', workflow, count, status);
-            };
-
-            window.updateWorkflowBadges = function() {
-                // Chain of Thought: Request badge data from extension, then update all badges
-                // WHY: Badges reflect current context (tests failing, git dirty, sprint progress)
-                // REASONING: Extension has access to services (TestValidator, WorkflowCheck, SprintLoader)
-
-                console.log('[ÆtherLight] Requesting workflow badge updates from extension...');
-
-                // TODO UI-ARCH-005 Task 4: Extension will respond with badge data via message handler
-                // For now, use placeholder data to demonstrate badge rendering
-                vscode.postMessage({ type: 'getWorkflowBadges' });
-
-                // Placeholder: Show example badges (will be replaced by actual data in Task 4)
-                // Uncomment to test badge rendering:
-                // window.updateWorkflowBadge('tests', 3, 'error');  // 3 failing tests (red)
-                // window.updateWorkflowBadge('git', 5, 'warning');  // 5 uncommitted files (orange)
-                // window.updateWorkflowBadge('sprint', 0, 'info');  // Sprint progress (blue) - hidden since count=0
-            };
-
-            // UI-ARCH-006: Workflow Check Modal functions
-            window.showWorkflowCheckModal = function(workflowType, checkResult) {
-                // Chain of Thought: Display workflow check results in modal
-                // WHY: Pattern-COMM-001 - Show prerequisites, confidence, gaps, plan before execution
-                // REASONING: User reviews → approves or cancels
-
-                const modal = document.getElementById('workflowCheckModal');
-                if (!modal) {
-                    console.error('[ÆtherLight] Modal not found');
-                    return;
-                }
-
-                // Update modal title
-                const titleEl = document.getElementById('modalWorkflowTitle');
-                const workflowNames = {
-                    'sprint': 'Sprint Planning',
-                    'analyzer': 'Code Analyzer',
-                    'pattern': 'Pattern Creation',
-                    'skill': 'Skill Creation',
-                    'agent': 'Agent Creation',
-                    'test': 'Test Runner',
-                    'git': 'Git Status',
-                    'publish': 'Publishing'
-                };
-                if (titleEl) {
-                    titleEl.textContent = workflowNames[workflowType] || 'Workflow Check';
-                }
-
-                // Populate prerequisites
-                const prerequisitesList = document.getElementById('prerequisitesList');
-                if (prerequisitesList && checkResult.prerequisites) {
-                    prerequisitesList.innerHTML = '';
-                    checkResult.prerequisites.forEach(prereq => {
-                        const div = document.createElement('div');
-                        div.innerHTML = '<span>' + prereq.status + '</span> <strong>' + prereq.name + '</strong>: ' + prereq.details;
-                        prerequisitesList.appendChild(div);
-                    });
-                }
-
-                // Populate confidence
-                const confidenceBar = document.getElementById('confidenceBar');
-                const confidenceText = document.getElementById('confidenceText');
-                if (confidenceBar && confidenceText && checkResult.confidence !== undefined) {
-                    const percent = Math.round(checkResult.confidence * 100);
-                    confidenceBar.style.width = percent + '%';
-                    confidenceText.textContent = percent + '%';
-                }
-
-                // Populate gaps
-                const gapsList = document.getElementById('gapsList');
-                if (gapsList && checkResult.gaps) {
-                    gapsList.innerHTML = '';
-                    if (checkResult.gaps.length === 0) {
-                        gapsList.innerHTML = '<div style="color: var(--vscode-testing-iconPassed);">✅ No gaps detected</div>';
-                    } else {
-                        checkResult.gaps.forEach(gap => {
-                            const div = document.createElement('div');
-                            div.textContent = gap;
-                            gapsList.appendChild(div);
-                        });
-                    }
-                }
-
-                // Populate plan
-                const planSteps = document.getElementById('planSteps');
-                if (planSteps && checkResult.plan) {
-                    planSteps.innerHTML = '';
-                    checkResult.plan.forEach(step => {
-                        const li = document.createElement('li');
-                        li.textContent = step;
-                        planSteps.appendChild(li);
-                    });
-                }
-
-                // Store workflow type for Proceed button
-                modal.dataset.workflowType = workflowType;
-
-                // Show modal
-                modal.style.display = 'flex';
-                console.log('[ÆtherLight] Workflow check modal shown:', workflowType);
-            };
-
-            window.closeWorkflowCheckModal = function() {
-                const modal = document.getElementById('workflowCheckModal');
-                if (modal) {
-                    modal.style.display = 'none';
-                    console.log('[ÆtherLight] Workflow check modal closed');
-                }
-            };
-
-            window.proceedWithWorkflow = function() {
-                const modal = document.getElementById('workflowCheckModal');
-                const workflowType = modal ? modal.dataset.workflowType : null;
-
-                if (workflowType) {
-                    console.log('[ÆtherLight] Proceeding with workflow:', workflowType);
-                    // Send message to extension to execute workflow
-                    vscode.postMessage({
-                        type: 'executeWorkflow',
-                        workflowType: workflowType
-                    });
-                    window.closeWorkflowCheckModal();
-                }
-            };
-
-            // CSP-FIX-001: Attach event listeners to buttons (no onclick allowed)
-            // Chain of Thought: CSP Trusted Types blocks onclick handlers, must use addEventListener
-            // WHY: VS Code webview CSP policy blocks inline event handlers for security
-            // REASONING: Add listeners after DOM loads AND after functions are defined
-            (function() {
-                // Primary toolbar buttons
-                const recordBtn = document.getElementById('recordBtn');
-                const codeAnalyzerBtn = document.getElementById('codeAnalyzerBtn');
-                const sprintPlannerBtn = document.getElementById('sprintPlannerBtn');
-                const enhanceBtn = document.getElementById('enhanceBtn');
-                const sendBtn = document.getElementById('sendBtn');
-                const clearBtn = document.getElementById('clearBtn');
-
-                // Secondary toolbar buttons
-                const reportBugBtn = document.getElementById('reportBugBtn');
-                const requestFeatureBtn = document.getElementById('requestFeatureBtn');
-                const manageSkillsBtn = document.getElementById('manageSkillsBtn');
-                const settingsBtn = document.getElementById('settingsBtn');
-
-                if (recordBtn) recordBtn.addEventListener('click', () => window.toggleRecording());
-                if (codeAnalyzerBtn) codeAnalyzerBtn.addEventListener('click', () => window.toggleConfigPanel('code-analyzer'));
-                if (sprintPlannerBtn) sprintPlannerBtn.addEventListener('click', () => window.toggleConfigPanel('sprint-planner'));
-                if (enhanceBtn) enhanceBtn.addEventListener('click', () => window.enhanceText());
-                if (sendBtn) sendBtn.addEventListener('click', () => window.sendToTerminal());
-                if (clearBtn) clearBtn.addEventListener('click', () => window.clearText());
-
-                if (reportBugBtn) reportBugBtn.addEventListener('click', () => window.reportBug());
-                if (requestFeatureBtn) requestFeatureBtn.addEventListener('click', () => window.requestFeature());
-                if (manageSkillsBtn) manageSkillsBtn.addEventListener('click', () => window.manageSkills());
-                if (settingsBtn) settingsBtn.addEventListener('click', () => {
-                    vscode.postMessage({ type: 'switchTab', tabId: 'settings' });
-                });
-
-                // UI-ARCH-004: Workflow toolbar event listeners (initial load)
-                const workflowToggleBtn = document.getElementById('workflowToggleBtn');
-                const workflowSprintBtn = document.getElementById('workflowSprintBtn');
-                const workflowAnalyzerBtn = document.getElementById('workflowAnalyzerBtn');
-                const workflowPatternBtn = document.getElementById('workflowPatternBtn');
-                const workflowSkillBtn = document.getElementById('workflowSkillBtn');
-                const workflowAgentBtn = document.getElementById('workflowAgentBtn');
-                const workflowTestsBtn = document.getElementById('workflowTestsBtn');
-                const workflowGitBtn = document.getElementById('workflowGitBtn');
-                const workflowPublishBtn = document.getElementById('workflowPublishBtn');
-
-                if (workflowToggleBtn) workflowToggleBtn.addEventListener('click', () => window.toggleWorkflowToolbar());
-                if (workflowSprintBtn) workflowSprintBtn.addEventListener('click', () => window.handleWorkflowClick('sprint'));
-                if (workflowAnalyzerBtn) workflowAnalyzerBtn.addEventListener('click', () => window.handleWorkflowClick('analyzer'));
-                if (workflowPatternBtn) workflowPatternBtn.addEventListener('click', () => window.handleWorkflowClick('pattern'));
-                if (workflowSkillBtn) workflowSkillBtn.addEventListener('click', () => window.handleWorkflowClick('skill'));
-                if (workflowAgentBtn) workflowAgentBtn.addEventListener('click', () => window.handleWorkflowClick('agent'));
-                if (workflowTestsBtn) workflowTestsBtn.addEventListener('click', () => window.handleWorkflowClick('tests'));
-                if (workflowGitBtn) workflowGitBtn.addEventListener('click', () => window.handleWorkflowClick('git'));
-                if (workflowPublishBtn) workflowPublishBtn.addEventListener('click', () => window.handleWorkflowClick('publish'));
-
-                // UI-ARCH-004: Load workflow toolbar state on first load
-                window.loadWorkflowToolbarState();
-
-                // UI-ARCH-005: Load workflow badge counts on first load
-                window.updateWorkflowBadges();
-
-                // UI-ARCH-006: Workflow Check Modal event listeners
-                const modalCloseBtn = document.getElementById('modalCloseBtn');
-                const modalCancelBtn = document.getElementById('modalCancelBtn');
-                const modalProceedBtn = document.getElementById('modalProceedBtn');
-                const modalHelpBtn = document.getElementById('modalHelpBtn');
-
-                if (modalCloseBtn) modalCloseBtn.addEventListener('click', () => window.closeWorkflowCheckModal());
-                if (modalCancelBtn) modalCancelBtn.addEventListener('click', () => window.closeWorkflowCheckModal());
-                if (modalProceedBtn) modalProceedBtn.addEventListener('click', () => window.proceedWithWorkflow());
-                if (modalHelpBtn) modalHelpBtn.addEventListener('click', () => {
-                    alert('Workflow Help: Review prerequisites, confidence, and gaps before proceeding. Click Proceed to execute workflow.');
-                });
-
-                // Close modal on overlay click
-                const modalOverlay = document.getElementById('workflowCheckModal');
-                if (modalOverlay) {
-                    modalOverlay.addEventListener('click', (e) => {
-                        if (e.target === modalOverlay) {
-                            window.closeWorkflowCheckModal();
-                        }
-                    });
-                }
-            })();
-
-            // Toggle recording - Send backtick to trigger desktop app
-            window.toggleRecording = function() {
+            // Toggle recording
+            window.toggleRecording = async function() {
                 /**
-                 * DESIGN DECISION: Send backtick keystroke to trigger desktop app recording
-                 * WHY: Desktop app handles voice recording with global hotkey (backtick)
+                 * DESIGN DECISION: Record directly in sidebar webview
+                 * WHY: Sidebar webviews DO support getUserMedia with enableForms: true
                  *
                  * REASONING CHAIN:
-                 * 1. Desktop app (Tauri) has global hotkey listener for backtick
-                 * 2. Sending backtick from webview triggers desktop recording
-                 * 3. Desktop app handles microphone permissions and Whisper API
-                 * 4. Result: Consistent recording behavior across all contexts
+                 * 1. Sidebar webview has enableForms: true → mic access enabled
+                 * 2. Use MediaRecorder API directly in sidebar
+                 * 3. No separate panel needed
+                 * 4. Transcription sent to extension when complete
+                 * 5. Result: Recording stays in activity bar (no separate panel)
                  *
-                 * PATTERN: Pattern-VOICE-004 (Desktop App Integration)
+                 * PATTERN: Pattern-VOICE-003 (In-Panel Recording)
                  */
 
-                // Send backtick keystroke to VS Code to trigger desktop app
-                vscode.postMessage({
-                    type: 'sendKeystroke',
-                    key: 'backtick'
-                });
+                if (isRecording) {
+                    // Stop recording
+                    if (mediaRecorder && mediaRecorder.state === 'recording') {
+                        mediaRecorder.stop();
+                    }
+                    return;
+                }
 
-                showStatus('📢 Triggering voice capture (backtick sent)', 'info');
+                try {
+                    // Request microphone permission
+                    showStatus('🔍 Requesting microphone access...', 'info');
+
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+                    mediaRecorder = new MediaRecorder(stream);
+                    audioChunks = [];
+
+                    mediaRecorder.ondataavailable = (event) => {
+                        if (event.data.size > 0) {
+                            audioChunks.push(event.data);
+                        }
+                    };
+
+                    mediaRecorder.onstop = async () => {
+                        isRecording = false;
+                        document.getElementById('recordBtn').textContent = '🎤 Record';
+                        showStatus('🎵 Processing audio...', 'info');
+
+                        // Create audio blob
+                        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+
+                        // Convert to base64
+                        const reader = new FileReader();
+                        reader.readAsDataURL(audioBlob);
+                        reader.onloadend = () => {
+                            const base64Audio = reader.result.split(',')[1];
+
+                            // Send to extension for transcription
+                            vscode.postMessage({
+                                type: 'transcribeAudio',
+                                audioData: base64Audio
+                            });
+                        };
+
+                        // Stop all tracks
+                        stream.getTracks().forEach(track => track.stop());
+                    };
+
+                    // Start recording
+                    mediaRecorder.start();
+                    isRecording = true;
+                    document.getElementById('recordBtn').textContent = '⏹️ Stop';
+                    showStatus('🎤 Recording... Click Stop when done!', 'info');
+
+                } catch (error) {
+                    showStatus('❌ Mic access denied: ' + error.message, 'error');
+                    console.error('[ÆtherLight] Mic error:', error);
+                }
             };
 
             // Voice-specific message handler (called from global listener)
@@ -5183,9 +2526,9 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                         break;
                     case 'transcriptionChunk':
                         // Append transcription chunk to text area
-                        const chunkTextArea = document.getElementById('transcriptionText');
-                        if (chunkTextArea) {
-                            chunkTextArea.value += (chunkTextArea.value ? ' ' : '') + message.text;
+                        const textArea = document.getElementById('transcriptionText');
+                        if (textArea) {
+                            textArea.value += (textArea.value ? ' ' : '') + message.text;
                             autoResizeTextarea(); // B-005: Auto-resize after chunk
                         }
                         showStatus('🎤 Transcribing...', 'info');
@@ -5225,18 +2568,10 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 const list = document.getElementById('terminalList');
                 if (!list) return;
 
-                // CSP-FIX: Clear children without innerHTML
-                while (list.firstChild) {
-                    list.removeChild(list.firstChild);
-                }
+                list.innerHTML = '';
 
                 if (terminals.length === 0) {
-                    // CSP-FIX: Create element instead of innerHTML
-                    const emptyMsg = document.createElement('div');
-                    emptyMsg.style.padding = '8px';
-                    emptyMsg.style.color = 'var(--vscode-descriptionForeground)';
-                    emptyMsg.textContent = 'No terminals open';
-                    list.appendChild(emptyMsg);
+                    list.innerHTML = '<div style="padding: 8px; color: var(--vscode-descriptionForeground);">No terminals open</div>';
                     return;
                 }
 
@@ -5247,34 +2582,87 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                     item.dataset.terminalName = terminal.name; // Display name
                     item.dataset.actualName = terminal.actualName || terminal.name; // B-004: Actual VS Code terminal name
 
-                    // CSP-FIX: Build DOM structure instead of innerHTML
-                    const checkmark = document.createElement('span');
-                    checkmark.className = 'terminal-checkmark';
-                    checkmark.textContent = '✓';
+                    // B-002: Compact terminal list with checkmark and pencil icon
+                    // B-003: Add ⏳ icon for executing terminals
+                    item.innerHTML = \`
+                        <span class="terminal-checkmark">✓</span>
+                        <span class="terminal-name">\${terminal.name}</span>
+                        \${terminal.isExecuting ? '<span class="terminal-executing-icon" title="Command executing">⏳</span>' : ''}
+                        <span class="terminal-edit-icon" title="Rename terminal">✏️</span>
+                    \`;
 
-                    const nameSpan = document.createElement('span');
-                    nameSpan.className = 'terminal-name';
-                    nameSpan.textContent = terminal.name;
-
-                    item.appendChild(checkmark);
-                    item.appendChild(nameSpan);
-
-                    if (terminal.isExecuting) {
-                        const execIcon = document.createElement('span');
-                        execIcon.className = 'terminal-executing-icon';
-                        execIcon.title = 'Command executing';
-                        execIcon.textContent = '⏳';
-                        item.appendChild(execIcon);
-                    }
-
-                    // BUG-010: Removed pencil icon and rename functionality
-                    // WHY: VS Code API doesn't support programmatic terminal renaming
-                    // REASONING: Feature only updated Voice Panel list, not actual VS Code terminal tab
-                    // Users confirmed feature was pointless - custom names not visible where they matter
-
-                    // Click to select terminal
-                    item.addEventListener('click', () => {
+                    // Click on terminal name to select
+                    const terminalNameSpan = item.querySelector('.terminal-name');
+                    terminalNameSpan.addEventListener('click', () => {
                         selectTerminal(terminal.name);
+                    });
+
+                    // Click to select (anywhere except edit icon)
+                    item.addEventListener('click', (e) => {
+                        if (!e.target.classList.contains('terminal-edit-icon')) {
+                            selectTerminal(terminal.name);
+                        }
+                    });
+
+                    // B-004: Click pencil icon to enable inline rename
+                    const editIcon = item.querySelector('.terminal-edit-icon');
+                    editIcon.addEventListener('click', (e) => {
+                        e.stopPropagation();
+
+                        // Convert terminal name to editable input
+                        const terminalNameSpan = item.querySelector('.terminal-name');
+                        const originalName = terminal.name; // Display name
+                        const actualName = terminal.actualName || terminal.name; // B-004: Actual terminal name for rename operation
+
+                        // Create input element
+                        const input = document.createElement('input');
+                        input.type = 'text';
+                        input.className = 'terminal-name-input';
+                        input.value = originalName;
+
+                        // Replace span with input
+                        terminalNameSpan.replaceWith(input);
+                        input.focus();
+                        input.select();
+
+                        // Handle Enter key to confirm rename
+                        input.addEventListener('keydown', (e) => {
+                            if (e.key === 'Enter') {
+                                e.preventDefault();
+                                const newName = input.value.trim();
+
+                                if (newName && newName !== originalName) {
+                                    // B-004: Send rename request using actualName (not display name)
+                                    vscode.postMessage({
+                                        type: 'renameTerminal',
+                                        oldName: actualName, // Use actual VS Code terminal name
+                                        newName: newName
+                                    });
+                                }
+
+                                // Restore span (will be updated by terminal list refresh)
+                                const span = document.createElement('span');
+                                span.className = 'terminal-name';
+                                span.textContent = newName || originalName;
+                                input.replaceWith(span);
+                            } else if (e.key === 'Escape') {
+                                // Cancel rename - restore original span
+                                e.preventDefault();
+                                const span = document.createElement('span');
+                                span.className = 'terminal-name';
+                                span.textContent = originalName;
+                                input.replaceWith(span);
+                            }
+                        });
+
+                        // Handle blur (click outside) - cancel rename
+                        input.addEventListener('blur', () => {
+                            // Restore original span
+                            const span = document.createElement('span');
+                            span.className = 'terminal-name';
+                            span.textContent = originalName;
+                            input.replaceWith(span);
+                        });
                     });
 
                     // Keyboard navigation
@@ -5334,18 +2722,18 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 }
 
                 // Auto-selection logic
-                if (!window.voiceTabState.selectedTerminal && terminals.length > 0) {
+                if (!selectedTerminal && terminals.length > 0) {
                     // No terminal selected yet - find Review terminal
                     const reviewTerminal = findReviewTerminal();
                     if (reviewTerminal) {
                         selectTerminal(reviewTerminal);
                     }
-                } else if (window.voiceTabState.selectedTerminal) {
+                } else if (selectedTerminal) {
                     // Check if previously selected terminal still exists
-                    const stillExists = terminals.find(t => t.name === window.voiceTabState.selectedTerminal);
+                    const stillExists = terminals.find(t => t.name === selectedTerminal);
                     if (stillExists) {
                         // Restore previous selection
-                        selectTerminal(window.voiceTabState.selectedTerminal);
+                        selectTerminal(selectedTerminal);
                     } else {
                         // Previous terminal closed - find Review terminal
                         const reviewTerminal = findReviewTerminal();
@@ -5357,7 +2745,7 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             }
 
             function selectTerminal(terminalName) {
-                window.voiceTabState.selectedTerminal = terminalName;
+                selectedTerminal = terminalName;
 
                 // Update UI
                 document.querySelectorAll('.terminal-item').forEach(item => {
@@ -5371,344 +2759,48 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 updateSendButton();
             }
 
-            // UI-002 & SKILLS-002: Insert skill invocation with parameters from settings
-            window.insertSkill = function(skillCommand) {
-                const textarea = document.getElementById('transcriptionText');
-                if (!textarea) return;
+            window.sendToTerminal = function() {
+                const text = document.getElementById('transcriptionText').value;
 
-                // Get saved settings
-                const state = vscode.getState() || {};
-                const settings = state.sprintSettings || {};
-
-                let fullCommand = skillCommand;
-
-                // SKILLS-002: Auto-populate parameters based on skill type
-                if (skillCommand === '/code-analyzer') {
-                    const params = [];
-                    if (settings.teamSize) params.push('--engineers=' + settings.teamSize);
-                    if (settings.focusAreas && settings.focusAreas.length > 0) {
-                        params.push('--focus=' + settings.focusAreas.join(','));
-                    }
-                    if (settings.analyzerDepth) params.push('--depth=' + settings.analyzerDepth);
-                    if (settings.analyzerOutput) params.push('--output=' + settings.analyzerOutput);
-                    if (settings.analyzerGoals) {
-                        const goals = settings.analyzerGoals.replace(/\\n/g, ', ');
-                        params.push('--goals="' + goals + '"');
-                    }
-                    fullCommand = skillCommand + (params.length > 0 ? ' ' + params.join(' ') : '');
-                }
-                else if (skillCommand === '/sprint-planner') {
-                    const params = [];
-                    if (settings.teamSize) params.push('--engineers=' + settings.teamSize);
-                    if (settings.sprintStructure) params.push('--structure=' + settings.sprintStructure);
-                    if (settings.sprintType) params.push('--type=' + settings.sprintType);
-                    if (settings.docFormat) params.push('--format=' + settings.docFormat);
-                    fullCommand = skillCommand + (params.length > 0 ? ' ' + params.join(' ') : '');
+                if (!selectedTerminal) {
+                    showStatus('⚠️ Please select a terminal', 'error');
+                    return;
                 }
 
-                // Insert skill command at cursor position
-                const cursorPos = textarea.selectionStart;
-                const currentText = textarea.value;
-                const beforeCursor = currentText.substring(0, cursorPos);
-                const afterCursor = currentText.substring(cursorPos);
+                if (!text.trim()) {
+                    showStatus('⚠️ Nothing to send', 'error');
+                    return;
+                }
 
-                textarea.value = beforeCursor + fullCommand + ' ' + afterCursor;
+                vscode.postMessage({
+                    type: 'sendToTerminal',
+                    terminalName: selectedTerminal,
+                    text
+                });
 
-                // Move cursor after inserted skill
-                const newCursorPos = cursorPos + fullCommand.length + 1;
-                textarea.setSelectionRange(newCursorPos, newCursorPos);
-                textarea.focus();
-
+                // Clear input box after sending
+                document.getElementById('transcriptionText').value = '';
                 updateSendButton();
 
-                // Save to state
-                state.voiceTextContent = textarea.value;
-                vscode.setState(state);
+                showStatus('📤 Sent to ' + selectedTerminal + ' ✓', 'info');
             };
 
-            // UI-003: Secondary toolbar functions
-            window.reportBug = function() {
-                vscode.postMessage({
-                    type: 'openUrl',
-                    url: 'https://github.com/AEtherlight-ai/lumina/issues/new?labels=bug&template=bug_report.md'
-                });
+            window.clearText = function() {
+                document.getElementById('transcriptionText').value = '';
+                updateSendButton();
             };
-
-            window.requestFeature = function() {
-                vscode.postMessage({
-                    type: 'openUrl',
-                    url: 'https://github.com/AEtherlight-ai/lumina/issues/new?labels=enhancement&template=feature_request.md'
-                });
-            };
-
-            window.manageSkills = function() {
-                // TODO: Open skills management panel
-                window.showStatus('📦 Skills Management coming soon!', 'info');
-            };
-
-            // NOTE: toggleConfigPanel, generateCodeAnalyzerPrompt, generateSprintPlannerPrompt,
-            // getCodeAnalyzerPanel, getSprintPlannerPanel, and showStatus are defined at global scope
-            // (see GLOBAL-PERSIST-001 earlier in script) to persist across tab switches.
-            // DO NOT redefine them here or they will be lost when tabs switch.
-
-            // REMOVED DUPLICATE DECLARATIONS - Now using global versions defined above
-            /*
-            window.toggleConfigPanel = function(panelType) {
-                const container = document.getElementById('configPanelContainer');
-                if (!container) return;
-
-                // If clicking same panel, close it
-                if (container.dataset.activePanel === panelType && container.classList.contains('open')) {
-                    container.classList.remove('open');
-                    container.style.display = 'none';
-                    delete container.dataset.activePanel;
-                    return;
-                }
-
-                // Load panel content based on type
-                // CSP-FIX: Use DOMParser instead of innerHTML
-                let panelHtml = '';
-                if (panelType === 'code-analyzer') {
-                    panelHtml = window.getCodeAnalyzerPanel();
-                } else if (panelType === 'sprint-planner') {
-                    panelHtml = window.getSprintPlannerPanel();
-                }
-
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(panelHtml, 'text/html');
-                container.replaceChildren(...doc.body.childNodes);
-
-                // Show panel with animation
-                container.dataset.activePanel = panelType;
-                container.style.display = 'block';
-                // Force reflow for animation
-                container.offsetHeight;
-                container.classList.add('open');
-
-                // CONFIG-PANEL-001: Attach event listeners to dynamically added panel buttons
-                // Chain of Thought: Panel HTML is dynamically inserted, need to attach listeners after insertion
-                // WHY: Buttons don't exist until panel is opened, must attach listeners each time
-                // REASONING: Use setTimeout to ensure DOM is updated before attaching listeners
-                setTimeout(() => {
-                    if (panelType === 'code-analyzer') {
-                        const closeBtn = document.getElementById('closeCodeAnalyzerPanel');
-                        const cancelBtn = document.getElementById('cancelCodeAnalyzer');
-                        const generateBtn = document.getElementById('generateCodeAnalyzerPrompt');
-
-                        if (closeBtn) closeBtn.addEventListener('click', () => window.toggleConfigPanel(panelType));
-                        if (cancelBtn) cancelBtn.addEventListener('click', () => window.toggleConfigPanel(panelType));
-                        if (generateBtn) generateBtn.addEventListener('click', () => window.generateCodeAnalyzerPrompt());
-                    } else if (panelType === 'sprint-planner') {
-                        const closeBtn = document.getElementById('closeSprintPlannerPanel');
-                        const cancelBtn = document.getElementById('cancelSprintPlanner');
-                        const generateBtn = document.getElementById('generateSprintPrompt');
-
-                        if (closeBtn) closeBtn.addEventListener('click', () => window.toggleConfigPanel(panelType));
-                        if (cancelBtn) cancelBtn.addEventListener('click', () => window.toggleConfigPanel(panelType));
-                        if (generateBtn) generateBtn.addEventListener('click', () => window.generateSprintPlannerPrompt());
-                    }
-                }, 0);
-            };
-
-            // ENHANCE-002: Generate enhanced prompt from natural language intent
-            // Chain of Thought: User types intent → send to extension → PromptEnhancer analyzes → insert result
-            // WHY: AI-powered enhancement provides codebase context + SOPs automatically
-            // REASONING: User describes goal → system generates expert-level prompt with full context
-            window.generateCodeAnalyzerPrompt = function() {
-                const intentTextarea = document.getElementById('codeAnalyzerIntent');
-                if (!intentTextarea) return;
-
-                const userIntent = intentTextarea.value.trim();
-
-                if (!userIntent) {
-                    showStatus('⚠️ Please describe what you want to analyze.', 'warning');
-                    intentTextarea.focus();
-                    return;
-                }
-
-                // Show enhancement status
-                const statusDiv = document.getElementById('enhancementStatus');
-                if (statusDiv) {
-                    statusDiv.style.display = 'flex';
-                }
-
-                // Disable button during enhancement
-                const generateBtn = document.getElementById('generateCodeAnalyzerPrompt');
-                if (generateBtn) {
-                    generateBtn.disabled = true;
-                    generateBtn.textContent = '⏳ Enhancing...';
-                }
-
-                // Send to extension for enhancement
-                vscode.postMessage({
-                    type: 'enhancePrompt',
-                    userIntent,
-                    promptType: 'code-analyzer'
-                });
-            };
-
-            // ENHANCE-003: Generate enhanced prompt from natural language intent (Sprint Planner)
-            // Chain of Thought: User types intent → send to extension → PromptEnhancer analyzes → insert result
-            // WHY: AI-powered enhancement provides codebase context + SOPs automatically
-            // REASONING: User describes goal → system generates expert-level sprint plan prompt
-            window.generateSprintPlannerPrompt = function() {
-                const intentTextarea = document.getElementById('sprintPlannerIntent');
-                if (!intentTextarea) return;
-
-                const userIntent = intentTextarea.value.trim();
-
-                if (!userIntent) {
-                    showStatus('⚠️ Please describe the sprint you want to plan.', 'warning');
-                    intentTextarea.focus();
-                    return;
-                }
-
-                // Show enhancement status
-                const statusDiv = document.getElementById('enhancementStatus');
-                if (statusDiv) {
-                    statusDiv.style.display = 'flex';
-                }
-
-                // Disable button during enhancement
-                const generateBtn = document.getElementById('generateSprintPrompt');
-                if (generateBtn) {
-                    generateBtn.disabled = true;
-                    generateBtn.textContent = '⏳ Enhancing...';
-                }
-
-                // Send to extension for enhancement
-                vscode.postMessage({
-                    type: 'enhancePrompt',
-                    userIntent,
-                    promptType: 'sprint-planner'
-                });
-            };
-
-            // Full panel generators with actual configuration forms
-            // ENHANCE-002: Code Analyzer with deep prompt enhancement
-            // Chain of Thought: Replace complex dropdowns with natural language input
-            // WHY: Users know what they want but don't know how to structure it for AI
-            // REASONING: User types intent → system enhances with codebase context + SOPs
-            window.getCodeAnalyzerPanel = function() {
-                const state = vscode.getState() || {};
-                const lastIntent = state.lastCodeAnalyzerIntent || '';
-
-                return \`
-                    <div class="config-panel-header">
-                        <h3>🔍 Code Analyzer</h3>
-                        <button id="closeCodeAnalyzerPanel" class="config-panel-close">×</button>
-                    </div>
-                    <div class="config-panel-body">
-                        <div class="settings-group">
-                            <label for="codeAnalyzerIntent">What would you like to analyze?</label>
-                            <textarea
-                                id="codeAnalyzerIntent"
-                                class="settings-textarea enhanced-textarea"
-                                rows="8"
-                                placeholder="Describe your analysis goal in natural language...
-
-Examples:
-• I want to identify all technical debt in the authentication system
-• Find security vulnerabilities in API endpoints
-• Review error handling across the codebase
-• Analyze performance bottlenecks in data processing
-• Check for missing unit tests in critical modules
-
-Be specific about what you want to understand or improve.">\${lastIntent}</textarea>
-                            <span class="settings-hint">
-                                💡 <strong>AI-Enhanced Prompt</strong>: Your description will be analyzed and enhanced with:
-                                <ul style="margin: 8px 0 0 0; padding-left: 20px; font-size: 11px;">
-                                    <li>Codebase structure and patterns</li>
-                                    <li>Relevant ÆtherLight SOPs</li>
-                                    <li>Project-specific instructions</li>
-                                    <li>Success criteria and validation steps</li>
-                                </ul>
-                            </span>
-                        </div>
-
-                        <div id="enhancementStatus" class="enhancement-status" style="display: none;">
-                            <div class="enhancement-spinner"></div>
-                            <span>Enhancing prompt with codebase context...</span>
-                        </div>
-                    </div>
-                    <div class="config-panel-actions">
-                        <button id="generateCodeAnalyzerPrompt" class="settings-button primary">✨ Enhance & Generate Prompt</button>
-                        <button id="cancelCodeAnalyzer" class="settings-button">Cancel</button>
-                    </div>
-                \`;
-            };
-
-            // ENHANCE-003: Sprint Planner with deep prompt enhancement
-            // Chain of Thought: Replace complex dropdowns with natural language input
-            // WHY: Users know what they want but don't know how to structure it for AI
-            // REASONING: User types intent → system enhances with codebase context + SOPs
-            window.getSprintPlannerPanel = function() {
-                const state = vscode.getState() || {};
-                const lastIntent = state.lastSprintPlannerIntent || '';
-
-                return \`
-                    <div class="config-panel-header">
-                        <h3>📋 Sprint Planner</h3>
-                        <button id="closeSprintPlannerPanel" class="config-panel-close">×</button>
-                    </div>
-                    <div class="config-panel-body">
-                        <div class="settings-group">
-                            <label for="sprintPlannerIntent">What sprint would you like to plan?</label>
-                            <textarea
-                                id="sprintPlannerIntent"
-                                class="settings-textarea enhanced-textarea"
-                                rows="8"
-                                placeholder="Describe your sprint goal in natural language...
-
-Examples:
-• Plan a sprint to implement user authentication with OAuth
-• Create tasks for refactoring the API layer
-• Build a sprint for adding dark mode to the application
-• Design a maintenance sprint to improve test coverage
-• Plan feature development for real-time notifications
-
-Be specific about features, timeline, and any constraints.">\${lastIntent}</textarea>
-                            <span class="settings-hint">
-                                💡 <strong>AI-Enhanced Prompt</strong>: Your description will be analyzed and enhanced with:
-                                <ul style="margin: 8px 0 0 0; padding-left: 20px; font-size: 11px;">
-                                    <li>Codebase structure and existing patterns</li>
-                                    <li>Relevant ÆtherLight SOPs and hooks</li>
-                                    <li>Project-specific instructions</li>
-                                    <li>Sprint structure and TOML formatting</li>
-                                </ul>
-                            </span>
-                        </div>
-
-                        <div id="enhancementStatus" class="enhancement-status" style="display: none;">
-                            <div class="enhancement-spinner"></div>
-                            <span>Enhancing prompt with codebase context...</span>
-                        </div>
-                    </div>
-                    <div class="config-panel-actions">
-                        <button id="generateSprintPrompt" class="settings-button primary">✨ Enhance & Generate Prompt</button>
-                        <button id="cancelSprintPlanner" class="settings-button">Cancel</button>
-                    </div>
-                \`;
-            };
-            */
 
             // Support Ctrl+Enter to send
-            const mainTextArea = document.getElementById('transcriptionText');
-            if (mainTextArea) {
-                mainTextArea.addEventListener('keydown', (e) => {
+            const textArea = document.getElementById('transcriptionText');
+            if (textArea) {
+                textArea.addEventListener('keydown', (e) => {
                     if (e.ctrlKey && e.key === 'Enter') {
                         window.sendToTerminal();
                     }
                 });
 
-                // Update send button when text changes AND save text to state
-                mainTextArea.addEventListener('input', () => {
-                    updateSendButton();
-                    // Save text to webview state for persistence
-                    const state = vscode.getState() || {};
-                    state.voiceTextContent = mainTextArea.value;
-                    vscode.setState(state);
-                });
+                // Update send button when text changes
+                textArea.addEventListener('input', updateSendButton);
             }
 
             function updateSendButton() {
@@ -5716,7 +2808,7 @@ Be specific about features, timeline, and any constraints.">\${lastIntent}</text
                 const sendBtn = document.getElementById('sendBtn');
                 const enhanceBtn = document.getElementById('enhanceBtn');
 
-                if (sendBtn) sendBtn.disabled = !text.trim() || !window.voiceTabState.selectedTerminal;
+                if (sendBtn) sendBtn.disabled = !text.trim() || !selectedTerminal;
                 if (enhanceBtn) enhanceBtn.disabled = !text.trim();
             }
 
@@ -5724,7 +2816,7 @@ Be specific about features, timeline, and any constraints.">\${lastIntent}</text
                 const text = document.getElementById('transcriptionText').value;
 
                 if (!text.trim()) {
-                    window.showStatus('⚠️ Nothing to enhance', 'error');
+                    showStatus('⚠️ Nothing to enhance', 'error');
                     return;
                 }
 
@@ -5734,10 +2826,22 @@ Be specific about features, timeline, and any constraints.">\${lastIntent}</text
                     text: text
                 });
 
-                window.showStatus('✨ Enhancing with ÆtherLight patterns...', 'info');
+                showStatus('✨ Enhancing with ÆtherLight patterns...', 'info');
             };
 
-            // NOTE: showStatus is now defined at global scope (see GLOBAL-PERSIST-001)
+            function showStatus(message, type) {
+                const statusEl = document.getElementById('statusMessage');
+                if (statusEl) {
+                    statusEl.textContent = message;
+                    statusEl.className = 'status-message ' + type;
+                    statusEl.style.display = 'block';
+
+                    // Auto-hide after 5 seconds
+                    setTimeout(() => {
+                        statusEl.style.display = 'none';
+                    }, 5000);
+                }
+            }
         `;
     }
 
@@ -5844,239 +2948,37 @@ Be specific about features, timeline, and any constraints.">\${lastIntent}</text
     }
 
     /**
-     * SETTINGS-001: Settings Tab with Sprint Planning Configuration
+     * A-003: Settings Tab Placeholder
      *
-     * DESIGN DECISION: Real settings UI replacing placeholder
-     * WHY: Users need configurable sprint planning that matches their terminology
-     * REASONING: No artificial limits on team size, 6 structure terminology options
-     */
-    /**
-     * Chain of Thought: Settings Tab now contains ONLY global ÆtherLight settings
-     * WHY: User requested Sprint Planning and Code Analyzer settings moved to Sprint Tab
-     * REASONING: Settings Tab should be for global extension configuration, not sprint-specific settings
-     * PATTERN: Separation of concerns - global vs. sprint-specific configuration
+     * DESIGN DECISION: Show skeleton UI for ÆtherLight configuration
+     * WHY: Give users clear expectations of available settings
+     * FUTURE: Will show 66+ settings organized in 10 collapsible sections (Phase 4)
      */
     private getSettingsTabPlaceholder(): string {
         return `
-        <div class="settings-panel">
-            <div class="settings-header">
-                <h2>⚙️ ÆtherLight Global Settings</h2>
-                <p class="settings-subtitle">Configure global extension behavior</p>
-                <p class="settings-note"><em>Note: Sprint Planning and Code Analyzer settings are in the Sprint Tab</em></p>
+        <div class="placeholder-panel">
+            <div class="placeholder-header">
+                <span class="placeholder-icon">⚙️</span>
+                <h2>ÆtherLight Settings</h2>
             </div>
-
-            <!-- GLOBAL-SETTINGS-001: Voice Input Configuration -->
-            <div class="settings-section">
-                <h3 class="settings-section-title">🎤 Voice Input</h3>
-
-                <div class="settings-group">
-                    <label for="whisperModel">Whisper Model</label>
-                    <select id="whisperModel" class="settings-select">
-                        <option value="whisper-1">Whisper-1 (OpenAI default)</option>
-                    </select>
-                    <span class="settings-hint">Voice transcription model (OpenAI Whisper API)</span>
-                </div>
-
-                <div class="settings-group">
-                    <label for="voiceLanguage">Language</label>
-                    <select id="voiceLanguage" class="settings-select">
-                        <option value="auto">Auto-Detect</option>
-                        <option value="en">English</option>
-                        <option value="es">Spanish</option>
-                        <option value="fr">French</option>
-                        <option value="de">German</option>
-                        <option value="it">Italian</option>
-                        <option value="pt">Portuguese</option>
-                        <option value="nl">Dutch</option>
-                        <option value="pl">Polish</option>
-                        <option value="ru">Russian</option>
-                        <option value="ja">Japanese</option>
-                        <option value="zh">Chinese</option>
-                        <option value="ko">Korean</option>
-                    </select>
-                    <span class="settings-hint">Primary language for voice recognition</span>
-                </div>
-
-                <div class="settings-group">
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="autoSendEnabled" checked>
-                        <span>Auto-send transcription to active editor</span>
-                    </label>
-                    <span class="settings-hint">Automatically insert transcribed text without manual confirmation</span>
-                </div>
+            <div class="placeholder-description">
+                <p>Configure ÆtherLight behavior and preferences</p>
             </div>
-
-            <!-- GLOBAL-SETTINGS-002: Pattern Matching Configuration -->
-            <div class="settings-section">
-                <h3 class="settings-section-title">🔍 Pattern Matching</h3>
-
-                <div class="settings-group">
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="patternMatchingEnabled" checked>
-                        <span>Enable pattern matching (hallucination prevention)</span>
-                    </label>
-                    <span class="settings-hint">Verify AI suggestions against known code patterns</span>
-                </div>
-
-                <div class="settings-group">
-                    <label for="patternThreshold">Match Threshold</label>
-                    <input type="range" id="patternThreshold" min="0" max="100" value="85" class="settings-slider">
-                    <span class="settings-hint">Pattern confidence threshold: <strong id="thresholdValue">85%</strong></span>
-                </div>
+            <div class="placeholder-features">
+                <h3>Coming Soon:</h3>
+                <ul>
+                    <li>🎨 Terminal layout configuration</li>
+                    <li>🔔 Notification preferences</li>
+                    <li>🎤 Voice input settings</li>
+                    <li>🧩 Pattern matching thresholds</li>
+                    <li>⚡ Performance tuning</li>
+                    <li>🔧 Advanced options</li>
+                </ul>
             </div>
-
-            <!-- GLOBAL-SETTINGS-003: Update & Sync Configuration -->
-            <div class="settings-section">
-                <h3 class="settings-section-title">🔄 Updates & Sync</h3>
-
-                <div class="settings-group">
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="autoUpdateCheck" checked>
-                        <span>Automatically check for updates</span>
-                    </label>
-                    <span class="settings-hint">Check for new ÆtherLight versions hourly</span>
-                </div>
-
-                <div class="settings-group">
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="realtimeSyncEnabled">
-                        <span>Enable real-time collaboration sync</span>
-                    </label>
-                    <span class="settings-hint">Sync sprint progress with team members (requires Supabase)</span>
-                </div>
-            </div>
-
-            <!-- GLOBAL-SETTINGS-004: Appearance -->
-            <div class="settings-section">
-                <h3 class="settings-section-title">🎨 Appearance</h3>
-
-                <div class="settings-group">
-                    <label for="uiDensity">UI Density</label>
-                    <select id="uiDensity" class="settings-select">
-                        <option value="compact">Compact</option>
-                        <option value="standard" selected>Standard</option>
-                        <option value="comfortable">Comfortable</option>
-                    </select>
-                    <span class="settings-hint">Spacing and sizing of UI elements</span>
-                </div>
-
-                <div class="settings-group">
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="showTimestamps" checked>
-                        <span>Show timestamps on tasks</span>
-                    </label>
-                    <span class="settings-hint">Display creation/modification times in Sprint view</span>
-                </div>
-            </div>
-
-            <div class="settings-actions">
-                <button id="saveGlobalSettings" class="settings-button primary">💾 Save Settings</button>
-                <button id="resetGlobalSettings" class="settings-button">↩️ Reset to Defaults</button>
-            </div>
-
-            <div class="settings-footer">
-                <p><strong>Version:</strong> ${require('../../package.json').version}</p>
-                <p><em>Sprint-specific settings (Sprint Planning, Code Analyzer) are in the Sprint Tab</em></p>
+            <div class="placeholder-status">
+                <em>Implementation: Task A-003 → Phase 1 | Full functionality: Phase 4 (Task D-001)</em>
             </div>
         </div>
-        <script>
-            // GLOBAL-SETTINGS: Load and save global settings
-            (function() {
-                // Load saved settings from workspace state
-                const savedSettings = vscode.getState()?.globalSettings || {};
-
-                // Load voice settings
-                if (savedSettings.whisperModel) document.getElementById('whisperModel').value = savedSettings.whisperModel;
-                if (savedSettings.voiceLanguage) document.getElementById('voiceLanguage').value = savedSettings.voiceLanguage;
-                if (savedSettings.autoSendEnabled !== undefined) document.getElementById('autoSendEnabled').checked = savedSettings.autoSendEnabled;
-
-                // Load pattern matching settings
-                if (savedSettings.patternMatchingEnabled !== undefined) document.getElementById('patternMatchingEnabled').checked = savedSettings.patternMatchingEnabled;
-                if (savedSettings.patternThreshold) {
-                    document.getElementById('patternThreshold').value = savedSettings.patternThreshold;
-                    document.getElementById('thresholdValue').textContent = savedSettings.patternThreshold + '%';
-                }
-
-                // Load update/sync settings
-                if (savedSettings.autoUpdateCheck !== undefined) document.getElementById('autoUpdateCheck').checked = savedSettings.autoUpdateCheck;
-                if (savedSettings.realtimeSyncEnabled !== undefined) document.getElementById('realtimeSyncEnabled').checked = savedSettings.realtimeSyncEnabled;
-
-                // Load appearance settings
-                if (savedSettings.uiDensity) document.getElementById('uiDensity').value = savedSettings.uiDensity;
-                if (savedSettings.showTimestamps !== undefined) document.getElementById('showTimestamps').checked = savedSettings.showTimestamps;
-
-                // Update threshold display on slider change
-                document.getElementById('patternThreshold').addEventListener('input', function(e) {
-                    document.getElementById('thresholdValue').textContent = e.target.value + '%';
-                });
-
-                // Global save settings function
-                window.saveGlobalSettings = function() {
-                    const settings = {
-                        // Voice Input
-                        whisperModel: document.getElementById('whisperModel').value,
-                        voiceLanguage: document.getElementById('voiceLanguage').value,
-                        autoSendEnabled: document.getElementById('autoSendEnabled').checked,
-
-                        // Pattern Matching
-                        patternMatchingEnabled: document.getElementById('patternMatchingEnabled').checked,
-                        patternThreshold: parseInt(document.getElementById('patternThreshold').value),
-
-                        // Updates & Sync
-                        autoUpdateCheck: document.getElementById('autoUpdateCheck').checked,
-                        realtimeSyncEnabled: document.getElementById('realtimeSyncEnabled').checked,
-
-                        // Appearance
-                        uiDensity: document.getElementById('uiDensity').value,
-                        showTimestamps: document.getElementById('showTimestamps').checked
-                    };
-
-                    // Save to webview state
-                    const state = vscode.getState() || {};
-                    state.globalSettings = settings;
-                    vscode.setState(state);
-
-                    // Send to backend for workspace state persistence
-                    vscode.postMessage({
-                        type: 'saveGlobalSettings',
-                        settings: settings
-                    });
-
-                    // Show confirmation
-                    alert('✅ Global settings saved successfully!');
-                };
-
-                // Global reset settings function
-                window.resetGlobalSettings = function() {
-                    // Voice Input defaults
-                    document.getElementById('whisperModel').value = 'whisper-1';
-                    document.getElementById('voiceLanguage').value = 'auto';
-                    document.getElementById('autoSendEnabled').checked = true;
-
-                    // Pattern Matching defaults
-                    document.getElementById('patternMatchingEnabled').checked = true;
-                    document.getElementById('patternThreshold').value = 85;
-                    document.getElementById('thresholdValue').textContent = '85%';
-
-                    // Updates & Sync defaults
-                    document.getElementById('autoUpdateCheck').checked = true;
-                    document.getElementById('realtimeSyncEnabled').checked = false;
-
-                    // Appearance defaults
-                    document.getElementById('uiDensity').value = 'standard';
-                    document.getElementById('showTimestamps').checked = true;
-
-                    window.saveGlobalSettings();
-                };
-
-                // CSP-FIX-004: Attach event listeners to Settings tab buttons
-                const saveBtn = document.getElementById('saveGlobalSettings');
-                const resetBtn = document.getElementById('resetGlobalSettings');
-
-                if (saveBtn) saveBtn.addEventListener('click', () => window.saveGlobalSettings());
-                if (resetBtn) resetBtn.addEventListener('click', () => window.resetGlobalSettings());
-            })();
-        </script>
         `;
     }
 }
@@ -6092,144 +2994,52 @@ Be specific about features, timeline, and any constraints.">\${lastIntent}</text
  * WHY: Enables embedding in tabbed interface without nested HTML documents
  */
 function getVoicePanelBodyContent(): string {
-    // UI-ARCH-003: Reorganized layout for better workflow
-    // WHY: Visual hierarchy guides user workflow (top to bottom)
-    // REASONING: See context (terminals) → Take action (toolbar) → See result (textarea)
-    // Pattern: Pattern-UI-ARCH-001 (Progressive Disclosure - workflow-driven layout)
     return `
     <div class="header">
         <h2>
             <span class="status-indicator" id="statusIndicator"></span>
             ÆtherLight Voice
         </h2>
+        <button id="refreshTerminals" onclick="refreshTerminals()">🔄 Refresh</button>
     </div>
 
     <div id="statusMessage"></div>
 
-    <!-- UI-ARCH-003: Terminal list FIRST (see context before taking action) -->
     <div class="terminal-selector">
         <div id="terminalList" class="terminal-list">
             <!-- Terminals will be populated here -->
         </div>
     </div>
 
-    <!-- UI-ARCH-003: Toolbar SECOND (take action after seeing context) -->
-    <!-- UI-002: Primary icon toolbar (6 icons, 32px height) -->
-    <!-- CSP-FIX: Removed onclick handlers, using event listeners instead to comply with Trusted Types -->
-    <div class="icon-bar primary-toolbar">
-        <button id="recordBtn" class="icon-button" title="🎤 Record - Click or hit Backtick (\`)">
-            <span class="icon">🎤</span>
-        </button>
-        <button id="codeAnalyzerBtn" class="icon-button" title="🔍 Code Analyzer - Configure and analyze codebase">
-            <span class="icon">🔍</span>
-        </button>
-        <button id="sprintPlannerBtn" class="icon-button" title="📋 Sprint Planner - Configure and generate sprint plans">
-            <span class="icon">📋</span>
-        </button>
-        <button id="enhanceBtn" class="icon-button" disabled title="✨ Enhance with Patterns - Coming Soon">
-            <span class="icon">✨</span>
-        </button>
-        <button id="sendBtn" class="icon-button primary" disabled title="📤 Send to Terminal - Ctrl+Enter">
-            <span class="icon">📤</span>
-        </button>
-        <button id="clearBtn" class="icon-button" title="🗑️ Clear Transcription">
-            <span class="icon">🗑️</span>
-        </button>
-    </div>
-
-    <!-- UI-ARCH-003: Textarea THIRD (see result after action) -->
-    <!-- UI-ARCH-003: Removed redundant 'Command / Transcription:' label (purpose is obvious) -->
     <div class="transcription-editor">
+        <label for="transcriptionText">
+            Command / Transcription:
+            <button id="recordBtn" onclick="toggleRecording()" style="margin-left: 8px; background-color: #d13438;">🎤 Record</button>
+        </label>
         <textarea
             id="transcriptionText"
-            placeholder="Click 🎤 to record, or type directly..."
+            placeholder="Click '🎤 Record' to start voice capture, or type directly..."
         ></textarea>
     </div>
 
-    <!-- UI-ARCH-004: Workflow toolbar (8 workflow buttons, collapsible) -->
-    <!-- WHY: One-click access to major workflows (Sprint, Analyzer, Pattern, Skill, Agent, Tests, Git, Publish) -->
-    <!-- REASONING: Collapsible to save space (most users won't use all 8 workflows frequently) -->
-    <!-- Pattern: Pattern-UI-ARCH-001 (Progressive Disclosure - hide advanced features until needed) -->
-    <!-- Pattern: Pattern-COMM-001 (Each button will trigger workflow check in UI-ARCH-006) -->
-    <div class="workflow-toolbar-container">
-        <div class="workflow-toolbar-header">
-            <button id="workflowToggleBtn" class="workflow-toggle" title="Toggle workflow toolbar">
-                <span class="workflow-toggle-icon collapsed">▶</span>
-                <span class="workflow-toolbar-label">Workflows</span>
-            </button>
-        </div>
-        <div id="workflowToolbar" class="workflow-toolbar collapsed">
-            <!-- Row 1: Planning & Analysis workflows -->
-            <!-- UI-ARCH-005: Added badge elements for context-aware counts -->
-            <button id="workflowSprintBtn" class="workflow-button" title="Plan new sprint or continue current sprint">
-                <span class="workflow-icon">📋</span>
-                <span class="workflow-label">Sprint</span>
-                <span class="workflow-badge" data-workflow="sprint"></span>
-            </button>
-            <button id="workflowAnalyzerBtn" class="workflow-button" title="Analyze workspace and generate insights">
-                <span class="workflow-icon">🔍</span>
-                <span class="workflow-label">Analyzer</span>
-                <span class="workflow-badge" data-workflow="analyzer"></span>
-            </button>
-            <button id="workflowPatternBtn" class="workflow-button" title="Create reusable pattern document">
-                <span class="workflow-icon">📐</span>
-                <span class="workflow-label">Pattern</span>
-                <span class="workflow-badge" data-workflow="pattern"></span>
-            </button>
-            <button id="workflowSkillBtn" class="workflow-button" title="Create new skill for automation">
-                <span class="workflow-icon">🛠️</span>
-                <span class="workflow-label">Skill</span>
-                <span class="workflow-badge" data-workflow="skill"></span>
-            </button>
-
-            <!-- Row 2: Development & Release workflows -->
-            <button id="workflowAgentBtn" class="workflow-button" title="Create specialized agent">
-                <span class="workflow-icon">🤖</span>
-                <span class="workflow-label">Agent</span>
-                <span class="workflow-badge" data-workflow="agent"></span>
-            </button>
-            <button id="workflowTestsBtn" class="workflow-button" title="Run test suite and show results">
-                <span class="workflow-icon">🧪</span>
-                <span class="workflow-label">Tests</span>
-                <span class="workflow-badge" data-workflow="tests"></span>
-            </button>
-            <button id="workflowGitBtn" class="workflow-button" title="Check uncommitted files and branch status">
-                <span class="workflow-icon">🔀</span>
-                <span class="workflow-label">Git</span>
-                <span class="workflow-badge" data-workflow="git"></span>
-            </button>
-            <button id="workflowPublishBtn" class="workflow-button" title="Publish new release to npm and GitHub">
-                <span class="workflow-icon">🚀</span>
-                <span class="workflow-label">Publish</span>
-                <span class="workflow-badge" data-workflow="publish"></span>
-            </button>
-        </div>
+    <div class="controls">
+        <button id="enhanceBtn" onclick="enhanceText()" disabled style="background-color: #6b4ea3;">✨ ÆtherLight Enhance</button>
+        <button id="sendBtn" class="primary" onclick="sendToTerminal()" disabled>📤 Send to Terminal</button>
+        <button onclick="clearText()">🗑️ Clear</button>
     </div>
 
-    <!-- UI-003: Secondary icon toolbar (4 icons, 28px height, bottom placement) -->
-    <!-- CSP-FIX: Removed onclick handlers, using event listeners instead -->
-    <div class="icon-bar secondary-toolbar">
-        <button id="reportBugBtn" class="icon-button-small" title="🐛 Report Bug">
-            <span class="icon">🐛</span>
-        </button>
-        <button id="requestFeatureBtn" class="icon-button-small" title="🔧 Request Feature">
-            <span class="icon">🔧</span>
-        </button>
-        <button id="manageSkillsBtn" class="icon-button-small" title="📦 Skill Management">
-            <span class="icon">📦</span>
-        </button>
-        <button id="settingsBtn" class="icon-button-small" title="⚙️ Settings">
-            <span class="icon">⚙️</span>
-        </button>
-    </div>
-
-    <!-- SLIDE-DOWN-001: Configuration panel container -->
-    <!-- Chain of Thought: Slide-down panels for Code Analyzer and Sprint Planner -->
-    <!-- WHY: User requested configs appear below toolbar in Voice tab, not in separate tabs -->
-    <!-- REASONING: Allows inline configuration that generates prompts directly into text area -->
-    <!-- PATTERN: Collapsible panels for contextual configuration -->
-    <div id="configPanelContainer" class="config-panel-container" style="display: none;">
-        <!-- Dynamic content for Code Analyzer or Sprint Planner configuration -->
+    <div class="tips">
+        <h3>💡 How to Use:</h3>
+        <ul>
+            <li><strong>Click 🎤 Record</strong> → Speak your command → Click Stop</li>
+            <li><strong>(Optional) Click ✨ ÆtherLight Enhance</strong> → AI enhances command with context</li>
+            <li><strong>Click 📤 Send to Terminal</strong> → Executes command in selected terminal</li>
+            <li>Tab through terminals to select target (ÆtherLight terminal created automatically)</li>
+            <li>Ctrl+Enter also sends to terminal</li>
+        </ul>
+        <p style="margin-top: 8px; font-size: 11px; color: var(--vscode-descriptionForeground);">
+            <strong>Note:</strong> First time recording will ask for microphone permission.
+        </p>
     </div>
 
     <div class="keyboard-hints">

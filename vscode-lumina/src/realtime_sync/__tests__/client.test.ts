@@ -192,7 +192,7 @@ describe('RealtimeSyncClient', () => {
             (client as any).ws.close();
 
             await reconnectPromise;
-        }, 10000);
+        });
 
         test('should use exponential backoff', async () => {
             client = new RealtimeSyncClient({

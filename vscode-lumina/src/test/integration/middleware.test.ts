@@ -31,10 +31,14 @@ import { HealthMonitor, HealthState, HealthCheckable, HealthStatus } from '../..
 suite('Middleware Integration Tests', () => {
 	let registry: ServiceRegistry;
 	let testLogDir: string;
+	let logger: MiddlewareLogger;
 
 	setup(() => {
 		// Create test log directory
 		testLogDir = path.join(os.tmpdir(), 'aetherlight-test-' + Date.now());
+
+		// Get logger instance
+		logger = MiddlewareLogger.getInstance();
 
 		// Get fresh registry instance
 		registry = ServiceRegistry.getInstance();
@@ -162,7 +166,7 @@ suite('Middleware Integration Tests', () => {
 						throw new Error('ServiceA error');
 					} catch (error: any) {
 						const handler = registry.get<ErrorHandler>('errorHandler');
-						await handler.handle(error, { service: 'ServiceA' });
+						await handler.handle(error, { operationName: 'ServiceA' });
 						error1Handled = true;
 					}
 				}
@@ -174,7 +178,7 @@ suite('Middleware Integration Tests', () => {
 						throw new Error('ServiceB error');
 					} catch (error: any) {
 						const handler = registry.get<ErrorHandler>('errorHandler');
-						await handler.handle(error, { service: 'ServiceB' });
+						await handler.handle(error, { operationName: 'ServiceB' });
 						error2Handled = true;
 					}
 				}
@@ -209,7 +213,7 @@ suite('Middleware Integration Tests', () => {
 					} catch (error: any) {
 						const handler = registry.get<ErrorHandler>('errorHandler');
 						await handler.handle(error, {
-							service: 'ServiceWithFallback',
+							operationName: 'ServiceWithFallback',
 							fallback: () => {
 								fallbackCalled = true;
 								return 'cached data';
@@ -233,7 +237,7 @@ suite('Middleware Integration Tests', () => {
 	suite('ServiceRegistry + ConfigurationManager Integration', () => {
 		test('should allow services to access configuration from registry', () => {
 			// Setup
-			const config = new ConfigurationManager();
+			const config = new ConfigurationManager(logger);
 			registry.register('config', () => config);
 
 			// Act
@@ -246,8 +250,8 @@ suite('Middleware Integration Tests', () => {
 
 		test('should allow multiple services to share configuration', () => {
 			// Setup
-			const config = new ConfigurationManager();
-			config.set('api', { whisperEndpoint: 'https://test.example.com' });
+			const config = new ConfigurationManager(logger);
+			config.set('api', { whisperEndpoint: 'https://test.example.com', timeout: 30000, maxRetries: 3 });
 			registry.register('config', () => config);
 
 			class ServiceA {
@@ -281,7 +285,7 @@ suite('Middleware Integration Tests', () => {
 
 		test('should update configuration for all services at once', () => {
 			// Setup
-			const config = new ConfigurationManager();
+			const config = new ConfigurationManager(logger);
 			registry.register('config', () => config);
 
 			class ConfigurableService {
@@ -298,7 +302,7 @@ suite('Middleware Integration Tests', () => {
 			const service2 = registry.get<ConfigurableService>('service2');
 
 			// Act - Update config
-			config.set('api', { timeout: 5000 });
+			config.set('api', { whisperEndpoint: 'https://test.example.com', timeout: 5000, maxRetries: 3 });
 
 			// Assert - Both services should see updated config
 			assert.strictEqual(service1.getTimeout(), 5000, 'Service1 should see updated timeout');
@@ -309,7 +313,7 @@ suite('Middleware Integration Tests', () => {
 	suite('ServiceRegistry + CacheManager Integration', () => {
 		test('should allow services to access cache from registry', () => {
 			// Setup
-			const cache = new CacheManager();
+			const cache = new CacheManager(logger);
 			registry.register('cache', () => cache);
 
 			// Act
@@ -322,7 +326,7 @@ suite('Middleware Integration Tests', () => {
 
 		test('should allow multiple services to share cache', () => {
 			// Setup
-			const cache = new CacheManager();
+			const cache = new CacheManager(logger);
 			registry.register('cache', () => cache);
 
 			class ServiceA {
@@ -354,7 +358,7 @@ suite('Middleware Integration Tests', () => {
 
 		test('should improve performance with shared cache', () => {
 			// Setup
-			const cache = new CacheManager();
+			const cache = new CacheManager(logger);
 			registry.register('cache', () => cache);
 
 			let expensiveComputeCalls = 0;
@@ -610,8 +614,8 @@ suite('Middleware Integration Tests', () => {
 			// Setup - Register all middleware services
 			const logger = MiddlewareLogger.getInstance();
 			const errorHandler = new ErrorHandler(logger);
-			const config = new ConfigurationManager();
-			const cache = new CacheManager();
+			const config = new ConfigurationManager(logger);
+			const cache = new CacheManager(logger);
 			const eventBus = new EventBus(logger);
 			const healthMonitor = new HealthMonitor(registry, logger, eventBus);
 
@@ -643,8 +647,8 @@ suite('Middleware Integration Tests', () => {
 			// Setup - Create full middleware stack
 			const logger = MiddlewareLogger.getInstance();
 			const errorHandler = new ErrorHandler(logger);
-			const config = new ConfigurationManager();
-			const cache = new CacheManager();
+			const config = new ConfigurationManager(logger);
+			const cache = new CacheManager(logger);
 			const eventBus = new EventBus(logger);
 			const healthMonitor = new HealthMonitor(registry, logger, eventBus);
 
@@ -692,7 +696,7 @@ suite('Middleware Integration Tests', () => {
 					} catch (error: any) {
 						// 7. Handle error
 						const errorHandler = registry.get<ErrorHandler>('errorHandler');
-						await errorHandler.handle(error, { requestId });
+						await errorHandler.handle(error, { operationName: 'processRequest' });
 						throw error;
 					}
 				}
@@ -782,7 +786,7 @@ suite('Middleware Integration Tests', () => {
 				await service.doWork();
 			} catch (error: any) {
 				const errorHandler = registry.get<ErrorHandler>('errorHandler');
-				await errorHandler.handle(error, { service: 'failingService' });
+				await errorHandler.handle(error, { operationName: 'failingService' });
 				errorHandled = true;
 			}
 
