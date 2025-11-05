@@ -29,3 +29,11 @@ npm-debug.log*
 *.tmp
 .temp/
 nul
+
+# Rust build artifacts
+crates/*/target/
+target/
+
+# Rust build artifacts
+crates/*/target/
+target/
