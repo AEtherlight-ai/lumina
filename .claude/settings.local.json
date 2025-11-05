@@ -12,7 +12,9 @@
       "Bash(nul)",
       "Bash(node -e:*)",
       "Bash(node:*)",
-      "Skill(publish)"
+      "Skill(publish)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
