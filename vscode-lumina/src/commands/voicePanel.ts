@@ -1070,6 +1070,96 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 }
                 break;
 
+            case 'getAvailableSprints':
+                /**
+                 * DEBUG-004: Get list of available sprint files
+                 * WHY: Populate sprint file dropdown with all ACTIVE_SPRINT_*.toml files
+                 *
+                 * REASONING CHAIN:
+                 * 1. User may have multiple sprint files (active, archived, backlog)
+                 * 2. SprintLoader.findAvailableSprints() scans directory
+                 * 3. Return array of filenames to webview
+                 * 4. Webview populates dropdown options
+                 * 5. Result: User can switch between sprint files
+                 *
+                 * PATTERN: Pattern-SPRINT-002 (Multi-Sprint File Support)
+                 */
+                try {
+                    const sprintFiles = this.sprintLoader.findAvailableSprints();
+                    const currentPath = this.sprintLoader['currentSprintPath'] || '';
+                    const currentFile = currentPath ? path.basename(currentPath) : 'ACTIVE_SPRINT.toml';
+
+                    webview.postMessage({
+                        type: 'availableSprints',
+                        files: sprintFiles,
+                        current: currentFile
+                    });
+
+                    console.log(`[ÆtherLight] Found ${sprintFiles.length} sprint files, current: ${currentFile}`);
+                } catch (error) {
+                    console.error('[ÆtherLight] Failed to get available sprints:', error);
+                    webview.postMessage({
+                        type: 'availableSprints',
+                        files: ['ACTIVE_SPRINT.toml'],
+                        current: 'ACTIVE_SPRINT.toml',
+                        error: (error as Error).message
+                    });
+                }
+                break;
+
+            case 'switchSprint':
+                /**
+                 * DEBUG-004: Switch to different sprint file
+                 * WHY: Allow user to view archived or backlog sprints
+                 *
+                 * REASONING CHAIN:
+                 * 1. User selects sprint file from dropdown
+                 * 2. SprintLoader.loadSprintByFilename() loads new file
+                 * 3. Refresh sprint panel UI with new data
+                 * 4. Save selection to workspace state (persistence)
+                 * 5. Result: Sprint panel shows selected file's tasks
+                 *
+                 * PATTERN: Pattern-SPRINT-002 (Multi-Sprint File Support)
+                 */
+                try {
+                    const filename = message.filename;
+                    if (!filename) {
+                        throw new Error('No filename provided');
+                    }
+
+                    // Load new sprint file
+                    await this.sprintLoader.loadSprintByFilename(filename);
+
+                    // Save selection to workspace state
+                    await this._context.workspaceState.update('selectedSprintFile', filename);
+
+                    // Reload sprint tasks
+                    await this.loadSprintTasks();
+
+                    // Refresh UI
+                    if (this._view) {
+                        this._view.webview.html = this._getHtmlForWebview(this._view.webview);
+                    }
+
+                    // Refresh popped-out panels
+                    for (const panel of this.poppedOutPanels) {
+                        panel.webview.html = this._getHtmlForWebview(panel.webview);
+                    }
+
+                    vscode.window.showInformationMessage(`✅ Switched to sprint: ${filename}`);
+                    console.log(`[ÆtherLight] Switched to sprint: ${filename}`);
+                } catch (error) {
+                    console.error('[ÆtherLight] Failed to switch sprint:', error);
+                    vscode.window.showErrorMessage(`Failed to switch sprint: ${(error as Error).message}`);
+
+                    // Send error to webview
+                    webview.postMessage({
+                        type: 'sprintSwitchError',
+                        error: (error as Error).message
+                    });
+                }
+                break;
+
             case 'updateSetting':
                 /**
                  * UI-006: Update setting in VS Code configuration
@@ -1340,6 +1430,18 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             vscode.postMessage({ type: 'reloadSprint' });
         };
 
+        // DEBUG-004: Switch to different sprint file
+        window.switchSprint = function(filename) {
+            if (filename && filename !== 'Loading sprint files...') {
+                vscode.postMessage({ type: 'switchSprint', filename: filename });
+            }
+        };
+
+        // DEBUG-004: Load available sprint files into dropdown
+        window.loadAvailableSprints = function() {
+            vscode.postMessage({ type: 'getAvailableSprints' });
+        };
+
         // REFACTOR-000-UI: Start Next Task (smart task selection)
         window.startNextTask = function() {
             vscode.postMessage({ type: 'startNextTask' });
@@ -1372,6 +1474,30 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                     });
                     break;
 
+                case 'availableSprints':
+                    // DEBUG-004: Populate sprint file dropdown with available files
+                    const dropdown = document.getElementById('sprintFileDropdown');
+                    if (dropdown) {
+                        dropdown.innerHTML = '';
+                        const files = message.files || ['ACTIVE_SPRINT.toml'];
+                        const current = message.current || 'ACTIVE_SPRINT.toml';
+
+                        files.forEach(file => {
+                            const option = document.createElement('option');
+                            option.value = file;
+                            option.textContent = file;
+                            if (file === current) {
+                                option.selected = true;
+                            }
+                            dropdown.appendChild(option);
+                        });
+
+                        if (message.error) {
+                            console.warn('[ÆtherLight] Sprint files error:', message.error);
+                        }
+                    }
+                    break;
+
                 case 'terminalList':
                 case 'transcriptionComplete':
                 case 'transcriptionError':
@@ -1383,6 +1509,11 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                     break;
             }
         });
+
+        // DEBUG-004: Load available sprint files on panel initialization
+        if (document.getElementById('sprintFileDropdown')) {
+            window.loadAvailableSprints();
+        }
 
         // Voice initialization
         ${this.getVoiceTabScripts()}
@@ -1915,11 +2046,11 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
         let html = `
         <div class="sprint-panel">
-            <!-- UI-009: Consolidated header with sprint file dropdown -->
+            <!-- DEBUG-004: Functional sprint file dropdown with multi-file support -->
             <div class="sprint-header">
                 <h2>Sprint</h2>
-                <select class="sprint-file-dropdown" title="Sprint File (view-only for now)" disabled>
-                    <option>ACTIVE_SPRINT.toml</option>
+                <select id="sprintFileDropdown" class="sprint-file-dropdown" title="Select sprint file to view" onchange="switchSprint(this.value)">
+                    <option>Loading sprint files...</option>
                 </select>
                 <div class="sprint-header-actions">
                     <button class="icon-btn" onclick="reloadSprint()" title="Refresh Sprint Data">

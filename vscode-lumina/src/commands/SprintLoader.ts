@@ -353,6 +353,102 @@ required_expertise = []
     }
 
     /**
+     * DEBUG-004: Find all available sprint files in directory
+     *
+     * DESIGN DECISION: Scan for ACTIVE_SPRINT_*.toml pattern
+     * WHY: Users may have multiple sprints (active, backlog, archived)
+     *
+     * REASONING CHAIN:
+     * 1. Resolve sprint directory (internal/sprints or sprints/)
+     * 2. Read all files in directory
+     * 3. Filter for ACTIVE_SPRINT_*.toml pattern
+     * 4. Return array of filenames (not full paths)
+     * 5. Result: Dropdown can show all available sprint files
+     *
+     * @returns Array of sprint filenames (e.g., ["ACTIVE_SPRINT.toml", "ACTIVE_SPRINT_v0.16.0.toml"])
+     */
+    public findAvailableSprints(): string[] {
+        try {
+            const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+            if (!workspaceRoot) {
+                return [];
+            }
+
+            const config = vscode.workspace.getConfiguration('aetherlight');
+            const devMode = config.get<boolean>('devMode', false);
+
+            // Determine sprint directory based on dev mode
+            const sprintDir = devMode
+                ? path.join(workspaceRoot, 'internal', 'sprints')
+                : path.join(workspaceRoot, 'sprints');
+
+            // Check if directory exists
+            if (!fs.existsSync(sprintDir)) {
+                console.log(`[ÆtherLight] Sprint directory not found: ${sprintDir}`);
+                return [];
+            }
+
+            // Scan for all ACTIVE_SPRINT_*.toml files
+            const allFiles = fs.readdirSync(sprintDir);
+            const sprintFiles = allFiles
+                .filter(file => file.startsWith('ACTIVE_SPRINT') && file.endsWith('.toml'))
+                .sort(); // Alphabetical order
+
+            console.log(`[ÆtherLight] Found ${sprintFiles.length} sprint files:`, sprintFiles);
+            return sprintFiles;
+        } catch (error) {
+            console.error('[ÆtherLight] Error scanning for sprint files:', error);
+            return [];
+        }
+    }
+
+    /**
+     * DEBUG-004: Load specific sprint file by filename
+     *
+     * DESIGN DECISION: Allow loading any sprint file from dropdown
+     * WHY: Users can switch between active, archived, and backlog sprints
+     *
+     * @param filename - Sprint filename (e.g., "ACTIVE_SPRINT_v0.16.0.toml")
+     * @returns Loaded tasks and metadata
+     */
+    public async loadSprintByFilename(filename: string): Promise<{ tasks: SprintTask[], metadata: SprintMetadata | null }> {
+        try {
+            const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+            if (!workspaceRoot) {
+                throw new Error('No workspace open');
+            }
+
+            const config = vscode.workspace.getConfiguration('aetherlight');
+            const devMode = config.get<boolean>('devMode', false);
+
+            // Construct full path
+            const sprintDir = devMode
+                ? path.join(workspaceRoot, 'internal', 'sprints')
+                : path.join(workspaceRoot, 'sprints');
+            const fullPath = path.join(sprintDir, filename);
+
+            if (!fs.existsSync(fullPath)) {
+                throw new Error(`Sprint file not found: ${filename}`);
+            }
+
+            // Read and parse
+            const tomlContent = fs.readFileSync(fullPath, 'utf-8');
+            const data = toml.parse(tomlContent) as any;
+
+            // Parse tasks and metadata
+            this.tasks = this.parseTomlTasks(data.tasks);
+            this.metadata = this.parseTomlMetadata(data.meta || {});
+            this.currentSprintPath = fullPath;
+
+            console.log(`[ÆtherLight] Loaded sprint: ${filename} (${this.tasks.length} tasks)`);
+            return { tasks: this.tasks, metadata: this.metadata };
+        } catch (error) {
+            console.error('[ÆtherLight] Failed to load sprint:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Parse metadata from TOML [meta] section
      */
     private parseTomlMetadata(meta: any): SprintMetadata | null {
