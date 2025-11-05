@@ -2,7 +2,7 @@
   "name": "aetherlight",
   "displayName": "ÆtherLight",
   "description": "Voice-to-intelligence platform for developers. Capture voice, match patterns, prevent AI hallucinations.",
-  "version": "0.16.4",
+  "version": "0.16.5",
   "publisher": "aetherlight",
   "repository": {
     "type": "git",
