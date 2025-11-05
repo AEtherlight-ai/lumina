@@ -1,0 +1,1644 @@
+# ÆtherLight Self-Configuration System Sprint
+# Sprint Goal: Build system that customizes ÆtherLight for any project
+# Timeline: 6-8 weeks | Target: v1.0.0
+# Created: 2025-11-05
+
+[metadata]
+version = "1.0.0"
+sprint_number = 3
+start_date = "2025-11-05"
+target_completion = "2025-12-24"
+status = "pending"
+
+[metadata.focus]
+primary = "Build self-configuration system for platform vision"
+secondary = "Enable ÆtherLight to adapt to any project automatically"
+tertiary = "Ship software-dev domain, document community domain creation"
+
+[metadata.priority_order]
+phase_1 = "Foundation - Variable substitution & config generation (CRITICAL)"
+phase_2 = "Detection - Tech stack, tools, workflow inference (HIGH)"
+phase_3 = "Interview - CLI prompts & config generation (HIGH)"
+phase_4 = "Migration - Upgrade command for existing users (MEDIUM)"
+phase_5 = "Testing - Integration, E2E, performance, docs (MEDIUM)"
+
+[metadata.progression]
+previous_sprint = "archive/ACTIVE_SPRINT_v0.16.0_SPRINT_PLAN_UPDATE.toml"
+next_sprint = "TBD"
+triggers_hotfix_release = false
+git_branch = "feature/self-config-system"
+
+[metadata.team]
+team_size = 1
+default_engineer = "engineer_1"
+
+[[metadata.team.engineers]]
+id = "engineer_1"
+name = "BB_Aelor"
+expertise = ["typescript", "rust", "cli", "project-detection"]
+available_agents = ["infrastructure-agent", "api-agent", "documentation-agent"]
+max_parallel_tasks = 2
+daily_capacity_hours = 8
+
+[notes]
+strategy = """
+Platform Vision: ÆtherLight must adapt to ANY project (not just ÆtherLight dev).
+
+Self-Configuration Flow:
+1. User runs `aetherlight init` in their project
+2. System analyzes project (tech stack, tools, workflows)
+3. CLI interview asks clarifying questions
+4. Generate project-specific configuration
+5. Substitute {{VARIABLES}} throughout templates
+6. User gets customized ÆtherLight in <5 seconds
+
+Key Decisions:
+- CLI-based (no webview overhead)
+- {{VARIABLE}} syntax (Handlebars-style, enforceable)
+- Software-dev domain only initially (community builds others)
+- Manual upgrade required (aetherlight upgrade command)
+
+Constraints:
+- Backward compatible (preserve user customizations)
+- Performance (<5s init time)
+- TDD enforced (90% coverage for infrastructure)
+- Integration with existing analyzer package
+"""
+
+priority_order = """
+Phase 1 is CRITICAL - enables everything else.
+Phase 2-3 build on Phase 1 (must complete sequentially).
+Phase 4 can run parallel to Phase 5.
+Phase 5 is quality gate (no release without this).
+"""
+
+# =============================================================================
+# PHASE 1: FOUNDATION (Weeks 1-2) - CRITICAL
+# =============================================================================
+
+[tasks.SELF-001]
+id = "SELF-001"
+name = "Implement VariableResolver service"
+status = "pending"
+phase = "phase-1-foundation"
+agent = "infrastructure-agent"
+
+why = """
+Core infrastructure for template customization.
+Without this, we can't substitute {{VARIABLES}} → project-specific values.
+Enables all template customization (CLAUDE.md, skills, agents).
+"""
+
+context = """
+Currently: All values hardcoded (npm, TypeScript, .ts extensions).
+Need: Generic templates with {{BUILD_COMMAND}}, {{TEST_COMMAND}}, {{FILE_EXTENSION}}.
+Solution: VariableResolver that recursively replaces {{VARS}} with config values.
+"""
+
+reasoning_chain = [
+    "1. Parse template strings for {{VARIABLE}} pattern",
+    "2. Look up VARIABLE in project-config.json",
+    "3. If value contains {{NESTED_VAR}}, recursively resolve",
+    "4. Detect circular dependencies (A → B → A)",
+    "5. Return fully resolved string or throw error if undefined"
+]
+
+pattern_context = "Pattern-TEMPLATE-001: Variable substitution for configuration"
+
+success_impact = """
+After SELF-001 complete:
+✅ Can substitute {{VARIABLES}} in any template
+✅ Handles nested variables ({{BUILD}} uses {{PKG_MGR}})
+✅ Detects circular dependencies
+✅ Clear error messages for undefined variables
+"""
+
+test_requirements = """
+TDD Requirements (Infrastructure Task - 95% coverage):
+
+RED Phase - Write tests FIRST:
+1. resolve('{{VAR}}', {VAR: 'value'}) → 'value'
+2. resolve('{{A}}', {A: '{{B}}', B: 'value'}) → 'value' (nested)
+3. resolve('{{UNDEF}}', {}) → throws error (undefined)
+4. resolve('{{A}}', {A: '{{B}}', B: '{{A}}'}) → throws error (circular)
+5. resolve('text {{VAR}} more', {VAR: 'X'}) → 'text X more'
+6. resolve('{{VAR1}} and {{VAR2}}', {VAR1: 'A', VAR2: 'B'}) → 'A and B'
+
+GREEN Phase - Implement VariableResolver.resolve()
+REFACTOR Phase - Optimize regex performance
+"""
+
+test_files = [
+    "vscode-lumina/test/services/VariableResolver.test.ts"
+]
+
+test_coverage_requirement = 0.95
+
+validation_criteria = [
+    "All test cases pass",
+    "Circular dependency detection works",
+    "Error messages are clear and actionable",
+    "Performance: resolve 100 variables < 10ms"
+]
+
+performance_target = "Resolve 100 variables < 10ms"
+
+patterns = ["Pattern-TEMPLATE-001"]
+
+estimated_lines = 200
+estimated_time = "8-10 hours"
+
+files_to_create = [
+    "vscode-lumina/src/services/VariableResolver.ts",
+    "vscode-lumina/test/services/VariableResolver.test.ts"
+]
+
+deliverables = [
+    "VariableResolver.ts service",
+    "resolve() method with nested support",
+    "Circular dependency detection",
+    "Unit tests (95% coverage)"
+]
+
+error_handling = """
+- Throw error if variable undefined (not silent fail)
+- Throw error on circular dependencies with cycle path
+- Validate variable name format (uppercase, underscores only)
+- Log warnings for deprecated variable names
+"""
+
+dependencies = []
+
+# -----------------------------------------------------------------------------
+
+[tasks.SELF-002]
+id = "SELF-002"
+name = "Implement ProjectConfigGenerator service"
+status = "pending"
+phase = "phase-1-foundation"
+agent = "infrastructure-agent"
+
+why = """
+Generates project-config.json from detection + interview results.
+This is the central configuration that drives all customization.
+"""
+
+context = """
+Detection services (Phase 2) will output tech stack, tools, workflows.
+Interview (Phase 3) will output user preferences.
+ProjectConfigGenerator combines both into single config JSON.
+"""
+
+reasoning_chain = [
+    "1. Accept detection results (tech stack, tools, workflows)",
+    "2. Accept interview answers (user preferences)",
+    "3. Validate all required fields present",
+    "4. Generate project-config.json structure",
+    "5. Apply defaults for optional fields",
+    "6. Validate against JSON schema"
+]
+
+success_impact = """
+After SELF-002 complete:
+✅ Can generate project-config.json from inputs
+✅ Validates all required fields
+✅ Applies sensible defaults
+✅ Schema validation prevents invalid configs
+"""
+
+test_requirements = """
+TDD Requirements (Infrastructure Task - 90% coverage):
+
+RED Phase:
+1. generate({techStack: 'typescript'}) → valid config JSON
+2. generate({}) → throws error (missing required fields)
+3. generate({invalid: 'data'}) → throws schema validation error
+4. Config contains all required sections (project, tools, workflows)
+5. Defaults applied for optional fields
+
+GREEN Phase - Implement ProjectConfigGenerator
+REFACTOR Phase - Simplify validation logic
+"""
+
+test_files = [
+    "vscode-lumina/test/services/ProjectConfigGenerator.test.ts"
+]
+
+test_coverage_requirement = 0.9
+
+validation_criteria = [
+    "Generated config passes JSON schema validation",
+    "All required fields present",
+    "Defaults applied for optional fields",
+    "Invalid inputs throw descriptive errors"
+]
+
+performance_target = "Generate config < 50ms"
+
+estimated_lines = 300
+estimated_time = "10-12 hours"
+
+files_to_create = [
+    "vscode-lumina/src/services/ProjectConfigGenerator.ts",
+    "vscode-lumina/test/services/ProjectConfigGenerator.test.ts"
+]
+
+deliverables = [
+    "ProjectConfigGenerator service",
+    "generate() method",
+    "Schema validation integration",
+    "Unit tests (90% coverage)"
+]
+
+dependencies = []
+
+# -----------------------------------------------------------------------------
+
+[tasks.SELF-003]
+id = "SELF-003"
+name = "Define project-config.json schema"
+status = "pending"
+phase = "phase-1-foundation"
+agent = "infrastructure-agent"
+
+why = """
+Need formal schema to validate generated configs.
+Ensures consistency, enables TypeScript types, documents structure.
+"""
+
+context = """
+Schema defines:
+- Required fields (project.name, tech_stack.primary_language)
+- Optional fields (metadata, customizations)
+- Field types and formats
+- Validation rules
+"""
+
+reasoning_chain = [
+    "1. Define JSON Schema (draft-07 format)",
+    "2. Document all fields with descriptions",
+    "3. Generate TypeScript types from schema",
+    "4. Create validation function using ajv",
+    "5. Add schema to project for IDE autocomplete"
+]
+
+success_impact = """
+After SELF-003 complete:
+✅ Formal project-config.json schema defined
+✅ TypeScript types for config structure
+✅ Validation function prevents invalid configs
+✅ IDE autocomplete for config editing
+"""
+
+test_requirements = """
+TDD Requirements (Infrastructure Task - 90% coverage):
+
+RED Phase:
+1. Valid config passes schema validation
+2. Missing required field fails validation with clear error
+3. Invalid field type fails validation
+4. Extra unknown fields allowed (extensibility)
+5. TypeScript types match schema
+
+GREEN Phase - Define schema + validation
+"""
+
+test_files = [
+    "vscode-lumina/test/schemas/project-config.test.ts"
+]
+
+test_coverage_requirement = 0.9
+
+validation_criteria = [
+    "Schema validates valid configs",
+    "Schema rejects invalid configs with clear errors",
+    "TypeScript types generated from schema",
+    "IDE autocomplete works"
+]
+
+estimated_lines = 400
+estimated_time = "6-8 hours"
+
+files_to_create = [
+    ".aetherlight/schemas/project-config-v1.json",
+    "vscode-lumina/src/types/ProjectConfig.ts",
+    "vscode-lumina/test/schemas/project-config.test.ts"
+]
+
+deliverables = [
+    "JSON Schema file",
+    "TypeScript types",
+    "Validation function (ajv)",
+    "Schema tests"
+]
+
+dependencies = []
+
+# -----------------------------------------------------------------------------
+
+[tasks.SELF-003A]
+id = "SELF-003A"
+name = "Document all variables with comprehensive context"
+status = "pending"
+phase = "phase-1-foundation"
+agent = "documentation-agent"
+
+why = """
+CRITICAL: Variables are the foundation of self-configuration.
+Without clear documentation, AI and humans won't understand:
+- What each variable represents
+- Why it exists
+- What problem it solves
+- Valid values and formats
+- Examples for different project types
+
+This documentation SIGNIFICANTLY reduces bugs as project evolves.
+"""
+
+context = """
+Current problem: Hardcoded values everywhere (npm, .ts, TypeScript).
+Solution: Replace with variables ({{PKG_MANAGER}}, {{SOURCE_EXTENSION}}, {{LANGUAGE}}).
+
+But variables without context are cryptic:
+- {{BUILD_COMMAND}} - What is this? npm run build? cargo build? make?
+- {{DOMAIN}} - Domain as in DNS? Business domain? Software domain?
+- {{AGENT}} - What kind of agent? Infrastructure? UI?
+
+Clear documentation = AI understands intent = Fewer bugs = Faster development.
+"""
+
+reasoning_chain = [
+    "1. List ALL variables used across system (scan templates, configs)",
+    "2. For each variable, document:",
+    "   - Purpose: What does this represent?",
+    "   - Problem: What hardcoded value does this replace?",
+    "   - Valid values: What options exist?",
+    "   - Examples: Show for Node.js, Rust, Python projects",
+    "   - Dependencies: Does this depend on other variables?",
+    "3. Organize by category (PROJECT, TECH, TOOL, DOMAIN, WORKFLOW)",
+    "4. Create variable-reference.md with comprehensive docs",
+    "5. Add inline comments in code explaining variable usage"
+]
+
+pattern_context = "Pattern-DOCS-001: Documentation reduces bugs by 50%"
+
+success_impact = """
+After SELF-003A complete:
+✅ Every variable documented with purpose and examples
+✅ AI can understand variable intent when resolving
+✅ Humans can customize variables confidently
+✅ Bugs reduced (no misunderstanding of variable meaning)
+✅ Future maintenance easier (clear documentation)
+"""
+
+estimated_lines = 500
+estimated_time = "8-10 hours"
+
+files_to_create = [
+    "docs/variable-reference.md",
+    ".aetherlight/schemas/variables-catalog.json"
+]
+
+deliverables = [
+    "variable-reference.md (comprehensive docs for all variables)",
+    "Variables organized by category",
+    "Examples for each variable (Node.js, Rust, Python)",
+    "Valid values documented",
+    "Dependencies between variables explained",
+    "Inline code comments added"
+]
+
+validation_criteria = [
+    "All variables documented with purpose",
+    "Examples provided for each variable",
+    "Valid values/formats specified",
+    "Dependencies documented",
+    "AI can understand variable intent from docs"
+]
+
+test_requirements = """
+Documentation Validation:
+
+1. Scan all templates for {{VARIABLES}}
+2. Verify each variable has documentation entry
+3. Verify examples exist for all variables
+4. Verify valid values documented
+5. No undocumented variables in codebase
+"""
+
+example_documentation = """
+### Variable: {{BUILD_COMMAND}}
+
+**Purpose:** Command to build/compile the project
+
+**Problem it solves:** Replaces hardcoded 'npm run build' that only works for Node.js
+
+**Valid values:**
+- Node.js: 'npm run build', 'yarn build', 'pnpm build'
+- Rust: 'cargo build', 'cargo build --release'
+- Python: 'python setup.py build', 'poetry build'
+- Go: 'go build', 'make build'
+
+**Examples:**
+```json
+// Node.js project
+{"BUILD_COMMAND": "npm run build"}
+
+// Rust project
+{"BUILD_COMMAND": "cargo build --release"}
+```
+
+**Dependencies:**
+- Depends on {{PKG_MANAGER}} (must match package manager)
+- Depends on {{LANGUAGE}} (different commands per language)
+
+**Detection logic:**
+1. Check package.json scripts.build → use that
+2. Check Cargo.toml → use 'cargo build'
+3. Check Makefile → use 'make build'
+4. Default: Ask user in interview
+
+**Used in:**
+- .claude/CLAUDE.md (Pre-Flight Checklist)
+- Git pre-commit hooks
+- CI/CD workflow templates
+"""
+
+error_handling = """
+- Document error cases (e.g., "What if BUILD_COMMAND fails?")
+- Document fallback strategies
+- Document validation rules (e.g., "Command must be executable")
+"""
+
+dependencies = []
+
+# -----------------------------------------------------------------------------
+
+[tasks.SELF-004]
+id = "SELF-004"
+name = "Integrate inquirer.js for CLI prompts"
+status = "pending"
+phase = "phase-1-foundation"
+agent = "infrastructure-agent"
+
+why = """
+Need interactive CLI prompts for user interview.
+Inquirer.js is industry standard (used by npm init, create-react-app).
+"""
+
+context = """
+Interview questions defined in JSON templates.
+InterviewEngine loads template, displays prompts via inquirer.
+Returns user answers as structured object.
+"""
+
+reasoning_chain = [
+    "1. Install inquirer.js as dependency",
+    "2. Create InterviewEngine service",
+    "3. Load interview template (JSON)",
+    "4. Convert to inquirer.js format",
+    "5. Display prompts, collect answers",
+    "6. Return as typed object"
+]
+
+success_impact = """
+After SELF-004 complete:
+✅ Can display CLI prompts using inquirer.js
+✅ Single/multi-select questions supported
+✅ Conditional questions (skip if confidence high)
+✅ Type-safe answer handling
+"""
+
+test_requirements = """
+TDD Requirements (Infrastructure Task - 85% coverage):
+
+RED Phase:
+1. conductInterview(template) displays prompts
+2. Returns user answers as object
+3. Single-select question returns string
+4. Multi-select question returns string[]
+5. Conditional questions work (show if condition met)
+
+GREEN Phase - Implement InterviewEngine
+REFACTOR Phase - Extract prompt formatting
+"""
+
+test_files = [
+    "vscode-lumina/test/services/InterviewEngine.test.ts"
+]
+
+test_coverage_requirement = 0.85
+
+validation_criteria = [
+    "Inquirer prompts display correctly",
+    "User answers captured accurately",
+    "Conditional questions work",
+    "Type-safe answer object returned"
+]
+
+estimated_lines = 250
+estimated_time = "8-10 hours"
+
+files_to_create = [
+    "vscode-lumina/src/services/InterviewEngine.ts",
+    "vscode-lumina/test/services/InterviewEngine.test.ts"
+]
+
+deliverables = [
+    "InterviewEngine service",
+    "inquirer.js integration",
+    "Interview template loader",
+    "Unit tests (85% coverage)"
+]
+
+dependencies = []
+
+# -----------------------------------------------------------------------------
+
+[tasks.SELF-005]
+id = "SELF-005"
+name = "Phase 1 integration tests"
+status = "pending"
+phase = "phase-1-foundation"
+agent = "infrastructure-agent"
+
+why = """
+Ensure all Phase 1 components work together.
+Integration tests catch issues that unit tests miss.
+"""
+
+test_requirements = """
+Integration Tests (Phase 1):
+
+1. Full variable resolution flow:
+   - Load template with {{VARS}}
+   - Load config with values
+   - Resolve all variables
+   - Verify output correct
+
+2. Config generation flow:
+   - Provide detection results
+   - Generate config
+   - Validate config
+   - Verify all fields present
+
+3. Interview flow:
+   - Load interview template
+   - Simulate user answers
+   - Generate config from answers
+   - Validate output
+"""
+
+test_files = [
+    "vscode-lumina/test/integration/phase1.test.ts"
+]
+
+test_coverage_requirement = 0.9
+
+estimated_time = "4-6 hours"
+
+deliverables = [
+    "Integration tests for Phase 1",
+    "All tests passing",
+    "Coverage report"
+]
+
+dependencies = ["SELF-001", "SELF-002", "SELF-003", "SELF-004"]
+
+# =============================================================================
+# PHASE 2: DETECTION (Week 3) - HIGH PRIORITY
+# =============================================================================
+
+[tasks.SELF-006]
+id = "SELF-006"
+name = "Implement TechStackDetector service"
+status = "pending"
+phase = "phase-2-detection"
+agent = "infrastructure-agent"
+
+why = """
+Auto-detect project tech stack (Node.js, TypeScript, Rust, Python).
+Reduces user questions, improves UX.
+"""
+
+reasoning_chain = [
+    "1. Check for package.json → Node.js",
+    "2. Check for Cargo.toml → Rust",
+    "3. Check for requirements.txt → Python",
+    "4. Check for go.mod → Go",
+    "5. Analyze package.json for frameworks (React, Vue, Express)",
+    "6. Return structured TechStack object with confidence scores"
+]
+
+test_requirements = """
+TDD Requirements (Infrastructure Task - 90% coverage):
+
+RED Phase:
+1. detect() on Node.js project → returns {primaryLanguage: 'javascript'}
+2. detect() on TypeScript project → {primaryLanguage: 'typescript', frameworks: ['react']}
+3. detect() on Rust project → {primaryLanguage: 'rust'}
+4. detect() on empty directory → {primaryLanguage: null, confidence: 0}
+5. Confidence scores accurate (0.0-1.0)
+"""
+
+test_files = [
+    "vscode-lumina/test/services/TechStackDetector.test.ts"
+]
+
+test_coverage_requirement = 0.9
+
+performance_target = "Detect tech stack < 200ms"
+
+estimated_time = "8-10 hours"
+
+files_to_create = [
+    "vscode-lumina/src/services/TechStackDetector.ts",
+    "vscode-lumina/test/services/TechStackDetector.test.ts"
+]
+
+deliverables = [
+    "TechStackDetector service",
+    "Support for Node.js, TypeScript, Rust, Python, Go",
+    "Framework detection (React, Vue, Express)",
+    "Confidence scoring"
+]
+
+dependencies = []
+
+# -----------------------------------------------------------------------------
+
+[tasks.SELF-007]
+id = "SELF-007"
+name = "Implement ToolDetector service"
+status = "pending"
+phase = "phase-2-detection"
+agent = "infrastructure-agent"
+
+why = """
+Auto-detect tools (package manager, test framework, build system).
+Enables accurate {{TOOL_COMMAND}} substitution.
+"""
+
+reasoning_chain = [
+    "1. Detect package manager: check lock files (package-lock.json → npm)",
+    "2. Detect test framework: check package.json devDependencies",
+    "3. Detect build system: check for webpack.config.js, vite.config.js",
+    "4. Return Tools object with detected commands"
+]
+
+test_requirements = """
+TDD Requirements (Infrastructure Task - 90% coverage):
+
+RED Phase:
+1. Detect npm from package-lock.json
+2. Detect yarn from yarn.lock
+3. Detect pnpm from pnpm-lock.yaml
+4. Detect jest from package.json
+5. Detect webpack from webpack.config.js
+"""
+
+test_files = [
+    "vscode-lumina/test/services/ToolDetector.test.ts"
+]
+
+test_coverage_requirement = 0.9
+
+estimated_time = "6-8 hours"
+
+files_to_create = [
+    "vscode-lumina/src/services/ToolDetector.ts",
+    "vscode-lumina/test/services/ToolDetector.test.ts"
+]
+
+dependencies = []
+
+# -----------------------------------------------------------------------------
+
+[tasks.SELF-008]
+id = "SELF-008"
+name = "Implement WorkflowDetector service"
+status = "pending"
+phase = "phase-2-detection"
+agent = "infrastructure-agent"
+
+why = """
+Auto-detect workflows (TDD, Git Flow, CI/CD).
+Customizes enforcement rules per project.
+"""
+
+reasoning_chain = [
+    "1. Detect TDD: check test coverage, pre-commit hooks",
+    "2. Detect Git workflow: analyze branch patterns",
+    "3. Detect CI/CD: check for .github/workflows, .gitlab-ci.yml",
+    "4. Return Workflows object"
+]
+
+test_requirements = """
+TDD Requirements (Infrastructure Task - 85% coverage):
+
+RED Phase:
+1. Detect TDD from high test coverage (>80%)
+2. Detect Git Flow from develop branch
+3. Detect GitHub Actions from .github/workflows
+4. Return confidence scores
+"""
+
+test_files = [
+    "vscode-lumina/test/services/WorkflowDetector.test.ts"
+]
+
+test_coverage_requirement = 0.85
+
+estimated_time = "8-10 hours"
+
+files_to_create = [
+    "vscode-lumina/src/services/WorkflowDetector.ts",
+    "vscode-lumina/test/services/WorkflowDetector.test.ts"
+]
+
+dependencies = []
+
+# -----------------------------------------------------------------------------
+
+[tasks.SELF-009]
+id = "SELF-009"
+name = "Implement DomainDetector service (software-dev only)"
+status = "pending"
+phase = "phase-2-detection"
+agent = "infrastructure-agent"
+
+why = """
+Infer project domain from keywords and structure.
+Initially: software-dev domain only (CLI, web, desktop, library).
+Future: Community adds healthcare, legal, SEO domains.
+"""
+
+reasoning_chain = [
+    "1. Scan README.md for keywords",
+    "2. Analyze directory structure",
+    "3. Check dependencies (e.g., express → backend)",
+    "4. Return domain with confidence score",
+    "5. Default to 'general' if uncertain"
+]
+
+test_requirements = """
+TDD Requirements (Infrastructure Task - 85% coverage):
+
+RED Phase:
+1. Detect 'web' from 'react' dependency
+2. Detect 'cli' from 'commander' dependency
+3. Detect 'desktop' from 'electron' or 'tauri'
+4. Detect 'library' from absence of app entry point
+5. Default to 'general' if no clear match
+"""
+
+test_files = [
+    "vscode-lumina/test/services/DomainDetector.test.ts"
+]
+
+test_coverage_requirement = 0.85
+
+estimated_time = "6-8 hours"
+
+files_to_create = [
+    "vscode-lumina/src/services/DomainDetector.ts",
+    "vscode-lumina/test/services/DomainDetector.test.ts"
+]
+
+dependencies = []
+
+# -----------------------------------------------------------------------------
+
+[tasks.SELF-010]
+id = "SELF-010"
+name = "Phase 2 integration tests"
+status = "pending"
+phase = "phase-2-detection"
+agent = "infrastructure-agent"
+
+why = """
+Ensure all detection services work together.
+Test on real project examples.
+"""
+
+test_requirements = """
+Integration Tests (Phase 2):
+
+1. Full detection flow on Node.js project
+2. Full detection flow on Rust project
+3. Full detection flow on empty project
+4. Verify all detectors return structured data
+5. Verify confidence scores reasonable
+"""
+
+test_files = [
+    "vscode-lumina/test/integration/phase2.test.ts"
+]
+
+test_coverage_requirement = 0.9
+
+estimated_time = "4-6 hours"
+
+deliverables = [
+    "Integration tests for Phase 2",
+    "Test on real project examples",
+    "All tests passing"
+]
+
+dependencies = ["SELF-006", "SELF-007", "SELF-008", "SELF-009"]
+
+# =============================================================================
+# PHASE 3: INTERVIEW & CONFIG GENERATION (Week 4) - HIGH PRIORITY
+# =============================================================================
+
+[tasks.SELF-011]
+id = "SELF-011"
+name = "Implement CLI interview flow"
+status = "pending"
+phase = "phase-3-interview"
+agent = "api-agent"
+
+why = """
+Interactive CLI that asks 4-5 questions to clarify project setup.
+Uses inquirer.js from Phase 1.
+"""
+
+reasoning_chain = [
+    "1. Show detected configuration (from Phase 2)",
+    "2. Ask Q1: Confirm tech stack? (pre-select detected)",
+    "3. Ask Q2: What's your primary focus? (features, bugs, refactoring)",
+    "4. Ask Q3: Timeline? (sprint, project, ongoing)",
+    "5. Ask Q4: Constraints? (TDD, backward compat, performance)",
+    "6. Return interview result object"
+]
+
+test_requirements = """
+TDD Requirements (API Task - 85% coverage):
+
+RED Phase:
+1. conductInterview() displays 4-5 questions
+2. Pre-selects detected values
+3. Returns structured answer object
+4. Skips questions if confidence > 90%
+5. Handles user cancellation gracefully
+"""
+
+test_files = [
+    "vscode-lumina/test/commands/interviewFlow.test.ts"
+]
+
+test_coverage_requirement = 0.85
+
+estimated_time = "8-10 hours"
+
+files_to_create = [
+    "vscode-lumina/src/commands/interviewFlow.ts",
+    "vscode-lumina/src/templates/interview-flows/project-initialization.json",
+    "vscode-lumina/test/commands/interviewFlow.test.ts"
+]
+
+deliverables = [
+    "CLI interview flow command",
+    "project-initialization.json template",
+    "Answer validation",
+    "Unit tests (85% coverage)"
+]
+
+dependencies = ["SELF-004", "SELF-006", "SELF-007", "SELF-008", "SELF-009"]
+
+# -----------------------------------------------------------------------------
+
+[tasks.SELF-012]
+id = "SELF-012"
+name = "Integrate detection + interview → config generation"
+status = "pending"
+phase = "phase-3-interview"
+agent = "infrastructure-agent"
+
+why = """
+Combine Phase 2 detection results + Phase 3 interview answers.
+Generate final project-config.json.
+"""
+
+reasoning_chain = [
+    "1. Run all detectors (TechStack, Tool, Workflow, Domain)",
+    "2. Show detected config to user",
+    "3. Run interview if confidence < 90%",
+    "4. Merge detection + interview results",
+    "5. Generate project-config.json",
+    "6. Validate against schema",
+    "7. Save to .aetherlight/project-config.json"
+]
+
+test_requirements = """
+TDD Requirements (Infrastructure Task - 90% coverage):
+
+RED Phase:
+1. Full flow: detect → interview → generate config
+2. High confidence (>90%) → skip interview
+3. Low confidence (<90%) → show interview
+4. Generated config passes schema validation
+5. Config saved to correct location
+"""
+
+test_files = [
+    "vscode-lumina/test/integration/configGeneration.test.ts"
+]
+
+test_coverage_requirement = 0.9
+
+performance_target = "Full flow < 5 seconds"
+
+estimated_time = "10-12 hours"
+
+files_to_create = [
+    "vscode-lumina/src/commands/init.ts",
+    "vscode-lumina/test/integration/configGeneration.test.ts"
+]
+
+deliverables = [
+    "Init command (full flow)",
+    "Detection + interview integration",
+    "Config generation",
+    "Integration tests"
+]
+
+dependencies = ["SELF-002", "SELF-010", "SELF-011"]
+
+# -----------------------------------------------------------------------------
+
+[tasks.SELF-013]
+id = "SELF-013"
+name = "Implement template customization system"
+status = "pending"
+phase = "phase-3-interview"
+agent = "infrastructure-agent"
+
+why = """
+Load generic templates, substitute {{VARIABLES}}, write customized files.
+Applies to CLAUDE.md, skills, agent contexts.
+"""
+
+reasoning_chain = [
+    "1. Load template file (e.g., bundled-context/generic/CLAUDE.md)",
+    "2. Load project-config.json",
+    "3. Use VariableResolver to substitute all {{VARS}}",
+    "4. Write customized file to .claude/CLAUDE.md",
+    "5. Repeat for all template files"
+]
+
+test_requirements = """
+TDD Requirements (Infrastructure Task - 90% coverage):
+
+RED Phase:
+1. customizeTemplate('CLAUDE.md', config) → substitutes variables
+2. Handles nested variables
+3. Throws error if variable undefined
+4. Writes customized file to correct location
+5. Preserves file structure and formatting
+"""
+
+test_files = [
+    "vscode-lumina/test/services/TemplateCustomizer.test.ts"
+]
+
+test_coverage_requirement = 0.9
+
+estimated_time = "8-10 hours"
+
+files_to_create = [
+    "vscode-lumina/src/services/TemplateCustomizer.ts",
+    "vscode-lumina/test/services/TemplateCustomizer.test.ts"
+]
+
+deliverables = [
+    "TemplateCustomizer service",
+    "Variable substitution throughout templates",
+    "Customized file writing",
+    "Unit tests (90% coverage)"
+]
+
+dependencies = ["SELF-001"]
+
+# -----------------------------------------------------------------------------
+
+[tasks.SELF-014]
+id = "SELF-014"
+name = "Create variable resolution interview flow"
+status = "pending"
+phase = "phase-3-interview"
+agent = "api-agent"
+
+why = """
+If ambiguous variables detected (e.g., multiple build commands),
+ask user which to use. Dynamic interview generation.
+"""
+
+reasoning_chain = [
+    "1. Scan for unresolved variables after initial config",
+    "2. For each undefined variable, generate question",
+    "3. Show CLI prompt with detected options",
+    "4. User selects or enters custom value",
+    "5. Update config with resolved values"
+]
+
+test_requirements = """
+TDD Requirements (API Task - 85% coverage):
+
+RED Phase:
+1. Detect unresolved {{BUILD_COMMAND}}
+2. Generate question with detected options
+3. User selects option
+4. Config updated with resolved value
+5. Re-validate config after resolution
+"""
+
+test_files = [
+    "vscode-lumina/test/commands/variableResolution.test.ts"
+]
+
+test_coverage_requirement = 0.85
+
+estimated_time = "6-8 hours"
+
+files_to_create = [
+    "vscode-lumina/src/commands/variableResolutionFlow.ts",
+    "vscode-lumina/src/templates/interview-flows/variable-resolution.json",
+    "vscode-lumina/test/commands/variableResolution.test.ts"
+]
+
+deliverables = [
+    "Variable resolution interview",
+    "Dynamic question generation",
+    "Config update with resolved values",
+    "Unit tests (85% coverage)"
+]
+
+dependencies = ["SELF-001", "SELF-004"]
+
+# -----------------------------------------------------------------------------
+
+[tasks.SELF-015]
+id = "SELF-015"
+name = "Phase 3 integration tests"
+status = "pending"
+phase = "phase-3-interview"
+agent = "infrastructure-agent"
+
+why = """
+End-to-end test of full initialization flow.
+"""
+
+test_requirements = """
+E2E Tests (Phase 3):
+
+1. Greenfield project (empty directory):
+   - Run init
+   - Answer interview questions
+   - Verify config generated
+   - Verify templates customized
+
+2. Existing project (Node.js):
+   - Run init
+   - Detection works
+   - Interview skipped (high confidence)
+   - Config generated correctly
+
+3. Ambiguous project:
+   - Multiple build scripts detected
+   - Variable resolution interview shown
+   - User resolves ambiguity
+   - Config finalized
+"""
+
+test_files = [
+    "vscode-lumina/test/e2e/init.test.ts"
+]
+
+test_coverage_requirement = 0.85
+
+estimated_time = "8-10 hours"
+
+deliverables = [
+    "E2E tests for init flow",
+    "Test on greenfield + existing projects",
+    "All tests passing",
+    "Performance benchmarks (<5s)"
+]
+
+dependencies = ["SELF-011", "SELF-012", "SELF-013", "SELF-014"]
+
+# =============================================================================
+# PHASE 4: MIGRATION & UPGRADE (Week 5) - MEDIUM PRIORITY
+# =============================================================================
+
+[tasks.SELF-016]
+id = "SELF-016"
+name = "Implement upgrade command"
+status = "pending"
+phase = "phase-4-migration"
+agent = "infrastructure-agent"
+
+why = """
+Existing ÆtherLight users need migration path.
+Manual upgrade required (user confirmation).
+"""
+
+reasoning_chain = [
+    "1. Detect existing installation (.aetherlight/)",
+    "2. Read current version",
+    "3. Compare to latest version",
+    "4. Show upgrade preview (what will change)",
+    "5. User confirms",
+    "6. Run migration",
+    "7. Show summary"
+]
+
+test_requirements = """
+TDD Requirements (Infrastructure Task - 90% coverage):
+
+RED Phase:
+1. upgrade() detects existing installation
+2. Shows preview of changes
+3. Requires user confirmation
+4. Backs up old config
+5. Runs migration
+6. Restores on failure (rollback)
+"""
+
+test_files = [
+    "vscode-lumina/test/commands/upgrade.test.ts"
+]
+
+test_coverage_requirement = 0.9
+
+estimated_time = "8-10 hours"
+
+files_to_create = [
+    "vscode-lumina/src/commands/upgrade.ts",
+    "vscode-lumina/test/commands/upgrade.test.ts"
+]
+
+deliverables = [
+    "Upgrade command",
+    "Version detection",
+    "Upgrade preview",
+    "User confirmation flow",
+    "Unit tests (90% coverage)"
+]
+
+dependencies = []
+
+# -----------------------------------------------------------------------------
+
+[tasks.SELF-017]
+id = "SELF-017"
+name = "Implement version tracking system"
+status = "pending"
+phase = "phase-4-migration"
+agent = "infrastructure-agent"
+
+why = """
+Track ÆtherLight version in user project.
+Enables upgrade detection and migration.
+"""
+
+reasoning_chain = [
+    "1. Create .aetherlight/version.json on init",
+    "2. Store ÆtherLight version, config schema version",
+    "3. Read on upgrade to detect old versions",
+    "4. Update after successful upgrade"
+]
+
+test_requirements = """
+TDD Requirements (Infrastructure Task - 90% coverage):
+
+RED Phase:
+1. init() creates version.json
+2. upgrade() reads version.json
+3. Detects version mismatch
+4. Updates version after upgrade
+"""
+
+test_files = [
+    "vscode-lumina/test/services/VersionTracker.test.ts"
+]
+
+test_coverage_requirement = 0.9
+
+estimated_time = "4-6 hours"
+
+files_to_create = [
+    "vscode-lumina/src/services/VersionTracker.ts",
+    "vscode-lumina/test/services/VersionTracker.test.ts"
+]
+
+deliverables = [
+    "VersionTracker service",
+    "version.json format",
+    "Version detection",
+    "Unit tests (90% coverage)"
+]
+
+dependencies = []
+
+# -----------------------------------------------------------------------------
+
+[tasks.SELF-018]
+id = "SELF-018"
+name = "Implement config migration service"
+status = "pending"
+phase = "phase-4-migration"
+agent = "infrastructure-agent"
+
+why = """
+Migrate old config format to new format.
+Preserve user customizations during upgrade.
+"""
+
+reasoning_chain = [
+    "1. Read old config (infer from existing .claude/CLAUDE.md)",
+    "2. Parse user customizations",
+    "3. Generate new project-config.json",
+    "4. Apply user overrides",
+    "5. Validate new config",
+    "6. Save migration log"
+]
+
+test_requirements = """
+TDD Requirements (Infrastructure Task - 90% coverage):
+
+RED Phase:
+1. migrate(oldFormat) → newFormat
+2. Preserves user customizations
+3. Generates migration log
+4. Validates new config
+5. Handles edge cases (missing fields, custom values)
+"""
+
+test_files = [
+    "vscode-lumina/test/services/ConfigMigration.test.ts"
+]
+
+test_coverage_requirement = 0.9
+
+estimated_time = "10-12 hours"
+
+files_to_create = [
+    "vscode-lumina/src/services/ConfigMigration.ts",
+    "vscode-lumina/test/services/ConfigMigration.test.ts"
+]
+
+deliverables = [
+    "ConfigMigration service",
+    "Old → new format conversion",
+    "User customization preservation",
+    "Migration log",
+    "Unit tests (90% coverage)"
+]
+
+dependencies = ["SELF-002", "SELF-003"]
+
+# -----------------------------------------------------------------------------
+
+[tasks.SELF-019]
+id = "SELF-019"
+name = "Implement backup/rollback mechanism"
+status = "pending"
+phase = "phase-4-migration"
+agent = "infrastructure-agent"
+
+why = """
+Safety net: if upgrade fails, rollback to previous state.
+User data protection.
+"""
+
+reasoning_chain = [
+    "1. Before upgrade, backup .aetherlight/ directory",
+    "2. Backup .claude/ directory",
+    "3. Store backup location",
+    "4. If upgrade fails, restore from backup",
+    "5. If upgrade succeeds, delete backup after 24h"
+]
+
+test_requirements = """
+TDD Requirements (Infrastructure Task - 90% coverage):
+
+RED Phase:
+1. backup() creates timestamped backup
+2. rollback() restores from backup
+3. Cleanup deletes old backups
+4. Handles disk space errors gracefully
+"""
+
+test_files = [
+    "vscode-lumina/test/services/BackupManager.test.ts"
+]
+
+test_coverage_requirement = 0.9
+
+estimated_time = "6-8 hours"
+
+files_to_create = [
+    "vscode-lumina/src/services/BackupManager.ts",
+    "vscode-lumina/test/services/BackupManager.test.ts"
+]
+
+deliverables = [
+    "BackupManager service",
+    "Backup creation",
+    "Rollback mechanism",
+    "Automatic cleanup",
+    "Unit tests (90% coverage)"
+]
+
+dependencies = []
+
+# -----------------------------------------------------------------------------
+
+[tasks.SELF-020]
+id = "SELF-020"
+name = "Phase 4 integration tests"
+status = "pending"
+phase = "phase-4-migration"
+agent = "infrastructure-agent"
+
+why = """
+Test full upgrade flow end-to-end.
+"""
+
+test_requirements = """
+E2E Tests (Phase 4):
+
+1. Upgrade from v0.15.x → v1.0.0
+2. Upgrade preserves user customizations
+3. Rollback works if upgrade fails
+4. Backup cleanup after successful upgrade
+"""
+
+test_files = [
+    "vscode-lumina/test/e2e/upgrade.test.ts"
+]
+
+test_coverage_requirement = 0.85
+
+estimated_time = "6-8 hours"
+
+deliverables = [
+    "E2E upgrade tests",
+    "All upgrade scenarios covered",
+    "Tests passing"
+]
+
+dependencies = ["SELF-016", "SELF-017", "SELF-018", "SELF-019"]
+
+# =============================================================================
+# PHASE 5: TESTING & POLISH (Weeks 6-8) - MEDIUM PRIORITY
+# =============================================================================
+
+[tasks.SELF-021]
+id = "SELF-021"
+name = "Comprehensive integration tests"
+status = "pending"
+phase = "phase-5-testing"
+agent = "infrastructure-agent"
+
+why = """
+Test all phases together as complete system.
+Catch integration issues missed by unit tests.
+"""
+
+test_requirements = """
+Integration Tests (Full System):
+
+1. Init on various project types (Node.js, Rust, Python, empty)
+2. Config generation accuracy
+3. Template customization correctness
+4. Variable resolution robustness
+5. Upgrade flow stability
+6. Error handling (network failures, disk errors, invalid inputs)
+"""
+
+test_files = [
+    "vscode-lumina/test/integration/fullSystem.test.ts"
+]
+
+test_coverage_requirement = 0.85
+
+estimated_time = "12-16 hours"
+
+deliverables = [
+    "Full system integration tests",
+    "Test matrix: 10+ project types",
+    "All tests passing",
+    "Test report"
+]
+
+dependencies = ["SELF-005", "SELF-010", "SELF-015", "SELF-020"]
+
+# -----------------------------------------------------------------------------
+
+[tasks.SELF-022]
+id = "SELF-022"
+name = "End-to-end tests (real projects)"
+status = "pending"
+phase = "phase-5-testing"
+agent = "infrastructure-agent"
+
+why = """
+Test on real open-source projects (not just test fixtures).
+Validates system works in production scenarios.
+"""
+
+test_requirements = """
+E2E Tests (Real Projects):
+
+1. Clone popular repos:
+   - express.js (Node.js/JavaScript)
+   - rust-lang/cargo (Rust)
+   - django/django (Python)
+
+2. Run aetherlight init on each
+3. Verify correct detection
+4. Verify generated configs accurate
+5. Verify no errors or crashes
+"""
+
+test_files = [
+    "vscode-lumina/test/e2e/realProjects.test.ts"
+]
+
+estimated_time = "8-10 hours"
+
+deliverables = [
+    "E2E tests on real projects",
+    "Test against 5+ popular repos",
+    "All tests passing"
+]
+
+dependencies = ["SELF-021"]
+
+# -----------------------------------------------------------------------------
+
+[tasks.SELF-023]
+id = "SELF-023"
+name = "Performance optimization"
+status = "pending"
+phase = "phase-5-testing"
+agent = "infrastructure-agent"
+
+why = """
+Ensure init completes in <5 seconds (constraint).
+Identify and fix bottlenecks.
+"""
+
+reasoning_chain = [
+    "1. Benchmark each phase (detection, interview, generation)",
+    "2. Identify bottlenecks (file scanning, network calls)",
+    "3. Optimize hot paths (parallel detection, caching)",
+    "4. Re-benchmark, verify <5s target met"
+]
+
+test_requirements = """
+Performance Tests:
+
+1. Init on large project (<5s)
+2. Init on empty project (<2s)
+3. Upgrade on existing install (<3s)
+4. Variable resolution (<100ms for 100 vars)
+"""
+
+test_files = [
+    "vscode-lumina/test/performance/init.perf.test.ts"
+]
+
+performance_target = "Init completes < 5 seconds"
+
+estimated_time = "8-10 hours"
+
+deliverables = [
+    "Performance benchmarks",
+    "Optimization of hot paths",
+    "All performance targets met",
+    "Performance test suite"
+]
+
+dependencies = ["SELF-021"]
+
+# -----------------------------------------------------------------------------
+
+[tasks.SELF-024]
+id = "SELF-024"
+name = "Documentation: Self-Configuration Guide"
+status = "pending"
+phase = "phase-5-testing"
+agent = "documentation-agent"
+
+why = """
+Users need guide on how to use self-configuration system.
+Includes: init flow, customization, upgrade, troubleshooting.
+"""
+
+reasoning_chain = [
+    "1. Document init command usage",
+    "2. Explain interview questions (with chain-of-thought)",
+    "3. Document project-config.json structure",
+    "4. Explain variable substitution",
+    "5. Document upgrade flow",
+    "6. Troubleshooting guide (common errors)"
+]
+
+test_requirements = """
+Documentation Requirements:
+
+1. Clear usage examples for init, upgrade
+2. Explanation of all interview questions
+3. project-config.json reference
+4. Variable substitution examples
+5. Troubleshooting section
+6. Community domain creation guide
+"""
+
+estimated_lines = 1000
+estimated_time = "8-10 hours"
+
+files_to_create = [
+    "docs/self-configuration-guide.md",
+    "docs/project-config-reference.md",
+    "docs/creating-domains-guide.md"
+]
+
+deliverables = [
+    "Self-configuration guide",
+    "Config reference docs",
+    "Domain creation guide",
+    "Troubleshooting section"
+]
+
+validation_criteria = [
+    "All commands documented with examples",
+    "All config fields explained",
+    "Troubleshooting covers common errors",
+    "Community domain guide comprehensive"
+]
+
+dependencies = []
+
+# -----------------------------------------------------------------------------
+
+[tasks.SELF-025]
+id = "SELF-025"
+name = "Final validation & release preparation"
+status = "pending"
+phase = "phase-5-testing"
+agent = "infrastructure-agent"
+
+why = """
+Final quality gate before release.
+Comprehensive validation across all areas.
+"""
+
+test_requirements = """
+Final Validation Checklist:
+
+1. All unit tests passing (2000+ tests)
+2. All integration tests passing
+3. All E2E tests passing
+4. Performance targets met (<5s init)
+5. Documentation complete
+6. No critical bugs
+7. Backward compatibility verified
+8. Upgrade flow tested with real users (dogfooding)
+"""
+
+validation_criteria = [
+    "Test suite: 100% passing",
+    "Coverage: >90% for infrastructure",
+    "Performance: <5s init time",
+    "Documentation: Complete",
+    "Dogfooding: Successful self-upgrade",
+    "No known critical bugs",
+    "Ready for v1.0.0 release"
+]
+
+estimated_time = "8-10 hours"
+
+deliverables = [
+    "Final validation report",
+    "All quality gates passed",
+    "Release readiness confirmed",
+    "v1.0.0 release notes drafted"
+]
+
+dependencies = ["SELF-021", "SELF-022", "SELF-023", "SELF-024"]
+
+# =============================================================================
+# PROGRESS TRACKING
+# =============================================================================
+
+[progress]
+total_tasks = 26
+completed_tasks = 0
+in_progress_tasks = 0
+pending_tasks = 26
+completion_percentage = 0
