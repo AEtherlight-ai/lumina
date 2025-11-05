@@ -10,6 +10,7 @@ import { AutoTerminalSelector } from './AutoTerminalSelector';
 import { checkAndSetupUserDocumentation } from '../firstRunSetup';
 import { TaskStarter } from '../services/TaskStarter';
 import { TaskDependencyValidator } from '../services/TaskDependencyValidator';
+import { PromptEnhancer } from '../services/PromptEnhancer';
 
 /**
  * DESIGN DECISION: Clean single-panel UI with Voice at top, Sprint below - NO TABS
@@ -35,6 +36,7 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
     private autoTerminalSelector: AutoTerminalSelector; // B-003: Intelligent terminal selection
     private taskStarter: TaskStarter; // REFACTOR-000-UI: Task starter with dependency validation
     private taskValidator: TaskDependencyValidator; // REFACTOR-000-UI: Dependency validator
+    private promptEnhancer: PromptEnhancer; // REFACTOR-001: Prompt enhancement with patterns
     private sprintTasks: SprintTask[] = [];
     private selectedTaskId: string | null = null;
     private selectedEngineerId: string = 'all'; // 'all' or specific engineer ID
@@ -59,6 +61,12 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
          */
         this.taskStarter = new TaskStarter();
         this.taskValidator = new TaskDependencyValidator();
+
+        /**
+         * REFACTOR-001: Initialize PromptEnhancer for enhancing user prompts
+         * REASONING: Add patterns, context, and SOPs to user's natural language input
+         */
+        this.promptEnhancer = new PromptEnhancer(_context);
 
         /**
          * B-003: Initialize AutoTerminalSelector for intelligent terminal selection
@@ -850,11 +858,25 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 break;
 
             case 'enhanceText':
-                const enhancedText = await enhanceWithPatterns(message.text);
-                webview.postMessage({
-                    type: 'enhancedText',
-                    text: enhancedText
-                });
+                /**
+                 * REFACTOR-001: Enhance user's natural language prompt with patterns and context
+                 * WHY: Help users write better prompts by adding workspace context, patterns, SOPs
+                 * REASONING: PromptEnhancer analyzes workspace, injects relevant patterns/context
+                 */
+                try {
+                    const enhanced = await this.promptEnhancer.enhancePrompt(message.text, 'general');
+                    webview.postMessage({
+                        type: 'enhancedText',
+                        text: enhanced.prompt
+                    });
+                } catch (error) {
+                    console.error('[ÆtherLight] Prompt enhancement failed:', error);
+                    // Fall back to original text if enhancement fails
+                    webview.postMessage({
+                        type: 'enhancedText',
+                        text: message.text
+                    });
+                }
                 break;
 
             case 'startRecording':
@@ -3461,11 +3483,11 @@ async function transcribeAudioWithWhisper(audioData: string): Promise<string> {
     return result.text || '';
 }
 
-async function enhanceWithPatterns(text: string): Promise<string> {
-    // TODO: Implement pattern matching and enhancement
-    // For now, return original text
-    return text;
-}
+/**
+ * REFACTOR-001: Removed enhanceWithPatterns() stub - now using PromptEnhancer service
+ * WHY: Integrated proper enhancement with patterns, context, and SOPs
+ * See: VoiceViewProvider.promptEnhancer and 'enhanceText' message handler (line 860)
+ */
 
 /**
  * Register voice view provider with VS Code
