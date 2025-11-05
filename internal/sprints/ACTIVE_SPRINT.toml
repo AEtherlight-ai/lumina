@@ -1155,7 +1155,7 @@ id = "UI-011"
 name = "Fix WebView Sprint Task List Not Refreshing on TOML Changes"
 phase = "debugging"
 assigned_engineer = "engineer_1"
-status = "in_progress"
+status = "completed"
 agent = "infrastructure-agent"
 
 description = """
@@ -1562,7 +1562,7 @@ id = "REFACTOR-007"
 name = "Fix Sprint Refresh Button - Remove Duplicate Icons, Update Notification, Auto-Refresh Selected File"
 phase = "refactoring"
 assigned_engineer = "engineer_1"
-status = "pending"
+status = "completed"
 agent = "ui-agent"
 
 description = """
@@ -2445,7 +2445,7 @@ id = "RELEASE-007"
 name = "Pre-publish audit"
 phase = "release"
 assigned_engineer = "engineer_1"
-status = "pending"
+status = "completed"
 agent = "infrastructure-agent"
 
 description = """
@@ -2559,10 +2559,10 @@ patterns = ["Pattern-PUBLISH-001", "Pattern-PUBLISH-002", "Pattern-PUBLISH-003"]
 
 [progress]
 total_tasks = 32
-completed_tasks = 22
-in_progress_tasks = 1
-pending_tasks = 10
-completion_percentage = 69
+completed_tasks = 31
+in_progress_tasks = 0
+pending_tasks = 1
+completion_percentage = 97
 
 [notes]
 dogfooding_strategy = """
