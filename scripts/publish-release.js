@@ -299,7 +299,8 @@ async function main() {
 
   // Step 9: Commit and tag
   log('\n📋 Step 9: Commit and tag', 'yellow');
-  exec('git add .');
+  // Only add version-related files (avoid build artifacts)
+  exec('git add vscode-lumina/package.json packages/*/package.json');
   exec(`git commit -m "chore: release v${newVersion}"`);
   exec(`git tag v${newVersion}`);
   log(`✓ Created git tag v${newVersion}`, 'green');
