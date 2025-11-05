@@ -1710,13 +1710,13 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 </div>
             </div>
 
+            <!-- UI-010: Consolidated task statistics (single compact row) -->
             <div class="progress-section">
+                <div class="progress-text-compact">
+                    ${stats.completed}/${stats.total} (${stats.percentage}%) | ${stats.inProgress} active | ${stats.pending} pending
+                </div>
                 <div class="progress-bar-container">
                     <div class="progress-bar-fill" style="width: ${stats.percentage}%"></div>
-                </div>
-                <div class="progress-text">
-                    ${stats.completed}/${stats.total} tasks completed (${stats.percentage}%)
-                    <span class="progress-detail">| ${stats.inProgress} in progress | ${stats.pending} pending</span>
                 </div>
             </div>
 
@@ -2096,13 +2096,24 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             font-size: 16px;
         }
 
+        /* UI-010: Compact single-row progress section */
         .progress-section {
-            margin-bottom: 24px;
+            margin-bottom: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .progress-text-compact {
+            text-align: center;
+            color: var(--vscode-descriptionForeground);
+            font-size: 12px;
+            margin: 0;
         }
 
         .progress-bar-container {
             width: 100%;
-            height: 24px;
+            height: 20px;
             background-color: var(--vscode-editor-background);
             border: 1px solid var(--vscode-panel-border);
             border-radius: 4px;
@@ -2115,6 +2126,7 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             transition: width 0.3s ease;
         }
 
+        /* Legacy styles - kept for backwards compatibility */
         .progress-text {
             text-align: center;
             margin-top: 8px;
