@@ -8,6 +8,8 @@ import { recordVoiceWithWebview } from './voiceRecorder';
 import { IPCClient } from '../ipc/client';
 import { AutoTerminalSelector } from './AutoTerminalSelector';
 import { checkAndSetupUserDocumentation } from '../firstRunSetup';
+import { TaskStarter } from '../services/TaskStarter';
+import { TaskDependencyValidator } from '../services/TaskDependencyValidator';
 
 /**
  * DESIGN DECISION: Clean single-panel UI with Voice at top, Sprint below - NO TABS
@@ -31,6 +33,8 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
     private _view?: vscode.WebviewView;
     private sprintLoader: SprintLoader;
     private autoTerminalSelector: AutoTerminalSelector; // B-003: Intelligent terminal selection
+    private taskStarter: TaskStarter; // REFACTOR-000-UI: Task starter with dependency validation
+    private taskValidator: TaskDependencyValidator; // REFACTOR-000-UI: Dependency validator
     private sprintTasks: SprintTask[] = [];
     private selectedTaskId: string | null = null;
     private selectedEngineerId: string = 'all'; // 'all' or specific engineer ID
@@ -48,6 +52,13 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
         // Initialize SprintLoader
         this.sprintLoader = new SprintLoader(_context);
+
+        /**
+         * REFACTOR-000-UI: Initialize TaskStarter and TaskDependencyValidator
+         * REASONING: Enforce TDD workflow, sprint TOML updates, dependency validation
+         */
+        this.taskStarter = new TaskStarter();
+        this.taskValidator = new TaskDependencyValidator();
 
         /**
          * B-003: Initialize AutoTerminalSelector for intelligent terminal selection
@@ -533,6 +544,146 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 }
                 break;
 
+            /**
+             * REFACTOR-000-UI: Start Next Task (smart task selection)
+             * WHY: Enforce TDD workflow, dependency validation, sprint TOML updates
+             */
+            case 'startNextTask':
+                {
+                    const nextTask = this.taskStarter.findNextReadyTask(this.sprintTasks);
+                    if (!nextTask) {
+                        vscode.window.showWarningMessage('No ready tasks available. All tasks are either completed, in progress, or blocked by dependencies.');
+                        break;
+                    }
+
+                    // Show confirmation before starting
+                    const confirm = await vscode.window.showInformationMessage(
+                        `Start task ${nextTask.id}: ${nextTask.name}?\n\nEstimated time: ${nextTask.estimated_time}`,
+                        { modal: true },
+                        'Start Task'
+                    );
+
+                    if (confirm === 'Start Task') {
+                        try {
+                            const sprintPath = this.sprintLoader.getSprintFilePath();
+                            await this.taskStarter.startTask(nextTask, this.sprintTasks, sprintPath);
+
+                            // Reload sprint data and refresh UI
+                            await this.loadSprintTasks();
+                            webview.html = this._getHtmlForWebview(webview);
+                            if (this._view && this._view.webview !== webview) {
+                                this._view.webview.html = this._getHtmlForWebview(this._view.webview);
+                            }
+                            for (const poppedPanel of this.poppedOutPanels) {
+                                if (poppedPanel.webview !== webview) {
+                                    poppedPanel.webview.html = this._getHtmlForWebview(poppedPanel.webview);
+                                }
+                            }
+
+                            vscode.window.showInformationMessage(`✅ Task ${nextTask.id} started! Remember to follow TDD workflow.`);
+                        } catch (error) {
+                            vscode.window.showErrorMessage(`Failed to start task: ${(error as Error).message}`);
+                        }
+                    }
+                }
+                break;
+
+            /**
+             * REFACTOR-000-UI: Start Specific Task (with dependency validation)
+             * WHY: Allow user to start any task, but warn about dependencies
+             */
+            case 'startTask':
+                {
+                    const task = this.sprintTasks.find(t => t.id === message.taskId);
+                    if (!task) {
+                        vscode.window.showErrorMessage(`Task ${message.taskId} not found`);
+                        break;
+                    }
+
+                    // Check if task is ready (dependencies met)
+                    const isReady = this.taskValidator.isTaskReady(task, this.sprintTasks);
+
+                    if (!isReady) {
+                        // Task is blocked - show warning with alternatives
+                        const blocking = this.taskValidator.getBlockingDependencies(task, this.sprintTasks);
+                        const alternatives = this.taskStarter.findAlternativeTasks(task, this.sprintTasks);
+
+                        let warningMsg = `⚠️ Task ${task.id} is blocked by dependencies:\n\n`;
+                        blocking.forEach(dep => {
+                            warningMsg += `- ${dep.id}: ${dep.name} (${dep.status})\n`;
+                        });
+
+                        if (alternatives.length > 0) {
+                            warningMsg += `\n💡 Alternative ready tasks:\n`;
+                            alternatives.forEach((alt, index) => {
+                                warningMsg += `${index + 1}. ${alt.id}: ${alt.name} (${alt.estimated_time})\n`;
+                            });
+                        }
+
+                        const choice = await vscode.window.showWarningMessage(
+                            warningMsg,
+                            { modal: true },
+                            'Override (Start Anyway)',
+                            'Cancel'
+                        );
+
+                        if (choice === 'Override (Start Anyway)') {
+                            // User chose to override - start with override flag
+                            try {
+                                const sprintPath = this.sprintLoader.getSprintFilePath();
+                                await this.taskStarter.startTask(task, this.sprintTasks, sprintPath, true);
+
+                                // Reload sprint data and refresh UI
+                                await this.loadSprintTasks();
+                                webview.html = this._getHtmlForWebview(webview);
+                                if (this._view && this._view.webview !== webview) {
+                                    this._view.webview.html = this._getHtmlForWebview(this._view.webview);
+                                }
+                                for (const poppedPanel of this.poppedOutPanels) {
+                                    if (poppedPanel.webview !== webview) {
+                                        poppedPanel.webview.html = this._getHtmlForWebview(poppedPanel.webview);
+                                    }
+                                }
+
+                                vscode.window.showInformationMessage(`✅ Task ${task.id} started (dependencies overridden). Follow TDD workflow.`);
+                            } catch (error) {
+                                vscode.window.showErrorMessage(`Failed to start task: ${(error as Error).message}`);
+                            }
+                        }
+                    } else {
+                        // Task is ready - start normally
+                        const confirm = await vscode.window.showInformationMessage(
+                            `Start task ${task.id}: ${task.name}?\n\nEstimated time: ${task.estimated_time}`,
+                            { modal: true },
+                            'Start Task'
+                        );
+
+                        if (confirm === 'Start Task') {
+                            try {
+                                const sprintPath = this.sprintLoader.getSprintFilePath();
+                                await this.taskStarter.startTask(task, this.sprintTasks, sprintPath);
+
+                                // Reload sprint data and refresh UI
+                                await this.loadSprintTasks();
+                                webview.html = this._getHtmlForWebview(webview);
+                                if (this._view && this._view.webview !== webview) {
+                                    this._view.webview.html = this._getHtmlForWebview(this._view.webview);
+                                }
+                                for (const poppedPanel of this.poppedOutPanels) {
+                                    if (poppedPanel.webview !== webview) {
+                                        poppedPanel.webview.html = this._getHtmlForWebview(poppedPanel.webview);
+                                    }
+                                }
+
+                                vscode.window.showInformationMessage(`✅ Task ${task.id} started! Remember to follow TDD workflow.`);
+                            } catch (error) {
+                                vscode.window.showErrorMessage(`Failed to start task: ${(error as Error).message}`);
+                            }
+                        }
+                    }
+                }
+                break;
+
             // Removed: openTaskDocs - task details now shown in detail panel instead
 
             case 'openSprintSettings':
@@ -949,6 +1100,16 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
         window.reloadSprint = function() {
             vscode.postMessage({ type: 'reloadSprint' });
+        };
+
+        // REFACTOR-000-UI: Start Next Task (smart task selection)
+        window.startNextTask = function() {
+            vscode.postMessage({ type: 'startNextTask' });
+        };
+
+        // REFACTOR-000-UI: Start Specific Task (with dependency validation)
+        window.startTask = function(taskId) {
+            vscode.postMessage({ type: 'startTask', taskId });
         };
 
         // Global message listener for Sprint and Voice
@@ -1550,6 +1711,12 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 </div>
             </div>
 
+            <div class="start-task-section">
+                <button class="start-next-task-btn" onclick="startNextTask()" title="Start the next ready task (with all dependencies met)">
+                    ▶️ Start Next Task
+                </button>
+            </div>
+
             ${teamSize > 1 ? this.getEngineerTabs(engineers) : ''}
 
             <div class="sprint-content">
@@ -1572,12 +1739,21 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 const statusClass = `task-status-${task.status}`;
                 const selectedClass = this.selectedTaskId === task.id ? 'selected' : '';
 
+                // REFACTOR-000-UI: Check if task is ready to start (dependencies met)
+                const isReady = this.taskValidator.isTaskReady(task, this.sprintTasks);
+                const startBtnClass = isReady ? 'start-task-btn' : 'start-task-btn blocked';
+                const startBtnTitle = isReady ? 'Start this task' : 'Task blocked by dependencies';
+                const startBtnIcon = isReady ? '▶️' : '🔒';
+
                 html += `
                 <div class="task-item ${statusClass} ${selectedClass}" data-task-id="${task.id}" onclick="selectTask('${task.id}')" title="Click to view task details">
                     <span class="task-status-icon" onclick="event.stopPropagation(); toggleStatus('${task.id}')" title="Click to toggle status">${statusIcon}</span>
                     <span class="task-id">${task.id}</span>
                     <span class="task-name">${task.name}</span>
                     <span class="task-time">${task.estimated_time}</span>
+                    <button class="${startBtnClass}" onclick="event.stopPropagation(); startTask('${task.id}')" title="${startBtnTitle}">
+                        ${startBtnIcon}
+                    </button>
                 </div>
                 `;
             }
@@ -1688,11 +1864,17 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
         </div>`;
     }
 
+    /**
+     * REFACTOR-000-UI: Enhanced status icons with blocked and skipped states
+     * WHY: Visual feedback for task dependencies and workflow state
+     */
     private getStatusIcon(status: string): string {
         switch (status) {
             case 'completed': return '✅';
             case 'in_progress': return '🔄';
-            case 'pending': return '⏳';
+            case 'pending': return '⏸️';
+            case 'blocked': return '🔒';
+            case 'skipped': return '⏭️';
             default: return '❓';
         }
     }
@@ -1933,6 +2115,59 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
         .progress-detail {
             font-size: 11px;
+            opacity: 0.8;
+        }
+
+        /* REFACTOR-000-UI: Start Task Section */
+        .start-task-section {
+            display: flex;
+            justify-content: center;
+            margin: 16px 0;
+            padding: 12px;
+            border-top: 1px solid var(--vscode-panel-border);
+            border-bottom: 1px solid var(--vscode-panel-border);
+        }
+
+        .start-next-task-btn {
+            padding: 10px 20px;
+            background-color: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .start-next-task-btn:hover {
+            background-color: var(--vscode-button-hoverBackground);
+        }
+
+        .start-task-btn {
+            padding: 4px 12px;
+            margin-left: 8px;
+            background-color: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+            border: none;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background-color 0.2s, opacity 0.2s;
+        }
+
+        .start-task-btn:hover {
+            background-color: var(--vscode-button-hoverBackground);
+        }
+
+        .start-task-btn.blocked {
+            background-color: var(--vscode-inputValidation-warningBackground);
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        .start-task-btn.blocked:hover {
+            background-color: var(--vscode-inputValidation-warningBackground);
             opacity: 0.8;
         }
 

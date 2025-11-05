@@ -686,4 +686,19 @@ required_expertise = []
     public getMetadata(): SprintMetadata | null {
         return this.metadata;
     }
+
+    /**
+     * REFACTOR-000-UI: Get current sprint file path
+     * WHY: Needed by TaskStarter to update task status in TOML
+     */
+    public getSprintFilePath(): string {
+        if (!this.currentSprintPath) {
+            const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+            if (!workspaceRoot) {
+                throw new Error('No workspace folder open');
+            }
+            this.currentSprintPath = this.resolveSprintFilePath(workspaceRoot);
+        }
+        return this.currentSprintPath!;
+    }
 }
