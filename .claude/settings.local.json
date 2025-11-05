@@ -9,7 +9,10 @@
       "Bash(npm run build:all:*)",
       "Bash(vsce package:*)",
       "Bash(dir dist /b 2)",
-      "Bash(nul)"
+      "Bash(nul)",
+      "Bash(node -e:*)",
+      "Bash(node:*)",
+      "Skill(publish)"
     ],
     "deny": [],
     "ask": []
