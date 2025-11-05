@@ -395,20 +395,31 @@ Then reload VS Code to see the update.
   // Step 14: Verify GitHub release exists and has all required files
   log('\n📋 Step 14: Verify GitHub Release Assets', 'yellow');
 
+  // Get all assets as JSON (cross-platform compatible)
+  const assetsJson = execSilent(`gh release view v${newVersion} --json assets`);
+  if (!assetsJson) {
+    log('✗ GitHub release verification failed - could not fetch assets', 'red');
+    log('This is CRITICAL - users will get wrong version on update', 'red');
+    process.exit(1);
+  }
+
+  const releaseData = JSON.parse(assetsJson);
+  const assets = releaseData.assets || [];
+  const assetNames = assets.map(a => a.name);
+
   // Check for .vsix file
-  const vsixCheck = execSilent(`gh release view v${newVersion} --json assets -q '.assets[] | select(.name | endswith(".vsix")) | .name'`);
-  if (!vsixCheck || !vsixCheck.includes(`aetherlight-${newVersion}.vsix`)) {
+  const vsixAsset = assets.find(a => a.name.endsWith('.vsix'));
+  if (!vsixAsset || vsixAsset.name !== `aetherlight-${newVersion}.vsix`) {
     log('✗ GitHub release verification failed - .vsix not found', 'red');
     log('This is CRITICAL - users will get wrong version on update', 'red');
     process.exit(1);
   }
-  log(`✓ Verified: ${vsixCheck} exists on GitHub`, 'green');
+  log(`✓ Verified: ${vsixAsset.name} exists on GitHub`, 'green');
 
   // Check for desktop installers
-  const allAssets = execSilent(`gh release view v${newVersion} --json assets -q '.assets[].name'`);
-  if (allAssets) {
-    const hasExe = allAssets.includes('Lumina_0.1.0_x64-setup.exe');
-    const hasMsi = allAssets.includes('Lumina_0.1.0_x64_en-US.msi');
+  if (assetNames.length > 0) {
+    const hasExe = assetNames.includes('Lumina_0.1.0_x64-setup.exe');
+    const hasMsi = assetNames.includes('Lumina_0.1.0_x64_en-US.msi');
 
     if (hasExe) {
       log('✓ Verified: Lumina_0.1.0_x64-setup.exe exists on GitHub', 'green');
