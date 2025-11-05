@@ -1168,7 +1168,7 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 16px;
+            margin-bottom: 8px;  /* UI-007: Reduced from 16px to maximize vertical space */
             padding-bottom: 12px;
             border-bottom: 1px solid var(--vscode-panel-border);
         }
