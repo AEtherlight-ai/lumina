@@ -409,23 +409,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	const { disposable: voiceViewDisposable, provider: voiceViewProvider } = registerVoiceView(context);
 	context.subscriptions.push(voiceViewDisposable);
 
-	/**
-	 * DESIGN DECISION: Add command to reset tab state
-	 * WHY: Recover from workspace state corruption without restarting VS Code
-	 *
-	 * REASONING CHAIN:
-	 * 1. User reports Sprint tab not showing (workspace state corrupted)
-	 * 2. TabManager marks tabs as "promoted" incorrectly
-	 * 3. Add command: "ÆtherLight: Reset Tab State"
-	 * 4. Command calls voiceViewProvider.resetTabState() → resets workspace storage → refreshes view
-	 * 5. Result: All tabs visible again without restart
-	 *
-	 * PATTERN: Pattern-DEBUG-001 (State Reset Command for Recovery)
-	 */
-	const resetTabStateCommand = vscode.commands.registerCommand('aetherlight.resetTabState', async () => {
-		await voiceViewProvider.resetTabState();
-	});
-	context.subscriptions.push(resetTabStateCommand);
+	// Reset tab state command removed - no longer using tabs
 
 	/**
 	 * DESIGN DECISION: Clear sprint workspace state cache (force TOML as source of truth)

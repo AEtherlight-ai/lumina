@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { SprintLoader, SprintTask, Engineer } from './SprintLoader';
-import { TabManager, TabId } from './TabManager';
+// import { TabManager, TabId } from './TabManager'; // REMOVED: No longer using tabs
 import { recordVoiceWithWebview } from './voiceRecorder';
 // REMOVED: import { keyboard } from '@nut-tree-fork/nut-js'; (v0.16.1 - Pattern-PUBLISH-003)
 import { IPCClient } from '../ipc/client';
@@ -10,20 +10,17 @@ import { AutoTerminalSelector } from './AutoTerminalSelector';
 import { checkAndSetupUserDocumentation } from '../firstRunSetup';
 
 /**
- * DESIGN DECISION: Tabbed sidebar webview with 6 tabs managed by TabManager
- * WHY: Unified tab management with promote/demote capability (A-002)
+ * DESIGN DECISION: Clean single-panel UI with Voice at top, Sprint below - NO TABS
+ * WHY: User preference for streamlined workflow without tab navigation
  *
  * REASONING CHAIN:
- * 1. A-001 created TabManager with 6 tabs (Voice, Sprint, Planning, Patterns, Activity, Settings)
- * 2. A-002 integrates TabManager into VoicePanel WebView
- * 3. TabManager handles state persistence, tab switching, HTML generation
- * 4. All tabs use TabManager's methods for consistency
- * 5. Tab promotion/demotion supported (future: separate Activity Bar icons)
- * 6. Result: Scalable tab architecture with unified management
+ * 1. Voice section always visible at top (primary feature)
+ * 2. Sprint section below with divider
+ * 3. All features accessible without tab switching
+ * 4. Result: Simpler, more focused interface
  *
- * PATTERN: Pattern-UI-006 (Tabbed Multi-Feature Sidebar)
- * VERSION: 0.5.2 (Voice Panel Redesign v0.5.0, Task A-002)
- * RELATED: TabManager.ts, sprints/ACTIVE_SPRINT.toml, SprintLoader.ts
+ * VERSION: v0.16.2 (Reverted from tabbed UI)
+ * RELATED: SprintLoader.ts, voiceRecorder.ts
  */
 
 /**
@@ -32,7 +29,6 @@ import { checkAndSetupUserDocumentation } from '../firstRunSetup';
 export class VoiceViewProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'aetherlightVoiceView';
     private _view?: vscode.WebviewView;
-    private tabManager: TabManager; // A-002: Tab state management
     private sprintLoader: SprintLoader;
     private autoTerminalSelector: AutoTerminalSelector; // B-003: Intelligent terminal selection
     private sprintTasks: SprintTask[] = [];
@@ -48,11 +44,7 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
         private readonly _extensionUri: vscode.Uri,
         private readonly _context: vscode.ExtensionContext
     ) {
-        /**
-         * A-002: Initialize TabManager for 6-tab interface
-         * REASONING: TabManager persists state, handles tab switching, generates HTML
-         */
-        this.tabManager = new TabManager(_context);
+        // TabManager removed - using clean single-panel UI without tabs
 
         // Initialize SprintLoader
         this.sprintLoader = new SprintLoader(_context);
@@ -379,35 +371,7 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
         }
     }
 
-    /**
-     * Reset tab state to defaults (debug/recovery command)
-     *
-     * DESIGN DECISION: Public method exposed for command registration
-     * WHY: Allow users to fix corrupted tab state without restarting VS Code
-     *
-     * REASONING CHAIN:
-     * 1. User reports Sprint tab not showing
-     * 2. Root cause: Workspace state corruption (tabs marked as promoted)
-     * 3. Add command: "ÆtherLight: Reset Tab State"
-     * 4. Command calls this method → resets TabManager → refreshes view
-     * 5. Result: Immediate recovery without restart
-     */
-    public async resetTabState(): Promise<void> {
-        await this.tabManager.resetState();
-
-        // Refresh all active webviews
-        if (this._view) {
-            this._view.webview.html = this._getHtmlForWebview(this._view.webview);
-        }
-
-        for (const panel of this.poppedOutPanels) {
-            if (panel.visible) {
-                panel.webview.html = this._getHtmlForWebview(panel.webview);
-            }
-        }
-
-        vscode.window.showInformationMessage('✅ Tab state reset. All tabs should now be visible.');
-    }
+    // resetTabState method removed - no longer using tabs
 
     public resolveWebviewView(
         webviewView: vscode.WebviewView,
@@ -423,23 +387,7 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             enableForms: true
         };
 
-        /**
-         * A-004: Check for requested tab focus from hotkey
-         * DESIGN DECISION: Handle requested tab switch before rendering HTML
-         * WHY: Ensures backtick hotkey always focuses Voice tab
-         *
-         * REASONING CHAIN:
-         * 1. Check workspace state for "requestedTab" flag
-         * 2. If flag is "Voice" → Switch to Voice tab (TabManager.setActiveTab)
-         * 3. Clear flag to prevent repeat switching
-         * 4. Render HTML with correct active tab
-         * 5. Result: Hotkey reliably focuses Voice tab
-         */
-        const requestedTab = this._context.workspaceState.get<string>('aetherlight.requestedTab');
-        if (requestedTab === 'Voice') {
-            this.tabManager.setActiveTab('voice' as any); // TabId enum uses lowercase internally
-            this._context.workspaceState.update('aetherlight.requestedTab', undefined);
-        }
+        // Requested tab logic removed - no longer using tabs
 
         /**
          * DESIGN DECISION: Check for requested action (e.g., auto-start recording)
@@ -481,68 +429,6 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
     private async _handleMessage(message: any, webview: vscode.Webview) {
         switch (message.type) {
-            case 'switchTab':
-                /**
-                 * A-002: Use TabManager for tab switching
-                 * REASONING: TabManager handles state persistence automatically
-                 *
-                 * FIXED: Don't refresh entire HTML (loses event listeners)
-                 * Instead: Send new content to webview via postMessage
-                 */
-                console.log('[ÆtherLight VoicePanel] Switch tab requested:', message.tabId);
-                this.tabManager.setActiveTab(message.tabId);
-                console.log('[ÆtherLight VoicePanel] Active tab set, getting new content...');
-
-                // Get the active tab content
-                const activeTab = this.tabManager.getActiveTab();
-                let tabContent: string;
-                switch (activeTab) {
-                    case TabId.Voice:
-                        tabContent = getVoicePanelBodyContent();
-                        break;
-                    case TabId.Sprint:
-                        tabContent = this.getSprintTabContent();
-                        break;
-                    case TabId.Planning:
-                        tabContent = this.getPlanningTabPlaceholder();
-                        break;
-                    case TabId.Patterns:
-                        tabContent = this.getPatternsTabPlaceholder();
-                        break;
-                    case TabId.Activity:
-                        tabContent = this.getActivityTabPlaceholder();
-                        break;
-                    case TabId.Settings:
-                        tabContent = this.getSettingsTabPlaceholder();
-                        break;
-                    default:
-                        tabContent = `<div class="placeholder-error">Unknown Tab: ${activeTab}</div>`;
-                }
-
-                // Send content update message to webview
-                const updateMessage = {
-                    type: 'updateTabContent',
-                    tabId: message.tabId,
-                    content: tabContent,
-                    needsVoiceScripts: activeTab === TabId.Voice
-                };
-
-                // Update the webview that sent the message
-                webview.postMessage(updateMessage);
-
-                // Update sidebar if different
-                if (this._view && this._view.webview !== webview) {
-                    this._view.webview.postMessage(updateMessage);
-                }
-
-                // Update all popped-out panels
-                for (const poppedPanel of this.poppedOutPanels) {
-                    if (poppedPanel.webview !== webview) {
-                        poppedPanel.webview.postMessage(updateMessage);
-                    }
-                }
-                break;
-
             case 'selectTask':
                 // Select a task to show details
                 this.selectedTaskId = message.taskId;
@@ -989,43 +875,11 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
     private _getHtmlForWebview(webview: vscode.Webview) {
         /**
-         * A-002: Use TabManager for HTML generation
-         * REASONING:
-         * 1. TabManager generates tab bar HTML with all 6 tabs
-         * 2. TabManager provides CSS styles for tab UI
-         * 3. Generate tab content based on active tab
-         * 4. Result: Consistent tab UI managed by TabManager
+         * CLEAN UI: Voice section at top, Sprint section below - NO TABS
+         * REASONING: User wants single-panel view without tab navigation
          */
-        const tabBar = this.tabManager.getTabBarHtml();
-        const activeTab = this.tabManager.getActiveTab();
-
-        /**
-         * A-003: Generate tab content with proper placeholders
-         * REASONING: Each tab shows skeleton UI to give users clear expectations
-         */
-        let tabContent: string;
-        switch (activeTab) {
-            case TabId.Voice:
-                tabContent = getVoicePanelBodyContent();
-                break;
-            case TabId.Sprint:
-                tabContent = this.getSprintTabContent();
-                break;
-            case TabId.Planning:
-                tabContent = this.getPlanningTabPlaceholder();
-                break;
-            case TabId.Patterns:
-                tabContent = this.getPatternsTabPlaceholder();
-                break;
-            case TabId.Activity:
-                tabContent = this.getActivityTabPlaceholder();
-                break;
-            case TabId.Settings:
-                tabContent = this.getSettingsTabPlaceholder();
-                break;
-            default:
-                tabContent = `<div class="placeholder-error">Unknown Tab: ${activeTab}</div>`;
-        }
+        const voiceContent = getVoicePanelBodyContent();
+        const sprintContent = this.getSprintTabContent();
 
         return `<!DOCTYPE html>
 <html lang="en">
@@ -1033,32 +887,40 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; media-src * blob: data: mediastream:; img-src * blob: data:; font-src * data:; connect-src https://api.openai.com;">
-    <title>ÆtherLight</title>
+    <title>ÆtherLight Voice</title>
     <style>
-        ${this.tabManager.getTabStyles()}
+        body {
+            margin: 0;
+            padding: 0;
+            overflow-y: auto;
+        }
+
+        .panel-section {
+            padding: 16px;
+        }
+
+        .section-divider {
+            height: 1px;
+            background: var(--vscode-panel-border);
+            margin: 0;
+        }
+
         ${this.getSprintTabStyles()}
         ${this.getVoicePanelStyles()}
     </style>
 </head>
 <body>
-    ${tabBar}
-    <div class="tab-content active">
-        ${tabContent}
+    <div class="panel-section voice-section">
+        ${voiceContent}
+    </div>
+    <div class="section-divider"></div>
+    <div class="panel-section sprint-section">
+        ${sprintContent}
     </div>
     <script>
         const vscode = acquireVsCodeApi();
 
-        // Tab switching
-        document.querySelectorAll('.tab-button').forEach(button => {
-            button.addEventListener('click', () => {
-                const tabId = button.dataset.tabId;
-                console.log('[ÆtherLight WebView] Tab clicked:', tabId);
-                vscode.postMessage({ type: 'switchTab', tabId });
-                console.log('[ÆtherLight WebView] Message sent to backend');
-            });
-        });
-
-        // Global functions for Sprint Tab
+        // Global functions for Sprint Section
 
         // Toggle task status (called from status icon click)
         window.toggleStatus = function(taskId) {
@@ -1089,40 +951,11 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             vscode.postMessage({ type: 'reloadSprint' });
         };
 
-        // Global message listener for ALL tabs (Sprint and Voice)
+        // Global message listener for Sprint and Voice
         window.addEventListener('message', event => {
             const message = event.data;
 
             switch (message.type) {
-                case 'updateTabContent':
-                    // Update tab content without refreshing entire HTML
-                    console.log('[ÆtherLight WebView] Updating tab content for:', message.tabId);
-
-                    // Update active tab button
-                    document.querySelectorAll('.tab-button').forEach(btn => {
-                        if (btn.dataset.tabId === message.tabId) {
-                            btn.classList.add('active');
-                        } else {
-                            btn.classList.remove('active');
-                        }
-                    });
-
-                    // Update content area
-                    const contentArea = document.querySelector('.tab-content');
-                    if (contentArea) {
-                        contentArea.innerHTML = message.content;
-                        contentArea.classList.add('active');
-                    }
-
-                    // If this is Voice tab, reinitialize Voice scripts
-                    if (message.needsVoiceScripts) {
-                        console.log('[ÆtherLight WebView] Reinitializing Voice tab scripts...');
-                        if (window.initializeVoiceTab) {
-                            window.initializeVoiceTab();
-                        }
-                    }
-                    break;
-
                 case 'updateTaskDetail':
                     // Update just the detail panel without full page refresh
                     const detailPanel = document.querySelector('.task-detail-panel');
@@ -1152,15 +985,8 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             }
         });
 
-        // Voice Tab initialization function (called on load and tab switch)
-        window.initializeVoiceTab = function() {
-            ${this.getVoiceTabScripts()}
-        };
-
-        // Initialize Voice tab if it's active on page load
-        if (document.querySelector('.tab-button[data-tab-id="voice"]')?.classList.contains('active')) {
-            window.initializeVoiceTab();
-        }
+        // Voice initialization
+        ${this.getVoiceTabScripts()}
     </script>
 </body>
 </html>`;
