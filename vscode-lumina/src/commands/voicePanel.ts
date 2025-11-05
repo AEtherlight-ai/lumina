@@ -1686,26 +1686,21 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
         let html = `
         <div class="sprint-panel">
+            <!-- UI-009: Consolidated header with sprint file dropdown -->
             <div class="sprint-header">
                 <h2>Sprint</h2>
+                <select class="sprint-file-dropdown" title="Sprint File (view-only for now)" disabled>
+                    <option>ACTIVE_SPRINT.toml</option>
+                </select>
                 <div class="sprint-header-actions">
                     <button class="icon-btn" onclick="reloadSprint()" title="Refresh Sprint Data">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                            <path d="M13.5 2.5a1 1 0 011 1v9a1 1 0 01-1 1h-11a1 1 0 01-1-1v-9a1 1 0 011-1h11zM8 12a4 4 0 100-8 4 4 0 000 8zm0-1.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5z"/>
-                            <path d="M10 8a.5.5 0 01-.5.5h-1v1a.5.5 0 01-1 0v-1h-1a.5.5 0 010-1h1v-1a.5.5 0 011 0v1h1a.5.5 0 01.5.5z"/>
-                        </svg>
                         🔄
                     </button>
                     <button class="icon-btn" onclick="openSprintSettings()" title="Sprint Settings">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                            <path d="M8 10.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z"/>
-                            <path d="M14 8a1.5 1.5 0 01-1.5 1.5h-.39a.5.5 0 00-.48.36l-.12.45a.5.5 0 00.11.54l.27.27a1.5 1.5 0 010 2.12l-.71.71a1.5 1.5 0 01-2.12 0l-.27-.27a.5.5 0 00-.54-.11l-.45.12a.5.5 0 00-.36.48v.39A1.5 1.5 0 016 16H5.5a1.5 1.5 0 01-1.5-1.5v-.39a.5.5 0 00-.36-.48l-.45-.12a.5.5 0 00-.54.11l-.27.27a1.5 1.5 0 01-2.12 0l-.71-.71a1.5 1.5 0 010-2.12l.27-.27a.5.5 0 00.11-.54l-.12-.45a.5.5 0 00-.48-.36H1.5A1.5 1.5 0 010 8v-.5a1.5 1.5 0 011.5-1.5h.39a.5.5 0 00.48-.36l.12-.45a.5.5 0 00-.11-.54L2.11 4.38a1.5 1.5 0 010-2.12l.71-.71a1.5 1.5 0 012.12 0l.27.27a.5.5 0 00.54.11l.45-.12a.5.5 0 00.36-.48V1.5A1.5 1.5 0 017.5 0H8a1.5 1.5 0 011.5 1.5v.39a.5.5 0 00.36.48l.45.12a.5.5 0 00.54-.11l.27-.27a1.5 1.5 0 012.12 0l.71.71a1.5 1.5 0 010 2.12l-.27.27a.5.5 0 00-.11.54l.12.45a.5.5 0 00.48.36h.39A1.5 1.5 0 0116 7.5V8z"/>
-                        </svg>
+                        ⚙️
                     </button>
                     <button class="icon-btn" onclick="popOutSprint()" title="Pop Out Sprint View">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                            <path d="M9 2h5v5l-1.5-1.5L9 9 7 7l3.5-3.5L9 2zM2 7v7h7V7H2z"/>
-                        </svg>
+                        ⧉
                     </button>
                 </div>
             </div>
@@ -2471,11 +2466,11 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             color: var(--vscode-editor-foreground);
         }
 
-        /* Sprint Header with Actions */
+        /* UI-009: Compact sprint header with dropdown */
         .sprint-header {
             display: flex;
-            justify-content: space-between;
             align-items: center;
+            gap: 12px;
             margin-bottom: 16px;
             padding-bottom: 12px;
             border-bottom: 1px solid var(--vscode-panel-border);
@@ -2487,9 +2482,29 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             font-weight: 600;
         }
 
+        .sprint-file-dropdown {
+            flex: 0 0 auto;
+            min-width: 180px;
+            max-width: 250px;
+            padding: 4px 8px;
+            font-size: 12px;
+            background-color: var(--vscode-dropdown-background);
+            color: var(--vscode-dropdown-foreground);
+            border: 1px solid var(--vscode-dropdown-border);
+            border-radius: 3px;
+            cursor: not-allowed;
+            opacity: 0.8;
+        }
+
+        .sprint-file-dropdown:not(:disabled) {
+            cursor: pointer;
+            opacity: 1;
+        }
+
         .sprint-header-actions {
             display: flex;
             gap: 8px;
+            margin-left: auto;
         }
 
         .icon-btn {
