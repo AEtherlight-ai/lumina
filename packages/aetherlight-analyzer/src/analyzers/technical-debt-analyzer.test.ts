@@ -17,7 +17,7 @@
 
 import { TechnicalDebtAnalyzer } from './technical-debt-analyzer';
 import { ParseResult, ParsedFile } from '../parsers/types';
-import { TechnicalDebtCategory, IssueSeverity } from './types';
+import { TechnicalDebtCategory, IssueSeverity, TechnicalDebtIssue } from './types';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -54,7 +54,7 @@ function test() {
       const result = analyzer.analyze(parseResult);
       const analysis = result.data;
 
-      const todoIssues = analysis.issues.filter((i) => i.category === TechnicalDebtCategory.TODO);
+      const todoIssues = analysis.issues.filter((i: TechnicalDebtIssue) => i.category === TechnicalDebtCategory.TODO);
       expect(todoIssues.length).toBeGreaterThanOrEqual(1);
       expect(todoIssues[0].severity).toBe(IssueSeverity.LOW);
     });
@@ -76,7 +76,7 @@ function buggyFunction(value: any) {
       const analysis = result.data;
 
       const fixmeIssues = analysis.issues.filter(
-        (i) => i.category === TechnicalDebtCategory.FIXME
+        (i: TechnicalDebtIssue) => i.category === TechnicalDebtCategory.FIXME
       );
       expect(fixmeIssues.length).toBeGreaterThanOrEqual(1);
       expect(fixmeIssues[0].severity).toBe(IssueSeverity.MEDIUM);
@@ -98,7 +98,7 @@ function workaround() {
       const result = analyzer.analyze(parseResult);
       const analysis = result.data;
 
-      const hackIssues = analysis.issues.filter((i) => i.category === TechnicalDebtCategory.HACK);
+      const hackIssues = analysis.issues.filter((i: TechnicalDebtIssue) => i.category === TechnicalDebtCategory.HACK);
       expect(hackIssues.length).toBeGreaterThanOrEqual(1);
       expect(hackIssues[0].severity).toBe(IssueSeverity.HIGH);
     });
@@ -123,7 +123,7 @@ function calculate() {
       const analysis = result.data;
 
       const magicNumbers = analysis.issues.filter(
-        (i) => i.category === TechnicalDebtCategory.MAGIC_NUMBER
+        (i: TechnicalDebtIssue) => i.category === TechnicalDebtCategory.MAGIC_NUMBER
       );
       expect(magicNumbers.length).toBeGreaterThan(0);
     });
@@ -148,7 +148,7 @@ function initialize() {
       const analysis = result.data;
 
       const magicNumbers = analysis.issues.filter(
-        (i) => i.category === TechnicalDebtCategory.MAGIC_NUMBER
+        (i: TechnicalDebtIssue) => i.category === TechnicalDebtCategory.MAGIC_NUMBER
       );
       // Should be 0 or very low (0, 1, -1, 100 are not magic)
       expect(magicNumbers.length).toBe(0);
@@ -173,10 +173,10 @@ async function fetchData() {
       const analysis = result.data;
 
       const hardcodedStrings = analysis.issues.filter(
-        (i) => i.category === TechnicalDebtCategory.HARDCODED_STRING
+        (i: TechnicalDebtIssue) => i.category === TechnicalDebtCategory.HARDCODED_STRING
       );
       expect(hardcodedStrings.length).toBeGreaterThan(0);
-      expect(hardcodedStrings.some((i) => i.description.includes('URL'))).toBe(true);
+      expect(hardcodedStrings.some((i: TechnicalDebtIssue) => i.description.includes('URL'))).toBe(true);
     });
 
     it('should detect potential API keys', () => {
@@ -196,7 +196,7 @@ function authenticate() {
       const analysis = result.data;
 
       const potentialSecrets = analysis.issues.filter(
-        (i) => i.category === TechnicalDebtCategory.HARDCODED_STRING && i.severity === IssueSeverity.HIGH
+        (i: TechnicalDebtIssue) => i.category === TechnicalDebtCategory.HARDCODED_STRING && i.severity === IssueSeverity.HIGH
       );
       expect(potentialSecrets.length).toBeGreaterThan(0);
     });
@@ -220,7 +220,7 @@ async function loadData() {
       const analysis = result.data;
 
       const missingErrorHandling = analysis.issues.filter(
-        (i) => i.category === TechnicalDebtCategory.MISSING_ERROR_HANDLING
+        (i: TechnicalDebtIssue) => i.category === TechnicalDebtCategory.MISSING_ERROR_HANDLING
       );
       expect(missingErrorHandling.length).toBeGreaterThan(0);
     });
@@ -242,7 +242,7 @@ function parseConfig(text: string) {
       const analysis = result.data;
 
       const missingErrorHandling = analysis.issues.filter(
-        (i) =>
+        (i: TechnicalDebtIssue) =>
           i.category === TechnicalDebtCategory.MISSING_ERROR_HANDLING &&
           i.description.includes('JSON.parse')
       );
@@ -271,7 +271,7 @@ async function loadDataSafely() {
       const analysis = result.data;
 
       const missingErrorHandling = analysis.issues.filter(
-        (i) => i.category === TechnicalDebtCategory.MISSING_ERROR_HANDLING
+        (i: TechnicalDebtIssue) => i.category === TechnicalDebtCategory.MISSING_ERROR_HANDLING
       );
       // Should be 0 or minimal (try/catch present)
       expect(missingErrorHandling.length).toBeLessThan(2);
@@ -296,7 +296,7 @@ function createBuffer() {
       const analysis = result.data;
 
       const deprecatedAPIs = analysis.issues.filter(
-        (i) => i.category === TechnicalDebtCategory.DEPRECATED_API
+        (i: TechnicalDebtIssue) => i.category === TechnicalDebtCategory.DEPRECATED_API
       );
       expect(deprecatedAPIs.length).toBeGreaterThan(0);
     });
