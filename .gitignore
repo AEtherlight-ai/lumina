@@ -13,6 +13,13 @@ dist/
 out/
 *.vsix
 
+# Desktop installers (binary files should not be in git)
+*.exe
+*.msi
+*.dmg
+*.deb
+*.AppImage
+
 # OS files
 .DS_Store
 Thumbs.db
