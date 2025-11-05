@@ -141,9 +141,13 @@ async function main() {
     log(`⚠ Continuing from ${currentBranch} (should be master/main for releases)`, 'yellow');
   }
 
-  // Check for uncommitted changes
+  // Check for uncommitted changes (ignore untracked files)
   const gitStatus = execSilent('git status --porcelain');
-  if (gitStatus && gitStatus.length > 0) {
+  const modifiedFiles = gitStatus
+    .split('\n')
+    .filter(line => line && !line.startsWith('??'))
+    .join('\n');
+  if (modifiedFiles && modifiedFiles.length > 0) {
     log('✗ Git working directory has uncommitted changes', 'red');
     log('Commit or stash your changes before publishing', 'yellow');
     process.exit(1);
