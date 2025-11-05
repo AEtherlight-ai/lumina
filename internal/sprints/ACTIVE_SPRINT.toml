@@ -1621,16 +1621,79 @@ Verify that the sprint-plan skill has been successfully enhanced with ENHANCE mo
 2. Confirm ENHANCE workflow documentation complete (10 steps)
 3. Confirm Mode Comparison table added
 4. Test ENHANCE mode with current sprint (add these RELEASE tasks)
+5. Validate all success criteria met
+"""
+
+why = """
+User requested sprint enhancement capability during iteration.
+Previous skill only supported CREATE mode (new sprints from scratch).
+Need ability to add tasks to existing sprints without recreating entire sprint.
+Critical for agile workflows where requirements change mid-sprint.
+"""
+
+context = """
+Sprint-plan skill existed with CREATE mode only.
+User found gap: "as you go through a sprint, little minor changes may need be updated and enhanced properly"
+ENHANCE mode fills this gap - allows adding tasks during sprint iteration.
+Dogfooding workflow requires frequent sprint updates based on discoveries.
+"""
+
+reasoning_chain = [
+    "1. User requests sprint enhancement capability",
+    "2. Analyze existing sprint-plan skill structure (811 lines)",
+    "3. Design ENHANCE mode workflow (10 steps)",
+    "4. Add decision logic (CREATE vs ENHANCE)",
+    "5. Document ENHANCE workflow comprehensively",
+    "6. Test by adding 7 RELEASE tasks to current sprint",
+    "7. Validate TOML parsing and SprintLoader compatibility",
+    "8. Verify WebView can display enhanced sprint",
+    "9. Commit skill enhancements",
+    "10. Mark RELEASE-001 complete"
+]
+
+pattern_context = "Pattern-SKILL-ENHANCE-001: Sprint Enhancement During Iteration"
+
+success_impact = """
+After RELEASE-001 complete:
+✅ Sprint-plan skill has both CREATE and ENHANCE modes
+✅ Can add tasks to existing sprints without recreating
+✅ Workflow supports agile sprint updates
+✅ ENHANCE mode tested successfully (added 7 RELEASE tasks)
+✅ Documentation comprehensive (10-step workflow)
+✅ Mode Comparison table helps users choose correct mode
+✅ Dogfooding workflow more flexible
 """
 
 estimated_time = "1-2 hours"
+estimated_lines = 260
+
 dependencies = []
+
+files_to_modify = [
+    ".claude/skills/sprint-plan/SKILL.md (lines 42-64: decision logic, lines 844-1101: ENHANCE workflow)"
+]
 
 deliverables = [
     "Sprint-plan skill has ENHANCE mode",
     "ENHANCE mode tested with current sprint",
-    "Documentation updated in SKILL.md"
+    "Documentation updated in SKILL.md",
+    "Mode Comparison table added",
+    "10-step ENHANCE workflow documented",
+    "Success criteria checklist created",
+    "Tips for Both Modes section added"
 ]
+
+validation_criteria = [
+    "ENHANCE mode decision logic present (lines 42-64)",
+    "ENHANCE workflow complete with 10 steps",
+    "Mode Comparison table shows CREATE vs ENHANCE",
+    "Successfully added 7 RELEASE tasks using ENHANCE mode",
+    "TOML validates without errors",
+    "Sprint loads in SprintLoader",
+    "WebView displays all 30 tasks correctly"
+]
+
+patterns = ["Pattern-SKILL-ENHANCE-001"]
 
 [tasks.RELEASE-002]
 id = "RELEASE-002"
@@ -1641,7 +1704,7 @@ status = "pending"
 agent = "documentation-agent"
 
 description = """
-Document the current state of Sprint Planner UI for reference.
+Document the current state of Sprint Planner UI for reference and future development.
 
 **Components to Document:**
 1. Sprint dropdown (multi-file support via findAvailableSprints)
@@ -1649,16 +1712,88 @@ Document the current state of Sprint Planner UI for reference.
 3. Feature Request form (structured form with Enhance button)
 4. Single-row toolbar (refactored in REFACTOR-004)
 5. Settings tab removed (REFACTOR-005)
+6. Unified workflow area pattern
+7. Message handlers and IPC communication
+"""
+
+why = """
+Sprint Planner UI has evolved significantly through v0.16.0 refactoring.
+Multiple components added/removed/refactored (DEBUG-004, REFACTOR-004, REFACTOR-005, UI-006).
+Documentation needed to track current state before v0.16.7 release.
+Future developers need reference for UI architecture and component interactions.
+"""
+
+context = """
+Sprint Planner WebView went through major refactoring:
+- DEBUG-004: Added multi-file sprint support (dropdown)
+- REFACTOR-004: Consolidated to single-row toolbar
+- REFACTOR-005: Removed Settings tab
+- UI-006: Implemented Bug/Feature forms with structured input
+- UI-007, UI-008: Integrated forms with PromptEnhancer
+
+Current state unclear without documentation.
+Need snapshot before publishing v0.16.7.
+"""
+
+reasoning_chain = [
+    "1. Review all UI changes from v0.16.0 sprint (UI-001 through UI-010)",
+    "2. Document sprint dropdown implementation (findAvailableSprints, switchSprint)",
+    "3. Document Bug Report form structure (fields, Enhance button, submission)",
+    "4. Document Feature Request form structure (mirror Bug Report pattern)",
+    "5. Document single-row toolbar layout (4 buttons: Bug, Feature, Skills, Settings)",
+    "6. Document Settings tab removal and minimal settings approach",
+    "7. Document unified workflow area pattern (one workflow at a time)",
+    "8. Document message handlers (IPC between webview and extension)",
+    "9. Create component diagram showing relationships",
+    "10. Add to repository documentation (vscode-lumina/docs/ or README)"
+]
+
+pattern_context = "Pattern-WORKFLOW-001: Unified workflow area for all interactive tools"
+
+success_impact = """
+After RELEASE-002 complete:
+✅ Sprint Planner UI architecture documented
+✅ All components cataloged with purpose and implementation
+✅ Future developers can understand UI structure quickly
+✅ Integration points clear (PromptEnhancer, SkillDetector, SprintLoader)
+✅ Message handler flow documented
+✅ Component relationships visualized
+✅ v0.16.7 snapshot captured for reference
 """
 
 estimated_time = "1 hour"
+estimated_lines = 0
+
 dependencies = []
+
+files_to_create = [
+    "vscode-lumina/docs/SPRINT_PLANNER_UI.md (comprehensive component documentation)"
+]
+
+files_to_modify = [
+    "vscode-lumina/README.md (add link to Sprint Planner UI docs)"
+]
 
 deliverables = [
     "Sprint Planner UI state documented",
     "Component reference added to docs",
-    "Integration points noted"
+    "Integration points noted",
+    "Message handler flow documented",
+    "Component diagram created",
+    "README updated with doc links"
 ]
+
+validation_criteria = [
+    "All 5+ components documented with purpose",
+    "Sprint dropdown implementation explained (findAvailableSprints)",
+    "Bug/Feature forms documented with field structure",
+    "Toolbar layout documented (4 buttons)",
+    "Unified workflow area pattern explained",
+    "Message handlers cataloged with parameters",
+    "Documentation accessible from README"
+]
+
+patterns = ["Pattern-WORKFLOW-001"]
 
 [tasks.RELEASE-003]
 id = "RELEASE-003"
@@ -1686,16 +1821,96 @@ npm view @aetherlight/node version
 ```
 
 All must show 0.16.7 before publishing main package.
+
+**Automated Check:**
+Add verification to publish script to prevent silent failures.
+"""
+
+why = """
+v0.13.29 bug: Sub-packages not published, breaking ALL user installs.
+Users saw: "No matching version found for aetherlight-analyzer@^0.13.29"
+Install completely failed - no users could install or update.
+Took 2 hours to diagnose and fix (had to publish sub-packages manually).
+MUST prevent this from happening again in v0.16.7.
+"""
+
+context = """
+Monorepo with multiple npm packages:
+- Main: aetherlight (vscode-lumina)
+- Sub: @aetherlight/analyzer
+- Sub: @aetherlight/sdk
+- Sub: @aetherlight/node
+
+Main package depends on sub-packages at exact version.
+If sub-packages not published, npm can't resolve dependencies.
+Publish script must publish sub-packages BEFORE main package.
+Dependency order: analyzer → sdk → node → main.
+"""
+
+reasoning_chain = [
+    "1. Check current versions on npm registry",
+    "2. Verify all sub-packages exist at v0.16.7",
+    "3. If missing: publish sub-packages first",
+    "4. If exists: verify content matches local build",
+    "5. Update publish script to automate verification",
+    "6. Add pre-publish check that blocks if sub-packages missing",
+    "7. Document sub-package publish order in PUBLISHING.md",
+    "8. Test full publish flow end-to-end"
+]
+
+pattern_context = "Pattern-PUBLISH-001: Automated Release Pipeline, Pattern-PUBLISH-002: Publishing Enforcement"
+
+success_impact = """
+After RELEASE-003 complete:
+✅ All sub-packages verified at correct version
+✅ No risk of dependency resolution failures
+✅ Users can install v0.16.7 successfully
+✅ Publish script includes automated verification
+✅ Pre-publish checks prevent incomplete releases
+✅ v0.13.29 bug prevented permanently
+✅ Publish process more robust and reliable
 """
 
 estimated_time = "30 minutes"
+estimated_lines = 50
+
 dependencies = []
+
+files_to_modify = [
+    "scripts/publish-release.js (add sub-package verification before publish)",
+    "PUBLISHING.md (document sub-package publish order)"
+]
 
 deliverables = [
     "All sub-packages verified at v0.16.7",
     "No missing dependency errors",
-    "Publish script includes sub-package verification"
+    "Publish script includes sub-package verification",
+    "Pre-publish check blocks if sub-packages missing",
+    "PUBLISHING.md updated with sub-package section",
+    "Test verification with npm view commands"
 ]
+
+validation_criteria = [
+    "@aetherlight/analyzer@0.16.7 exists on npm",
+    "@aetherlight/sdk@0.16.7 exists on npm",
+    "@aetherlight/node@0.16.7 exists on npm",
+    "Publish script verifies before publishing main",
+    "Script exits with error if sub-packages missing",
+    "Documentation includes publish order",
+    "No dependency resolution errors possible"
+]
+
+error_handling = """
+- Wrap npm view commands in try-catch
+- Handle npm registry unavailable (network errors)
+- Handle sub-package missing (404 from npm)
+- Handle version mismatch (wrong version published)
+- Provide clear error messages with remediation steps
+- Log which sub-packages missing and which exist
+- Exit publish script if ANY sub-package verification fails
+"""
+
+patterns = ["Pattern-PUBLISH-001", "Pattern-PUBLISH-002"]
 
 [tasks.RELEASE-004]
 id = "RELEASE-004"
@@ -1709,21 +1924,87 @@ description = """
 Update repository README files to reflect v0.16.7 changes.
 
 **Files to Update:**
-1. Root README.md - Project overview
+1. Root README.md - Project overview and architecture
 2. vscode-lumina/README.md - Extension documentation
 3. Remove deprecated features from docs
 4. Update feature list with Bug/Feature forms
-5. Update sprint planning documentation
+5. Update sprint planning documentation with ENHANCE mode
+6. Add screenshots if needed (Sprint dropdown, Bug/Feature forms)
+"""
+
+why = """
+README files are user-facing documentation.
+Must accurately reflect current feature set.
+v0.16.7 includes significant changes (Bug/Feature forms, Sprint ENHANCE mode).
+Outdated docs create confusion and reduce user trust.
+New users depend on README for first impression.
+"""
+
+context = """
+Current README may reference removed features (Settings tab).
+Sprint-plan skill now has ENHANCE mode (not documented).
+Bug/Feature forms are new but not mentioned in README.
+Sprint dropdown (multi-file support) not documented.
+Need to clean up deprecated references and add new features.
+"""
+
+reasoning_chain = [
+    "1. Read current root README.md and identify outdated sections",
+    "2. Read vscode-lumina/README.md and identify gaps",
+    "3. Remove references to deprecated features (Settings tab)",
+    "4. Add Bug Report form documentation (structured input, Enhance button)",
+    "5. Add Feature Request form documentation (mirrors Bug Report)",
+    "6. Update Sprint Planning section with ENHANCE mode capability",
+    "7. Document Sprint dropdown (multi-file sprint support)",
+    "8. Add usage examples for new features",
+    "9. Update feature list with v0.16.7 additions",
+    "10. Verify all links work and examples are accurate"
+]
+
+pattern_context = "Pattern-DOCS-001: Documentation Philosophy - Only Create Patterns for Reusable Knowledge"
+
+success_impact = """
+After RELEASE-004 complete:
+✅ README files accurate and up-to-date
+✅ All v0.16.7 features documented
+✅ Deprecated features removed from docs
+✅ New users see accurate feature list
+✅ Bug/Feature forms explained with examples
+✅ Sprint ENHANCE mode capability advertised
+✅ No confusion from outdated documentation
 """
 
 estimated_time = "1 hour"
+estimated_lines = 0
+
 dependencies = []
 
-deliverables = [
-    "README files updated",
-    "Deprecated features removed from docs",
-    "New features documented (Bug/Feature forms, Sprint dropdown)"
+files_to_modify = [
+    "README.md (root - project overview, architecture)",
+    "vscode-lumina/README.md (extension documentation, features)",
+    "docs/FEATURES.md (if exists - feature catalog)"
 ]
+
+deliverables = [
+    "README files updated with v0.16.7 features",
+    "Deprecated features removed from docs",
+    "New features documented (Bug/Feature forms, Sprint dropdown)",
+    "Sprint ENHANCE mode documented",
+    "Usage examples added",
+    "All links verified working"
+]
+
+validation_criteria = [
+    "No references to removed Settings tab",
+    "Bug Report form documented with example",
+    "Feature Request form documented with example",
+    "Sprint ENHANCE mode explained in Sprint Planning section",
+    "Sprint dropdown documented (multi-file support)",
+    "Feature list matches actual implementation",
+    "All internal links work correctly"
+]
+
+patterns = ["Pattern-DOCS-001"]
 
 [tasks.RELEASE-005]
 id = "RELEASE-005"
@@ -1737,7 +2018,7 @@ description = """
 Update npm package documentation for all published packages.
 
 **Packages to Update:**
-1. vscode-lumina package.json description
+1. vscode-lumina package.json description and keywords
 2. @aetherlight/analyzer package.json
 3. @aetherlight/sdk package.json
 4. @aetherlight/node package.json
@@ -1747,16 +2028,80 @@ Update npm package documentation for all published packages.
 - Installation instructions
 - Usage examples
 - Version compatibility notes
+- Keywords for npm search optimization
+"""
+
+why = """
+npm package pages are primary discovery mechanism for new users.
+package.json description shows up in npm search results.
+Accurate descriptions improve discoverability and reduce confusion.
+Keywords help users find ÆtherLight when searching for similar tools.
+npm pages often viewed before GitHub - must be accurate.
+"""
+
+context = """
+Current package.json descriptions may be outdated.
+v0.16.7 adds Bug/Feature forms, Sprint ENHANCE mode.
+Need to update descriptions to reflect current capabilities.
+Keywords may not be optimized for discovery.
+npm marketplace requires accurate, compelling descriptions.
+"""
+
+reasoning_chain = [
+    "1. Review current package.json descriptions",
+    "2. Update vscode-lumina description with v0.16.7 features",
+    "3. Update @aetherlight/analyzer description",
+    "4. Update @aetherlight/sdk description",
+    "5. Update @aetherlight/node description",
+    "6. Add/update keywords for npm search optimization",
+    "7. Verify installation instructions accurate",
+    "8. Add usage examples in package.json or separate README",
+    "9. Verify version compatibility notes",
+    "10. Test npm view commands to see updated descriptions"
+]
+
+pattern_context = "Pattern-DOCS-001: Documentation Philosophy"
+
+success_impact = """
+After RELEASE-005 complete:
+✅ All package.json descriptions accurate
+✅ npm search results show current features
+✅ Keywords optimized for discoverability
+✅ Installation guides up-to-date
+✅ New users see accurate npm package pages
+✅ Professional presentation on npm marketplace
 """
 
 estimated_time = "1 hour"
+estimated_lines = 0
+
 dependencies = []
+
+files_to_modify = [
+    "vscode-lumina/package.json (description, keywords)",
+    "packages/aetherlight-analyzer/package.json",
+    "packages/aetherlight-sdk/package.json",
+    "packages/aetherlight-node/package.json"
+]
 
 deliverables = [
     "All package.json descriptions updated",
+    "Keywords optimized for npm search",
     "npm package pages accurate",
-    "Installation guides current"
+    "Installation guides current",
+    "Usage examples added where appropriate"
 ]
+
+validation_criteria = [
+    "vscode-lumina description mentions Bug/Feature forms",
+    "vscode-lumina description mentions Sprint planning with ENHANCE mode",
+    "All sub-packages have clear, concise descriptions",
+    "Keywords include: vscode, ai, claude, sprint, planning, voice, transcription",
+    "Installation instructions tested and work",
+    "npm view commands show updated descriptions"
+]
+
+patterns = ["Pattern-DOCS-001"]
 
 [tasks.RELEASE-006]
 id = "RELEASE-006"
@@ -1774,21 +2119,94 @@ Create comprehensive CHANGELOG entry for v0.16.7.
 2. Fixed: All UI bugs (UI-001 through UI-010)
 3. Refactored: Single-row toolbar, settings tab removal
 4. Documentation: Updated READMEs, skill documentation
+5. Changed: Sprint file naming convention (ACTIVE_SPRINT_*.toml)
 
 **Release Notes:**
 - Highlight sprint enhancement capability
 - Mention bug fixes and UI improvements
 - Note documentation updates
+- Include upgrade notes if needed
+"""
+
+why = """
+CHANGELOG documents all changes between versions.
+Users depend on CHANGELOG to understand what changed.
+Release notes highlight important changes and new features.
+GitHub release notes are public-facing and impact adoption.
+Comprehensive changelog shows project maturity and transparency.
+"""
+
+context = """
+v0.16.7 includes significant changes:
+- Sprint-plan skill ENHANCE mode (major feature)
+- Bug/Feature forms (UX improvement)
+- Sprint dropdown (multi-file support)
+- 10 UI bug fixes (stability improvements)
+- Multiple refactorings (code quality)
+
+Need to document all changes for users and maintainers.
+Follow Keep a Changelog format (Added, Changed, Fixed, etc.).
+"""
+
+reasoning_chain = [
+    "1. Review all commits since v0.16.0",
+    "2. Categorize changes (Added, Changed, Fixed, Refactored, Docs)",
+    "3. Write Added section (Sprint ENHANCE mode, Bug/Feature forms, Sprint dropdown)",
+    "4. Write Fixed section (UI-001 through UI-010 bug fixes)",
+    "5. Write Refactored section (REFACTOR-004, 005, 006)",
+    "6. Write Documentation section (README, npm, skill docs)",
+    "7. Write release notes highlighting top 3 features",
+    "8. Add upgrade notes if breaking changes exist",
+    "9. Draft GitHub release with markdown formatting",
+    "10. Review for completeness and accuracy"
+]
+
+pattern_context = "Keep a Changelog format (https://keepachangelog.com/)"
+
+success_impact = """
+After RELEASE-006 complete:
+✅ CHANGELOG.md updated with all v0.16.7 changes
+✅ Users can see exactly what changed
+✅ Release notes highlight key improvements
+✅ GitHub release ready to publish
+✅ Upgrade path documented if needed
+✅ Professional changelog format maintained
+✅ Transparency and project maturity demonstrated
 """
 
 estimated_time = "1 hour"
+estimated_lines = 0
+
 dependencies = ["RELEASE-001", "RELEASE-002", "RELEASE-004", "RELEASE-005"]
+
+files_to_modify = [
+    "CHANGELOG.md (add v0.16.7 entry following Keep a Changelog format)"
+]
+
+files_to_create = [
+    "RELEASE_NOTES_v0.16.7.md (draft for GitHub release)"
+]
 
 deliverables = [
     "CHANGELOG.md updated for v0.16.7",
-    "Release notes prepared",
-    "GitHub release draft ready"
+    "Release notes prepared in markdown",
+    "GitHub release draft ready",
+    "All changes categorized correctly",
+    "Upgrade notes included if needed"
 ]
+
+validation_criteria = [
+    "CHANGELOG follows Keep a Changelog format",
+    "All 7 RELEASE tasks mentioned",
+    "All UI bug fixes listed (UI-001 through UI-010)",
+    "Sprint ENHANCE mode prominently featured",
+    "Bug/Feature forms documented",
+    "Sprint dropdown explained",
+    "Release notes concise and user-friendly",
+    "Markdown formatting correct for GitHub"
+]
+
+patterns = ["Pattern-DOCS-001"]
 
 [tasks.RELEASE-007]
 id = "RELEASE-007"
@@ -1810,21 +2228,102 @@ Comprehensive pre-publish audit before v0.16.7 release.
 6. No forbidden dependencies (Pattern-PUBLISH-003)
 7. Sprint: All RELEASE tasks completed
 8. Confidence: High confidence for release
+9. Desktop installers: Built and ready (if applicable)
+10. GitHub release: Draft prepared
 
 **Pre-Flight Checklist from CLAUDE.md:**
 - No native dependencies (Pattern-PUBLISH-003)
 - No runtime npm dependencies except whitelisted
 - All package versions synced
+- Extension compiles: cd vscode-lumina && npm run compile
+"""
+
+why = """
+Pre-publish audit prevents catastrophic bugs in production.
+Historical bugs cost 2-9 hours each to diagnose and fix.
+v0.13.23: Native dependency bug (9 hours)
+v0.13.29: Sub-package not published (2 hours)
+v0.15.31-32: Runtime npm dependency bug (2 hours)
+Comprehensive audit prevents repeat of past mistakes.
+"""
+
+context = """
+User requested: "cleaning up, tightening up, and stabilizing the overall code base"
+This is the final gate before v0.16.7 publish.
+All previous RELEASE tasks feed into this audit.
+Dogfooding constraint: Can't test locally, must publish to test.
+Therefore, pre-publish audit is CRITICAL - no second chances.
+"""
+
+reasoning_chain = [
+    "1. Run git status - verify working directory clean",
+    "2. Check unpushed commits - should have 18+ commits ready",
+    "3. Verify sub-packages: npm view @aetherlight/analyzer version",
+    "4. Check documentation: README, CHANGELOG, skill docs updated",
+    "5. Compile TypeScript: cd vscode-lumina && npm run compile",
+    "6. Check package.json dependencies for forbidden packages",
+    "7. Verify sprint: All 6 RELEASE tasks marked completed",
+    "8. Calculate confidence score for release readiness",
+    "9. Review critical patterns: PUBLISH-001, 002, 003",
+    "10. Make go/no-go decision based on audit results"
+]
+
+pattern_context = "Pattern-PUBLISH-001: Automated Release Pipeline, Pattern-PUBLISH-002: Publishing Enforcement, Pattern-PUBLISH-003: Avoid Runtime npm Dependencies"
+
+success_impact = """
+After RELEASE-007 complete:
+✅ All critical checks passed
+✅ No known blockers for release
+✅ High confidence in v0.16.7 stability
+✅ All past bug patterns prevented
+✅ Documentation complete and accurate
+✅ Sub-packages verified at correct version
+✅ TypeScript compiles without errors
+✅ Ready to publish with confidence
 """
 
 estimated_time = "1-2 hours"
+estimated_lines = 0
+
 dependencies = ["RELEASE-001", "RELEASE-002", "RELEASE-003", "RELEASE-004", "RELEASE-005", "RELEASE-006"]
 
-deliverables = [
-    "Audit checklist completed",
-    "All critical issues resolved",
-    "Ready for publish"
+files_to_create = [
+    "PRE_PUBLISH_AUDIT_v0.16.7.md (audit report with all checks)"
 ]
+
+deliverables = [
+    "Audit checklist completed with all checks passing",
+    "All critical issues resolved",
+    "Ready for publish decision made",
+    "Audit report created for reference",
+    "Confidence score calculated (target: ≥0.90)",
+    "Go/no-go decision documented"
+]
+
+validation_criteria = [
+    "Git working directory clean (git status)",
+    "All sub-packages at v0.16.7 (npm view commands)",
+    "README updated (RELEASE-004 complete)",
+    "npm docs updated (RELEASE-005 complete)",
+    "CHANGELOG updated (RELEASE-006 complete)",
+    "TypeScript compiles (npm run compile)",
+    "No native dependencies in package.json",
+    "No runtime npm deps except whitelist",
+    "All 6 RELEASE tasks completed",
+    "Confidence score ≥ 0.90 (HIGH)"
+]
+
+error_handling = """
+- If git working directory dirty: Commit or stash changes before proceeding
+- If sub-packages missing: Run RELEASE-003 to publish them first
+- If TypeScript compilation fails: Fix errors before publishing
+- If forbidden dependencies found: Remove per Pattern-PUBLISH-003
+- If documentation incomplete: Complete RELEASE-004, 005, 006 first
+- If confidence < 0.90: Identify gaps and fill before publishing
+- If any critical check fails: DO NOT PUBLISH - fix issue first
+"""
+
+patterns = ["Pattern-PUBLISH-001", "Pattern-PUBLISH-002", "Pattern-PUBLISH-003"]
 
 [progress]
 total_tasks = 30
