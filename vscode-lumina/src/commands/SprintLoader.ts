@@ -116,18 +116,23 @@ export class SprintLoader {
                 throw new Error('No workspace open - cannot load sprint plan');
             }
 
-            // 2. Resolve sprint file path with fallback logic
-            const sprintPath = this.resolveSprintFilePath(workspaceRoot);
-            if (!sprintPath) {
-                // Silently return empty state - sprint features are optional
-                console.log('[ÆtherLight] No sprint file found - sprint features disabled');
-                return { tasks: [], metadata: null };
+            // 2. Use current sprint path if already set (from dropdown selection or previous load)
+            //    Otherwise resolve default sprint file path with fallback logic
+            let sprintPath: string | null;
+            if (this.currentSprintPath && fs.existsSync(this.currentSprintPath)) {
+                sprintPath = this.currentSprintPath;
+                console.log(`[ÆtherLight] Reloading selected sprint: ${sprintPath}`);
+            } else {
+                sprintPath = this.resolveSprintFilePath(workspaceRoot);
+                if (!sprintPath) {
+                    // Silently return empty state - sprint features are optional
+                    console.log('[ÆtherLight] No sprint file found - sprint features disabled');
+                    return { tasks: [], metadata: null };
+                }
+                // Store the resolved path for future reloads
+                this.currentSprintPath = sprintPath;
+                console.log(`[ÆtherLight] Loading sprint from: ${sprintPath}`);
             }
-
-            // Store the resolved path for sprint promotion
-            this.currentSprintPath = sprintPath;
-
-            console.log(`[ÆtherLight] Loading sprint from: ${sprintPath}`);
 
             // 3. Read and parse TOML file
             const tomlContent = fs.readFileSync(sprintPath, 'utf-8');

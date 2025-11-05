@@ -569,7 +569,15 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                     }
                 }
 
-                vscode.window.showInformationMessage('✅ Sprint data reloaded from CURRENT_SPRINT.md');
+                // Get current sprint file path and show filename only (cleaner notification)
+                try {
+                    const sprintPath = this.sprintLoader.getSprintFilePath();
+                    const filename = path.basename(sprintPath);
+                    vscode.window.showInformationMessage(`✅ Sprint data reloaded from ${filename}`);
+                } catch (error) {
+                    // Fallback to generic message if path retrieval fails
+                    vscode.window.showInformationMessage('✅ Sprint data reloaded');
+                }
                 break;
 
             case 'selectEngineer':
