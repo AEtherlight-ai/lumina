@@ -879,6 +879,28 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 }
                 break;
 
+            case 'enhanceAndSend':
+                /**
+                 * UI-006 FIX: Enhance with skill and send to terminal
+                 * WHY: Bug/Feature Request buttons use skill-based workflow
+                 * REASONING: Enhance prompt with specific skill, then send to terminal
+                 */
+                try {
+                    // Enhance with specified skill
+                    const skillEnhanced = await this.promptEnhancer.enhancePrompt(message.text, message.skill);
+
+                    // Send to active terminal
+                    const terminal = vscode.window.activeTerminal || vscode.window.createTerminal('ÆtherLight');
+                    terminal.show();
+                    terminal.sendText(skillEnhanced.prompt);
+
+                    vscode.window.showInformationMessage(`✨ Enhanced prompt sent to terminal using ${message.skill} skill`);
+                } catch (error) {
+                    console.error('[ÆtherLight] Enhance and send failed:', error);
+                    vscode.window.showErrorMessage(`Failed to enhance and send: ${(error as Error).message}`);
+                }
+                break;
+
             case 'getSkills':
                 /**
                  * UI-006: Get list of skills from .claude/skills directory
@@ -3314,169 +3336,109 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
             // RIGHT TOOLBAR: Utilities
             /**
-             * UI-006: Bug Report Form
-             * WHY: Structured bug reporting with enhancement and terminal submission
+             * UI-006 FIX: Bug Report - Skill-Based Workflow
+             * WHY: Use bug-report skill to enhance prompt and create GitHub issue
+             * PATTERN: Same as Code Analyzer and Sprint Planner buttons
              */
             window.openBugReport = function() {
                 const content = \`
                     <div style="padding: 16px;">
                         <div style="margin-bottom: 12px;">
-                            <label style="display: block; margin-bottom: 4px; font-weight: 600;">Title</label>
-                            <input type="text" id="bugTitle" style="width: 100%; padding: 6px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border);" placeholder="Brief description of the bug">
+                            <p style="color: var(--vscode-descriptionForeground); margin-bottom: 12px;">
+                                Describe the bug you encountered. Claude will enhance your description with the bug-report skill and create a GitHub issue.
+                            </p>
                         </div>
 
                         <div style="margin-bottom: 12px;">
-                            <label style="display: block; margin-bottom: 4px; font-weight: 600;">Category</label>
-                            <select id="bugCategory" style="width: 100%; padding: 6px; background: var(--vscode-dropdown-background); color: var(--vscode-dropdown-foreground); border: 1px solid var(--vscode-dropdown-border);">
-                                <option value="ui">UI/UX Issue</option>
-                                <option value="functionality">Functionality</option>
-                                <option value="performance">Performance</option>
-                                <option value="crash">Crash/Error</option>
-                                <option value="other">Other</option>
-                            </select>
-                        </div>
+                            <label style="display: block; margin-bottom: 4px; font-weight: 600;">Bug Description</label>
+                            <textarea id="bugDescription" rows="6" style="width: 100%; padding: 8px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); font-family: var(--vscode-editor-font-family); font-size: 13px;" placeholder="Describe the bug...
 
-                        <div style="margin-bottom: 12px;">
-                            <label style="display: block; margin-bottom: 4px; font-weight: 600;">Steps to Reproduce</label>
-                            <textarea id="bugSteps" rows="3" style="width: 100%; padding: 6px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); font-family: monospace;" placeholder="1. Step one\n2. Step two\n3. ..."></textarea>
-                        </div>
-
-                        <div style="margin-bottom: 12px;">
-                            <label style="display: block; margin-bottom: 4px; font-weight: 600;">Expected Behavior</label>
-                            <textarea id="bugExpected" rows="2" style="width: 100%; padding: 6px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border);" placeholder="What should happen"></textarea>
-                        </div>
-
-                        <div style="margin-bottom: 12px;">
-                            <label style="display: block; margin-bottom: 4px; font-weight: 600;">Actual Behavior</label>
-                            <textarea id="bugActual" rows="2" style="width: 100%; padding: 6px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border);" placeholder="What actually happens"></textarea>
+Example:
+Voice recording fails after VS Code reload. When I press the backtick key, nothing happens. Expected: recording should start. Actual: no response."></textarea>
                         </div>
 
                         <button onclick="submitBugReport()" style="padding: 8px 16px; background: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">
-                            Submit Bug Report
+                            ✨ Enhance and Send to Terminal
                         </button>
+                        <span style="margin-left: 8px; font-size: 12px; color: var(--vscode-descriptionForeground);">
+                            Uses bug-report skill to create GitHub issue
+                        </span>
                     </div>
                 \`;
                 window.showWorkflow('bug-report', '🐛 Bug Report', content);
             };
 
             window.submitBugReport = function() {
-                const title = document.getElementById('bugTitle').value;
-                const category = document.getElementById('bugCategory').value;
-                const steps = document.getElementById('bugSteps').value;
-                const expected = document.getElementById('bugExpected').value;
-                const actual = document.getElementById('bugActual').value;
+                const description = document.getElementById('bugDescription').value;
 
-                if (!title.trim()) {
-                    showStatus('⚠️ Please enter a bug title', 'error');
+                if (!description.trim()) {
+                    showStatus('⚠️ Please describe the bug', 'error');
                     return;
                 }
 
-                const bugReport = \`# Bug Report: \${title}
-
-**Category:** \${category}
-
-## Steps to Reproduce
-\${steps || 'Not specified'}
-
-## Expected Behavior
-\${expected || 'Not specified'}
-
-## Actual Behavior
-\${actual || 'Not specified'}
-
----
-Generated by ÆtherLight Bug Reporter\`;
-
-                // Set to text area for user to review/edit
-                document.getElementById('transcriptionText').value = bugReport;
-                autoResizeTextarea();
-                updateSendButton();
+                // Request enhancement from extension
+                vscode.postMessage({
+                    type: 'enhanceAndSend',
+                    text: description,
+                    skill: 'bug-report'
+                });
 
                 // Close workflow
                 window.closeWorkflow();
-                showStatus('✅ Bug report generated - review and send to terminal', 'info');
+                showStatus('✨ Enhancing with bug-report skill...', 'info');
             };
 
             /**
-             * UI-006: Feature Request Form
-             * WHY: Structured feature requests with use cases and acceptance criteria
+             * UI-006 FIX: Feature Request - Skill-Based Workflow
+             * WHY: Use feature-request skill to enhance prompt and create GitHub issue
+             * PATTERN: Same as Code Analyzer and Sprint Planner buttons
              */
             window.openFeatureRequest = function() {
                 const content = \`
                     <div style="padding: 16px;">
                         <div style="margin-bottom: 12px;">
-                            <label style="display: block; margin-bottom: 4px; font-weight: 600;">Feature Title</label>
-                            <input type="text" id="featureTitle" style="width: 100%; padding: 6px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border);" placeholder="Brief description of the feature">
+                            <p style="color: var(--vscode-descriptionForeground); margin-bottom: 12px;">
+                                Describe the feature you'd like. Claude will enhance your description with the feature-request skill and create a GitHub issue.
+                            </p>
                         </div>
 
                         <div style="margin-bottom: 12px;">
-                            <label style="display: block; margin-bottom: 4px; font-weight: 600;">Priority</label>
-                            <select id="featurePriority" style="width: 100%; padding: 6px; background: var(--vscode-dropdown-background); color: var(--vscode-dropdown-foreground); border: 1px solid var(--vscode-dropdown-border);">
-                                <option value="low">Low - Nice to have</option>
-                                <option value="medium" selected>Medium - Would be helpful</option>
-                                <option value="high">High - Important for workflow</option>
-                                <option value="critical">Critical - Blocking work</option>
-                            </select>
-                        </div>
+                            <label style="display: block; margin-bottom: 4px; font-weight: 600;">Feature Description</label>
+                            <textarea id="featureDescription" rows="6" style="width: 100%; padding: 8px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); font-family: var(--vscode-editor-font-family); font-size: 13px;" placeholder="Describe the feature...
 
-                        <div style="margin-bottom: 12px;">
-                            <label style="display: block; margin-bottom: 4px; font-weight: 600;">Use Case / Problem</label>
-                            <textarea id="featureUseCase" rows="3" style="width: 100%; padding: 6px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border);" placeholder="Describe the problem this feature would solve and how you would use it"></textarea>
-                        </div>
-
-                        <div style="margin-bottom: 12px;">
-                            <label style="display: block; margin-bottom: 4px; font-weight: 600;">Proposed Solution</label>
-                            <textarea id="featureSolution" rows="3" style="width: 100%; padding: 6px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border);" placeholder="How would this feature work? What would the UI/UX look like?"></textarea>
-                        </div>
-
-                        <div style="margin-bottom: 12px;">
-                            <label style="display: block; margin-bottom: 4px; font-weight: 600;">Acceptance Criteria (optional)</label>
-                            <textarea id="featureCriteria" rows="2" style="width: 100%; padding: 6px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); font-family: monospace;" placeholder="- Criterion 1\n- Criterion 2\n- ..."></textarea>
+Example:
+Add keyboard shortcuts for sprint navigation. I want to quickly jump between tasks using Ctrl+Up/Down arrows. Would save time when reviewing long sprint lists."></textarea>
                         </div>
 
                         <button onclick="submitFeatureRequest()" style="padding: 8px 16px; background: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">
-                            Submit Feature Request
+                            ✨ Enhance and Send to Terminal
                         </button>
+                        <span style="margin-left: 8px; font-size: 12px; color: var(--vscode-descriptionForeground);">
+                            Uses feature-request skill to create GitHub issue
+                        </span>
                     </div>
                 \`;
                 window.showWorkflow('feature-request', '🔧 Feature Request', content);
             };
 
             window.submitFeatureRequest = function() {
-                const title = document.getElementById('featureTitle').value;
-                const priority = document.getElementById('featurePriority').value;
-                const useCase = document.getElementById('featureUseCase').value;
-                const solution = document.getElementById('featureSolution').value;
-                const criteria = document.getElementById('featureCriteria').value;
+                const description = document.getElementById('featureDescription').value;
 
-                if (!title.trim()) {
-                    showStatus('⚠️ Please enter a feature title', 'error');
+                if (!description.trim()) {
+                    showStatus('⚠️ Please describe the feature', 'error');
                     return;
                 }
 
-                const featureRequest = \`# Feature Request: \${title}
-
-**Priority:** \${priority}
-
-## Use Case / Problem
-\${useCase || 'Not specified'}
-
-## Proposed Solution
-\${solution || 'Not specified'}
-
-\${criteria ? \`## Acceptance Criteria\n\${criteria}\` : ''}
-
----
-Generated by ÆtherLight Feature Request\`;
-
-                // Set to text area for user to review/edit
-                document.getElementById('transcriptionText').value = featureRequest;
-                autoResizeTextarea();
-                updateSendButton();
+                // Request enhancement from extension
+                vscode.postMessage({
+                    type: 'enhanceAndSend',
+                    text: description,
+                    skill: 'feature-request'
+                });
 
                 // Close workflow
                 window.closeWorkflow();
-                showStatus('✅ Feature request generated - review and send to terminal', 'info');
+                showStatus('✨ Enhancing with feature-request skill...', 'info');
             };
 
             /**
