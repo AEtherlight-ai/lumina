@@ -332,12 +332,21 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             const workspaceRoot = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
             if (!workspaceRoot) return null;
 
+            // DEBUG-002: Check if task ID matches legacy format (P{number}-{number})
+            // Phase files only exist for legacy task IDs, new format (DEBUG-002, REFACTOR-000-UI) don't have them
+            const legacyTaskIdPattern = /^P\d+-\d+$/;
+            if (!legacyTaskIdPattern.test(taskId)) {
+                // Task ID doesn't match legacy format - phase files not applicable
+                return null;
+            }
+
             // Determine phase from task ID (e.g., P2-001 → PHASE_2_IMPLEMENTATION.md)
             const phaseNumber = taskId.split('-')[0].substring(1); // "P2" → "2"
             const phaseFile = path.join(workspaceRoot, 'docs', 'phases', `PHASE_${phaseNumber}_IMPLEMENTATION.md`);
 
             if (!fs.existsSync(phaseFile)) {
-                console.warn(`[ÆtherLight] Phase file not found: ${phaseFile}`);
+                // Only warn for legacy task IDs (pattern matched but file missing)
+                console.warn(`[ÆtherLight] Phase file not found for legacy task ${taskId}: ${phaseFile}`);
                 return null;
             }
 
