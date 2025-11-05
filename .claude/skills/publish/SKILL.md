@@ -135,6 +135,164 @@ This is CRITICAL - users install from GitHub releases. The script will:
 - Verify the release was created with .vsix and installers
 - Fail loudly if any step doesn't work
 
+---
+
+## Desktop Installer Workflow (CRITICAL)
+
+### Why Desktop Installers Are Required
+
+**CRITICAL:** Desktop app installers (.exe and .msi for Windows) MUST be included in EVERY GitHub release.
+
+**Why:**
+1. Users install ÆtherLight via `npm install -g aetherlight`
+2. The CLI installer downloads the .vsix from GitHub releases
+3. Desktop app is ALSO downloaded from the same GitHub release
+4. Without installers, users get VS Code extension but NO desktop app
+5. Desktop app is required for full ÆtherLight functionality
+
+### File Locations and Git Workflow
+
+**Desktop installers are:**
+- ✅ Built locally (Tauri build process)
+- ✅ Stored on disk in `vscode-lumina/` directory
+- ✅ Attached to GitHub releases (by publish script)
+- ❌ **NOT tracked in git** (binary files excluded via .gitignore)
+
+**Current files:**
+```bash
+vscode-lumina/Lumina_0.1.0_x64-setup.exe  # 4.0MB - Windows installer (NSIS)
+vscode-lumina/Lumina_0.1.0_x64_en-US.msi  # 5.8MB - Windows installer (MSI)
+```
+
+**gitignore rules** (added in v0.16.7):
+```gitignore
+# Desktop installers (binary files should not be in git)
+*.exe
+*.msi
+*.dmg
+*.deb
+*.AppImage
+```
+
+### How Publish Script Handles Installers
+
+**Automated process** (`scripts/publish-release.js` lines 355-428):
+
+1. **Find installers** (lines 355-375):
+   ```javascript
+   const exeFile = path.join(vscodeLuminaPath, 'Lumina_0.1.0_x64-setup.exe');
+   const msiFile = path.join(vscodeLuminaPath, 'Lumina_0.1.0_x64_en-US.msi');
+   if (fs.existsSync(exeFile)) { desktopFiles.push(exeFile); }
+   if (fs.existsSync(msiFile)) { desktopFiles.push(msiFile); }
+   ```
+
+2. **Warn if missing** (lines 370-375):
+   ```
+   ⚠️  Warning: No desktop installers found
+   Desktop app will not be available for this release
+   ```
+
+3. **Attach to GitHub release** (lines 377-393):
+   ```javascript
+   // Create release with .vsix and desktop installers
+   const allFiles = [`"vscode-lumina/aetherlight-${newVersion}.vsix"`, ...desktopFiles].join(' ');
+   exec(`gh release create v${newVersion} --notes-file .release-notes.tmp ${allFiles}`);
+   ```
+
+4. **Verify upload** (lines 395-428):
+   ```javascript
+   // Check for .vsix file (CRITICAL)
+   const vsixCheck = execSilent(`gh release view v${newVersion} --json assets -q '.assets[] | select(.name | endswith(".vsix"))'`);
+
+   // Check for desktop installers (WARNING if missing)
+   const hasExe = allAssets.includes('Lumina_0.1.0_x64-setup.exe');
+   const hasMsi = allAssets.includes('Lumina_0.1.0_x64_en-US.msi');
+   ```
+
+### Pre-Publish Checklist for Installers
+
+**BEFORE running publish script, verify installers exist:**
+
+```bash
+# Check if installers are present on disk
+ls -lh vscode-lumina/Lumina*.exe vscode-lumina/Lumina*.msi
+
+# Expected output:
+# -rwxr-xr-x 1 user 4.0M Oct 30 vscode-lumina/Lumina_0.1.0_x64-setup.exe
+# -rw-r--r-- 1 user 5.8M Oct 30 vscode-lumina/Lumina_0.1.0_x64_en-US.msi
+```
+
+**If files are missing:**
+1. Desktop app was never built, OR
+2. Files were deleted, OR
+3. Wrong directory
+
+### Regenerating Desktop Installers
+
+**If installers are missing and need to be rebuilt:**
+
+```bash
+# Navigate to desktop app directory
+cd products/lumina-desktop
+
+# Install dependencies (if needed)
+npm install
+
+# Build desktop app for Windows
+npm run tauri build
+
+# Installers will be generated at:
+# - src-tauri/target/release/bundle/nsis/*.exe
+# - src-tauri/target/release/bundle/msi/*.msi
+
+# Copy to vscode-lumina directory for publish script
+cp src-tauri/target/release/bundle/nsis/*.exe ../../vscode-lumina/
+cp src-tauri/target/release/bundle/msi/*.msi ../../vscode-lumina/
+
+# Verify files are in place
+ls -lh ../../vscode-lumina/Lumina*.exe ../../vscode-lumina/Lumina*.msi
+```
+
+### Desktop App Version Independence
+
+**Important:** Desktop app version (0.1.0) is INDEPENDENT of VS Code extension version (0.16.7).
+
+**Why:**
+- Desktop app changes less frequently than VS Code extension
+- Extension gets frequent patches (bug fixes, UI improvements)
+- Desktop app only updates when core functionality changes
+- Both are versioned independently but released together
+
+**Current versions:**
+- VS Code Extension: v0.16.7 (frequent updates)
+- Desktop App: v0.1.0 (stable, infrequent updates)
+
+### What Publish Script Does
+
+**Publish script behavior:**
+- ✅ Looks for installers in `vscode-lumina/` directory
+- ✅ Attaches any found installers to GitHub release
+- ⚠️ Warns if no installers found (but doesn't fail)
+- ✅ Verifies installers uploaded successfully
+- ✅ Continues with publish even if no installers (extension-only release)
+
+**This means:**
+- If installers exist → Full release (extension + desktop app)
+- If no installers → Extension-only release (with warning)
+- User can choose to ship extension-only if desktop app unchanged
+
+### Historical Context
+
+**v0.16.7 git hygiene fix:**
+- **Before:** Installers committed to git (9.8MB binary files in repository)
+- **After:** Installers excluded from git (.gitignore), kept on disk only
+- **Benefit:** Clean git history, binaries only in releases
+- **No Impact:** Publish script still finds and attaches installers
+
+**Pattern:** Binary artifacts belong in releases, NOT in git.
+
+---
+
 ## Important Rules
 
 **ALWAYS use the automated script** (`scripts/publish-release.js`)
