@@ -1,6 +1,8 @@
 # Development files
 .vscode/**
 .vscode-test/**
+.vscode-test-extensions/**
+.vscode-test-user-data/**
 src/**
 test/**
 tests/**
