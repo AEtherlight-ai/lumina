@@ -3321,7 +3321,7 @@ function getVoicePanelBodyContent(): string {
         </div>
     </div>
 
-    <!-- REFACTOR-004: Single-row toolbar with LEFT/CENTER/RIGHT sections -->
+    <!-- UI-008: Consolidated toolbar with Voice/Send buttons (no separate row) -->
     <div class="main-toolbar">
         <!-- LEFT: Primary actions -->
         <div class="toolbar-section toolbar-left">
@@ -3331,22 +3331,23 @@ function getVoicePanelBodyContent(): string {
             <button id="sprintPlannerBtn" class="toolbar-btn" onclick="openSprintPlanner()" title="Sprint Planner">
                 📋
             </button>
+            <button id="recordBtn" class="toolbar-btn" onclick="toggleRecording()" title="Record Voice (Press backtick key)">
+                🎤 Record
+            </button>
             <button id="enhanceBtn" class="toolbar-btn" onclick="enhanceText()" disabled title="Enhance with Patterns">
                 ✨
             </button>
             <button id="sendBtn" class="toolbar-btn primary" onclick="sendToTerminal()" disabled title="Send to Terminal (Ctrl+Enter)">
-                📤
+                📤 Send
             </button>
             <button id="clearBtn" class="toolbar-btn" onclick="clearText()" title="Clear">
                 🗑️
             </button>
         </div>
 
-        <!-- CENTER: Voice indicator -->
+        <!-- CENTER: Keyboard shortcuts hint -->
         <div class="toolbar-section toolbar-center">
-            <span class="voice-hint"><code>\`</code> Record</span>
-            <span class="voice-separator">|</span>
-            <span class="voice-hint"><code>Ctrl+Enter</code> Send</span>
+            <span class="voice-hint"><code>\`</code> to record | <code>Ctrl+Enter</code> to send</span>
         </div>
 
         <!-- RIGHT: Utilities -->
