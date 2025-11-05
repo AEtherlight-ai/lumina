@@ -3283,39 +3283,14 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
     }
 
     /**
-     * A-003: Settings Tab Placeholder
+     * DEBUG-003: Settings Tab removed in v0.16.2 (tabbed UI → single-panel UI)
      *
-     * DESIGN DECISION: Show skeleton UI for ÆtherLight configuration
-     * WHY: Give users clear expectations of available settings
-     * FUTURE: Will show 66+ settings organized in 10 collapsible sections (Phase 4)
+     * HISTORICAL NOTE: getSettingsTabPlaceholder() removed as dead code
+     * WHY: Settings tab no longer exists in single-panel UI (Voice + Sprint only)
+     * FUTURE: Settings will be implemented via VS Code settings UI or dedicated command
+     *
+     * See: package.json contributes.configuration for available settings
      */
-    private getSettingsTabPlaceholder(): string {
-        return `
-        <div class="placeholder-panel">
-            <div class="placeholder-header">
-                <span class="placeholder-icon">⚙️</span>
-                <h2>ÆtherLight Settings</h2>
-            </div>
-            <div class="placeholder-description">
-                <p>Configure ÆtherLight behavior and preferences</p>
-            </div>
-            <div class="placeholder-features">
-                <h3>Coming Soon:</h3>
-                <ul>
-                    <li>🎨 Terminal layout configuration</li>
-                    <li>🔔 Notification preferences</li>
-                    <li>🎤 Voice input settings</li>
-                    <li>🧩 Pattern matching thresholds</li>
-                    <li>⚡ Performance tuning</li>
-                    <li>🔧 Advanced options</li>
-                </ul>
-            </div>
-            <div class="placeholder-status">
-                <em>Implementation: Task A-003 → Phase 1 | Full functionality: Phase 4 (Task D-001)</em>
-            </div>
-        </div>
-        `;
-    }
 }
 
 // ============================================================================
