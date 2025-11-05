@@ -128,7 +128,9 @@ export class IPCClient {
 			});
 
 			this.ws.on('error', (error) => {
-				console.error('WebSocket error:', error);
+				// DEBUG-001: Downgrade to console.log (debug level) since desktop app not running is expected
+				// Extension handles this gracefully in extension.ts with user-friendly warnings
+				console.log('[DEBUG] WebSocket connection error:', error.message);
 				this.connected = false;
 				reject(new Error(`Failed to connect to Lumina desktop: ${error.message}`));
 			});
