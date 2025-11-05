@@ -1,0 +1,1852 @@
+# ÆtherLight Sprint - v0.16.0 Post-Release Debugging
+# Created: 2025-11-03
+# Status: Active
+# Focus: Fix critical UI bugs discovered in dogfooding
+
+[metadata]
+version = "0.16.7"
+sprint_number = 2
+start_date = "2025-11-03"
+target_completion = "2025-11-04"
+status = "active"
+
+[metadata.focus]
+primary = "Fix critical UI bugs from v0.16.0 release"
+secondary = "Stabilize voice panel and control panel"
+tertiary = "Address console errors"
+
+[tasks.REFACTOR-000]
+id = "REFACTOR-000"
+name = "Smart Task Starter with Dependency Enforcement - Phase 1 (Core Services)"
+phase = "enforcement"
+assigned_engineer = "engineer_1"
+status = "completed"
+agent = "infrastructure-agent"
+
+description = """
+Implement smart task starter button system to enforce TDD and workflow protocols.
+
+**Problem:**
+Currently, developers can bypass TDD, skip Pre-Task Analysis, and ignore sprint TOML updates.
+No enforcement mechanism exists - workflow is optional, not mandatory.
+
+**Solution: Option C - Smart Task Starter with Parallel Agent Support**
+
+**Features:**
+
+1. **"Start Next Task" Button (Primary)**
+   - Finds next task with no blocking dependencies
+   - Runs Pre-Task Analysis (8 steps) automatically
+   - Generates test stubs (TDD RED phase)
+   - Updates TOML status: pending → in_progress
+   - Shows Code Workflow Check
+   - Only then allows coding
+
+2. **Individual Task "Start" Buttons**
+   - Each task row has [Start] button
+   - If dependencies not met → Show warning dialog
+   - Suggest 3 alternative ready tasks
+   - Allow override with warning
+
+3. **Dependency Validation**
+   - Check task.dependencies array
+   - Verify all deps have status = "completed"
+   - Block start if deps not met (with override)
+   - Show clear dependency tree
+
+4. **Smart Task Suggestions**
+   - Find all tasks with status = "pending"
+   - Filter to tasks with all deps completed
+   - Sort by: no deps > short time > phase order
+   - Return top 3 alternatives
+
+5. **Parallel Agent Support**
+   - Allow multiple tasks with status = "in_progress"
+   - Track which agent/engineer owns each task
+   - Warn on file conflicts between parallel tasks
+   - Load balancing suggestions (UI vs Backend vs Tests)
+
+**UI Components:**
+
+Sprint Panel Header:
+- [▶️ Start Next Task] button (primary CTA)
+- "Next Ready: TASK-ID (name) | X hrs" label
+- Progress: X/Y completed | Z in progress
+
+Task Row:
+- Status icon (⏸️ Pending, 🔒 Blocked, 🔄 In Progress, ✅ Completed)
+- Task ID and name
+- [▶️ Start] button (enabled if ready, 🔒 if blocked)
+
+Dependency Warning Dialog:
+- List blocking dependencies with status
+- Show potential issues (integration failures, rework, test failures)
+- Suggest 3 alternative ready tasks
+- Buttons: [Start Alternative], [Show All Ready], [⚠️ Override], [Cancel]
+
+**Algorithm:**
+
+findNextReadyTask():
+1. Filter tasks where status = "pending"
+2. Check dependencies array for each
+3. Verify all dependency task IDs have status = "completed"
+4. Sort by: deps.length, estimated_time, phase
+5. Return first match
+
+findAlternativeTasks(blockedTask):
+1. Find all pending tasks except blockedTask
+2. Filter to tasks with all deps completed
+3. Sort by estimated_time
+4. Return top 3
+
+startTask(taskId):
+1. Validate dependencies (or show warning)
+2. Run Pre-Task Analysis (8 steps)
+3. Generate test file stubs
+4. Update TOML: status = "in_progress"
+5. Run Code Workflow Check
+6. Enable Edit/Write tools
+
+**Status Icons:**
+- ⏸️ Pending (ready to start)
+- 🔒 Blocked (deps not met)
+- 🔄 In Progress (being worked on)
+- ✅ Completed (done)
+- ⏭️ Skipped (intentionally skipped)
+"""
+
+estimated_time = "6 hours"
+dependencies = []
+
+deliverables = [
+    "StartTaskButton component in Sprint panel",
+    "findNextReadyTask() algorithm implementation",
+    "findAlternativeTasks() algorithm implementation",
+    "Dependency validation with warning dialog",
+    "startTask() workflow orchestration",
+    "Update sprint panel UI with new buttons",
+    "Status icon system (5 states)",
+    "Pre-Task Analysis automation",
+    "Test stub generation integration",
+    "TOML status update automation",
+    "Parallel task tracking (multiple in_progress)"
+]
+
+test_requirements = """
+TDD Requirements (Infrastructure Task - 90% coverage):
+
+RED Phase - Write tests FIRST:
+1. findNextReadyTask() returns task with no deps
+2. findNextReadyTask() respects completed dependencies
+3. findNextReadyTask() returns null if all blocked
+4. findAlternativeTasks() finds 3 ready alternatives
+5. findAlternativeTasks() excludes blocked task
+6. startTask() validates dependencies before starting
+7. startTask() shows warning if deps not met
+8. startTask() updates TOML status to in_progress
+9. startTask() runs Pre-Task Analysis (8 steps)
+10. startTask() generates test stubs
+11. Parallel tasks: multiple in_progress allowed
+12. Status icons render correctly (5 states)
+13. Start Next Task button finds correct task
+14. Individual Start buttons show correct state (enabled/blocked)
+15. Override button allows starting blocked task with warning
+
+GREEN Phase - Implement to pass tests
+REFACTOR Phase - Optimize and document
+"""
+
+test_files = [
+    "vscode-lumina/test/services/TaskStarter.test.ts",
+    "vscode-lumina/test/services/DependencyValidator.test.ts"
+]
+
+test_coverage_requirement = 0.9
+
+[tasks.REFACTOR-000-UI]
+id = "REFACTOR-000-UI"
+name = "Smart Task Starter - Phase 2 (UI Integration)"
+phase = "enforcement"
+assigned_engineer = "engineer_1"
+status = "completed"
+agent = "ui-agent"
+
+description = """
+Integrate Task Starter services into Sprint Panel UI with buttons and dialogs.
+
+**Phase 1 Complete:**
+- ✅ TaskDependencyValidator service
+- ✅ TaskStarter service
+- ✅ Core algorithms (findNextReadyTask, findAlternativeTasks, startTask)
+- ✅ TOML status update logic
+
+**Phase 2 Goals (UI Integration):**
+
+1. **Sprint Panel Header:**
+   - Add "Start Next Task" button (primary CTA)
+   - Show "Next Ready: TASK-ID (name) | X hrs" label
+   - Display progress: "X/Y completed | Z in progress"
+
+2. **Task Row Buttons:**
+   - Add individual "Start" button to each task row
+   - Button states: ▶️ (ready), 🔒 (blocked), 🔄 (in progress), ✅ (completed)
+   - Click handler integrates with TaskStarter.startTask()
+
+3. **Dependency Warning Dialog:**
+   - Show when user clicks "Start" on blocked task
+   - List blocking dependencies with status
+   - Show 3 alternative ready tasks (from findAlternativeTasks())
+   - Buttons: [Start Alternative], [Show All Ready], [⚠️ Override], [Cancel]
+
+4. **Status Icon System:**
+   - ⏸️ Pending (ready to start)
+   - 🔒 Blocked (dependencies not met)
+   - 🔄 In Progress (currently being worked on)
+   - ✅ Completed (done)
+   - ⏭️ Skipped (intentionally skipped)
+
+5. **Message Handlers:**
+   - startNextTask message → calls TaskStarter.findNextReadyTask()
+   - startTask message → validates deps, shows dialog if blocked
+   - override message → calls startTask(task, true)
+
+6. **Pre-Task Analysis Display:**
+   - Show 8-step analysis in ÆtherLight Output channel
+   - Format as checklist with ✅/❌ status
+   - Display confidence score and gaps
+
+**UI Components to Add:**
+- StartNextTaskButton (Sprint header)
+- TaskStartButton (Task rows)
+- DependencyWarningDialog (Modal/notification)
+- StatusIconRenderer (Task status display)
+
+**Integration Points:**
+- voicePanel.ts (Sprint panel UI)
+- TaskStarter.ts (Phase 1 services)
+- SprintLoader.ts (Task data)
+- ÆtherLight Output channel (Pre-Task Analysis logging)
+"""
+
+estimated_time = "4 hours"
+dependencies = ["REFACTOR-000"]
+
+deliverables = [
+    "Start Next Task button in Sprint header",
+    "Individual Start buttons on task rows",
+    "Button state logic (ready/blocked/in_progress/completed)",
+    "Dependency warning dialog with alternatives",
+    "Status icon rendering (5 states)",
+    "Message handlers for task starting",
+    "Pre-Task Analysis output formatting",
+    "Integration with TaskStarter service",
+    "Error handling and user feedback"
+]
+
+test_requirements = """
+TDD Requirements (UI Task - 70% coverage):
+
+RED Phase - Write tests FIRST:
+1. Start Next Task button finds correct task
+2. Start button enabled for ready tasks
+3. Start button blocked for tasks with unmet deps
+4. Clicking Start on ready task calls startTask()
+5. Clicking Start on blocked task shows warning dialog
+6. Warning dialog lists blocking dependencies
+7. Warning dialog suggests 3 alternatives
+8. Override button allows starting blocked task
+9. Status icons render correctly (5 states)
+10. Progress display updates (X/Y completed, Z in progress)
+
+GREEN Phase - Implement UI components
+REFACTOR Phase - Optimize and polish
+"""
+
+test_files = [
+    "vscode-lumina/test/ui/StartTaskButton.test.ts"
+]
+
+test_coverage_requirement = 0.7
+
+[tasks.UI-001]
+id = "UI-001"
+name = "Fix Code Analyzer button - opens text area/terminal"
+phase = "debugging"
+assigned_engineer = "engineer_1"
+status = "completed"
+agent = "ui-agent"
+
+description = """
+Code Analyzer button in voice panel toolbar doesn't work when clicked.
+
+**Expected Behavior:**
+- Click Code Analyzer button
+- Opens text area or terminal (need to verify which)
+- User can interact with analyzer
+
+**Current Behavior:**
+- Button click does nothing
+- No response, no error logged (need to check console)
+
+**Investigation:**
+- Check voicePanel.ts for button click handlers
+- Verify command registration in extension.ts
+- Check if command is properly wired to UI action
+"""
+
+estimated_time = "1 hour"
+dependencies = []
+
+deliverables = [
+    "Fix Code Analyzer button click handler",
+    "Test button opens correct UI component",
+    "Verify error logging if command fails"
+]
+
+[tasks.UI-002]
+id = "UI-002"
+name = "Fix Sprint Planner button - opens text area/terminal"
+phase = "debugging"
+assigned_engineer = "engineer_1"
+status = "completed"
+agent = "ui-agent"
+
+description = """
+Sprint Planner button in voice panel toolbar doesn't work when clicked.
+
+**Expected Behavior:**
+- Click Sprint Planner button
+- Opens text area or terminal (need to verify which)
+- User can interact with sprint planner
+
+**Current Behavior:**
+- Button click does nothing
+- No response, no error logged (need to check console)
+
+**Investigation:**
+- Same root cause as UI-001?
+- Check voicePanel.ts for button click handlers
+- Verify all toolbar buttons are properly wired
+"""
+
+estimated_time = "30 minutes"
+dependencies = ["UI-001"]
+
+deliverables = [
+    "Fix Sprint Planner button click handler",
+    "Test button opens correct UI component"
+]
+
+[tasks.UI-003]
+id = "UI-003"
+name = "Fix text area resize functionality"
+phase = "debugging"
+assigned_engineer = "engineer_1"
+status = "completed"
+agent = "ui-agent"
+
+description = """
+Text area lost ability to be resized up and down via drag handle.
+
+**Expected Behavior:**
+- User can drag resize handle
+- Text area height changes
+- Resizing is smooth and responsive
+
+**Current Behavior:**
+- Resize handle missing or non-functional
+- Text area stuck at fixed height
+
+**Investigation:**
+- Check voicePanel.ts for resize implementation
+- Verify CSS for resize handle visibility
+- Check if recent changes removed resize functionality
+"""
+
+estimated_time = "1 hour"
+dependencies = []
+
+deliverables = [
+    "Restore text area resize functionality",
+    "Test resize works smoothly",
+    "Verify resize handle is visible"
+]
+
+[tasks.UI-004]
+id = "UI-004"
+name = "Remove extra bar above toolbar"
+phase = "debugging"
+assigned_engineer = "engineer_1"
+status = "completed"
+agent = "ui-agent"
+
+description = """
+Extra bar/row appearing above toolbar and below ÆtherLight Voice header text.
+
+**Expected Behavior:**
+- Clean layout: Header → Toolbar → Text Area
+- No extra spacing or bars
+
+**Current Behavior:**
+- Extra bar/spacing between header and toolbar
+- Visual clutter, wastes vertical space
+
+**Investigation:**
+- Check voicePanel.ts HTML structure
+- Look for duplicate elements or extra containers
+- Check CSS for margin/padding issues
+"""
+
+estimated_time = "30 minutes"
+dependencies = []
+
+deliverables = [
+    "Remove extra bar above toolbar",
+    "Clean up HTML structure",
+    "Verify layout is compact"
+]
+
+[tasks.UI-005]
+id = "UI-005"
+name = "Remove extra row underneath toolbar"
+phase = "debugging"
+assigned_engineer = "engineer_1"
+status = "completed"
+agent = "ui-agent"
+
+description = """
+Extra row appearing underneath the toolbar (below bug toolbar).
+
+**Expected Behavior:**
+- Toolbar → Text Area
+- No extra rows or spacing
+
+**Current Behavior:**
+- Extra row below toolbar
+- Visual clutter, wastes vertical space
+
+**Investigation:**
+- Check voicePanel.ts HTML structure
+- Look for duplicate toolbar or extra divs
+- Check if this is related to UI-004 (same root cause?)
+"""
+
+estimated_time = "30 minutes"
+dependencies = ["UI-004"]
+
+deliverables = [
+    "Remove extra row underneath toolbar",
+    "Clean up HTML structure",
+    "Verify compact layout"
+]
+
+[tasks.DEBUG-001]
+id = "DEBUG-001"
+name = "Investigate console errors - WebSocket/Desktop App"
+phase = "debugging"
+assigned_engineer = "engineer_1"
+status = "completed"
+agent = "infrastructure-agent"
+
+description = """
+Console showing WebSocket errors and failed desktop app connection.
+
+**Errors Observed:**
+- Extension Host: WebSocket error: AggregateError
+- Extension Host: Failed to connect to desktop app
+- Extension Host: Voice capture features will be unavailable until desktop app is running
+
+**Investigation:**
+- Is desktop app running? (should auto-launch or warn user)
+- Check desktop/launcher.ts connection logic
+- Verify WebSocket configuration
+- Check if this is expected when desktop app not running
+- Should extension gracefully degrade without desktop app?
+
+**Not Blocking:** Voice panel works without desktop app for basic features
+**Priority:** P1 (not blocking current dogfooding)
+"""
+
+estimated_time = "1 hour"
+dependencies = []
+
+deliverables = [
+    "Document expected behavior when desktop app not running",
+    "Fix or suppress misleading error messages",
+    "Add user-friendly warning if desktop app needed"
+]
+
+[tasks.DEBUG-002]
+id = "DEBUG-002"
+name = "Fix Phase file not found error"
+phase = "debugging"
+assigned_engineer = "engineer_1"
+status = "completed"
+agent = "infrastructure-agent"
+
+description = """
+Console showing phase file not found errors for wrong path.
+
+**Error Observed:**
+- Extension Host: [ÆtherLight] Phase file not found:
+  c:\\Users\\Brett\\Documents\\GitHub\\website\\docs\\phases\\PHASE_PRINT0_IMPLEMENTATION.md
+
+**Investigation:**
+- Where is this path coming from? (not lumina-clean repo)
+- Check SprintLoader.ts for phase file path resolution
+- Is this checking wrong workspace folder?
+- Should phase files be optional?
+
+**Not Blocking:** Doesn't affect core functionality
+**Priority:** P2 (cleanup)
+"""
+
+estimated_time = "30 minutes"
+dependencies = []
+
+deliverables = [
+    "Fix phase file path resolution",
+    "Make phase files optional or suppress error if missing",
+    "Test with multiple workspace folders"
+]
+
+[tasks.REFACTOR-001]
+id = "REFACTOR-001"
+name = "Restore Enhanced Prompt Display in Text Area"
+phase = "refactoring"
+assigned_engineer = "engineer_1"
+status = "completed"
+agent = "ui-agent"
+
+description = """
+**LOST FEATURE:** Text area no longer shows enhanced/expanded prompts when typing.
+
+**Expected Behavior:**
+- User types in text area
+- System shows enhanced/expanded version with pattern matches
+- Real-time feedback on prompt quality
+
+**Current Behavior:**
+- Text area only shows raw input
+- No enhancement preview
+- Feature was working previously, now lost in refactoring
+
+**Context:**
+- File: vscode-lumina/src/commands/voicePanel.ts
+- Related: PromptEnhancer service (services/PromptEnhancer.ts)
+- UI: Voice tab text area input
+
+**Investigation:**
+- Check if PromptEnhancer integration was removed during recent changes
+- Verify message passing between webview and extension
+- Check if enhancement display logic still exists
+- Review git history to find when feature was removed
+
+**Implementation:**
+- Locate last working version of enhancement display
+- Restore message handlers for enhancement
+- Re-integrate PromptEnhancer service
+- Add debounce to avoid excessive enhancement calls (500ms)
+- Display enhanced text below or beside input area
+"""
+
+why = "Core feature for pattern-driven development - helps users write better prompts"
+context = "Lost during v0.16.x refactoring, critical for user guidance"
+reasoning_chain = [
+    "User types prompt in text area",
+    "PromptEnhancer analyzes and enriches prompt",
+    "Enhanced version shown to user for review",
+    "User can accept/edit enhanced prompt",
+    "Better prompts = better AI results"
+]
+pattern_context = "Pattern-UX-001: Real-time feedback improves user experience"
+success_impact = "Users write 50% better prompts with real-time enhancement feedback"
+
+estimated_time = "2 hours"
+dependencies = []
+
+deliverables = [
+    "Restore PromptEnhancer integration in voicePanel.ts",
+    "Display enhanced prompt in UI (below or beside input)",
+    "Add debounce (500ms) to enhancement calls",
+    "Test with various prompt types",
+    "Verify enhancement shows pattern matches"
+]
+
+[tasks.REFACTOR-002]
+id = "REFACTOR-002"
+name = "Restore Send to Terminal Functionality"
+phase = "refactoring"
+assigned_engineer = "engineer_1"
+status = "completed"
+agent = "ui-agent"
+
+description = """
+**LOST FEATURE:** Cannot send text from text area to terminal anymore.
+
+**Expected Behavior:**
+- User types in text area
+- Clicks Send button or presses Ctrl+Enter
+- Text is sent to active terminal
+- Terminal receives and can process the command
+
+**Current Behavior:**
+- Send button doesn't work
+- No terminal integration
+- Feature was working previously, now lost
+
+**Context:**
+- File: vscode-lumina/src/commands/voicePanel.ts
+- Related: AutoTerminalSelector, terminal integration
+- UI: Send button below text area
+
+**Investigation:**
+- Check if terminal message handlers were removed
+- Verify AutoTerminalSelector is still being used
+- Check if terminal reference is lost
+- Review command registration
+
+**Implementation:**
+- Find message handler for 'sendToTerminal' or similar
+- Restore terminal selection logic (AutoTerminalSelector)
+- Re-connect Send button to terminal.sendText()
+- Handle case where no terminal is open (show warning)
+- Add visual feedback when text is sent
+"""
+
+why = "Users need to send prompts to Claude Code terminal for execution"
+context = "Core workflow broken - blocks using ÆtherLight with Claude Code"
+reasoning_chain = [
+    "User crafts prompt in text area",
+    "User clicks Send or Ctrl+Enter",
+    "System finds active Claude terminal",
+    "Text is inserted into terminal",
+    "User can review and execute"
+]
+pattern_context = "Pattern-WORKFLOW-001: Seamless integration with terminal workflow"
+success_impact = "Unblocks core ÆtherLight → Claude Code workflow"
+
+estimated_time = "1.5 hours"
+dependencies = ["REFACTOR-001"]
+
+deliverables = [
+    "Restore terminal integration in voicePanel.ts",
+    "Fix Send button click handler",
+    "Add Ctrl+Enter keyboard shortcut",
+    "Show success notification when sent",
+    "Handle no terminal open case gracefully"
+]
+
+[tasks.REFACTOR-003]
+id = "REFACTOR-003"
+name = "Restore Terminal List (Horizontal Layout)"
+phase = "refactoring"
+assigned_engineer = "engineer_1"
+status = "completed"
+agent = "ui-agent"
+
+description = """
+**LOST FEATURE:** Terminal list disappeared. Was supposed to be refactored from vertical columns to horizontal row.
+
+**Expected Behavior:**
+- List of active terminals shown horizontally below text area
+- User can click terminal to select it as target
+- Selected terminal highlighted
+- Auto-updates when terminals open/close
+
+**Current Behavior:**
+- No terminal list visible
+- Cannot see available terminals
+- Cannot select target terminal
+
+**Context:**
+- File: vscode-lumina/src/commands/voicePanel.ts
+- Related: AutoTerminalSelector, vscode.window.terminals
+- UI: Horizontal row below text area (above Sprint section)
+- Was planned as "columns → row" refactor but went missing
+
+**Investigation:**
+- Check if terminal list HTML was removed
+- Find old vertical column implementation
+- Verify terminal tracking logic still exists
+- Check if AutoTerminalSelector provides terminal list
+
+**Implementation:**
+- Design horizontal terminal list layout (flex row)
+- Show terminal names as clickable chips/buttons
+- Highlight selected terminal
+- Add terminal count indicator
+- Poll for terminal changes (vscode.window.onDidChangeTerminals)
+- Clicking terminal sets it as send target
+- Show terminal type icon if Claude/regular terminal
+"""
+
+why = "Users need to see and select target terminal for commands"
+context = "Refactor was planned (columns→row) but code disappeared during changes"
+reasoning_chain = [
+    "Multiple terminals often open",
+    "User needs to pick target terminal",
+    "Horizontal list saves vertical space",
+    "Click to select = intuitive UX",
+    "Visual feedback confirms selection"
+]
+pattern_context = "Pattern-UI-002: Horizontal layout maximizes vertical space for sprints"
+success_impact = "Unblocks multi-terminal workflows, improves terminal selection UX"
+
+estimated_time = "3 hours"
+dependencies = ["REFACTOR-002"]
+
+deliverables = [
+    "Add horizontal terminal list below text area",
+    "Show terminal names as clickable chips",
+    "Highlight selected terminal",
+    "Auto-update list when terminals change",
+    "Clicking terminal selects it as send target",
+    "Show terminal count (e.g., '3 terminals')"
+]
+
+[tasks.DEBUG-003]
+id = "DEBUG-003"
+name = "Investigate Settings Tab - Are They Functional?"
+phase = "debugging"
+assigned_engineer = "engineer_1"
+status = "completed"
+agent = "infrastructure-agent"
+
+description = """
+**INVESTIGATION:** Settings in Settings tab appear to be placeholders. Need to verify if they actually do anything.
+
+**Settings Shown:**
+(Based on screenshot - need to verify actual list)
+- Various configuration options
+- Unknown if they connect to actual VS Code settings
+- Unknown if changes persist
+- Unknown if they affect extension behavior
+
+**Investigation Required:**
+1. Read voicePanel.ts Settings tab HTML
+2. Check if settings have change handlers
+3. Verify if they read/write vscode.workspace.getConfiguration()
+4. Test changing each setting and observe effect
+5. Check if settings persist after reload
+
+**Possible Outcomes:**
+A) Settings are fully functional → Document them
+B) Settings are partial placeholders → Remove non-functional ones, keep working ones
+C) Settings are all placeholders → Comment them out, add TODO for future
+
+**Context:**
+- File: vscode-lumina/src/commands/voicePanel.ts (Settings tab HTML)
+- VS Code API: vscode.workspace.getConfiguration('aetherlight')
+- Settings should modify package.json contributes.configuration values
+
+**If Non-Functional:**
+- Comment out in HTML
+- Add TODO: // TODO: Implement Settings tab (v0.17.0)
+- Document which settings should exist
+- Keep Settings tab visible but show "Coming Soon" message
+"""
+
+why = "Don't show fake settings that confuse users - be honest about what works"
+context = "Settings tab exists but functionality unclear - need transparency"
+reasoning_chain = [
+    "Settings tab shows options",
+    "User tries to change settings",
+    "If nothing happens → user frustrated",
+    "Better to disable/hide until functional",
+    "Or show 'Coming Soon' message"
+]
+pattern_context = "Pattern-HONESTY-001: Don't fake features - be transparent about what works"
+success_impact = "Avoids user confusion and bug reports about broken settings"
+
+estimated_time = "1 hour"
+dependencies = []
+
+deliverables = [
+    "Document which settings are functional (if any)",
+    "Remove or comment out non-functional settings",
+    "Add 'Coming Soon' message if mostly placeholders",
+    "Create issue for proper Settings implementation if needed",
+    "Test any functional settings to verify they work"
+]
+
+[tasks.UI-006]
+id = "UI-006"
+name = "Implement Toolbar Buttons - Bug, Feature, Skills, Settings"
+phase = "refactoring"
+assigned_engineer = "engineer_1"
+status = "completed"
+agent = "ui-agent"
+
+description = """
+**FEATURE:** Implement proper functionality for toolbar buttons with workflow area integration.
+
+**Buttons to Implement:**
+1. 🐛 Bug Button → Bug report form
+2. 📝 Feature Button → Feature request form
+3. 📦 Skills Button → Skills list
+4. ⚙️ Settings Button → Settings UI
+
+**Functionality Requirements:**
+
+**1. Bug Button:**
+- Opens bug report form in workflow area (below text area)
+- Form has standardized questions (title, description, steps to reproduce, etc.)
+- Dropdown for bug type/category
+- User fills in details
+- "Enhance" button enhances the bug report with context
+- "Submit" button sends to terminal as formatted bug report
+- Uses bug-report skill
+
+**2. Feature Button:**
+- Opens feature request form in workflow area
+- Form has standardized questions (title, description, use case, acceptance criteria)
+- Dropdown for feature type/priority
+- User fills in details
+- "Enhance" button enriches request with context
+- "Submit" button sends to terminal
+- Uses feature-request skill
+
+**3. Skills Button:**
+- Opens list of all skills in workflow area
+- Reads from .claude/skills/ directory
+- Shows skill names and descriptions
+- Clicking a skill opens it in VS Code editor tabs
+- User can edit skill files directly
+- No enhancement/submission needed (just file navigation)
+
+**4. Settings Button:**
+- Opens minimal settings UI in workflow area
+- Shows only:
+  - Dev Mode toggle (internal/sprints vs sprints)
+  - Sprint File Path (custom path input)
+- Settings saved to VS Code configuration
+- Changes take effect immediately
+
+**Workflow Area Pattern:**
+- All buttons open content in same workflow area (below text area)
+- Only ONE workflow active at a time
+- Clicking new button closes previous workflow
+- Clicking same button again closes workflow (toggle)
+- No "Workflows" label (minimalistic design)
+
+**Context:**
+- File: vscode-lumina/src/commands/voicePanel.ts
+- Related: bug-report skill, feature-request skill
+- Pattern: Same as Code Analyzer and Sprint Planner buttons
+"""
+
+why = "Unified workflow pattern for all interactive tools - standardized UX"
+context = "Buttons exist but need proper implementation with workflow area"
+reasoning_chain = [
+    "User clicks toolbar button",
+    "Workflow area expands with relevant content",
+    "User interacts with form/list/settings",
+    "Action completes (submit to terminal, open file, save settings)",
+    "Workflow area can stay open or auto-close",
+    "Consistent UX across all workflow buttons"
+]
+pattern_context = "Pattern-WORKFLOW-001: Unified workflow area for all interactive tools"
+success_impact = "Professional, consistent UX - all buttons work as expected"
+
+estimated_time = "4 hours"
+dependencies = ["REFACTOR-006"]
+
+deliverables = [
+    "Bug button opens form → enhance → submit workflow",
+    "Feature button opens form → enhance → submit workflow",
+    "Skills button shows list → click to open files",
+    "Settings button shows minimal settings UI",
+    "All workflows use same workflow area component",
+    "Test each button's complete workflow"
+]
+
+error_handling = """
+Bug/Feature Forms:
+- [ ] Validate required fields before submission
+- [ ] Handle skill invocation failures gracefully
+- [ ] Show error if terminal not available
+- [ ] Wrap form submission in try-catch
+
+Skills List:
+- [ ] Handle missing .claude/skills/ directory
+- [ ] Show message if no skills found
+- [ ] Handle file open errors (permissions, missing files)
+- [ ] Log errors when skill file cannot be opened
+
+Settings:
+- [ ] Validate sprint file path exists
+- [ ] Handle configuration save failures
+- [ ] Show user-friendly error messages
+- [ ] Revert to previous value on save failure
+"""
+
+validation_criteria = [
+    "All buttons trigger correct workflow",
+    "Forms validate input before submission",
+    "Skills list handles missing directory",
+    "Settings save and persist correctly",
+    "No unhandled exceptions in any workflow"
+]
+
+[tasks.UI-007]
+id = "UI-007"
+name = "Remove Spacing Gap - Header to Toolbar"
+phase = "ui_polish"
+assigned_engineer = "engineer_1"
+status = "completed"
+agent = "ui-agent"
+
+description = """
+**UI ISSUE:** Large gap between "ÆtherLight Voice" header and toolbar below it.
+
+**Current Layout:**
+  ÆtherLight Voice
+  (large gap)
+  (toolbar with 4 buttons)
+  (workflows section)
+
+**Desired Layout:**
+  ÆtherLight Voice
+  (toolbar with 4 buttons)  ← immediately below, no gap
+
+**Context:**
+- File: vscode-lumina/src/commands/voicePanel.ts
+- HTML structure for voice panel header
+- CSS margins/padding causing gap
+- Screenshot shows ~30-40px gap that wastes space
+
+**Investigation:**
+- Check HTML structure for extra divs
+- Inspect CSS margin/padding on header and toolbar
+- Check if "workflows" section is creating the gap
+- Verify if gap is intentional or accidental
+
+**Implementation:**
+- Remove margin-bottom from header
+- Remove margin-top from toolbar
+- Remove any intermediate divs between header and toolbar
+- Set gap to 4-8px maximum (visual breathing room)
+- Test that compacted layout looks good
+"""
+
+why = "Maximize vertical space for Sprint section - every pixel counts"
+context = "Large unnecessary gap wastes precious vertical space in sidebar"
+reasoning_chain = [
+    "Sidebar has limited vertical space",
+    "Sprint tasks need maximum room",
+    "Header gap wastes ~30-40px",
+    "Removing gap = more tasks visible",
+    "Better UX for sprint management"
+]
+pattern_context = "Pattern-UI-002: Maximize vertical space for content, minimize chrome"
+success_impact = "Fits 1-2 more sprint tasks on screen without scrolling"
+
+estimated_time = "30 minutes"
+dependencies = []
+
+deliverables = [
+    "Remove gap between header and toolbar (max 8px)",
+    "Test layout visually",
+    "Verify no other UI elements affected",
+    "Confirm more sprint tasks visible"
+]
+
+[tasks.UI-008]
+id = "UI-008"
+name = "Consolidate Voice/Send to Toolbar Row"
+phase = "ui_polish"
+assigned_engineer = "engineer_1"
+status = "completed"
+agent = "ui-agent"
+
+description = """
+**UI OPTIMIZATION:** Move Voice and Send buttons to same row as toolbar, remove separate row.
+
+**Current Layout:**
+  (toolbar: bug | feature | skill | settings)
+  (workflows dropdown)
+  Voice | Ctrl+Enter Send
+  (text area)
+
+**Desired Layout:**
+  (toolbar: bug | feature | skill | settings | Voice | Send)
+  (text area)  ← immediately below toolbar
+
+**Goals:**
+1. Consolidate toolbar + voice/send into single row
+2. Remove "workflows" dropdown (or move elsewhere)
+3. Remove extra rows to save vertical space
+4. Put Send button right next to Voice button
+
+**Context:**
+- File: vscode-lumina/src/commands/voicePanel.ts
+- Toolbar HTML structure
+- Voice/Send buttons currently in separate flex container
+- Screenshot shows they're on separate rows
+
+**Implementation:**
+- Move Voice button into toolbar flex row
+- Move Send button into toolbar flex row
+- Remove separate voice/send container
+- Use flexbox justify-content: space-between
+- Left side: functional buttons (bug, feature, etc.)
+- Right side: Voice and Send buttons
+- OR: Remove non-functional buttons, keep only Voice/Send
+
+**Alternative:** Remove all non-functional toolbar buttons, keep only Voice/Send in toolbar
+"""
+
+why = "Saves entire row of vertical space + cleaner single toolbar"
+context = "Voice/Send buttons on separate row wastes space and looks cluttered"
+reasoning_chain = [
+    "Toolbar and Voice/Send serve similar purpose",
+    "Combining into single row saves space",
+    "Single toolbar = cleaner visual design",
+    "More space for text area and sprints",
+    "Users benefit from larger workspace"
+]
+pattern_context = "Pattern-UI-002: Consolidate controls to maximize content space"
+success_impact = "Saves 40-50px vertical space, cleaner UI design"
+
+estimated_time = "1 hour"
+dependencies = ["UI-007"]
+
+deliverables = [
+    "Move Voice/Send buttons into toolbar row",
+    "Remove separate voice/send container",
+    "Test button alignment and spacing",
+    "Verify all buttons clickable and styled correctly",
+    "Confirm text area appears immediately below toolbar"
+]
+
+[tasks.UI-009]
+id = "UI-009"
+name = "Move Sprint File Selection to Header Row"
+phase = "ui_polish"
+assigned_engineer = "engineer_1"
+status = "completed"
+agent = "ui-agent"
+
+description = """
+**UI OPTIMIZATION:** Move sprint file dropdown and search to header row to save vertical space.
+
+**Current Layout:**
+  Sprint (refresh) (popout) (star)
+  Sprint File: (dropdown) (search)
+
+**Desired Layout:**
+  Sprint (dropdown) (search) (refresh) (popout) (star)
+
+**Goals:**
+1. Move sprint file dropdown to header row (same line as "Sprint")
+2. Move search icon to header row
+3. Remove separate "Sprint File:" row
+4. Make dropdown smaller/more compact
+
+**Context:**
+- File: vscode-lumina/src/commands/voicePanel.ts
+- Sprint section header HTML
+- Dropdown currently takes full width on separate row
+- Screenshot shows dropdown and search on their own line
+
+**Implementation:**
+- Move dropdown into Sprint header flex row
+- Make dropdown width: 150-200px (not full width)
+- Add search icon next to dropdown
+- Keep refresh/popout/star icons on right side
+- Use flexbox for alignment
+- Remove "Sprint File:" label (dropdown label is enough)
+
+**Layout:**
+  (Sprint) (▼ sprints/ACTIVE_SPRINT.toml) (🔍) (...spacer...) (↻) (⧉) (★)
+"""
+
+why = "Saves full row of vertical space for sprint tasks"
+context = "Sprint file selection takes entire row but could fit in header"
+reasoning_chain = [
+    "Sprint file dropdown on separate row",
+    "Header row has space for it",
+    "Moving to header saves 30-40px",
+    "More space = more tasks visible",
+    "Cleaner, more compact design"
+]
+pattern_context = "Pattern-UI-002: Compact headers, maximize content area"
+success_impact = "Saves 30-40px vertical space for sprint tasks"
+
+estimated_time = "1 hour"
+dependencies = []
+
+deliverables = [
+    "Move sprint file dropdown to header row",
+    "Move search icon to header row",
+    "Adjust dropdown width (150-200px)",
+    "Test dropdown functionality still works",
+    "Verify layout looks good on different screen sizes"
+]
+
+[tasks.UI-010]
+id = "UI-010"
+name = "Consolidate Task Statistics to Single Row"
+phase = "ui_polish"
+assigned_engineer = "engineer_1"
+status = "completed"
+agent = "ui-agent"
+
+description = """
+**UI OPTIMIZATION:** Put task statistics on same line as "Show completed tasks" checkbox.
+
+**Current Layout:**
+  0/10 tasks completed (0%) | 1 in progress | 9 pending
+  ☑ Show completed tasks
+
+**Desired Layout:**
+  ☑ Show completed tasks | 0/10 (0%) | 1 in progress | 9 pending
+
+**Goals:**
+1. Move task statistics to same row as checkbox
+2. Remove separate statistics row
+3. Save vertical space for sprint tasks
+4. Use compact statistics format
+
+**Context:**
+- File: vscode-lumina/src/commands/voicePanel.ts
+- Sprint section statistics HTML
+- Currently two separate rows
+- Screenshot shows statistics above checkbox
+
+**Implementation:**
+- Move statistics into same flex row as checkbox
+- Put checkbox on left
+- Put statistics on right
+- Use compact format: "0/10 (0%) | 1 active | 9 pending"
+- Ensure text doesn't wrap on narrow screens
+- Use smaller font for statistics if needed
+
+**Layout:**
+  (☑ Show completed) (...spacer...) (0/10 (0%) | 1 active | 9 pending)
+"""
+
+why = "Saves row of vertical space for more sprint tasks"
+context = "Statistics and checkbox can share same row instead of two"
+reasoning_chain = [
+    "Statistics on separate row",
+    "Checkbox on separate row",
+    "Both fit comfortably on single row",
+    "Combining saves 25-30px",
+    "More tasks visible without scrolling"
+]
+pattern_context = "Pattern-UI-002: Consolidate info rows to maximize content space"
+success_impact = "Saves 25-30px vertical space for sprint tasks"
+
+estimated_time = "30 minutes"
+dependencies = []
+
+deliverables = [
+    "Move statistics to same row as checkbox",
+    "Format statistics compactly",
+    "Test layout on different screen widths",
+    "Ensure statistics update correctly",
+    "Verify checkbox still works"
+]
+
+[tasks.REFACTOR-004]
+id = "REFACTOR-004"
+name = "Toolbar Layout Restructure - Single Row with Left/Right Sections"
+phase = "refactoring"
+assigned_engineer = "engineer_1"
+status = "completed"
+agent = "ui-agent"
+
+description = """
+**MAJOR REFACTOR:** Consolidate all toolbar buttons into single row with LEFT and RIGHT sections.
+
+**Current Layout:**
+  (bug) (feature) (skills) (settings)
+  (workflows dropdown)
+  (Voice) (Send)
+
+**Desired Layout:**
+  LEFT: (Record) (Code Analyzer) (Sprint Planner) (Enhance) (Send to Terminal) (Clear)
+  RIGHT: (Bug) (Feature) (Skills) (Settings)
+
+**Goals:**
+1. Single consolidated toolbar row
+2. LEFT side: Primary workflow buttons
+   - Record (voice capture)
+   - Code Analyzer (opens analyzer workflow)
+   - Sprint Planner (opens planner workflow)
+   - Enhance (enhances text in text area)
+   - Send to Terminal (sends text to active terminal)
+   - Clear (clears text area)
+3. RIGHT side: Secondary workflow buttons
+   - Bug (opens bug report form)
+   - Feature (opens feature request form)
+   - Skills (opens skills list)
+   - Settings (opens settings UI)
+4. Remove all extra rows (workflows dropdown, separate voice/send row)
+5. Text area immediately below toolbar
+
+**Context:**
+- File: vscode-lumina/src/commands/voicePanel.ts
+- Toolbar HTML structure needs complete redesign
+- Use flexbox with justify-content: space-between
+- Left group and right group in separate flex containers
+
+**Implementation:**
+- Create single toolbar container
+- LEFT group: Primary action buttons (6 buttons)
+- RIGHT group: Secondary utility buttons (4 buttons)
+- Remove separate voice/send container
+- Remove workflows dropdown row
+- Style buttons consistently (same size, spacing, colors)
+- Ensure all buttons are clickable and styled correctly
+- Mobile/narrow screen: Consider wrapping or scrolling
+
+**Button Specifications:**
+- Size: 32px height, auto width
+- Spacing: 4px gap between buttons
+- Colors: Primary actions (blue accent), secondary (neutral)
+- Icons: Use codicons or emoji
+- Tooltips: Show on hover
+"""
+
+why = "Single unified toolbar is cleaner, saves vertical space, improves UX"
+context = "Current multi-row toolbar wastes space and looks cluttered"
+reasoning_chain = [
+    "Multiple toolbar rows waste vertical space",
+    "Single row consolidates all controls",
+    "LEFT/RIGHT grouping creates visual hierarchy",
+    "Primary actions on left (most used)",
+    "Secondary utilities on right (less frequent)",
+    "More space for text area and sprint tasks",
+    "Cleaner, more professional UI"
+]
+pattern_context = "Pattern-UI-002: Consolidate controls, maximize content space"
+success_impact = "Saves 60-80px vertical space, cleaner UI, better usability"
+
+estimated_time = "3 hours"
+dependencies = ["REFACTOR-006"]
+
+deliverables = [
+    "Single toolbar row with LEFT and RIGHT sections",
+    "All 10 buttons functional and styled",
+    "Remove extra rows (workflows dropdown, voice/send row)",
+    "Text area immediately below toolbar",
+    "Test all buttons work correctly",
+    "Responsive layout for narrow screens"
+]
+
+error_handling = """
+- [ ] Handle missing button icons gracefully
+- [ ] Disable buttons when functionality unavailable
+- [ ] Show tooltips for all buttons
+- [ ] Handle button click errors (wrap in try-catch)
+- [ ] Log errors when button actions fail
+"""
+
+validation_criteria = [
+    "All 10 buttons visible and clickable",
+    "LEFT/RIGHT sections properly aligned",
+    "No extra rows between toolbar and text area",
+    "Buttons styled consistently",
+    "No layout issues on narrow screens"
+]
+
+[tasks.REFACTOR-005]
+id = "REFACTOR-005"
+name = "Tab System Restructure - Remove Settings Tab, Keep Voice and Sprint Only"
+phase = "refactoring"
+assigned_engineer = "engineer_1"
+status = "completed"
+agent = "ui-agent"
+
+description = """
+**TAB CLEANUP:** Remove Settings tab, keep only "Aetherlight Voice" and "Sprint" tabs.
+
+**Current Tabs:**
+1. Aetherlight Voice ✓ (keep)
+2. Sprint ✓ (keep)
+3. Settings ✗ (remove - replaced by Settings button)
+4. Other tabs? (verify and remove if any)
+
+**Desired Tabs:**
+1. Aetherlight Voice
+2. Sprint
+
+**Rationale:**
+- Settings moved to toolbar button (opens in workflow area)
+- Only 2 tabs needed for core functionality
+- Simpler tab bar = cleaner UI
+- Settings button provides better UX than separate tab
+
+**Context:**
+- File: vscode-lumina/src/commands/voicePanel.ts
+- Tab management in TabManager or inline HTML
+- Tab switching logic needs update
+- Default tab: Aetherlight Voice
+
+**Implementation:**
+- Remove Settings tab from tab bar HTML
+- Update tab switching logic (only 2 tabs)
+- Remove Settings tab content generation
+- Ensure Settings button opens workflow area (not tab)
+- Test tab switching between Voice and Sprint
+- Verify default tab is Voice on first load
+
+**Settings Button vs Settings Tab:**
+- Settings button → Opens settings UI in workflow area (below text area)
+- Settings tab → REMOVED (redundant, wastes tab bar space)
+"""
+
+why = "Simpler tab structure, Settings button provides better UX"
+context = "Settings tab redundant now that Settings moved to toolbar button"
+reasoning_chain = [
+    "Settings can be accessed via toolbar button",
+    "Settings in workflow area is more contextual",
+    "Tab bar simplified to core views only",
+    "Voice and Sprint are primary views",
+    "Fewer tabs = less cognitive load",
+    "Cleaner UI"
+]
+pattern_context = "Pattern-UI-003: Minimize UI chrome, focus on content"
+success_impact = "Simpler navigation, cleaner tab bar"
+
+estimated_time = "1 hour"
+dependencies = ["REFACTOR-004"]
+
+deliverables = [
+    "Remove Settings tab from tab bar",
+    "Update tab switching logic for 2 tabs only",
+    "Test tab switching works correctly",
+    "Verify Settings button opens workflow (not tab)",
+    "Confirm default tab is Voice on load"
+]
+
+error_handling = """
+- [ ] Handle tab switching errors gracefully
+- [ ] Default to Voice tab if Sprint load fails
+- [ ] Log errors when tab content fails to render
+"""
+
+validation_criteria = [
+    "Only 2 tabs visible (Voice, Sprint)",
+    "Tab switching works correctly",
+    "Settings button opens workflow area",
+    "Default tab is Voice",
+    "No broken tab references in code"
+]
+
+[tasks.REFACTOR-006]
+id = "REFACTOR-006"
+name = "Unified Workflow Area System - Hidden by Default, Expands on Button Click"
+phase = "refactoring"
+assigned_engineer = "engineer_1"
+status = "completed"
+agent = "ui-agent"
+
+description = """
+**CORE FEATURE:** Implement unified workflow area that all workflow buttons share.
+
+**Workflow Area Behavior:**
+1. **Hidden by default** - No workflow visible on load
+2. **Expands when button clicked** - Shows below text area
+3. **One workflow at a time** - Clicking new button closes previous
+4. **Toggle behavior** - Clicking same button again closes workflow
+5. **Minimalistic** - No "Workflows" label or extra chrome
+
+**Workflow Buttons:**
+- Code Analyzer → Analyzer form
+- Sprint Planner → Planner form
+- Bug → Bug report form
+- Feature → Feature request form
+- Skills → Skills list
+- Settings → Settings UI
+
+**Layout:**
+  (Toolbar - single row)
+  (Text Area)
+  (Workflow Area - hidden or showing one workflow)
+  (Sprint Section - if on Sprint tab)
+
+**Workflow Area Features:**
+- Smooth expand/collapse animation (300ms)
+- Consistent styling across all workflows
+- Close button (X) in top-right corner
+- Workflow title in header
+- Content area for workflow-specific UI
+- Action buttons at bottom (Enhance, Submit, Save, etc.)
+
+**Context:**
+- File: vscode-lumina/src/commands/voicePanel.ts
+- HTML structure for workflow area container
+- CSS for animations and styling
+- Message passing for workflow state
+- Workflow content components
+
+**Implementation:**
+1. Create workflow area container HTML
+   - Header with title and close button
+   - Content area (dynamically filled)
+   - Footer with action buttons
+2. CSS for show/hide animations
+3. State management for active workflow
+4. Message handlers for workflow switching
+5. Content generators for each workflow type
+6. Close workflow logic (X button or clicking same button)
+
+**Workflow States:**
+- HIDDEN: No workflow active
+- CODE_ANALYZER: Analyzer form visible
+- SPRINT_PLANNER: Planner form visible
+- BUG_REPORT: Bug form visible
+- FEATURE_REQUEST: Feature form visible
+- SKILLS_LIST: Skills list visible
+- SETTINGS: Settings UI visible
+
+**Workflow Switching:**
+```typescript
+// User clicks Code Analyzer button
+currentWorkflow = 'CODE_ANALYZER'
+showWorkflowArea('code-analyzer-content')
+
+// User clicks Bug button
+currentWorkflow = 'BUG_REPORT'
+showWorkflowArea('bug-report-content')  // Closes analyzer, opens bug
+
+// User clicks Bug button again
+currentWorkflow = null
+hideWorkflowArea()  // Closes bug report
+```
+"""
+
+why = "Unified pattern for all interactive workflows - consistent UX, saves space"
+context = "Code Analyzer and Sprint Planner already use this pattern - extend to all workflows"
+reasoning_chain = [
+    "Multiple workflows need same interaction pattern",
+    "Unified component reduces code duplication",
+    "Single workflow area maximizes space efficiency",
+    "Hidden by default keeps UI clean",
+    "Toggle behavior is intuitive",
+    "Consistent UX across all workflows"
+]
+pattern_context = "Pattern-WORKFLOW-001: Unified workflow area for all interactive tools"
+success_impact = "Professional, consistent workflow UX - foundation for all interactive features"
+
+estimated_time = "4 hours"
+dependencies = []
+
+deliverables = [
+    "Workflow area container HTML with animation",
+    "State management for active workflow",
+    "Show/hide workflow functions",
+    "Toggle behavior (click same button to close)",
+    "Close button (X) functionality",
+    "Integration with all 6 workflow buttons",
+    "Test workflow switching and closing"
+]
+
+error_handling = """
+- [ ] Handle workflow content loading errors
+- [ ] Wrap workflow rendering in try-catch
+- [ ] Show error message in workflow area if content fails
+- [ ] Log errors when workflow fails to open
+- [ ] Gracefully handle missing workflow content
+- [ ] Ensure workflow area can always be closed
+"""
+
+validation_criteria = [
+    "Workflow area hidden on initial load",
+    "Clicking button opens workflow",
+    "Clicking different button switches workflow",
+    "Clicking same button closes workflow",
+    "Close button (X) works correctly",
+    "No layout glitches during transitions",
+    "All 6 workflows can open successfully"
+]
+
+[tasks.DEBUG-004]
+id = "DEBUG-004"
+name = "Verify Sprint File Dropdown - Multiple ACTIVE_SPRINT_*.toml Files"
+phase = "debugging"
+assigned_engineer = "engineer_1"
+status = "completed"
+agent = "infrastructure-agent"
+
+description = """
+**VERIFICATION:** Ensure sprint file dropdown shows all ACTIVE_SPRINT_*.toml files and switching works.
+
+**Sprint File Naming Convention:**
+- Format: `ACTIVE_SPRINT_[DESCRIPTOR].toml`
+- Examples:
+  - `ACTIVE_SPRINT.toml` (legacy)
+  - `ACTIVE_SPRINT_v0.16.0.toml` (version-based)
+  - `ACTIVE_SPRINT_2025-11-04.toml` (date-based)
+  - `ACTIVE_SPRINT_UI_REFACTOR.toml` (feature-based)
+
+**Expected Behavior:**
+1. Dropdown lists all ACTIVE_SPRINT_*.toml files in sprint directory
+2. User can switch between sprint files
+3. Selected sprint loads and displays correctly
+4. Selection persists (saved in workspace state)
+5. Custom sprint path setting works (from Settings button)
+
+**Current Status:**
+- ✓ Sprint file dropdown exists (per UI-009 refactor)
+- ? Does it scan for all ACTIVE_SPRINT_*.toml files?
+- ? Can user switch between multiple sprints?
+- ? Does custom sprint path setting work?
+
+**Investigation:**
+1. Check SprintLoader.ts for file scanning logic
+2. Verify dropdown population code
+3. Test with multiple sprint files in directory
+4. Test sprint switching functionality
+5. Test custom sprint path setting from Settings button
+
+**Test Cases:**
+1. Create 3 sprint files with different descriptors
+2. Open voice panel, check dropdown shows all 3
+3. Switch to sprint file 2, verify tasks change
+4. Switch to sprint file 3, verify tasks change
+5. Reload VS Code, verify selection persists
+6. Change sprint path in Settings, verify new path works
+
+**If Broken:**
+- Sprint files might not be scanned correctly
+- Dropdown might only show ACTIVE_SPRINT.toml (hardcoded)
+- Switching might not reload sprint data
+- Custom path setting might not be implemented
+
+**Fix if Needed:**
+- Add file scanning logic to SprintLoader
+- Update dropdown to show all matching files
+- Implement sprint switching logic
+- Connect Settings sprint path to SprintLoader
+"""
+
+why = "Users need to switch between multiple sprints (active, archived, backlog)"
+context = "Sprint file dropdown planned but verification needed"
+reasoning_chain = [
+    "Projects often have multiple sprints",
+    "Need to view active sprint",
+    "Need to reference completed sprints",
+    "Need to plan future sprints",
+    "Dropdown enables easy switching",
+    "Custom path enables flexible organization"
+]
+pattern_context = "Pattern-SPRINT-002: Multi-sprint management"
+success_impact = "Users can manage multiple sprints efficiently"
+
+estimated_time = "2 hours"
+dependencies = ["UI-009"]
+
+deliverables = [
+    "Verify sprint file dropdown shows all ACTIVE_SPRINT_*.toml files",
+    "Test sprint switching functionality",
+    "Fix any issues with file scanning or switching",
+    "Test custom sprint path setting from Settings button",
+    "Document how sprint file selection works",
+    "Add test cases to prevent regression"
+]
+
+error_handling = """
+- [ ] Handle missing sprint directory gracefully
+- [ ] Show error if no sprint files found
+- [ ] Handle sprint file parsing errors
+- [ ] Validate custom sprint path exists
+- [ ] Show user-friendly error for invalid paths
+- [ ] Log errors when sprint loading fails
+"""
+
+validation_criteria = [
+    "Dropdown shows all ACTIVE_SPRINT_*.toml files",
+    "Switching between sprints works correctly",
+    "Selection persists across VS Code reloads",
+    "Custom sprint path setting works",
+    "No errors when no sprint files exist",
+    "Error messages are user-friendly"
+]
+
+[tasks.PATCH-001]
+id = "PATCH-001"
+name = "Publish v0.16.7 with UI fixes"
+phase = "release"
+assigned_engineer = "engineer_1"
+status = "pending"
+agent = "infrastructure-agent"
+
+description = """
+Publish patch release v0.16.7 with UI bug fixes and comprehensive release validation.
+
+**Includes:**
+- UI-001 through UI-010: All UI bug fixes
+- RELEASE-001 through RELEASE-007: Pre-release validation tasks
+- Enhanced sprint-plan skill with ENHANCE mode
+
+**Process:**
+```bash
+node scripts/publish-release.js patch --yes
+```
+
+**Dogfooding Strategy:**
+- Install immediately: npm install -g aetherlight@latest
+- Comprehensive validation completed before publish
+- All documentation updated (README, CHANGELOG, npm docs)
+"""
+
+estimated_time = "15 minutes"
+dependencies = ["UI-001", "UI-002", "UI-003", "UI-004", "UI-005", "RELEASE-001", "RELEASE-002", "RELEASE-003", "RELEASE-004", "RELEASE-005", "RELEASE-006", "RELEASE-007"]
+
+deliverables = [
+    "v0.16.7 published to npm and GitHub",
+    "All UI bugs verified fixed",
+    "All release validation tasks completed",
+    "Extension reloaded and tested"
+]
+
+[tasks.RELEASE-001]
+id = "RELEASE-001"
+name = "Verify sprint-plan skill enhancements"
+phase = "release"
+assigned_engineer = "engineer_1"
+status = "pending"
+agent = "infrastructure-agent"
+
+description = """
+Verify that the sprint-plan skill has been successfully enhanced with ENHANCE mode.
+
+**Verification Steps:**
+1. Confirm ENHANCE mode decision logic added (lines 42-64)
+2. Confirm ENHANCE workflow documentation complete (10 steps)
+3. Confirm Mode Comparison table added
+4. Test ENHANCE mode with current sprint (add these RELEASE tasks)
+"""
+
+estimated_time = "1-2 hours"
+dependencies = []
+
+deliverables = [
+    "Sprint-plan skill has ENHANCE mode",
+    "ENHANCE mode tested with current sprint",
+    "Documentation updated in SKILL.md"
+]
+
+[tasks.RELEASE-002]
+id = "RELEASE-002"
+name = "Document Sprint Planner UI state"
+phase = "release"
+assigned_engineer = "engineer_1"
+status = "pending"
+agent = "documentation-agent"
+
+description = """
+Document the current state of Sprint Planner UI for reference.
+
+**Components to Document:**
+1. Sprint dropdown (multi-file support via findAvailableSprints)
+2. Bug Report form (structured form with Enhance button)
+3. Feature Request form (structured form with Enhance button)
+4. Single-row toolbar (refactored in REFACTOR-004)
+5. Settings tab removed (REFACTOR-005)
+"""
+
+estimated_time = "1 hour"
+dependencies = []
+
+deliverables = [
+    "Sprint Planner UI state documented",
+    "Component reference added to docs",
+    "Integration points noted"
+]
+
+[tasks.RELEASE-003]
+id = "RELEASE-003"
+name = "Verify sub-package publication"
+phase = "release"
+assigned_engineer = "engineer_1"
+status = "pending"
+agent = "infrastructure-agent"
+
+description = """
+Verify all sub-packages are published to npm at correct version.
+
+**Critical:** Prevents repeat of v0.13.29 bug where sub-packages weren't published.
+
+**Sub-packages to verify:**
+1. @aetherlight/analyzer@0.16.7
+2. @aetherlight/sdk@0.16.7
+3. @aetherlight/node@0.16.7
+
+**Verification:**
+```bash
+npm view @aetherlight/analyzer version
+npm view @aetherlight/sdk version
+npm view @aetherlight/node version
+```
+
+All must show 0.16.7 before publishing main package.
+"""
+
+estimated_time = "30 minutes"
+dependencies = []
+
+deliverables = [
+    "All sub-packages verified at v0.16.7",
+    "No missing dependency errors",
+    "Publish script includes sub-package verification"
+]
+
+[tasks.RELEASE-004]
+id = "RELEASE-004"
+name = "Update repository README documentation"
+phase = "release"
+assigned_engineer = "engineer_1"
+status = "pending"
+agent = "documentation-agent"
+
+description = """
+Update repository README files to reflect v0.16.7 changes.
+
+**Files to Update:**
+1. Root README.md - Project overview
+2. vscode-lumina/README.md - Extension documentation
+3. Remove deprecated features from docs
+4. Update feature list with Bug/Feature forms
+5. Update sprint planning documentation
+"""
+
+estimated_time = "1 hour"
+dependencies = []
+
+deliverables = [
+    "README files updated",
+    "Deprecated features removed from docs",
+    "New features documented (Bug/Feature forms, Sprint dropdown)"
+]
+
+[tasks.RELEASE-005]
+id = "RELEASE-005"
+name = "Update npm package documentation"
+phase = "release"
+assigned_engineer = "engineer_1"
+status = "pending"
+agent = "documentation-agent"
+
+description = """
+Update npm package documentation for all published packages.
+
+**Packages to Update:**
+1. vscode-lumina package.json description
+2. @aetherlight/analyzer package.json
+3. @aetherlight/sdk package.json
+4. @aetherlight/node package.json
+
+**Update Content:**
+- Accurate feature descriptions
+- Installation instructions
+- Usage examples
+- Version compatibility notes
+"""
+
+estimated_time = "1 hour"
+dependencies = []
+
+deliverables = [
+    "All package.json descriptions updated",
+    "npm package pages accurate",
+    "Installation guides current"
+]
+
+[tasks.RELEASE-006]
+id = "RELEASE-006"
+name = "Update CHANGELOG and release notes"
+phase = "release"
+assigned_engineer = "engineer_1"
+status = "pending"
+agent = "documentation-agent"
+
+description = """
+Create comprehensive CHANGELOG entry for v0.16.7.
+
+**CHANGELOG Sections:**
+1. Added: Sprint-plan ENHANCE mode, Bug/Feature forms, Sprint dropdown
+2. Fixed: All UI bugs (UI-001 through UI-010)
+3. Refactored: Single-row toolbar, settings tab removal
+4. Documentation: Updated READMEs, skill documentation
+
+**Release Notes:**
+- Highlight sprint enhancement capability
+- Mention bug fixes and UI improvements
+- Note documentation updates
+"""
+
+estimated_time = "1 hour"
+dependencies = ["RELEASE-001", "RELEASE-002", "RELEASE-004", "RELEASE-005"]
+
+deliverables = [
+    "CHANGELOG.md updated for v0.16.7",
+    "Release notes prepared",
+    "GitHub release draft ready"
+]
+
+[tasks.RELEASE-007]
+id = "RELEASE-007"
+name = "Pre-publish audit"
+phase = "release"
+assigned_engineer = "engineer_1"
+status = "pending"
+agent = "infrastructure-agent"
+
+description = """
+Comprehensive pre-publish audit before v0.16.7 release.
+
+**Audit Checklist:**
+1. Git: All changes committed, no uncommitted work
+2. npm: All sub-packages at v0.16.7
+3. Documentation: README, CHANGELOG, skills updated
+4. Tests: All tests passing (if applicable)
+5. TypeScript: Compiles without errors
+6. No forbidden dependencies (Pattern-PUBLISH-003)
+7. Sprint: All RELEASE tasks completed
+8. Confidence: High confidence for release
+
+**Pre-Flight Checklist from CLAUDE.md:**
+- No native dependencies (Pattern-PUBLISH-003)
+- No runtime npm dependencies except whitelisted
+- All package versions synced
+"""
+
+estimated_time = "1-2 hours"
+dependencies = ["RELEASE-001", "RELEASE-002", "RELEASE-003", "RELEASE-004", "RELEASE-005", "RELEASE-006"]
+
+deliverables = [
+    "Audit checklist completed",
+    "All critical issues resolved",
+    "Ready for publish"
+]
+
+[progress]
+total_tasks = 30
+completed_tasks = 22
+in_progress_tasks = 0
+pending_tasks = 8
+completion_percentage = 73
+
+[notes]
+dogfooding_strategy = """
+Release early, fix fast via patches.
+- v0.16.0: Initial release with SYNC-001
+- v0.16.1: UI bug fixes (this sprint)
+- v0.16.2+: Additional bugs found during dogfooding
+
+Each patch takes <1 hour to publish and install.
+"""
+
+priority_order = """
+1. UI-001, UI-002 (button functionality - blocking workflow)
+2. UI-003 (resize - UX issue)
+3. UI-004, UI-005 (visual cleanup)
+4. DEBUG-001, DEBUG-002 (non-blocking errors)
+5. PATCH-001 (release)
+"""
