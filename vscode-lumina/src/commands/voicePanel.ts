@@ -131,8 +131,11 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
     private setupSprintFileWatcher(): void {
         const workspaceRoot = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
         if (!workspaceRoot) {
+            console.log('[ÆtherLight] FileSystemWatcher: No workspace root, skipping watcher setup');
             return;
         }
+
+        console.log(`[ÆtherLight] FileSystemWatcher: Setting up watchers for workspace: ${workspaceRoot}`);
 
         // Watch ACTIVE_SPRINT.toml in multiple possible locations
         // This supports both dev mode (internal/) and production mode (sprints/)
@@ -145,36 +148,53 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
         const config = vscode.workspace.getConfiguration('aetherlight');
         const configuredPath = config.get<string>('sprintFile');
         if (configuredPath) {
+            console.log(`[ÆtherLight] FileSystemWatcher: User-configured path found: ${configuredPath}`);
             patterns.unshift(configuredPath);
         }
+
+        console.log(`[ÆtherLight] FileSystemWatcher: Watching patterns:`, patterns);
 
         // Debounce timer to avoid rapid refreshes (shared across all watchers)
         let debounceTimer: NodeJS.Timeout | null = null;
 
-        const handleFileChange = async () => {
+        const handleFileChange = async (uri: vscode.Uri) => {
+            console.log(`[ÆtherLight] FileSystemWatcher: File change detected: ${uri.fsPath}`);
+
             // Clear existing timer
             if (debounceTimer) {
+                console.log('[ÆtherLight] FileSystemWatcher: Clearing existing debounce timer');
                 clearTimeout(debounceTimer);
             }
 
             // Debounce 500ms (wait for file writes to settle)
             debounceTimer = setTimeout(async () => {
-                console.log('[ÆtherLight] Sprint TOML changed, auto-refreshing...');
+                console.log('[ÆtherLight] FileSystemWatcher: Debounce timer fired, reloading sprint...');
 
-                // Reload sprint tasks
-                await this.loadSprintTasks();
+                try {
+                    // Reload sprint tasks
+                    await this.loadSprintTasks();
+                    console.log(`[ÆtherLight] FileSystemWatcher: Sprint tasks reloaded, count: ${this.sprintTasks.length}`);
 
-                // Refresh all active webviews
-                if (this._view) {
-                    this._view.webview.html = this._getHtmlForWebview(this._view.webview);
+                    // Refresh all active webviews
+                    if (this._view) {
+                        console.log('[ÆtherLight] FileSystemWatcher: Refreshing main webview');
+                        this._view.webview.html = this._getHtmlForWebview(this._view.webview);
+                    } else {
+                        console.log('[ÆtherLight] FileSystemWatcher: No main webview to refresh');
+                    }
+
+                    // Refresh all popped-out panels
+                    if (this.poppedOutPanels.length > 0) {
+                        console.log(`[ÆtherLight] FileSystemWatcher: Refreshing ${this.poppedOutPanels.length} popped-out panels`);
+                        for (const panel of this.poppedOutPanels) {
+                            panel.webview.html = this._getHtmlForWebview(panel.webview);
+                        }
+                    }
+
+                    console.log('[ÆtherLight] FileSystemWatcher: Sprint panel auto-refresh complete');
+                } catch (error) {
+                    console.error('[ÆtherLight] FileSystemWatcher: Error during refresh:', error);
                 }
-
-                // Refresh all popped-out panels
-                for (const panel of this.poppedOutPanels) {
-                    panel.webview.html = this._getHtmlForWebview(panel.webview);
-                }
-
-                console.log('[ÆtherLight] Sprint panel auto-refreshed');
             }, 500);
         };
 
@@ -183,12 +203,23 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             const pattern = new vscode.RelativePattern(workspaceRoot, patternPath);
             const watcher = vscode.workspace.createFileSystemWatcher(pattern);
 
-            watcher.onDidChange(handleFileChange);
-            watcher.onDidCreate(handleFileChange);
+            console.log(`[ÆtherLight] FileSystemWatcher: Created watcher for pattern: ${patternPath}`);
+
+            watcher.onDidChange((uri) => {
+                console.log(`[ÆtherLight] FileSystemWatcher.onDidChange fired for: ${uri.fsPath}`);
+                handleFileChange(uri);
+            });
+
+            watcher.onDidCreate((uri) => {
+                console.log(`[ÆtherLight] FileSystemWatcher.onDidCreate fired for: ${uri.fsPath}`);
+                handleFileChange(uri);
+            });
 
             this.sprintFileWatchers.push(watcher);
             this._context.subscriptions.push(watcher);
         }
+
+        console.log(`[ÆtherLight] FileSystemWatcher: Setup complete, ${this.sprintFileWatchers.length} watchers active`);
     }
 
     /**

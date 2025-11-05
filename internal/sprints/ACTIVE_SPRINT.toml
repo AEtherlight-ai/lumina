@@ -1155,7 +1155,7 @@ id = "UI-011"
 name = "Fix WebView Sprint Task List Not Refreshing on TOML Changes"
 phase = "debugging"
 assigned_engineer = "engineer_1"
-status = "pending"
+status = "in_progress"
 agent = "infrastructure-agent"
 
 description = """
@@ -1557,6 +1557,146 @@ validation_criteria = [
     "All 6 workflows can open successfully"
 ]
 
+[tasks.REFACTOR-007]
+id = "REFACTOR-007"
+name = "Fix Sprint Refresh Button - Remove Duplicate Icons, Update Notification, Auto-Refresh Selected File"
+phase = "refactoring"
+assigned_engineer = "engineer_1"
+status = "pending"
+agent = "ui-agent"
+
+description = """
+**BUG:** Sprint refresh button (🔄) has multiple issues preventing proper functionality.
+
+**Current Issues:**
+
+1. **Visual Bug - Duplicate Icons:**
+   - Button shows BOTH blue/white 🔄 emoji AND white box with black circle
+   - White box appears to be VS Code notification icon overlaying button
+   - Makes button look cluttered and unprofessional
+   - Only ONE icon should be visible (the 🔄 emoji)
+
+2. **Outdated Notification Message:**
+   - Toast shows: "✅ Sprint data reloaded from CURRENT_SPRINT.md"
+   - WRONG - system uses TOML (ACTIVE_SPRINT.toml) not .md
+   - Message hardcoded to old format from Pattern-SPRINT-001 migration
+   - Should reference actual sprint file selected in dropdown
+
+3. **Not Refreshing Selected File:**
+   - User can select different sprint files from dropdown
+   - Refresh button should reload currently selected file
+   - Currently may not be using selected file path
+   - Must integrate with switchSprint() dropdown selection
+
+4. **Notification UI Issues:**
+   - Toast has Settings button + caret that expands
+   - Clicking toast itself does nothing
+   - This is standard VS Code behavior (not blocking)
+
+**Root Cause Analysis:**
+
+Location: vscode-lumina/src/commands/voicePanel.ts
+
+**Issue #1 - Duplicate Icons:**
+- Line 2087-2089: Sprint header refresh button HTML
+- Button: `<button class="icon-btn" onclick="reloadSprint()">🔄</button>`
+- Hypothesis: VS Code notification overlays icon near button
+- CSS may need z-index adjustment
+
+**Issue #2 - Outdated Message:**
+- Line 572: `vscode.window.showInformationMessage('✅ Sprint data reloaded from CURRENT_SPRINT.md');`
+- Hardcoded reference to old .md format
+- Should use dynamic file path from SprintLoader
+
+**Issue #3 - Not Using Selected File:**
+- User selects sprint from dropdown (DEBUG-004 feature)
+- Dropdown calls switchSprint(filename)
+- Refresh button may not respect selected file
+- Need to pass currently selected file to reload logic
+
+**Expected Behavior:**
+
+1. **Refresh Button Functionality:**
+   - User selects "internal/sprints/ACTIVE_SPRINT.toml" from dropdown
+   - User clicks 🔄 refresh button
+   - System reloads THAT specific file (not default)
+   - WebView updates with latest data from that file
+
+2. **Visual:**
+   - Only 🔄 emoji visible (no duplicate icons)
+   - Clean, professional appearance
+
+3. **Notification Message (Choose One):**
+   - Option A: "✅ Sprint reloaded from {selected_file}"
+   - Option B: "✅ Sprint data reloaded" (generic, cleaner)
+   - NO references to .md files
+
+**Implementation Plan:**
+
+1. **Fix Notification Message** (Easy - 15 min):
+   - Update voicePanel.ts line 572
+   - Use SprintLoader.getCurrentSprintPath() or pass selected file
+   - OR use generic: "✅ Sprint data reloaded"
+
+2. **Ensure Refresh Uses Selected File** (Medium - 30 min):
+   - Check switchSprint() to see how selected file is tracked
+   - Verify reloadSprint() uses correct file path
+   - Test: Select sprint A → Refresh → Verify A reloads (not default)
+   - Test: Select sprint B → Refresh → Verify B reloads
+
+3. **Fix Duplicate Icon Visual** (Medium - 15 min):
+   - Inspect .icon-btn CSS
+   - Test removing showInformationMessage to see if icon disappears
+   - Add CSS fixes if needed (z-index, positioning)
+   - Verify single icon across light/dark themes
+"""
+
+why = "Refresh button broken - shows wrong file reference, may not refresh selected file, has visual bugs"
+context = "Sprint migrated from .md to .toml (Pattern-SPRINT-001), dropdown added (DEBUG-004), notification not updated"
+reasoning_chain = [
+    "1. User selects sprint from dropdown (e.g., sprints/ACTIVE_SPRINT.toml)",
+    "2. User clicks 🔄 refresh button",
+    "3. EXPECTED: Reload selected file, update UI",
+    "4. ACTUAL: Shows outdated .md message, may not reload correct file",
+    "5. Visual bug: Duplicate icons confuse user",
+    "6. Result: User can't reliably refresh selected sprint"
+]
+pattern_context = "Pattern-SPRINT-001 (TOML Source of Truth), DEBUG-004 (Multi-file sprint support)"
+success_impact = "Refresh button works correctly, reloads selected file, clean UI, accurate messaging"
+
+estimated_time = "1 hour"
+dependencies = []
+
+deliverables = [
+    "Refresh button reloads currently selected sprint file",
+    "Notification message updated (no .md references)",
+    "Only single 🔄 icon visible (no duplicates)",
+    "Test with multiple sprint files in dropdown",
+    "Verify refresh works for dev/prod/custom paths"
+]
+
+validation_criteria = [
+    "Select sprint A → Click refresh → Sprint A reloads",
+    "Select sprint B → Click refresh → Sprint B reloads",
+    "Notification shows correct file OR generic message",
+    "No 'CURRENT_SPRINT.md' in notification",
+    "Only 🔄 emoji visible (no white box)",
+    "WebView updates after refresh (requires UI-011 fix)"
+]
+
+error_handling = """
+- [ ] Wrap reloadSprint in try-catch
+- [ ] Show error if selected file missing
+- [ ] Show error if reload fails
+- [ ] Gracefully handle invalid file paths
+- [ ] Log errors for debugging
+"""
+
+files_to_modify = [
+    "vscode-lumina/src/commands/voicePanel.ts (line 572 - notification)",
+    "vscode-lumina/src/commands/voicePanel.ts (reloadSprint handler - use selected file)"
+]
+
 [tasks.DEBUG-004]
 id = "DEBUG-004"
 name = "Verify Sprint File Dropdown - Multiple ACTIVE_SPRINT_*.toml Files"
@@ -1702,7 +1842,7 @@ id = "RELEASE-001"
 name = "Verify sprint-plan skill enhancements"
 phase = "release"
 assigned_engineer = "engineer_1"
-status = "pending"
+status = "completed"
 agent = "infrastructure-agent"
 
 description = """
@@ -1792,7 +1932,7 @@ id = "RELEASE-002"
 name = "Document Sprint Planner UI state"
 phase = "release"
 assigned_engineer = "engineer_1"
-status = "pending"
+status = "completed"
 agent = "documentation-agent"
 
 description = """
@@ -1892,7 +2032,7 @@ id = "RELEASE-003"
 name = "Verify sub-package publication"
 phase = "release"
 assigned_engineer = "engineer_1"
-status = "pending"
+status = "completed"
 agent = "infrastructure-agent"
 
 description = """
@@ -2009,7 +2149,7 @@ id = "RELEASE-004"
 name = "Update repository README documentation"
 phase = "release"
 assigned_engineer = "engineer_1"
-status = "pending"
+status = "completed"
 agent = "documentation-agent"
 
 description = """
@@ -2103,7 +2243,7 @@ id = "RELEASE-005"
 name = "Update npm package documentation"
 phase = "release"
 assigned_engineer = "engineer_1"
-status = "pending"
+status = "completed"
 agent = "documentation-agent"
 
 description = """
@@ -2200,7 +2340,7 @@ id = "RELEASE-006"
 name = "Update CHANGELOG and release notes"
 phase = "release"
 assigned_engineer = "engineer_1"
-status = "pending"
+status = "completed"
 agent = "documentation-agent"
 
 description = """
@@ -2418,11 +2558,11 @@ error_handling = """
 patterns = ["Pattern-PUBLISH-001", "Pattern-PUBLISH-002", "Pattern-PUBLISH-003"]
 
 [progress]
-total_tasks = 31
+total_tasks = 32
 completed_tasks = 22
-in_progress_tasks = 0
-pending_tasks = 9
-completion_percentage = 71
+in_progress_tasks = 1
+pending_tasks = 10
+completion_percentage = 69
 
 [notes]
 dogfooding_strategy = """
