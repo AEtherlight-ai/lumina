@@ -1,7 +1,7 @@
 {
   "name": "aetherlight",
   "displayName": "ÆtherLight",
-  "description": "Voice-to-intelligence platform for developers. Capture voice, match patterns, prevent AI hallucinations.",
+  "description": "Voice-to-intelligence platform for developers. Voice capture, sprint planning with AI, bug/feature forms, pattern matching to prevent AI hallucinations.",
   "version": "0.16.6",
   "publisher": "aetherlight",
   "repository": {
@@ -31,7 +31,13 @@
     "transcription",
     "whisper",
     "pattern-matching",
-    "developer-tools"
+    "developer-tools",
+    "sprint-planning",
+    "agile",
+    "bug-report",
+    "feature-request",
+    "claude",
+    "prompt-enhancement"
   ],
   "contributes": {
     "commands": [

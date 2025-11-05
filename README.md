@@ -82,11 +82,13 @@ Build your own applications with ÆtherLight's voice control and pattern matchin
 
 **VS Code Extension (78 TypeScript files):**
 - Voice-to-text capture (multiple variants)
-- Sprint and task management (TOML-based)
+- Sprint management (TOML-based with CREATE & ENHANCE modes)
+- Multi-sprint file support (switch between active/archived sprints)
 - Terminal automation and management
-- 6-tab Activity Panel (Voice, Sprint, Planning, Patterns, Activity, Settings)
+- Single-panel UI with unified workflow area (Voice + Sprint)
+- Bug Report & Feature Request forms with AI enhancement
 - Works in VS Code, Cursor, and compatible editors
-- 24 registered commands
+- 24+ registered commands
 
 **Rust Core (132 source files, 521 test functions):**
 - Pattern matching system (509 lines pattern.rs, 489 lines confidence.rs, 21KB matching.rs)

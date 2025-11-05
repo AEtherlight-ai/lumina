@@ -31,6 +31,9 @@ This installs:
 - 📊 **Confidence Scoring** - Know when AI might be hallucinating
 - 🔍 **Context Awareness** - File context, project state, error detection
 - 🚀 **Quick Send** - Enhanced prompts to Claude Code/Cursor CLI
+- 📋 **Sprint Planning** - Create and enhance sprints with AI assistance (v0.16.7+)
+- 🐛 **Bug Reports & Features** - Structured forms with AI enhancement (v0.16.7+)
+- 🗂️ **Multi-Sprint Management** - Switch between multiple sprint files (v0.16.7+)
 
 ### Desktop App (Windows/Mac)
 - Global voice capture (works in any application)
@@ -175,6 +178,15 @@ code --uninstall-extension aetherlight
 # Windows: Control Panel → Programs → ÆtherLight
 # Mac: Drag /Applications/ÆtherLight.app to Trash
 ```
+
+## Documentation
+
+### Extension Architecture
+- **[Sprint Planner UI](./docs/SPRINT_PLANNER_UI.md)** - WebView architecture, workflow patterns, component reference
+
+### External Resources
+- **User Guide:** https://github.com/AEtherlight-ai/lumina
+- **API Documentation:** https://github.com/AEtherlight-ai/lumina/wiki
 
 ## Links
 

@@ -89,6 +89,22 @@ git push origin master --tags
 
 **Note:** All packages use **unscoped names** (not `@aetherlight/...`)
 
+### Sub-Package Publish Order
+
+**CRITICAL:** Sub-packages MUST be published BEFORE the main package.
+
+**Why:** The main package (`aetherlight`) depends on sub-packages at the same version. If sub-packages aren't published first, users will get dependency resolution errors when installing.
+
+**Automated script order** (`scripts/publish-release.js`):
+1. `aetherlight-analyzer` (no dependencies)
+2. `aetherlight-sdk` (no dependencies)
+3. `aetherlight-node` (no dependencies)
+4. `aetherlight` (depends on analyzer, sdk, node) - **PUBLISHED LAST**
+
+**Historical Bug:** v0.13.29 published main package without sub-packages → users couldn't install → 2-hour emergency fix
+
+**Prevention:** The automated publish script (lines 437-455) publishes sub-packages first, then verifies them (lines 459-485), and only then publishes the main package. Manual publishing bypasses this safety check.
+
 ---
 
 ## Version Bump Script
