@@ -2217,6 +2217,109 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 <p>${task.phase}</p>
             </div>
 
+            ${task.why ? `
+            <div class="detail-section">
+                <h4>💡 Why</h4>
+                <p class="task-why">${task.why}</p>
+            </div>
+            ` : ''}
+
+            ${task.context ? `
+            <div class="detail-section">
+                <h4>🔍 Context</h4>
+                <p class="task-context">${task.context}</p>
+            </div>
+            ` : ''}
+
+            ${task.reasoning_chain && task.reasoning_chain.length > 0 ? `
+            <div class="detail-section">
+                <h4>🧠 Reasoning Chain</h4>
+                <ol class="reasoning-list">
+                    ${task.reasoning_chain.map(step => `<li>${step}</li>`).join('')}
+                </ol>
+            </div>
+            ` : ''}
+
+            ${task.pattern_context ? `
+            <div class="detail-section">
+                <h4>🎨 Pattern Context</h4>
+                <p class="pattern-context">${task.pattern_context}</p>
+            </div>
+            ` : ''}
+
+            ${task.success_impact ? `
+            <div class="detail-section">
+                <h4>🎯 Success Impact</h4>
+                <p class="success-impact">${task.success_impact}</p>
+            </div>
+            ` : ''}
+
+            ${task.deliverables && task.deliverables.length > 0 ? `
+            <div class="detail-section">
+                <h4>📦 Deliverables</h4>
+                <ul class="deliverables-list">
+                    ${task.deliverables.map(item => `<li>${item}</li>`).join('')}
+                </ul>
+            </div>
+            ` : ''}
+
+            ${task.validation_criteria && task.validation_criteria.length > 0 ? `
+            <div class="detail-section">
+                <h4>✅ Validation Criteria</h4>
+                <ul class="validation-list">
+                    ${task.validation_criteria.map(criterion => `<li>${criterion}</li>`).join('')}
+                </ul>
+            </div>
+            ` : ''}
+
+            ${task.files_to_modify && task.files_to_modify.length > 0 ? `
+            <div class="detail-section">
+                <h4>📝 Files to Modify</h4>
+                <ul class="files-list">
+                    ${task.files_to_modify.map(file => `<li><code>${file}</code></li>`).join('')}
+                </ul>
+            </div>
+            ` : ''}
+
+            ${task.files_to_create && task.files_to_create.length > 0 ? `
+            <div class="detail-section">
+                <h4>📄 Files to Create</h4>
+                <ul class="files-list">
+                    ${task.files_to_create.map(file => `<li><code>${file}</code></li>`).join('')}
+                </ul>
+            </div>
+            ` : ''}
+
+            ${task.error_handling ? `
+            <div class="detail-section">
+                <h4>⚠️ Error Handling</h4>
+                <p class="error-handling">${task.error_handling}</p>
+            </div>
+            ` : ''}
+
+            ${task.test_requirements ? `
+            <div class="detail-section">
+                <h4>🧪 Test Requirements</h4>
+                <p class="test-requirements">${task.test_requirements}</p>
+            </div>
+            ` : ''}
+
+            ${task.test_files && task.test_files.length > 0 ? `
+            <div class="detail-section">
+                <h4>🧪 Test Files</h4>
+                <ul class="files-list">
+                    ${task.test_files.map((file: string) => `<li><code>${file}</code></li>`).join('')}
+                </ul>
+            </div>
+            ` : ''}
+
+            ${task.test_coverage_requirement ? `
+            <div class="detail-section">
+                <h4>📊 Test Coverage</h4>
+                <p>${Math.round(task.test_coverage_requirement * 100)}% required</p>
+            </div>
+            ` : ''}
+
             ${this.selectedTaskDetails ? `
             <div class="detail-section full-task-details">
                 <h4>📄 Full Task Implementation</h4>
@@ -2743,8 +2846,9 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
         }
 
         .pattern-tag {
-            background-color: var(--vscode-inputValidation-infoBorder);
-            color: var(--vscode-inputValidation-infoForeground);
+            background-color: var(--vscode-terminal-ansiBlue);
+            color: var(--vscode-editor-background);
+            border: 1px solid var(--vscode-terminal-ansiBrightBlue);
         }
 
         .performance-target {

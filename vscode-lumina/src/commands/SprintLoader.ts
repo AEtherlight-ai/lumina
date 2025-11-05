@@ -58,6 +58,11 @@ export interface SprintTask {
     reasoning_chain?: string[];
     pattern_context?: string;
     success_impact?: string;
+    // Test-related fields (TDD enforcement)
+    error_handling?: string;
+    test_requirements?: string;
+    test_files?: string[];
+    test_coverage_requirement?: number;
 }
 
 export interface SprintMetadata {
