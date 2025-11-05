@@ -879,25 +879,78 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 }
                 break;
 
-            case 'enhanceAndSend':
+            case 'enhanceBugReport':
                 /**
-                 * UI-006 FIX: Enhance with skill and send to terminal
-                 * WHY: Bug/Feature Request buttons use skill-based workflow
-                 * REASONING: Enhance prompt with specific skill, then send to terminal
+                 * UI-006 REFIX: Enhance bug report form data → Main text area
+                 * WHY: Structured form → detailed prompt → skill enhancement → main text area for review
+                 * PATTERN: Form data → Construct prompt → Enhance with skill → Populate text area
                  */
                 try {
-                    // Enhance with specified skill
-                    const skillEnhanced = await this.promptEnhancer.enhancePrompt(message.text, message.skill);
+                    const bugData = message.data;
 
-                    // Send to active terminal
-                    const terminal = vscode.window.activeTerminal || vscode.window.createTerminal('ÆtherLight');
-                    terminal.show();
-                    terminal.sendText(skillEnhanced.prompt);
+                    // Construct detailed prompt from form data
+                    let bugPrompt = `Report Bug: ${bugData.title}\n\n`;
+                    bugPrompt += `Severity: ${bugData.severity.toUpperCase()}\n`;
+                    if (bugData.component) {
+                        bugPrompt += `Component: ${bugData.component}\n`;
+                    }
+                    bugPrompt += `\nDescription:\n${bugData.description}\n`;
+                    if (bugData.context) {
+                        bugPrompt += `\nAdditional Context:\n${bugData.context}\n`;
+                    }
 
-                    vscode.window.showInformationMessage(`✨ Enhanced prompt sent to terminal using ${message.skill} skill`);
+                    // Enhance with skill detector (will auto-detect bug-report skill from prompt)
+                    const enhanced = await this.promptEnhancer.enhancePrompt(bugPrompt, 'general');
+
+                    // Send to webview to populate main text area
+                    webview.postMessage({
+                        type: 'populateTextArea',
+                        text: enhanced.prompt
+                    });
+
+                    vscode.window.showInformationMessage('✨ Bug report enhanced - review in text area and click Send');
                 } catch (error) {
-                    console.error('[ÆtherLight] Enhance and send failed:', error);
-                    vscode.window.showErrorMessage(`Failed to enhance and send: ${(error as Error).message}`);
+                    console.error('[ÆtherLight] Bug report enhancement failed:', error);
+                    vscode.window.showErrorMessage(`Failed to enhance bug report: ${(error as Error).message}`);
+                }
+                break;
+
+            case 'enhanceFeatureRequest':
+                /**
+                 * UI-006 REFIX: Enhance feature request form data → Main text area
+                 * WHY: Structured form → detailed prompt → skill enhancement → main text area for review
+                 * PATTERN: Form data → Construct prompt → Enhance with skill → Populate text area
+                 */
+                try {
+                    const featureData = message.data;
+
+                    // Construct detailed prompt from form data
+                    let featurePrompt = `Feature Request: ${featureData.title}\n\n`;
+                    featurePrompt += `Priority: ${featureData.priority.toUpperCase()}\n`;
+                    if (featureData.category) {
+                        featurePrompt += `Category: ${featureData.category}\n`;
+                    }
+                    featurePrompt += `\nProblem / Use Case:\n${featureData.useCase}\n`;
+                    if (featureData.solution) {
+                        featurePrompt += `\nProposed Solution:\n${featureData.solution}\n`;
+                    }
+                    if (featureData.context) {
+                        featurePrompt += `\nAdditional Context:\n${featureData.context}\n`;
+                    }
+
+                    // Enhance with skill detector (will auto-detect feature-request skill from prompt)
+                    const enhanced = await this.promptEnhancer.enhancePrompt(featurePrompt, 'general');
+
+                    // Send to webview to populate main text area
+                    webview.postMessage({
+                        type: 'populateTextArea',
+                        text: enhanced.prompt
+                    });
+
+                    vscode.window.showInformationMessage('✨ Feature request enhanced - review in text area and click Send');
+                } catch (error) {
+                    console.error('[ÆtherLight] Feature request enhancement failed:', error);
+                    vscode.window.showErrorMessage(`Failed to enhance feature request: ${(error as Error).message}`);
                 }
                 break;
 
@@ -2980,6 +3033,13 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                         updateSendButton();
                         showStatus('✅ Enhancement complete!', 'info');
                         break;
+                    case 'populateTextArea':
+                        // UI-006 REFIX: Populate main text area from Bug/Feature forms
+                        document.getElementById('transcriptionText').value = message.text;
+                        autoResizeTextarea();
+                        updateSendButton();
+                        showStatus('✅ Review enhanced text and click Send to terminal', 'info');
+                        break;
                     case 'autoSelectTerminal':
                         // B-003: Auto-selection triggered by Shell Integration
                         selectTerminal(message.terminalName);
@@ -3336,109 +3396,194 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
             // RIGHT TOOLBAR: Utilities
             /**
-             * UI-006 FIX: Bug Report - Skill-Based Workflow
-             * WHY: Use bug-report skill to enhance prompt and create GitHub issue
-             * PATTERN: Same as Code Analyzer and Sprint Planner buttons
+             * UI-006 REFIX: Bug Report - Structured Form → Enhance → Main Text Area → Terminal
+             * WHY: Gather contextual data, enhance with skill, populate main text area for review
+             * PATTERN: Form with fields → Enhance button → Main text area → Send button
              */
             window.openBugReport = function() {
                 const content = \`
-                    <div style="padding: 16px;">
+                    <div style="padding: 16px; max-width: 600px;">
+                        <p style="color: var(--vscode-descriptionForeground); margin-bottom: 16px; font-size: 13px;">
+                            Fill out the bug report form below. Click "Enhance" to generate an enhanced prompt in the main text area, where you can review/edit before sending to terminal.
+                        </p>
+
                         <div style="margin-bottom: 12px;">
-                            <p style="color: var(--vscode-descriptionForeground); margin-bottom: 12px;">
-                                Describe the bug you encountered. Claude will enhance your description with the bug-report skill and create a GitHub issue.
-                            </p>
+                            <label style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 12px;">Title</label>
+                            <input type="text" id="bugTitle" style="width: 100%; padding: 6px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); border-radius: 3px; font-size: 13px;" placeholder="Brief description of the bug">
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                            <div>
+                                <label style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 12px;">Severity</label>
+                                <select id="bugSeverity" style="width: 100%; padding: 6px; background: var(--vscode-dropdown-background); color: var(--vscode-dropdown-foreground); border: 1px solid var(--vscode-dropdown-border); border-radius: 3px; font-size: 13px;">
+                                    <option value="low">Low</option>
+                                    <option value="medium" selected>Medium</option>
+                                    <option value="high">High</option>
+                                    <option value="critical">Critical</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 12px;">Component</label>
+                                <select id="bugComponent" style="width: 100%; padding: 6px; background: var(--vscode-dropdown-background); color: var(--vscode-dropdown-foreground); border: 1px solid var(--vscode-dropdown-border); border-radius: 3px; font-size: 13px;">
+                                    <option value="">Select component...</option>
+                                    <option value="voice-capture">Voice Capture</option>
+                                    <option value="sprint">Sprint System</option>
+                                    <option value="patterns">Patterns</option>
+                                    <option value="ui">UI/UX</option>
+                                    <option value="extension">Extension Core</option>
+                                    <option value="desktop-app">Desktop App</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
                         </div>
 
                         <div style="margin-bottom: 12px;">
-                            <label style="display: block; margin-bottom: 4px; font-weight: 600;">Bug Description</label>
-                            <textarea id="bugDescription" rows="6" style="width: 100%; padding: 8px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); font-family: var(--vscode-editor-font-family); font-size: 13px;" placeholder="Describe the bug...
-
-Example:
-Voice recording fails after VS Code reload. When I press the backtick key, nothing happens. Expected: recording should start. Actual: no response."></textarea>
+                            <label style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 12px;">Description</label>
+                            <textarea id="bugDescription" rows="4" style="width: 100%; padding: 8px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); border-radius: 3px; font-family: var(--vscode-editor-font-family); font-size: 13px;" placeholder="What happened? What did you expect? Steps to reproduce?"></textarea>
                         </div>
 
-                        <button onclick="submitBugReport()" style="padding: 8px 16px; background: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">
-                            ✨ Enhance and Send to Terminal
+                        <div style="margin-bottom: 16px;">
+                            <label style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 12px;">Additional Context (optional)</label>
+                            <textarea id="bugContext" rows="2" style="width: 100%; padding: 8px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); border-radius: 3px; font-family: var(--vscode-editor-font-family); font-size: 13px;" placeholder="Error messages, logs, environment details..."></textarea>
+                        </div>
+
+                        <button onclick="enhanceBugReport()" style="padding: 8px 16px; background: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 13px;">
+                            ✨ Enhance
                         </button>
                         <span style="margin-left: 8px; font-size: 12px; color: var(--vscode-descriptionForeground);">
-                            Uses bug-report skill to create GitHub issue
+                            Populates main text area with enhanced prompt
                         </span>
                     </div>
                 \`;
                 window.showWorkflow('bug-report', '🐛 Bug Report', content);
             };
 
-            window.submitBugReport = function() {
+            window.enhanceBugReport = function() {
+                const title = document.getElementById('bugTitle').value;
+                const severity = document.getElementById('bugSeverity').value;
+                const component = document.getElementById('bugComponent').value;
                 const description = document.getElementById('bugDescription').value;
+                const context = document.getElementById('bugContext').value;
 
-                if (!description.trim()) {
-                    showStatus('⚠️ Please describe the bug', 'error');
+                if (!title.trim() || !description.trim()) {
+                    showStatus('⚠️ Please fill out Title and Description', 'error');
                     return;
                 }
 
-                // Request enhancement from extension
+                // Send all form data to extension for enhancement
                 vscode.postMessage({
-                    type: 'enhanceAndSend',
-                    text: description,
-                    skill: 'bug-report'
+                    type: 'enhanceBugReport',
+                    data: {
+                        title: title,
+                        severity: severity,
+                        component: component,
+                        description: description,
+                        context: context
+                    }
                 });
 
                 // Close workflow
                 window.closeWorkflow();
-                showStatus('✨ Enhancing with bug-report skill...', 'info');
+                showStatus('✨ Enhancing bug report...', 'info');
             };
 
             /**
-             * UI-006 FIX: Feature Request - Skill-Based Workflow
-             * WHY: Use feature-request skill to enhance prompt and create GitHub issue
-             * PATTERN: Same as Code Analyzer and Sprint Planner buttons
+             * UI-006 REFIX: Feature Request - Structured Form → Enhance → Main Text Area → Terminal
+             * WHY: Gather contextual data, enhance with skill, populate main text area for review
+             * PATTERN: Form with fields → Enhance button → Main text area → Send button
              */
             window.openFeatureRequest = function() {
                 const content = \`
-                    <div style="padding: 16px;">
+                    <div style="padding: 16px; max-width: 600px;">
+                        <p style="color: var(--vscode-descriptionForeground); margin-bottom: 16px; font-size: 13px;">
+                            Fill out the feature request form below. Click "Enhance" to generate an enhanced prompt in the main text area, where you can review/edit before sending to terminal.
+                        </p>
+
                         <div style="margin-bottom: 12px;">
-                            <p style="color: var(--vscode-descriptionForeground); margin-bottom: 12px;">
-                                Describe the feature you'd like. Claude will enhance your description with the feature-request skill and create a GitHub issue.
-                            </p>
+                            <label style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 12px;">Feature Title</label>
+                            <input type="text" id="featureTitle" style="width: 100%; padding: 6px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); border-radius: 3px; font-size: 13px;" placeholder="Brief description of the feature">
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                            <div>
+                                <label style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 12px;">Priority</label>
+                                <select id="featurePriority" style="width: 100%; padding: 6px; background: var(--vscode-dropdown-background); color: var(--vscode-dropdown-foreground); border: 1px solid var(--vscode-dropdown-border); border-radius: 3px; font-size: 13px;">
+                                    <option value="low">Low</option>
+                                    <option value="medium" selected>Medium</option>
+                                    <option value="high">High</option>
+                                    <option value="critical">Critical</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 12px;">Category</label>
+                                <select id="featureCategory" style="width: 100%; padding: 6px; background: var(--vscode-dropdown-background); color: var(--vscode-dropdown-foreground); border: 1px solid var(--vscode-dropdown-border); border-radius: 3px; font-size: 13px;">
+                                    <option value="">Select category...</option>
+                                    <option value="voice">Voice</option>
+                                    <option value="sprint">Sprint</option>
+                                    <option value="patterns">Patterns</option>
+                                    <option value="ui">UI/UX</option>
+                                    <option value="skills">Skills</option>
+                                    <option value="performance">Performance</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
                         </div>
 
                         <div style="margin-bottom: 12px;">
-                            <label style="display: block; margin-bottom: 4px; font-weight: 600;">Feature Description</label>
-                            <textarea id="featureDescription" rows="6" style="width: 100%; padding: 8px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); font-family: var(--vscode-editor-font-family); font-size: 13px;" placeholder="Describe the feature...
-
-Example:
-Add keyboard shortcuts for sprint navigation. I want to quickly jump between tasks using Ctrl+Up/Down arrows. Would save time when reviewing long sprint lists."></textarea>
+                            <label style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 12px;">Problem / Use Case</label>
+                            <textarea id="featureUseCase" rows="3" style="width: 100%; padding: 8px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); border-radius: 3px; font-family: var(--vscode-editor-font-family); font-size: 13px;" placeholder="What problem does this solve? How would you use it?"></textarea>
                         </div>
 
-                        <button onclick="submitFeatureRequest()" style="padding: 8px 16px; background: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">
-                            ✨ Enhance and Send to Terminal
+                        <div style="margin-bottom: 12px;">
+                            <label style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 12px;">Proposed Solution</label>
+                            <textarea id="featureSolution" rows="3" style="width: 100%; padding: 8px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); border-radius: 3px; font-family: var(--vscode-editor-font-family); font-size: 13px;" placeholder="How should this work? What would the UI/UX look like?"></textarea>
+                        </div>
+
+                        <div style="margin-bottom: 16px;">
+                            <label style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 12px;">Additional Context (optional)</label>
+                            <textarea id="featureContext" rows="2" style="width: 100%; padding: 8px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); border-radius: 3px; font-family: var(--vscode-editor-font-family); font-size: 13px;" placeholder="Examples from other tools, mockups, alternatives considered..."></textarea>
+                        </div>
+
+                        <button onclick="enhanceFeatureRequest()" style="padding: 8px 16px; background: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 13px;">
+                            ✨ Enhance
                         </button>
                         <span style="margin-left: 8px; font-size: 12px; color: var(--vscode-descriptionForeground);">
-                            Uses feature-request skill to create GitHub issue
+                            Populates main text area with enhanced prompt
                         </span>
                     </div>
                 \`;
                 window.showWorkflow('feature-request', '🔧 Feature Request', content);
             };
 
-            window.submitFeatureRequest = function() {
-                const description = document.getElementById('featureDescription').value;
+            window.enhanceFeatureRequest = function() {
+                const title = document.getElementById('featureTitle').value;
+                const priority = document.getElementById('featurePriority').value;
+                const category = document.getElementById('featureCategory').value;
+                const useCase = document.getElementById('featureUseCase').value;
+                const solution = document.getElementById('featureSolution').value;
+                const context = document.getElementById('featureContext').value;
 
-                if (!description.trim()) {
-                    showStatus('⚠️ Please describe the feature', 'error');
+                if (!title.trim() || !useCase.trim()) {
+                    showStatus('⚠️ Please fill out Title and Use Case', 'error');
                     return;
                 }
 
-                // Request enhancement from extension
+                // Send all form data to extension for enhancement
                 vscode.postMessage({
-                    type: 'enhanceAndSend',
-                    text: description,
-                    skill: 'feature-request'
+                    type: 'enhanceFeatureRequest',
+                    data: {
+                        title: title,
+                        priority: priority,
+                        category: category,
+                        useCase: useCase,
+                        solution: solution,
+                        context: context
+                    }
                 });
 
                 // Close workflow
                 window.closeWorkflow();
-                showStatus('✨ Enhancing with feature-request skill...', 'info');
+                showStatus('✨ Enhancing feature request...', 'info');
             };
 
             /**
