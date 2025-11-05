@@ -1150,6 +1150,98 @@ deliverables = [
     "Verify checkbox still works"
 ]
 
+[tasks.UI-011]
+id = "UI-011"
+name = "Fix WebView Sprint Task List Not Refreshing on TOML Changes"
+phase = "debugging"
+assigned_engineer = "engineer_1"
+status = "pending"
+agent = "infrastructure-agent"
+
+description = """
+**CRITICAL BUG:** When sprint TOML file is updated, the WebView task list doesn't automatically refresh.
+
+**Expected Behavior:**
+- FileSystemWatcher monitors `**/ACTIVE_SPRINT*.toml` files
+- TOML file changes trigger sprint reload
+- WebView receives updated task data
+- Task list re-renders with new/updated tasks
+
+**Current Behavior:**
+- TOML file updated successfully (validated)
+- SprintLoader can parse updated TOML
+- WebView shows stale data until manual reload
+- User must close/reopen panel to see changes
+
+**Investigation Required:**
+1. Verify FileSystemWatcher is actually watching correct glob pattern
+2. Check if file change events are firing
+3. Verify SprintLoader.loadSprintTasks() is called on change
+4. Check if webview.postMessage() sends updated data
+5. Verify WebView message handler receives and processes updates
+6. Check for race conditions in reload logic
+
+**Context:**
+- File: vscode-lumina/src/commands/voicePanel.ts
+- Lines: 92-93 (setupSprintFileWatcher), 46-47 (sprintFileWatchers array)
+- Related: SprintLoader.ts, voicePanel message handlers
+
+**Root Cause Possibilities:**
+- FileSystemWatcher glob pattern incorrect
+- FileSystemWatcher not triggered on Windows
+- Message passing broken (extension → webview)
+- WebView not re-rendering on data update
+- Caching issue in SprintLoader
+- Race condition (TOML saved but not yet readable)
+
+**Impact:**
+- P1 (High) - User frustration requiring manual reload
+- Blocks dogfooding workflow (sprint updates not visible)
+- Discovered during RELEASE-001 validation
+"""
+
+why = "Sprint enhancement workflow broken - users can't see task updates without manual reload"
+context = "Discovered during v0.16.7 RELEASE-001 validation when adding 7 RELEASE tasks to sprint"
+reasoning_chain = [
+    "1. ENHANCE mode adds 7 tasks to ACTIVE_SPRINT.toml successfully",
+    "2. TOML validates correctly (node -e parse test passes)",
+    "3. SprintLoader can parse file (manual test works)",
+    "4. WebView task list shows stale data (doesn't include new tasks)",
+    "5. Close/reopen panel → new tasks appear",
+    "6. Conclusion: FileSystemWatcher or message passing broken"
+]
+pattern_context = "Pattern-UI-REFRESH-001: Auto-refresh on data changes"
+success_impact = "Users see sprint updates immediately without manual reload"
+
+estimated_time = "2-3 hours"
+dependencies = []
+
+deliverables = [
+    "Diagnose FileSystemWatcher issue",
+    "Fix or reimplement sprint reload on TOML change",
+    "Test with add/remove/modify task scenarios",
+    "Verify works on Windows (user's platform)",
+    "Add logging for file change events (debugging)",
+    "Update voicePanel.ts with working solution"
+]
+
+validation_criteria = [
+    "Edit ACTIVE_SPRINT.toml → WebView updates within 1 second",
+    "Add new task → appears in WebView automatically",
+    "Update task status → reflected in WebView immediately",
+    "Delete task → removed from WebView automatically",
+    "No manual reload required",
+    "Works on Windows, Mac, and Linux"
+]
+
+error_handling = """
+- Handle FileSystemWatcher errors gracefully
+- Log file change events for debugging
+- Fallback to manual reload if auto-refresh fails
+- Show user notification if reload fails
+- Wrap TOML parse in try-catch (prevent crash on invalid TOML)
+"""
+
 [tasks.REFACTOR-004]
 id = "REFACTOR-004"
 name = "Toolbar Layout Restructure - Single Row with Left/Right Sections"
@@ -2326,11 +2418,11 @@ error_handling = """
 patterns = ["Pattern-PUBLISH-001", "Pattern-PUBLISH-002", "Pattern-PUBLISH-003"]
 
 [progress]
-total_tasks = 30
+total_tasks = 31
 completed_tasks = 22
 in_progress_tasks = 0
-pending_tasks = 8
-completion_percentage = 73
+pending_tasks = 9
+completion_percentage = 71
 
 [notes]
 dogfooding_strategy = """
