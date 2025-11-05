@@ -1019,7 +1019,7 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
         }
 
         .terminal-selector {
-            margin-bottom: 16px;
+            margin-bottom: 12px;
         }
 
         .terminal-selector label {
@@ -1030,12 +1030,104 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             color: var(--vscode-descriptionForeground);
         }
 
+        /* REFACTOR-003: Horizontal terminal list with flex-wrap (from commit 042d0ed) */
         .terminal-list {
             display: flex;
-            flex-direction: column;
-            gap: 4px;
+            flex-wrap: wrap;  /* Allow wrapping to multiple rows */
+            gap: 8px;  /* Spacing between terminals (horizontal and vertical) */
+            justify-content: flex-start;
             max-height: none;
             overflow-y: visible;
+            overflow-x: hidden;  /* No horizontal scrollbars */
+        }
+
+        /* REFACTOR-004: Main toolbar with LEFT/CENTER/RIGHT sections */
+        .main-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 6px 8px;
+            margin-bottom: 12px;
+            background-color: var(--vscode-sideBar-background);
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 4px;
+            min-height: 32px;
+        }
+
+        .toolbar-section {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .toolbar-left {
+            flex: 0 0 auto;
+        }
+
+        .toolbar-center {
+            flex: 1 1 auto;
+            justify-content: center;
+            font-size: 10px;
+            color: var(--vscode-descriptionForeground);
+            opacity: 0.7;
+            white-space: nowrap;
+        }
+
+        .toolbar-center code {
+            background-color: var(--vscode-textCodeBlock-background);
+            padding: 2px 4px;
+            border-radius: 2px;
+            font-family: var(--vscode-editor-font-family);
+            font-size: 10px;
+        }
+
+        .voice-hint {
+            display: inline-block;
+        }
+
+        .voice-separator {
+            margin: 0 6px;
+            opacity: 0.5;
+        }
+
+        .toolbar-right {
+            flex: 0 0 auto;
+        }
+
+        .toolbar-btn {
+            width: 28px;
+            height: 24px;
+            padding: 0;
+            background-color: transparent;
+            color: var(--vscode-button-foreground);
+            border: 1px solid transparent;
+            border-radius: 3px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .toolbar-btn:hover:not(:disabled) {
+            background-color: var(--vscode-button-hoverBackground);
+            border-color: var(--vscode-button-border);
+            transform: scale(1.05);
+        }
+
+        .toolbar-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .toolbar-btn.primary {
+            background-color: rgba(0, 120, 212, 0.1);
+        }
+
+        .toolbar-btn.primary:hover:not(:disabled) {
+            background-color: rgba(0, 120, 212, 0.2);
         }
 
         .terminal-item {
@@ -1049,6 +1141,9 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             cursor: pointer;
             font-size: 13px;
             min-height: 24px;
+            min-width: 120px;  /* REFACTOR-003: Prevent too narrow */
+            max-width: 160px;  /* REFACTOR-003: Prevent too wide */
+            flex: 0 1 auto;  /* REFACTOR-003: Allow wrapping, don't grow, allow shrinking */
             transition: all 0.2s;
         }
 
@@ -1253,6 +1348,66 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             color: var(--vscode-descriptionForeground);
             opacity: 0.5;
             margin: 0 4px;
+        }
+
+        /* REFACTOR-006: Workflow area container (slides down below text area) */
+        .workflow-area-container {
+            margin-top: 16px;
+            margin-bottom: 16px;
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 4px;
+            background-color: var(--vscode-editor-background);
+            overflow: hidden;
+            max-height: 0;
+            opacity: 0;
+            transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out, margin 0.3s ease-in-out;
+        }
+
+        .workflow-area-container.visible {
+            max-height: 500px;
+            opacity: 1;
+            margin-top: 16px;
+            margin-bottom: 16px;
+        }
+
+        .workflow-area-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background-color: var(--vscode-sideBar-background);
+            border-bottom: 1px solid var(--vscode-panel-border);
+        }
+
+        .workflow-area-header h3 {
+            margin: 0;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--vscode-foreground);
+        }
+
+        .close-workflow-btn {
+            width: 24px;
+            height: 24px;
+            padding: 0;
+            background: transparent;
+            color: var(--vscode-foreground);
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            line-height: 1;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .close-workflow-btn:hover {
+            background-color: var(--vscode-toolbar-hoverBackground);
+        }
+
+        .workflow-area-content {
+            padding: 16px;
+            max-height: 440px;
+            overflow-y: auto;
         }
         `;
     }
@@ -2655,6 +2810,116 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 showStatus('✨ Enhancing with ÆtherLight patterns...', 'info');
             };
 
+            /**
+             * REFACTOR-006: Workflow area management
+             * DESIGN DECISION: Central show/hide/close functions for all workflow types
+             * WHY: Single source of truth for workflow area state
+             */
+            let activeWorkflow = null;
+
+            window.showWorkflow = function(workflowType, title, content) {
+                const container = document.getElementById('workflowAreaContainer');
+                const titleEl = document.getElementById('workflowAreaTitle');
+                const contentEl = document.getElementById('workflowAreaContent');
+
+                if (!container || !titleEl || !contentEl) return;
+
+                // Update content
+                titleEl.textContent = title;
+                contentEl.innerHTML = content;
+                activeWorkflow = workflowType;
+
+                // Show with animation
+                container.style.display = 'block';
+                // Force reflow for transition
+                container.offsetHeight;
+                container.classList.add('visible');
+
+                showStatus(\`\${title} opened\`, 'info');
+            };
+
+            window.hideWorkflow = function() {
+                const container = document.getElementById('workflowAreaContainer');
+                if (!container) return;
+
+                container.classList.remove('visible');
+                activeWorkflow = null;
+
+                // Hide after animation
+                setTimeout(() => {
+                    if (!container.classList.contains('visible')) {
+                        container.style.display = 'none';
+                    }
+                }, 300);
+            };
+
+            window.closeWorkflow = function() {
+                window.hideWorkflow();
+                showStatus('Workflow closed', 'info');
+            };
+
+            // ESC key closes workflow area
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && activeWorkflow) {
+                    window.closeWorkflow();
+                }
+            });
+
+            /**
+             * REFACTOR-007: Toolbar button handlers
+             * Wire up all toolbar buttons to show workflow areas
+             */
+
+            // LEFT TOOLBAR: Primary actions
+            window.openCodeAnalyzer = function() {
+                const content = \`
+                    <p>Code Analyzer workflow will be implemented in Phase 6 (UI-006).</p>
+                    <p>This will allow you to configure workspace analysis settings.</p>
+                \`;
+                window.showWorkflow('code-analyzer', '🔍 Code Analyzer', content);
+            };
+
+            window.openSprintPlanner = function() {
+                const content = \`
+                    <p>Sprint Planner workflow will be implemented in Phase 6 (UI-006).</p>
+                    <p>This will allow you to create sprint plans with AI assistance.</p>
+                \`;
+                window.showWorkflow('sprint-planner', '📋 Sprint Planner', content);
+            };
+
+            // RIGHT TOOLBAR: Utilities
+            window.openBugReport = function() {
+                const content = \`
+                    <p>Bug Report workflow will be implemented in Phase 6 (UI-006).</p>
+                    <p>This will allow you to submit bug reports with structured templates.</p>
+                \`;
+                window.showWorkflow('bug-report', '🐛 Bug Report', content);
+            };
+
+            window.openFeatureRequest = function() {
+                const content = \`
+                    <p>Feature Request workflow will be implemented in Phase 6 (UI-006).</p>
+                    <p>This will allow you to submit feature requests with use cases.</p>
+                \`;
+                window.showWorkflow('feature-request', '🔧 Feature Request', content);
+            };
+
+            window.openSkills = function() {
+                const content = \`
+                    <p>Skills Management workflow will be implemented in Phase 6 (UI-006).</p>
+                    <p>This will show installed skills and allow you to manage them.</p>
+                \`;
+                window.showWorkflow('skills', '📦 Skills', content);
+            };
+
+            window.openSettings = function() {
+                const content = \`
+                    <p>Settings workflow will be implemented in Phase 6 (UI-006).</p>
+                    <p>This will provide minimal settings (dev mode, sprint path, etc.).</p>
+                \`;
+                window.showWorkflow('settings', '⚙️ Settings', content);
+            };
+
             function showStatus(message, type) {
                 const statusEl = document.getElementById('statusMessage');
                 if (statusEl) {
@@ -2837,41 +3102,68 @@ function getVoicePanelBodyContent(): string {
         </div>
     </div>
 
+    <!-- REFACTOR-004: Single-row toolbar with LEFT/CENTER/RIGHT sections -->
+    <div class="main-toolbar">
+        <!-- LEFT: Primary actions -->
+        <div class="toolbar-section toolbar-left">
+            <button id="codeAnalyzerBtn" class="toolbar-btn" onclick="openCodeAnalyzer()" title="Code Analyzer">
+                🔍
+            </button>
+            <button id="sprintPlannerBtn" class="toolbar-btn" onclick="openSprintPlanner()" title="Sprint Planner">
+                📋
+            </button>
+            <button id="enhanceBtn" class="toolbar-btn" onclick="enhanceText()" disabled title="Enhance with Patterns">
+                ✨
+            </button>
+            <button id="sendBtn" class="toolbar-btn primary" onclick="sendToTerminal()" disabled title="Send to Terminal (Ctrl+Enter)">
+                📤
+            </button>
+            <button id="clearBtn" class="toolbar-btn" onclick="clearText()" title="Clear">
+                🗑️
+            </button>
+        </div>
+
+        <!-- CENTER: Voice indicator -->
+        <div class="toolbar-section toolbar-center">
+            <span class="voice-hint"><code>\`</code> Record</span>
+            <span class="voice-separator">|</span>
+            <span class="voice-hint"><code>Ctrl+Enter</code> Send</span>
+        </div>
+
+        <!-- RIGHT: Utilities -->
+        <div class="toolbar-section toolbar-right">
+            <button id="bugReportBtn" class="toolbar-btn" onclick="openBugReport()" title="Report Bug">
+                🐛
+            </button>
+            <button id="featureRequestBtn" class="toolbar-btn" onclick="openFeatureRequest()" title="Request Feature">
+                🔧
+            </button>
+            <button id="skillsBtn" class="toolbar-btn" onclick="openSkills()" title="Skills">
+                📦
+            </button>
+            <button id="settingsBtn" class="toolbar-btn" onclick="openSettings()" title="Settings">
+                ⚙️
+            </button>
+        </div>
+    </div>
+
     <div class="transcription-editor">
-        <label for="transcriptionText">
-            Command / Transcription:
-            <button id="recordBtn" onclick="toggleRecording()" style="margin-left: 8px; background-color: #d13438;">🎤 Record</button>
-        </label>
+        <label for="transcriptionText">Command / Transcription:</label>
         <textarea
             id="transcriptionText"
-            placeholder="Click '🎤 Record' to start voice capture, or type directly..."
+            placeholder="Press \` (backtick) to record, or type directly..."
         ></textarea>
     </div>
 
-    <div class="controls">
-        <button id="enhanceBtn" onclick="enhanceText()" disabled style="background-color: #6b4ea3;">✨ ÆtherLight Enhance</button>
-        <button id="sendBtn" class="primary" onclick="sendToTerminal()" disabled>📤 Send to Terminal</button>
-        <button onclick="clearText()">🗑️ Clear</button>
-    </div>
-
-    <div class="tips">
-        <h3>💡 How to Use:</h3>
-        <ul>
-            <li><strong>Click 🎤 Record</strong> → Speak your command → Click Stop</li>
-            <li><strong>(Optional) Click ✨ ÆtherLight Enhance</strong> → AI enhances command with context</li>
-            <li><strong>Click 📤 Send to Terminal</strong> → Executes command in selected terminal</li>
-            <li>Tab through terminals to select target (ÆtherLight terminal created automatically)</li>
-            <li>Ctrl+Enter also sends to terminal</li>
-        </ul>
-        <p style="margin-top: 8px; font-size: 11px; color: var(--vscode-descriptionForeground);">
-            <strong>Note:</strong> First time recording will ask for microphone permission.
-        </p>
-    </div>
-
-    <div class="keyboard-hints">
-        <span class="hint-item"><code>\`</code> Voice</span>
-        <span class="hint-separator">|</span>
-        <span class="hint-item"><code>Ctrl+Enter</code> Send</span>
+    <!-- REFACTOR-006: Workflow area container (opens below text area) -->
+    <div id="workflowAreaContainer" class="workflow-area-container" style="display: none;">
+        <div class="workflow-area-header">
+            <h3 id="workflowAreaTitle">Workflow</h3>
+            <button id="closeWorkflowBtn" onclick="closeWorkflow()" class="close-workflow-btn" title="Close (ESC)">✕</button>
+        </div>
+        <div id="workflowAreaContent" class="workflow-area-content">
+            <!-- Dynamic workflow content will be populated here -->
+        </div>
     </div>
     `;
 }
