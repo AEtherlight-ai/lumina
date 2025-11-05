@@ -1,0 +1,16 @@
+// ÆtherLight Extension Configuration
+// IMPORTANT: Claude Code should read .vscode/aetherlight.md for operational structure
+// Sprint tasks: internal/sprints/ACTIVE_SPRINT.toml (dev mode) or sprints/ACTIVE_SPRINT.toml (production)
+{
+  "aetherlight.documentation": ".vscode/aetherlight.md",
+
+  // DEV MODE: Enable this when developing AetherLight itself (uses internal/sprints/)
+  // PRODUCTION MODE: Disable to test production user experience (uses sprints/ only)
+  "aetherlight.devMode": true,
+
+  // Optional: Override sprint file location (both dev and production modes respect this)
+  // "aetherlight.sprintFile": "custom/path/to/sprint.toml",
+
+  "aetherlight.enforcementEnabled": true,
+  "aetherlight.sprint.filePath": "internal/sprints/ACTIVE_SPRINT.toml"
+}

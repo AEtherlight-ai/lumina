@@ -1,0 +1,3259 @@
+# ÆtherLight Active Sprint - BB_Aelor
+# Generated: 2025-10-22
+# Sprint Period: 2025-10-21 to 2025-11-18 (4 weeks)
+# Priority Order: ENORM (finish) → Voice Panel v0.5 (most important) → Dogfooding
+# Pattern: Pattern-SPRINT-001 (Sprint Plan with TOML Source of Truth)
+
+[meta]
+sprint_name = "Voice Panel v0.5 + Enforcement + Skills Builder + Critical Bugs"
+version = "2.5"
+created = "2025-10-22"
+updated = "2025-10-28"
+status = "active"
+sprint_period = "2025-10-21 to 2025-11-18"
+focus_area = "UI REDESIGN (16 tasks - TOP PRIORITY), FIX CRITICAL BUGS (11 tasks), Complete Enforcement + Skills Builder, then Voice Panel v0.5 redesign (most important)"
+total_tasks = 67
+estimated_weeks = "4"
+priority = "critical"
+
+[meta.priority_order]
+phase_0 = "UI Redesign + Skills System - TOP PRIORITY, starts immediately"
+phase_1 = "Enforcement Normalization (ENORM) - User finishing first"
+phase_2 = "Voice Panel v0.5 - MOST IMPORTANT, starts after ENORM"
+phase_3 = "Dogfooding - After ENORM complete (enforcement reviews during dogfooding)"
+
+[meta.progression]
+previous_sprint = "archive/SPRINT_ENFORCEMENT_WEBVIEW_INTELLIGENCE.toml"
+next_sprint = "DOGFOODING_SPRINT.toml"
+backlog = ["BACKLOG_P3.5_AND_WV.toml", "BACKLOG_VOICE_PANEL_V0.5.toml"]
+
+[meta.team]
+team_size = 1
+default_engineer = "engineer_1"
+
+[[meta.team.engineers]]
+id = "engineer_1"
+name = "BB_Aelor"
+expertise = ["full-stack", "rust", "typescript", "vscode-extensions", "documentation", "ui"]
+available_agents = ["rust-core-dev", "tauri-desktop-dev", "documentation-enforcer", "commit-enforcer"]
+max_parallel_tasks = 3
+daily_capacity_hours = 6
+
+# ============================================================
+# PHASE 0: UI REDESIGN + SKILLS SYSTEM (TOP PRIORITY - Start Immediately)
+# Duration: 2 weeks | 16 tasks (UI + Settings + Skills + Version Management)
+# ============================================================
+
+[tasks.UI-001]
+id = "UI-001"
+name = "Make Transcription Textarea Resizable with Persistence"
+phase = "UI Redesign + Skills System"
+assigned_engineer = "engineer_1"
+status = "pending"
+description = "Convert textarea from auto-resize (60-120px) to user-draggable (100-600px) with workspace state persistence"
+estimated_lines = 120
+estimated_time = "1.5 hours"
+dependencies = []
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Remove auto-resize logic",
+    "Add CSS resize: vertical",
+    "Default height: 200px (min: 100px, max: 600px)",
+    "ResizeObserver to detect changes",
+    "Save height to workspaceState: 'aetherlight.textarea.height'",
+    "Restore height on webview load"
+]
+performance_target = "Resize detection < 10ms"
+patterns = ["Pattern-UI-006"]
+files_to_modify = [
+    "vscode-lumina/src/commands/voicePanel.ts"
+]
+validation_criteria = [
+    "Textarea has drag handle at bottom",
+    "User can resize from 100px to 600px",
+    "Height persists across VS Code restarts",
+    "Smooth resizing (no lag)"
+]
+why = """
+Users need larger textarea for complex prompts with context.
+Current 120px max insufficient for skill invocations with parameters.
+Draggable resize gives user control vs auto-resize guessing.
+"""
+context = """
+User screenshot showed textarea below terminal list is too small.
+Context aggregation (settings, SOP refs, skill params) requires more space.
+Textarea is where skill invocations appear before sending to terminal.
+"""
+reasoning_chain = [
+    "1. Current textarea auto-resizes from 60px to max 120px",
+    "2. User feedback: Need bigger textarea for context-heavy prompts",
+    "3. Skill invocations like /code-analyzer --engineers=3 need visibility",
+    "4. Solution: Make textarea user-draggable (CSS resize: vertical)",
+    "5. Default 200px (comfortable for most use cases)",
+    "6. Min 100px (prevent collapse), Max 600px (prevent takeover)",
+    "7. Persist user preference to workspace state",
+    "8. Result: User controls textarea size based on workflow"
+]
+success_impact = """
+When UI-001 complete:
+✅ Textarea default 200px (vs 60px before)
+✅ User can drag to preferred size (100-600px)
+✅ Size persists across sessions
+✅ Skill invocations fully visible
+✅ Context-heavy prompts comfortable to edit
+"""
+
+[tasks.UI-002]
+id = "UI-002"
+name = "Create Primary Icon Toolbar (Frequent Actions)"
+phase = "UI Redesign + Skills System"
+assigned_engineer = "engineer_1"
+status = "pending"
+description = "Convert text buttons to icon toolbar: 🎤 Record, 🔍 Code Analyzer, 📋 Sprint Planner, ✨ Enhance, 📤 Send, 🗑️ Clear"
+estimated_lines = 150
+estimated_time = "2 hours"
+dependencies = []
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Primary toolbar HTML (6 icons, 32px height)",
+    "Icon buttons with tooltips",
+    "Hover effects (scale 1.05)",
+    "Click handlers for each icon",
+    "Record button triggers backtick hotkey",
+    "CSS styling to match VS Code theme"
+]
+performance_target = "Icon click response < 50ms"
+patterns = ["Pattern-UI-006"]
+files_to_modify = [
+    "vscode-lumina/src/commands/voicePanel.ts"
+]
+validation_criteria = [
+    "Primary toolbar visible at top of Voice tab",
+    "All 6 icons displayed with proper spacing",
+    "Tooltips appear on hover",
+    "Icons clickable and responsive",
+    "🎤 Record triggers existing voice capture"
+]
+why = """
+Current text buttons consume too much vertical space.
+Icons more professional, compact, and scalable.
+Toolbar pattern familiar from VS Code native UI.
+"""
+context = """
+User wants compact UI with more screen real estate for textarea.
+Icons allow 6 actions in 32px height vs 100px+ for buttons.
+Record icon simply triggers backtick hotkey (no duplicate logic).
+"""
+reasoning_chain = [
+    "1. Current Voice tab has large text buttons (✨ ÆtherLight Enhance, etc.)",
+    "2. Buttons consume ~100px vertical space",
+    "3. Textarea squeezed into remaining space",
+    "4. Solution: Icon toolbar (32px height, 6 icons)",
+    "5. Icons: 🎤 Record, 🔍 Analyzer, 📋 Sprint, ✨ Enhance, 📤 Send, 🗑️ Clear",
+    "6. Record icon calls vscode.commands.executeCommand('aetherlight.captureVoiceGlobal')",
+    "7. Other icons insert skill invocations or execute actions",
+    "8. Result: Professional UI, more space, familiar UX"
+]
+success_impact = """
+When UI-002 complete:
+✅ Primary toolbar 32px height (vs ~100px buttons)
+✅ 6 actions accessible via icons
+✅ Tooltips guide users
+✅ More screen real estate for textarea
+✅ Professional, VS Code-like appearance
+"""
+
+[tasks.UI-003]
+id = "UI-003"
+name = "Create Secondary Icon Toolbar (Infrequent Actions)"
+phase = "UI Redesign + Skills System"
+assigned_engineer = "engineer_1"
+status = "pending"
+description = "Add secondary toolbar at bottom of webview: 🐛 Bug Report, 🔧 Feature Request, 📦 Skill Management, ⚙️ Settings"
+estimated_lines = 100
+estimated_time = "1.5 hours"
+dependencies = ["UI-002"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Secondary toolbar HTML (4 icons, 28px height)",
+    "Position at bottom of webview",
+    "Smaller icons (28px vs 32px primary)",
+    "Click handlers for each icon",
+    "Settings icon switches to Settings tab"
+]
+performance_target = "Icon click response < 50ms"
+patterns = ["Pattern-UI-006"]
+files_to_modify = [
+    "vscode-lumina/src/commands/voicePanel.ts"
+]
+validation_criteria = [
+    "Secondary toolbar at bottom (above keyboard shortcuts hint)",
+    "All 4 icons displayed",
+    "Icons visually distinct from primary toolbar",
+    "Click triggers appropriate action",
+    "⚙️ Settings opens Settings tab"
+]
+why = """
+Bug/feature reporting and settings are infrequent actions.
+Don't deserve prime real estate in primary toolbar.
+Bottom placement follows common UI patterns (status bars).
+"""
+context = """
+User specified Bug/Features buttons go to secondary toolbar at bottom.
+Settings already has dedicated tab - icon just switches to it.
+Keyboard shortcuts hint relocated below secondary toolbar.
+"""
+reasoning_chain = [
+    "1. Bug/feature reporting happens occasionally (not every session)",
+    "2. Settings accessed infrequently (set once, forget)",
+    "3. Primary toolbar for frequent actions (record, analyze, send)",
+    "4. Secondary toolbar for occasional actions (bug, feature, settings)",
+    "5. Place at bottom (familiar from status bars)",
+    "6. Smaller icons (28px vs 32px) to differentiate",
+    "7. Result: Clear visual hierarchy, compact UI"
+]
+success_impact = """
+When UI-003 complete:
+✅ Secondary toolbar at bottom (28px height)
+✅ Bug/feature reporting accessible but not intrusive
+✅ Settings tab accessible via icon
+✅ Clear UI hierarchy (frequent top, occasional bottom)
+"""
+
+[tasks.UI-004]
+id = "UI-004"
+name = "Update Help Text and Remove Outdated Information"
+phase = "UI Redesign + Skills System"
+assigned_engineer = "engineer_1"
+status = "pending"
+description = "Remove 'Note: First time recording...' and update 'Click 🎤 Record' → 'Click 🎤 or hit Backtick', add '✨ ÆtherLight Enhance: Coming Soon'"
+estimated_lines = 30
+estimated_time = "30 minutes"
+dependencies = ["UI-002"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Remove microphone permission note",
+    "Update keyboard shortcuts hint",
+    "Add 'Coming Soon' badge to Enhance tooltip",
+    "Ensure accuracy of all help text"
+]
+performance_target = "Text update < 5ms"
+patterns = ["Pattern-UI-006"]
+files_to_modify = [
+    "vscode-lumina/src/commands/voicePanel.ts"
+]
+validation_criteria = [
+    "No mention of microphone permission prompt",
+    "Help text shows 'Click 🎤 or hit Backtick'",
+    "Enhance tooltip shows 'Coming Soon'",
+    "All help text accurate and helpful"
+]
+why = """
+Outdated help text confuses users.
+Microphone permission handled by desktop app now.
+Enhance feature not yet implemented - set expectations.
+"""
+context = """
+User confirmed: 'mic access is working through the hot keys and desktop app'
+Help text still refers to old WebView mic access flow.
+Enhance button currently placeholder - needs 'Coming Soon' indicator.
+"""
+reasoning_chain = [
+    "1. Old help text: 'Note: First time recording will ask for microphone permission'",
+    "2. Reality: Desktop app handles mic access via IPC",
+    "3. WebView mic access removed after BUG-008",
+    "4. Update help text to reflect current flow",
+    "5. Also update 'Click 🎤 Record' → 'Click 🎤 or hit Backtick'",
+    "6. Add 'Coming Soon' to Enhance tooltip (feature not implemented)",
+    "7. Result: Accurate, helpful guidance for users"
+]
+success_impact = """
+When UI-004 complete:
+✅ Help text accurate (no mic permission confusion)
+✅ Users know both click and hotkey work
+✅ Enhance expectations set correctly
+✅ No misleading information
+"""
+
+[tasks.UI-005]
+id = "UI-005"
+name = "Fix Missing ÆtherLight Icon in Activity Bar"
+phase = "UI Redesign + Skills System"
+assigned_engineer = "engineer_1"
+status = "completed"
+completed_date = "2025-10-28"
+description = "Create and add ÆtherLight SVG icon for Activity Bar sidebar (package.json references missing resources/aetherlight-icon.svg)"
+estimated_lines = 60
+estimated_time = "30 minutes"
+dependencies = []
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Create resources/aetherlight-icon.svg with Æ symbol and light rays",
+    "SVG using blue gradient (#00d4ff to #0078d4)",
+    "Icon visible in VS Code Activity Bar",
+    "Icon matches VS Code design standards (24x24px)"
+]
+performance_target = "Icon loads instantly"
+patterns = ["Pattern-UI-006"]
+files_to_create = [
+    "vscode-lumina/resources/aetherlight-icon.svg"
+]
+validation_criteria = [
+    "Icon file exists at resources/aetherlight-icon.svg",
+    "Icon displays correctly in Activity Bar",
+    "Icon has proper contrast in light and dark themes",
+    "No console errors about missing icon"
+]
+why = """
+Activity Bar icon missing - package.json references non-existent file.
+Empty icon space looks unprofessional and confuses users.
+Icon is brand identity and navigation point for extension.
+"""
+context = """
+User reported: 'the icon of the activities is not there. The Alt 1 4 6 icon in the activities panel is empty'
+package.json line 203 references 'resources/aetherlight-icon.svg' but directory doesn't exist.
+No SVG icon file present in extension.
+"""
+reasoning_chain = [
+    "1. package.json viewsContainers.activitybar references resources/aetherlight-icon.svg",
+    "2. File does not exist (resources/ directory empty)",
+    "3. Result: Empty icon in Activity Bar",
+    "4. Solution: Create SVG with Æ symbol and light rays",
+    "5. Use blue gradient matching extension theme",
+    "6. Follow VS Code icon design standards (24x24px, simple, scalable)",
+    "7. Result: Professional icon visible in Activity Bar"
+]
+success_impact = """
+When UI-005 complete:
+✅ ÆtherLight icon visible in Activity Bar
+✅ Professional appearance
+✅ Clear brand identity
+✅ No missing file errors
+"""
+
+[tasks.UI-006]
+id = "UI-006"
+name = "Add Sprint File Selector to Sprint Tab (Already Complete)"
+phase = "UI Redesign + Skills System"
+assigned_engineer = "engineer_1"
+status = "completed"
+completed_date = "2025-10-28"
+description = "Sprint file selector dropdown already exists in Sprint tab - no work needed (lines 1638-1649 in voicePanel.ts)"
+estimated_lines = 0
+estimated_time = "0 minutes"
+dependencies = []
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Verified sprint file selector present",
+    "Dropdown with search button functional",
+    "switchSprintFile() handler working"
+]
+performance_target = "N/A - already implemented"
+patterns = ["Pattern-UI-006"]
+files_to_modify = []
+validation_criteria = [
+    "Sprint file dropdown visible in Sprint tab header",
+    "Search button (🔍) triggers sprint file discovery",
+    "Dropdown populated with discovered sprint files",
+    "User can select different sprint file to view"
+]
+why = """
+User requested sprint file selector but it already exists.
+Feature was implemented in earlier sprint (discoverSprintFiles function).
+Just needed verification it's working correctly.
+"""
+context = """
+User: 'the UI for selecting the sprint you're actively working on is not there'
+Reality: Sprint file selector exists at voicePanel.ts:1638-1649
+Has dropdown, search button, and switchSprintFile handler.
+User may not have noticed it or it wasn't visible in their view.
+"""
+reasoning_chain = [
+    "1. User reported missing sprint file selector",
+    "2. Checked voicePanel.ts getSprintTabContent()",
+    "3. Found sprint file selector already implemented",
+    "4. Lines 1638-1649: dropdown + search button",
+    "5. discoverSprintFiles() and switchSprintFile() handlers exist",
+    "6. Verified functionality present",
+    "7. Marked as completed (no code changes needed)"
+]
+success_impact = """
+When UI-006 complete:
+✅ Confirmed sprint file selector working
+✅ User can discover and switch between sprint files
+✅ No additional implementation needed
+"""
+
+[tasks.UI-007]
+id = "UI-007"
+name = "Fix Voice Panel Text Persistence Across Tab Switches"
+phase = "UI Redesign + Skills System"
+assigned_engineer = "engineer_1"
+status = "completed"
+completed_date = "2025-10-28"
+description = "Preserve textarea content when switching between tabs - text should only clear when sent to terminal or manually cleared"
+estimated_lines = 80
+estimated_time = "1 hour"
+dependencies = []
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Save textarea content to vscode.getState() on input and tab switch",
+    "Restore textarea content when Voice tab becomes active",
+    "Clear state only when sendToTerminal() or clearText() called",
+    "Auto-resize textarea after restoring content"
+]
+performance_target = "State save/restore < 10ms"
+patterns = ["Pattern-UI-006"]
+files_to_modify = [
+    "vscode-lumina/src/commands/voicePanel.ts"
+]
+validation_criteria = [
+    "Type text in textarea, switch to Sprint tab, switch back - text preserved",
+    "Text clears after clicking Send to Terminal",
+    "Text clears after clicking Clear button",
+    "Text does NOT clear when just switching tabs",
+    "Textarea auto-resizes to fit restored content"
+]
+why = """
+Losing text when switching tabs is frustrating and wastes user time.
+Users may need to reference sprint info while composing commands.
+Text should persist until explicitly sent or cleared.
+"""
+context = """
+User: 'the text area on the Etherlight voice tab, if you click off of it, it is not persistent'
+Current behavior: Text lost when switching tabs (webview content regenerated).
+Need: Use VS Code webview state API (vscode.getState/setState) for persistence.
+"""
+reasoning_chain = [
+    "1. User types text in Voice tab textarea",
+    "2. User switches to Sprint tab to check task details",
+    "3. User switches back to Voice tab",
+    "4. Problem: Text is gone (webview content regenerated)",
+    "5. Solution: Save textarea.value to vscode.setState() on input and tab switch",
+    "6. Restore from vscode.getState() when Voice tab initialized",
+    "7. Clear state only in sendToTerminal() and clearText()",
+    "8. Result: Text persists across tab switches, clears only when appropriate"
+]
+success_impact = """
+When UI-007 complete:
+✅ Textarea content persists across tab switches
+✅ Users can reference other tabs without losing work
+✅ Text clears only when sent or manually cleared
+✅ Better UX, less frustration
+"""
+
+[tasks.UI-008]
+id = "UI-008"
+name = "Display Chain of Thought from Pattern Matching in Voice Panel"
+phase = "UI Redesign + Skills System"
+assigned_engineer = "engineer_1"
+status = "completed"
+completed_date = "2025-10-28"
+description = "Show pattern reasoning (Chain of Thought) when transcription includes pattern match - display in collapsible section below textarea"
+estimated_lines = 150
+estimated_time = "2 hours"
+dependencies = []
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Add Chain of Thought display section to Voice panel HTML",
+    "Parse pattern match from transcriptionComplete message",
+    "Display pattern name, confidence, and reasoning",
+    "Collapsible UI (hidden by default, expand to see reasoning)",
+    "Clear Chain of Thought when new recording starts",
+    "Styled to match VS Code theme"
+]
+performance_target = "Display update < 50ms"
+patterns = ["Pattern-UI-006", "Pattern-IPC-002"]
+files_to_modify = [
+    "vscode-lumina/src/commands/voicePanel.ts"
+]
+validation_criteria = [
+    "Pattern reasoning visible when pattern match confidence >85%",
+    "Shows pattern ID, name, confidence percentage",
+    "Shows full reasoning chain from pattern match",
+    "Collapsible section (click to expand/collapse)",
+    "Hidden when no pattern match",
+    "Clears when new recording starts"
+]
+why = """
+Chain of Thought shows WHY a pattern was chosen, not just WHAT pattern matched.
+Users need to understand pattern matching decisions to trust the system.
+Reasoning transparency builds confidence in AI-assisted development.
+"""
+context = """
+IPC protocol (PROTOCOL.md) defines PatternMatch with 'reasoning' field.
+Desktop app sends pattern match with Chain of Thought in transcription response.
+Currently only shows confidence % - reasoning is ignored.
+Need to display full reasoning to user.
+"""
+reasoning_chain = [
+    "1. Desktop app transcribes voice and matches patterns",
+    "2. Returns PatternMatch with reasoning (Chain of Thought)",
+    "3. VS Code extension receives transcriptionComplete with pattern data",
+    "4. Currently: Only shows 'Confidence: 95%' notification",
+    "5. Problem: Reasoning (WHY pattern matched) is lost",
+    "6. Solution: Add collapsible Chain of Thought section below textarea",
+    "7. Show pattern name, confidence, and full reasoning steps",
+    "8. Result: Users see WHY patterns were chosen, build trust in system"
+]
+success_impact = """
+When UI-008 complete:
+✅ Chain of Thought visible when pattern matches
+✅ Users understand WHY patterns were chosen
+✅ Pattern reasoning transparent and inspectable
+✅ Collapsible UI keeps panel clean when not needed
+✅ Builds trust in AI-assisted pattern matching
+"""
+
+[tasks.SETTINGS-001]
+id = "SETTINGS-001"
+name = "Design Sprint Planning Settings Panel"
+phase = "UI Redesign + Skills System"
+assigned_engineer = "engineer_1"
+status = "pending"
+description = "Create Settings tab UI for sprint configuration: team size (no limit), structure (Phases, Epics, User Stories, Sprints, Kanban, Milestones), sprint type, doc format"
+estimated_lines = 250
+estimated_time = "3 hours"
+dependencies = ["UI-004"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Settings tab HTML with sprint config section",
+    "Team Size input (number, no max limit)",
+    "Structure dropdown (6 options: Phases, Epics, User Stories, Sprints, Kanban, Milestones)",
+    "Sprint Type dropdown (6 options)",
+    "Documentation Format dropdown (5 options)",
+    "Save Settings button",
+    "Current sprint status display"
+]
+performance_target = "Settings render < 50ms"
+patterns = ["Pattern-UI-006"]
+files_to_modify = [
+    "vscode-lumina/src/commands/voicePanel.ts"
+]
+validation_criteria = [
+    "Settings tab shows sprint configuration",
+    "Team size accepts any number (1-999)",
+    "Structure includes all 6 terminology options",
+    "All settings save to workspaceState",
+    "Current sprint status displayed"
+]
+why = """
+Users need configurable sprint planning that matches their terminology.
+No artificial limits on team size (supports any organization).
+Structure terminology varies (Phases vs Epics vs Stories) - support all.
+"""
+context = """
+User specified: 'Don't limit the size of the team'
+Structure must include: Phases, Epics, User Stories, Sprints, Kanban, Milestones
+Settings tab already exists - add sprint configuration section.
+"""
+reasoning_chain = [
+    "1. Sprint planning terminology varies by organization",
+    "2. Some call them Phases (ÆtherLight default)",
+    "3. Others use Epics, User Stories, Sprints, Kanban, Milestones",
+    "4. Team size ranges from 1 (solo) to 100+ (enterprise)",
+    "5. Solution: Configurable settings with no artificial limits",
+    "6. Store in workspaceState (per-project configuration)",
+    "7. Settings auto-populate skill invocation parameters",
+    "8. Result: Flexible system supporting any workflow"
+]
+success_impact = """
+When SETTINGS-001 complete:
+✅ Team size configurable (no limit)
+✅ 6 structure terminology options
+✅ Settings persist per-project
+✅ Sprint Tab displays using user's terminology
+✅ Skills receive correct parameters automatically
+"""
+
+[tasks.SETTINGS-002]
+id = "SETTINGS-002"
+name = "Add Code Analyzer Goals Configuration"
+phase = "UI Redesign + Skills System"
+assigned_engineer = "engineer_1"
+status = "pending"
+description = "Add Code Analyzer settings: user-defined goals (textarea), focus areas (checkboxes), output format, depth level, exclusions"
+estimated_lines = 200
+estimated_time = "2.5 hours"
+dependencies = ["SETTINGS-001"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Code Analyzer section in Settings tab",
+    "Goals textarea (user-defined, multi-line)",
+    "Focus areas checkboxes (bugs, features, debt, tests, docs, security, performance)",
+    "Output format dropdown",
+    "Depth level selector (quick/standard/deep)",
+    "Exclusions textarea (paths to skip)",
+    "Advanced Settings button"
+]
+performance_target = "Settings save < 50ms"
+patterns = ["Pattern-UI-006"]
+files_to_modify = [
+    "vscode-lumina/src/commands/voicePanel.ts"
+]
+validation_criteria = [
+    "Code Analyzer settings visible",
+    "Goals textarea accepts multi-line input",
+    "Focus checkboxes work correctly",
+    "Settings saved to workspaceState",
+    "Advanced button expands additional options"
+]
+why = """
+Code Analyzer behavior must be user-configurable, not hardcoded.
+Different projects have different priorities (tests vs security vs debt).
+User-defined goals enable flexible analysis objectives.
+"""
+context = """
+User: 'we need to make sure that we don't have this stuff hard coded'
+Code Analyzer goals vary: find tests, identify debt, security review, etc.
+Settings populate skill parameters when user clicks 🔍 icon.
+"""
+reasoning_chain = [
+    "1. Code Analyzer has many possible goals",
+    "2. Hardcoding goals inflexible (doesn't fit all projects)",
+    "3. Solution: User-defined goals in Settings",
+    "4. Example goals: 'Identify technical debt', 'Find missing tests'",
+    "5. Focus areas: bugs, features, debt, tests, docs, security, performance",
+    "6. Output format: sprint-toml, markdown-report, github-issues",
+    "7. Depth level: quick (5min), standard (15min), deep (30min+)",
+    "8. Settings auto-populate /code-analyzer skill parameters",
+    "9. Result: Flexible analyzer matching project needs"
+]
+success_impact = """
+When SETTINGS-002 complete:
+✅ Code Analyzer goals user-defined
+✅ Focus areas configurable per project
+✅ Output format selectable
+✅ Depth level adjustable
+✅ No hardcoded behavior
+✅ /code-analyzer skill receives correct params
+"""
+
+[tasks.SKILLS-001]
+id = "SKILLS-001"
+name = "Create Skill Metadata System"
+phase = "UI Redesign + Skills System"
+assigned_engineer = "engineer_1"
+status = "pending"
+description = "Define skill metadata schema, implement loader/parser, store in .claude/skills/<name>/metadata.json"
+estimated_lines = 200
+estimated_time = "2.5 hours"
+dependencies = ["SETTINGS-002"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "SkillMetadata interface (TypeScript)",
+    "Metadata JSON schema",
+    "Skill loader (scan .claude/skills/)",
+    "Metadata parser and validator",
+    "Error handling for invalid metadata"
+]
+performance_target = "Skill loading < 100ms"
+patterns = ["Pattern-META-001"]
+files_to_create = [
+    "vscode-lumina/src/skills/SkillMetadata.ts",
+    "vscode-lumina/src/skills/SkillLoader.ts"
+]
+validation_criteria = [
+    "SkillMetadata interface matches schema",
+    "Loader discovers all skills in .claude/skills/",
+    "Parser validates metadata correctly",
+    "Invalid metadata logged with helpful errors",
+    "Skills accessible programmatically"
+]
+why = """
+Skills need versioning, dependencies, parameters metadata.
+Enables skill update detection and version management.
+Metadata powers skill discovery and documentation.
+"""
+context = """
+Skills are Claude Code features (like /bug-report, /sprint-planner).
+Each skill has metadata.json with version, params, dependencies.
+Metadata enables update detection and merge workflows.
+"""
+reasoning_chain = [
+    "1. Skills are self-contained features in .claude/skills/<name>/",
+    "2. Each skill needs metadata: version, author, parameters",
+    "3. Metadata format: JSON (easy to parse, schema-validatable)",
+    "4. SkillLoader scans .claude/skills/ directory",
+    "5. Parser validates against schema",
+    "6. Metadata used for: version detection, params, dependencies",
+    "7. Result: Robust skill infrastructure foundation"
+]
+success_impact = """
+When SKILLS-001 complete:
+✅ Skill metadata schema defined
+✅ Loader discovers all skills
+✅ Metadata parsed and validated
+✅ Foundation for version management
+✅ Skills programmatically accessible
+"""
+
+[tasks.SKILLS-002]
+id = "SKILLS-002"
+name = "Implement Skill Icon Click Handlers"
+phase = "UI Redesign + Skills System"
+assigned_engineer = "engineer_1"
+status = "pending"
+description = "Wire icon toolbar icons (🔍, 📋, 🐛, 🔧) to insert skill invocations in textarea with parameters from settings"
+estimated_lines = 150
+estimated_time = "2 hours"
+dependencies = ["SKILLS-001", "UI-002", "UI-003"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "🔍 Code Analyzer icon → /code-analyzer --engineers=X --focus=Y",
+    "📋 Sprint Planner icon → /sprint-planner --engineers=X --structure=Y",
+    "🐛 Bug Report icon → /bug-report + modal for description",
+    "🔧 Feature Request icon → /feature-request + modal for description",
+    "Parameters auto-populated from settings",
+    "Textarea receives skill invocation text"
+]
+performance_target = "Icon click → textarea < 50ms"
+patterns = ["Pattern-UI-006"]
+files_to_modify = [
+    "vscode-lumina/src/commands/voicePanel.ts"
+]
+validation_criteria = [
+    "Icon click inserts skill invocation",
+    "Parameters populated from settings",
+    "User can edit before sending",
+    "Textarea shows complete command",
+    "Send button executes in terminal"
+]
+why = """
+Icons must trigger skill invocations, not hardcoded logic.
+Parameters from settings enable context-aware invocations.
+User sees and can edit command before execution (transparency).
+"""
+context = """
+User wants icons to call skills, not duplicate implementation.
+Settings (team size, structure, goals) auto-populate parameters.
+Skill invocation appears in textarea for user review/edit.
+"""
+reasoning_chain = [
+    "1. User clicks 🔍 Code Analyzer icon",
+    "2. Read settings: team size=3, structure=phases, goals=[...]",
+    "3. Build skill invocation: /code-analyzer --engineers=3 --structure=phases",
+    "4. Insert into textarea (user can see/edit)",
+    "5. User clicks 📤 Send → command sent to terminal",
+    "6. Claude executes skill with full context",
+    "7. Result: Transparent, editable skill invocations"
+]
+success_impact = """
+When SKILLS-002 complete:
+✅ Icon clicks insert skill invocations
+✅ Parameters auto-populated from settings
+✅ Users see commands before execution
+✅ Transparent workflow
+✅ Skills executed correctly
+"""
+
+[tasks.SKILLS-003]
+id = "SKILLS-003"
+name = "Create Bug Report and Feature Request Skills"
+phase = "UI Redesign + Skills System"
+assigned_engineer = "engineer_1"
+status = "pending"
+description = "Write .claude/skills/bug-report/ and feature-request/ skills with SOPs for GitHub issue creation"
+estimated_lines = 400
+estimated_time = "3 hours"
+dependencies = ["SKILLS-001"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    ".claude/skills/bug-report/skill.md",
+    ".claude/skills/bug-report/metadata.json",
+    ".claude/skills/feature-request/skill.md",
+    ".claude/skills/feature-request/metadata.json",
+    "SOPs embedded in skill.md",
+    "Parameter definitions in metadata"
+]
+performance_target = "Skill execution < 60s"
+patterns = ["Pattern-META-001"]
+files_to_create = [
+    ".claude/skills/bug-report/skill.md",
+    ".claude/skills/bug-report/metadata.json",
+    ".claude/skills/feature-request/skill.md",
+    ".claude/skills/feature-request/metadata.json"
+]
+validation_criteria = [
+    "Bug report skill creates GitHub issues",
+    "Feature request skill creates GitHub issues",
+    "SOPs guide Claude through process",
+    "Issues properly formatted and labeled",
+    "Skills testable end-to-end"
+]
+why = """
+Bug/feature reporting must follow SOPs consistently.
+Skills embed SOPs so Claude always executes correctly.
+Self-contained skills enable community contributions later.
+"""
+context = """
+User wants Bug/Feature buttons to execute SOPs.
+Skills contain complete procedures (no external dependencies).
+Claude reads skill.md and executes SOP step-by-step.
+"""
+reasoning_chain = [
+    "1. User clicks 🐛 Bug Report icon",
+    "2. Modal prompts: 'Describe the bug'",
+    "3. Skill invocation: /bug-report --description='...'",
+    "4. Claude reads .claude/skills/bug-report/skill.md",
+    "5. SOP steps: Ask clarifying questions → Check duplicates → Create issue",
+    "6. Claude executes SOP with gh CLI",
+    "7. Issue created, URL returned to user",
+    "8. Result: Consistent bug reporting with zero manual steps"
+]
+success_impact = """
+When SKILLS-003 complete:
+✅ Bug report skill functional
+✅ Feature request skill functional
+✅ SOPs embedded and followed
+✅ GitHub issues properly created
+✅ Foundation for additional skills
+"""
+
+[tasks.VERSION-001]
+id = "VERSION-001"
+name = "Implement Skill Update Detection"
+phase = "UI Redesign + Skills System"
+assigned_engineer = "engineer_1"
+status = "pending"
+description = "Check for skill updates on extension activation, compare local vs latest versions, detect changes"
+estimated_lines = 200
+estimated_time = "2.5 hours"
+dependencies = ["SKILLS-001"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "checkSkillUpdates() function",
+    "Fetch latest skill versions (GitHub API)",
+    "Compare local vs latest (semver)",
+    "Detect breaking changes",
+    "Return SkillUpdate[] array"
+]
+performance_target = "Update check < 2s"
+patterns = ["Pattern-META-001"]
+files_to_create = [
+    "vscode-lumina/src/skills/SkillUpdateManager.ts"
+]
+validation_criteria = [
+    "Update check runs on extension activation",
+    "Latest versions fetched correctly",
+    "Version comparison accurate (semver)",
+    "Breaking changes detected",
+    "Update list available programmatically"
+]
+why = """
+Skills evolve over time (bug fixes, new features).
+Users need awareness of updates without auto-breaking workflows.
+Update detection enables informed upgrade decisions.
+"""
+context = """
+User: 'if a new version comes out and a skill has been updated we need to allow them to either accept that update merge that update or deny that update'
+Skills ship with extension but can be customized.
+Update detection first step in version management workflow.
+"""
+reasoning_chain = [
+    "1. User has ÆtherLight installed with v1.0.0 skills",
+    "2. New release ships with v1.1.0 skills",
+    "3. On extension activation, check for updates",
+    "4. Fetch latest skill versions from GitHub",
+    "5. Compare local metadata.version vs latest.version",
+    "6. Detect breaking changes (major version bump)",
+    "7. Return update list to user",
+    "8. Result: User aware of available updates"
+]
+success_impact = """
+When VERSION-001 complete:
+✅ Update detection runs on activation
+✅ Latest versions fetched from GitHub
+✅ Breaking changes identified
+✅ Update list accurate and complete
+✅ Foundation for merge/accept/deny workflow
+"""
+
+[tasks.VERSION-002]
+id = "VERSION-002"
+name = "Build Skill Update UI (Accept/Merge/Deny)"
+phase = "UI Redesign + Skills System"
+assigned_engineer = "engineer_1"
+status = "pending"
+description = "Create UI for skill updates: show changes, provide Accept/Merge/Deny buttons, diff viewer"
+estimated_lines = 300
+estimated_time = "4 hours"
+dependencies = ["VERSION-001"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Skill updates panel (WebView or notification)",
+    "Update item with version badge",
+    "Changes list (added, modified, removed)",
+    "Accept Update button (overwrite)",
+    "Merge & Review button (three-way merge)",
+    "Deny Update button (ignore)",
+    "View Diff button (side-by-side)"
+]
+performance_target = "UI render < 100ms"
+patterns = ["Pattern-UI-006"]
+files_to_create = [
+    "vscode-lumina/src/skills/SkillUpdateUI.ts"
+]
+validation_criteria = [
+    "Update UI displays when updates available",
+    "Changes clearly listed",
+    "All 4 buttons functional",
+    "Diff viewer shows side-by-side comparison",
+    "User decision persisted"
+]
+why = """
+Users must control when skills update (no surprise breaking changes).
+Merge option preserves user customizations.
+Diff viewer enables informed decisions.
+"""
+context = """
+User: 'especially if they're in the middle of a development we don't want to screw them up because we change the skill which may affect their their their output'
+Git-like merge system protects user work.
+Accept/Merge/Deny gives user full control.
+"""
+reasoning_chain = [
+    "1. VERSION-001 detects skill updates",
+    "2. Show UI: 'Bug-report skill updated: 1.0.0 → 1.1.0'",
+    "3. List changes: '✅ Added duplicate check, ✏️ Improved template'",
+    "4. User options:",
+    "   - Accept: Overwrite local with latest (simple)",
+    "   - Merge: Three-way merge, preserve customizations",
+    "   - Deny: Keep current, ignore this version",
+    "   - View Diff: See exact changes",
+    "5. User chooses based on workflow state",
+    "6. Result: No surprise breakages, user in control"
+]
+success_impact = """
+When VERSION-002 complete:
+✅ Update UI shows available updates
+✅ Changes clearly communicated
+✅ Accept/Merge/Deny workflow functional
+✅ Diff viewer accessible
+✅ Users control skill updates
+✅ No surprise breaking changes
+"""
+
+[tasks.VERSION-003]
+id = "VERSION-003"
+name = "Implement Three-Way Merge for Skills"
+phase = "UI Redesign + Skills System"
+assigned_engineer = "engineer_1"
+status = "pending"
+description = "Git-like three-way merge: compare base (original), local (user's), latest (new version), generate merged result"
+estimated_lines = 250
+estimated_time = "4 hours"
+dependencies = ["VERSION-002"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "threeWayMerge() function",
+    "Diff algorithm (line-by-line comparison)",
+    "Conflict detection",
+    "Merged result generation",
+    "Show in diff editor for review",
+    "Save merged version on user approval"
+]
+performance_target = "Merge computation < 500ms"
+patterns = ["Pattern-META-001"]
+files_to_modify = [
+    "vscode-lumina/src/skills/SkillUpdateManager.ts"
+]
+validation_criteria = [
+    "Three-way merge produces correct result",
+    "User customizations preserved",
+    "New features from update included",
+    "Conflicts highlighted",
+    "User can review and approve"
+]
+why = """
+Users customize skills to fit their workflow.
+Simple overwrite destroys customizations.
+Three-way merge preserves user work while integrating updates.
+"""
+context = """
+Git-style merge familiar to developers.
+Base = original skill, Local = user's version, Latest = new release.
+Merge preserves customizations while adding new features.
+"""
+reasoning_chain = [
+    "1. User customized bug-report skill (added custom labels)",
+    "2. New version adds duplicate detection feature",
+    "3. Simple overwrite: Custom labels lost",
+    "4. Solution: Three-way merge",
+    "5. Base (1.0.0): Original skill",
+    "6. Local (1.0.0+custom): User's customizations",
+    "7. Latest (1.1.0): New duplicate detection",
+    "8. Merge: Custom labels + duplicate detection",
+    "9. Result: Best of both worlds"
+]
+success_impact = """
+When VERSION-003 complete:
+✅ Three-way merge functional
+✅ User customizations preserved
+✅ New features integrated
+✅ Conflicts handled gracefully
+✅ Users confident updating skills
+"""
+
+[tasks.TEST-UI]
+id = "TEST-UI"
+name = "Test UI Redesign End-to-End"
+phase = "UI Redesign + Skills System"
+assigned_engineer = "engineer_1"
+status = "pending"
+description = "Test all UI changes: resizable textarea, icon toolbars, help text, settings panel, skill invocations"
+estimated_lines = 0
+estimated_time = "2 hours"
+dependencies = ["UI-004", "SETTINGS-002", "SKILLS-002", "VERSION-003"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Test resizable textarea persistence",
+    "Test all primary toolbar icons",
+    "Test all secondary toolbar icons",
+    "Test help text accuracy",
+    "Test settings save/load",
+    "Test skill icon click handlers",
+    "Test skill update workflow",
+    "Document all test results"
+]
+performance_target = "All features functional"
+patterns = ["Pattern-TESTING-001"]
+validation_criteria = [
+    "Textarea resizes and persists correctly",
+    "All icons functional and responsive",
+    "Help text accurate",
+    "Settings save/load correctly",
+    "Skill invocations populate correctly",
+    "Update detection works",
+    "Merge/Accept/Deny functional",
+    "No regressions from existing features"
+]
+why = """
+UI redesign touches core UX - must be thoroughly tested.
+Settings changes affect skill behavior - integration critical.
+No regressions in existing functionality acceptable.
+"""
+context = """
+Major UI overhaul requires comprehensive testing.
+All changes must work together cohesively.
+User workflow must remain smooth and intuitive.
+"""
+reasoning_chain = [
+    "1. UI redesign changes Voice tab fundamentally",
+    "2. Icon toolbars replace text buttons",
+    "3. Textarea behavior changed (resizable)",
+    "4. Settings new configuration surface",
+    "5. Skills integrated with icons",
+    "6. Must test: Individual features + integration",
+    "7. Check: No regressions in existing features",
+    "8. Result: Confident release, polished UX"
+]
+success_impact = """
+When TEST-UI complete:
+✅ All UI features tested and functional
+✅ Integration points validated
+✅ No regressions detected
+✅ Test results documented
+✅ Ready for release
+"""
+
+# ============================================================
+# PHASE 1: ENFORCEMENT NORMALIZATION (Week 1 - Finish First)
+# ============================================================
+
+[tasks.ENORM-001]
+id = "ENORM-001"
+name = "Create AI_AGENT_ENGINEERING_FRAMEWORK.md"
+phase = "Enforcement Normalization"
+assigned_engineer = "engineer_1"
+status = "completed"
+completed_date = "2025-10-22"
+description = "Complete 4-tier framework document defining enforcement hierarchy"
+estimated_lines = 560
+estimated_time = "2 hours"
+dependencies = []
+agent = "documentation-enforcer"
+deliverables = [
+    ".aetherlight/AI_AGENT_ENGINEERING_FRAMEWORK.md (560 lines)",
+    "Framework definitions (4 tiers with probabilistic rationale)",
+    "Enforcement mechanisms (validation checkpoints, feedback loops)",
+    "Integration workflows (how tiers interact)",
+    "Success metrics (compliance targets per tier)"
+]
+patterns = ["Pattern-CONTEXT-002"]
+
+[tasks.ENORM-002]
+id = "ENORM-002"
+name = "Create MANDATORY_RULES.md"
+phase = "Enforcement Normalization"
+assigned_engineer = "engineer_1"
+status = "completed"
+completed_date = "2025-10-22"
+description = "5 critical Tier 1 rules documented with enforcement mechanisms"
+estimated_lines = 510
+estimated_time = "2 hours"
+dependencies = ["ENORM-001"]
+agent = "documentation-enforcer"
+deliverables = [
+    ".aetherlight/MANDATORY_RULES.md (510 lines)",
+    "RULE-001: Webview Message Validation",
+    "RULE-002: Sprint Plan Validation",
+    "RULE-003: Terminal State Validation",
+    "RULE-004: Agent Routing Validation",
+    "RULE-005: RLS Multi-Tenant Isolation"
+]
+patterns = ["Pattern-CLI-001"]
+
+[tasks.ENORM-003]
+id = "ENORM-003"
+name = "Create Rule Templates"
+phase = "Enforcement Normalization"
+assigned_engineer = "engineer_1"
+status = "completed"
+completed_date = "2025-10-22"
+description = "4 comprehensive templates for creating rules at each tier"
+estimated_lines = 1035
+estimated_time = "2 hours"
+dependencies = ["ENORM-001", "ENORM-002"]
+agent = "documentation-enforcer"
+deliverables = [
+    ".aetherlight/templates/tier1-mandatory-rule-template.md (181 lines)",
+    ".aetherlight/templates/tier2-sop-template.md (246 lines)",
+    ".aetherlight/templates/tier3-guideline-template.md (298 lines)",
+    ".aetherlight/templates/validation-checkpoint-template.md (310 lines)"
+]
+patterns = ["Pattern-META-001"]
+
+[tasks.ENORM-004]
+id = "ENORM-004"
+name = "Update CLAUDE.md with Tier Markers"
+phase = "Enforcement Normalization"
+assigned_engineer = "engineer_1"
+status = "completed"
+completed_date = "2025-10-22"
+description = "Add tier emojis (🚨 📋 💡 📚) throughout CLAUDE.md"
+estimated_lines = 100
+estimated_time = "1.5 hours"
+dependencies = ["ENORM-001", "ENORM-002", "ENORM-003"]
+agent = "documentation-enforcer"
+deliverables = [
+    "Updated CLAUDE.md with tier markers on all rules/SOPs/guidelines",
+    "🚨 markers on mandatory rules (Tier 1)",
+    "📋 markers on SOPs (Tier 2)",
+    "💡 markers on guidelines (Tier 3)",
+    "📚 markers on context sections (Tier 4)"
+]
+patterns = ["Pattern-META-001"]
+notes = "User is finishing this task - blocks Voice Panel start"
+
+[tasks.ENORM-011]
+id = "ENORM-011"
+short_id = "reference-implementations"
+name = "Create Reference Implementations for Mandatory Rules"
+phase = "Enforcement Normalization - Reference Implementations"
+assigned_engineer = "engineer_1"
+status = "completed"
+completed_date = "2025-10-22"
+description = "Create complete, tested, working reference implementations for RULE-001, RULE-003, RULE-005 with integration examples and tests"
+estimated_lines = 800
+estimated_time = "3-4 hours"
+dependencies = ["ENORM-004"]
+agent = "rust-core-dev"
+deliverables = [
+    ".aetherlight/reference-implementations/RULE-001-webview-validation/ (300 lines)",
+    ".aetherlight/reference-implementations/RULE-003-terminal-validation/ (200 lines)",
+    ".aetherlight/reference-implementations/RULE-005-rls-validation/ (300 lines)",
+    "Each includes: implementation.ts, integration-example.ts, test.ts, README.md"
+]
+performance_target = "AI agents achieve 90%+ first-try success when copying reference implementations"
+patterns = ["Pattern-META-001", "Pattern-FAILURE-002"]
+files_to_create = [
+    ".aetherlight/reference-implementations/RULE-001-webview-validation/implementation.ts",
+    ".aetherlight/reference-implementations/RULE-001-webview-validation/integration-example.ts",
+    ".aetherlight/reference-implementations/RULE-001-webview-validation/test.ts",
+    ".aetherlight/reference-implementations/RULE-001-webview-validation/README.md",
+    ".aetherlight/reference-implementations/RULE-003-terminal-validation/implementation.ts",
+    ".aetherlight/reference-implementations/RULE-003-terminal-validation/integration-example.ts",
+    ".aetherlight/reference-implementations/RULE-003-terminal-validation/test.ts",
+    ".aetherlight/reference-implementations/RULE-003-terminal-validation/README.md",
+    ".aetherlight/reference-implementations/RULE-005-rls-validation/implementation.ts",
+    ".aetherlight/reference-implementations/RULE-005-rls-validation/integration-example.ts",
+    ".aetherlight/reference-implementations/RULE-005-rls-validation/test.ts",
+    ".aetherlight/reference-implementations/RULE-005-rls-validation/README.md"
+]
+validation_criteria = [
+    "All 3 reference implementations exist with 4 files each",
+    "implementation.ts has complete working code (no TODOs)",
+    "integration-example.ts shows real-world usage",
+    "test.ts has passing test cases (npm test succeeds)",
+    "README.md documents common errors + solutions",
+    "AI agent can copy reference implementation and succeed first try"
+]
+why = """
+Templates in MANDATORY_RULES.md lack context (imports, integration, tests).
+AI agents must guess implementation details (hallucination risk 60-70% success).
+Need complete, tested, working examples to copy (90%+ success rate).
+"""
+context = """
+ENFORMA Sprint: Complete enforcement architecture + prove it works.
+Gap: Templates exist but no proven implementations with working code.
+This task: Create reference-implementations/ with complete working code + tests.
+Enables: Skills builder (ENORM-005/006) to copy correct implementations.
+Impact: 50-90 min time savings per rule implementation × 10 skills = 8+ hours saved.
+"""
+reasoning_chain = [
+    "1. MANDATORY_RULES.md has code templates (good start)",
+    "2. Templates lack imports, dependencies, integration examples",
+    "3. AI agents must guess details → hallucination risk (Pattern-FAILURE-002)",
+    "4. Create complete working implementations with tests",
+    "5. Store in .aetherlight/reference-implementations/",
+    "6. Each rule gets: implementation.ts + integration-example.ts + test.ts + README.md",
+    "7. Result: AI agents copy proven code (90%+ success, 50-90 min time savings)"
+]
+success_impact = """
+When ENORM-011 complete:
+✅ 3 reference implementations exist (RULE-001, 003, 005)
+✅ Each includes complete working code + integration examples + tests
+✅ AI agents achieve 90%+ first-try success (vs 60-70% without)
+✅ Time savings: 50-90 minutes per rule implementation
+✅ Zero guessing about imports, integration, error handling
+✅ Skills builder (ENORM-005/006) copies reference implementations (not templates)
+✅ Pattern ingestion skill (ENORM-007) uses working RULE-005 code
+"""
+notes = "HIGH PRIORITY - Must complete before ENORM-005. Skills builder will copy these reference implementations. Prevents AI hallucination during skill implementation."
+
+[tasks.ENORM-005]
+id = "ENORM-005"
+name = "Implement Skills Builder CLI (Phase 1)"
+phase = "Enforcement Normalization - Skills Builder"
+assigned_engineer = "engineer_1"
+status = "completed"
+completed_date = "2025-10-22"
+description = "Create Node.js CLI tool with interactive wizard for skill scaffolding using inquirer.js"
+estimated_lines = 600
+estimated_time = "2-3 hours"
+dependencies = ["ENORM-011"]
+agent = "rust-core-dev"
+deliverables = [
+    "scripts/skills-builder/index.ts (200 lines) - CLI entry point",
+    "scripts/skills-builder/generators/ (150 lines) - Template generators",
+    "scripts/skills-builder/templates/ (250 lines) - File templates",
+    "package.json updates (inquirer, fs-extra, handlebars)"
+]
+performance_target = "CLI completes in <30 seconds"
+patterns = ["Pattern-META-001", "Pattern-CLI-001"]
+files_to_create = [
+    "scripts/skills-builder/index.ts",
+    "scripts/skills-builder/generators/skill-generator.ts",
+    "scripts/skills-builder/generators/validation-generator.ts",
+    "scripts/skills-builder/templates/SKILL.md.hbs",
+    "scripts/skills-builder/templates/reference.md.hbs",
+    "scripts/skills-builder/templates/examples.md.hbs",
+    "scripts/skills-builder/templates/VALIDATIONS.md.hbs",
+    "scripts/skills-builder/templates/script-template.ts.hbs"
+]
+validation_criteria = [
+    "CLI runs without errors",
+    "Interactive wizard completes",
+    "Generated skill has proper structure",
+    "YAML frontmatter validates",
+    "TypeScript compiles"
+]
+why = """
+Enable rapid skill creation (<30 sec) vs 1+ hour manual.
+Dogfood enforcement architecture by embedding validation templates.
+Unlock community skill ecosystem (competitive advantage).
+"""
+context = """
+ENFORMA Sprint: Complete 4-tier enforcement + prove it works.
+This task: Create tool to scaffold skills that embed enforcement rules.
+Connects to: ENORM-011 (reference implementations), Voice Panel v0.5 (skills power tabs).
+"""
+reasoning_chain = [
+    "1. ENORM-001 to ENORM-004 defined enforcement architecture (theory)",
+    "2. ENORM-011 created working implementations (practice)",
+    "3. Need to prove theory works (dogfooding)",
+    "4. Skills embed enforcement rules (RULE-005, 001, 003)",
+    "5. Manual skill creation is slow/error-prone (1+ hour)",
+    "6. CLI tool scaffolds skills in <30 sec with reference implementations",
+    "7. Result: Theory validated + community enabled"
+]
+success_impact = """
+When ENORM-005 complete:
+✅ Skills scaffolded in <30 sec (80%+ success rate)
+✅ Validation templates automatically embedded from reference implementations
+✅ Path to 2 production skills (ENORM-007, ENORM-008)
+✅ Community can create skills (ecosystem growth)
+"""
+
+[tasks.ENORM-006]
+id = "ENORM-006"
+name = "Add Rule Detection to Skills Builder (Phase 2)"
+phase = "Enforcement Normalization - Skills Builder"
+assigned_engineer = "engineer_1"
+status = "completed"
+completed_date = "2025-10-22"
+description = "Auto-detect which MANDATORY_RULES apply: Supabase → RULE-005, webviews → RULE-001, terminals → RULE-003"
+estimated_lines = 200
+estimated_time = "1-2 hours"
+why = """
+Auto-detect which rules apply based on skill type (prevents missing validations).
+Make enforcement automatic not manual (80%+ correct detection).
+Unlock automatic rule embedding from reference implementations.
+"""
+context = """
+Phase 2 of skills builder (after ENORM-005 CLI tool).
+ENORM-005 scaffolds structure, ENORM-006 embeds the right rules.
+Connects to: ENORM-011 (reference implementations contain rules to copy).
+"""
+reasoning_chain = [
+    "1. ENORM-005 created CLI to scaffold skills",
+    "2. But which rules should be embedded? (depends on skill type)",
+    "3. Supabase skills need RULE-005 (RLS validation)",
+    "4. Webview skills need RULE-001 (proper webview initialization)",
+    "5. Terminal skills need RULE-003 (terminal lifecycle)",
+    "6. Build detector that asks questions → maps to rules",
+    "7. Result: Right rules automatically embedded based on skill type"
+]
+success_impact = """
+When ENORM-006 complete:
+✅ Rule embedding automated (80%+ correct detection)
+✅ Validation templates copied from reference implementations
+✅ Zero manual rule selection (error prevention)
+✅ Path to ENORM-007 (first production skill with correct rules)
+"""
+dependencies = ["ENORM-005"]
+agent = "rust-core-dev"
+deliverables = [
+    "scripts/skills-builder/detectors/rule-detector.ts (150 lines)",
+    "Rule templates (rule-005, rule-001, rule-003)",
+    "Updated wizard with detection questions"
+]
+performance_target = "Rule detection <10ms"
+patterns = ["Pattern-META-001"]
+files_to_create = [
+    "scripts/skills-builder/detectors/rule-detector.ts",
+    "scripts/skills-builder/templates/rule-005-template.ts",
+    "scripts/skills-builder/templates/rule-001-template.ts",
+    "scripts/skills-builder/templates/rule-003-template.ts"
+]
+validation_criteria = [
+    "Supabase question → RULE-005 embedded",
+    "Webview question → RULE-001 embedded",
+    "Terminal question → RULE-003 embedded",
+    "Multiple rules work together"
+]
+
+[tasks.ENORM-007]
+id = "ENORM-007"
+name = "Generate First Production Skill (Pattern Ingestion)"
+phase = "Enforcement Normalization - Skills Builder"
+assigned_engineer = "engineer_1"
+status = "completed"
+completed_date = "2025-10-22"
+description = "Use skills builder to create Pattern Ingestion skill (dogfooding the builder)"
+estimated_lines = 400
+estimated_time = "1-2 hours"
+why = """
+Dogfood skills builder on real production use case (prove it works).
+Create essential tool (pattern ingestion needed for Phase 4 agents).
+Validate builder end-to-end (theory → practice in <30 sec).
+"""
+context = """
+First real skill using builder (validation test).
+ENORM-005 CLI + ENORM-006 detection → ENORM-007 proves it works.
+Connects to: Node 1 deployment, Phase 4 agents need patterns in Supabase.
+"""
+reasoning_chain = [
+    "1. ENORM-005/006 built the builder (tools ready)",
+    "2. Need proof it works (not just theory)",
+    "3. Pattern ingestion is essential task (61 patterns → Supabase)",
+    "4. Perfect dogfooding case: Supabase skill → RULE-005 auto-detected",
+    "5. Run builder: 'create pattern-ingestion skill for Supabase'",
+    "6. Builder generates skill with RULE-005 embedded",
+    "7. Result: Production skill created in <30 sec + builder validated"
+]
+success_impact = """
+When ENORM-007 complete:
+✅ Builder validated (dogfooding successful)
+✅ Pattern ingestion skill operational (61 patterns deployable)
+✅ RULE-005 automatically embedded (proof of auto-detection)
+✅ Path to second skill (ENORM-008 sprint planning)
+"""
+dependencies = ["ENORM-006"]
+agent = "documentation-enforcer"
+deliverables = [
+    ".claude/skills/pattern-ingestion/ generated by builder",
+    "Implementation in scripts/pattern-ingestion.ts",
+    "Test: 'deploy patterns' voice command works",
+    "MANDATORY_RULES.md tracking updated"
+]
+performance_target = "Pattern deployment <30 seconds"
+patterns = ["Pattern-EMBEDDING-001", "Pattern-SUPABASE-001"]
+files_to_create = [
+    ".claude/skills/pattern-ingestion/SKILL.md",
+    ".claude/skills/pattern-ingestion/reference.md",
+    ".claude/skills/pattern-ingestion/examples.md",
+    ".claude/skills/pattern-ingestion/VALIDATIONS.md",
+    ".claude/skills/pattern-ingestion/scripts/ingest-patterns.ts"
+]
+validation_criteria = [
+    "Skill generated without manual creation",
+    "RULE-005 embedded in VALIDATIONS.md",
+    "Voice invocation works",
+    "61 patterns deploy successfully"
+]
+
+[tasks.ENORM-008]
+id = "ENORM-008"
+name = "Create Sprint Planning Skill (Second Production Skill)"
+phase = "Enforcement Normalization - Skills Builder"
+assigned_engineer = "engineer_1"
+status = "completed"
+completed_date = "2025-10-22"
+description = "Generate Sprint Planning skill: natural language task list → ACTIVE_SPRINT.toml"
+estimated_lines = 400
+estimated_time = "2 hours"
+why = """
+Second production skill (validates builder works for different domains).
+Critical tool (sprint planning automation for Phase 4 orchestration).
+Proves multi-rule embedding (RULE-002 + RULE-003 for sprint validation + terminal).
+"""
+context = """
+Second dogfooding test (different from ENORM-007's Supabase focus).
+Sprint planning essential for multi-agent coordination.
+Connects to: Voice Panel Sprint Tab, Phase 4 orchestrator, ACTIVE_SPRINT.toml generation.
+"""
+reasoning_chain = [
+    "1. ENORM-007 validated builder with Supabase skill (RULE-005)",
+    "2. Need second test with different domain (sprint planning)",
+    "3. Sprint planning requires RULE-002 (Sprint Plan Validation)",
+    "4. Also needs terminal interaction (RULE-003)",
+    "5. Run builder: 'create sprint-planning skill'",
+    "6. Builder detects multiple rules → embeds both RULE-002 + RULE-003",
+    "7. Result: Second skill created + multi-rule embedding proven"
+]
+success_impact = """
+When ENORM-008 complete:
+✅ Builder validated for second domain (not just Supabase)
+✅ Sprint planning skill operational (task list → TOML automation)
+✅ Multi-rule embedding proven (RULE-002 + RULE-003 together)
+✅ Path to Phase 4 orchestrator (uses sprint planning skill)
+"""
+dependencies = ["ENORM-007"]
+agent = "documentation-enforcer"
+deliverables = [
+    ".claude/skills/sprint-planning/ generated by builder",
+    "Implementation: task list → TOML generation",
+    "Test: 'create sprint from this list' works",
+    "Sprint Tab displays generated sprint"
+]
+performance_target = "Sprint generation <60 seconds"
+patterns = ["Pattern-SPRINT-001", "Pattern-META-001"]
+files_to_create = [
+    ".claude/skills/sprint-planning/SKILL.md",
+    ".claude/skills/sprint-planning/reference.md",
+    ".claude/skills/sprint-planning/examples.md",
+    ".claude/skills/sprint-planning/VALIDATIONS.md",
+    ".claude/skills/sprint-planning/scripts/generate-sprint.ts"
+]
+validation_criteria = [
+    "Skill generated using builder",
+    "RULE-002 embedded (Sprint Plan Validation)",
+    "TOML validates against schema",
+    "Sprint Tab displays correctly"
+]
+
+[tasks.ENORM-009]
+id = "ENORM-009"
+name = "Documentation and Public Repo Evaluation (Phase 3)"
+phase = "Enforcement Normalization - Skills Builder"
+assigned_engineer = "engineer_1"
+status = "completed"
+completed_date = "2025-10-22"
+description = "Document skills builder + evaluate Anthropic's public skills repo (github.com/anthropics/skills)"
+estimated_lines = 300
+estimated_time = "1-2 hours"
+why = """
+Make builder accessible to community (users can create their own skills).
+Leverage Anthropic's official skills repo (PDF, DOCX, XLSX processing, etc.).
+Complete dogfooding cycle (built → tested → documented).
+"""
+context = """
+Phase 3 of ENFORM Sprint (after ENORM-005/006/007/008 dogfooding).
+Skills builder proven, now share knowledge with community.
+Connects to: Community skill ecosystem, Anthropic official skills repo, Phase 4+ adoption.
+"""
+reasoning_chain = [
+    "1. ENORM-005 to ENORM-008 built and validated builder",
+    "2. Builder works but only we know how to use it",
+    "3. Need documentation for community adoption",
+    "4. Anthropic has official skills repo (github.com/anthropics/skills)",
+    "5. Evaluate their skills: PDF, DOCX, XLSX, PPTX, algorithmic-art",
+    "6. Import useful skills (document processing) if compatible",
+    "7. Result: Builder documented + community can create skills + useful skills imported"
+]
+success_impact = """
+When ENORM-009 complete:
+✅ Builder accessible to community (documented workflow)
+✅ Anthropic skills evaluated (import recommendations clear)
+✅ Document processing skills available (if compatible)
+✅ Path to community skill ecosystem (Phase 4+ growth)
+"""
+dependencies = ["ENORM-008"]
+agent = "documentation-enforcer"
+deliverables = [
+    "docs/guides/SKILLS_BUILDER_GUIDE.md (200 lines)",
+    "docs/guides/CREATING_YOUR_FIRST_SKILL.md (100 lines)",
+    "Public repo evaluation: Anthropic skills repo analysis",
+    "Recommendation: Import document processing skills if useful"
+]
+patterns = ["Pattern-META-001"]
+files_to_create = [
+    "docs/guides/SKILLS_BUILDER_GUIDE.md",
+    "docs/guides/CREATING_YOUR_FIRST_SKILL.md",
+    "docs/research/PUBLIC_SKILLS_EVALUATION.md"
+]
+validation_criteria = [
+    "Guide covers CLI usage",
+    "Tutorial walks through skill creation",
+    "Anthropic skills repo evaluated",
+    "Import recommendations documented"
+]
+notes = "Anthropic has official skills repo: github.com/anthropics/skills (PDF, DOCX, XLSX, PPTX, algorithmic-art, etc.)"
+
+[tasks.ENORM-010]
+id = "ENORM-010"
+short_id = "task-chain-of-thought"
+name = "Enhance Sprint Tasks with Chain of Thought Context"
+phase = "Enforcement Normalization - Process Improvement"
+assigned_engineer = "engineer_1"
+status = "completed"
+completed_date = "2025-10-22"
+description = "Create enhanced task template with CoT fields (why, context, reasoning_chain, success_impact), retroactively enhance ENORM-005 to ENORM-009"
+estimated_lines = 400
+estimated_time = "2-3 hours"
+dependencies = ["ENORM-004"]
+agent = "documentation-enforcer"
+deliverables = [
+    ".aetherlight/templates/enhanced-task-template.toml (100 lines)",
+    "ACTIVE_SPRINT.toml updated (ENORM-005 to ENORM-009 with CoT fields)",
+    "SOP-009 updated (Sprint System Daily Workflow with CoT checkpoint)",
+    "scripts/sprint-tools/create-task.ts (interactive wizard, 200 lines)"
+]
+performance_target = "Task understanding without external docs"
+patterns = ["Pattern-META-001", "Pattern-TRACKING-001", "Pattern-SPRINT-001"]
+files_to_create = [
+    ".aetherlight/templates/enhanced-task-template.toml",
+    "scripts/sprint-tools/create-task.ts"
+]
+files_to_modify = [
+    "sprints/ACTIVE_SPRINT.toml",
+    "CLAUDE.md"
+]
+validation_criteria = [
+    "Enhanced template exists with CoT fields",
+    "ENORM-005 to ENORM-009 have why/context/reasoning/impact",
+    "User can answer 'What is ENORM-005?' from sprint file",
+    "SOP-009 includes CoT checkpoint",
+    "create-task tool scaffolds new tasks with CoT"
+]
+why = """
+User cannot understand task purpose from ID alone (ENORM-005 = ?).
+Tasks lack WHY, CONTEXT, REASONING (only WHAT/HOW).
+Need embedded CoT to preserve decision rationale and enable self-service understanding.
+"""
+context = """
+ENFORMA Sprint: Complete enforcement architecture + prove it works.
+Current gap: Tasks defined but reasoning not documented.
+This task: Add CoT fields to task template + retroactively enhance existing tasks.
+Impacts: All future sprints benefit from systematic task documentation.
+"""
+reasoning_chain = [
+    "1. User asks: 'What is ENORM-005?' (cryptic ID lacking context)",
+    "2. Must read external docs or ask to understand task purpose",
+    "3. Task definitions lack WHY, CONTEXT, REASONING fields",
+    "4. Chain of Thought exists in code/commits/docs but not task planning",
+    "5. Create enhanced task template with CoT fields",
+    "6. Retroactively enhance ENORM-005 to ENORM-009 (dogfood the format)",
+    "7. Result: Self-documenting tasks with preserved reasoning"
+]
+success_impact = """
+When ENORM-010 complete:
+✅ Enhanced task template exists (.aetherlight/templates/)
+✅ 5 tasks retroactively enhanced (ENORM-005 to ENORM-009)
+✅ User can understand task purpose from sprint file alone
+✅ Future tasks created with CoT fields (systematic process)
+✅ Historical reasoning preserved (no lost context over time)
+✅ <5% 'What is task X?' questions moving forward
+"""
+notes = "Meta-task: Improves the process itself. Dogfoods Chain of Thought in task planning (not just code). High ROI: All future sprints benefit."
+
+# ============================================================
+# PHASE 2: VOICE PANEL V0.5 - MOST IMPORTANT
+# Duration: 8-10 weeks total, 30 tasks (4 completed, 26 remaining)
+# ============================================================
+
+# PHASE 2A: Foundation (Week 1 - COMPLETED ✅)
+# Goal: Create tabbed interface with 6 tabs, all navigable
+
+[tasks.A-001]
+id = "A-001"
+name = "Create TabManager Class"
+phase = "Voice Panel v0.5 - Foundation"
+assigned_engineer = "engineer_1"
+status = "completed"
+completed_date = "2025-10-21"
+description = "Implement TabManager.ts with state management for 6 tabs: Voice, Sprint, Planning, Patterns, Activity, Settings"
+estimated_lines = 350
+estimated_time = "4 hours"
+dependencies = []
+agent = "tauri-desktop-dev"
+deliverables = [
+    "TabManager class with 6 tabs",
+    "Workspace state persistence",
+    "Tab promotion/demotion functionality",
+    "HTML generation for tab bar"
+]
+performance_target = "Tab state operations <5ms"
+patterns = ["Pattern-UI-006"]
+files_to_create = ["vscode-lumina/src/commands/TabManager.ts"]
+
+[tasks.A-002]
+id = "A-002"
+name = "Integrate TabManager with VoicePanel WebView"
+phase = "Voice Panel v0.5 - Foundation"
+assigned_engineer = "engineer_1"
+status = "completed"
+completed_date = "2025-10-21"
+description = "Update voicePanel.ts to use TabManager: render tab bar, handle tab click events, switch active tab content"
+estimated_lines = 150
+estimated_time = "3 hours"
+dependencies = ["A-001"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Tab bar renders with 6 tabs",
+    "Clicking tab switches active content",
+    "Active tab visual indicator",
+    "CSS matches VS Code theme"
+]
+performance_target = "Tab switching <50ms"
+files_to_modify = ["vscode-lumina/src/commands/voicePanel.ts"]
+
+[tasks.A-003]
+id = "A-003"
+name = "Create Placeholder Content for All 6 Tabs"
+phase = "Voice Panel v0.5 - Foundation"
+assigned_engineer = "engineer_1"
+status = "completed"
+completed_date = "2025-10-21"
+description = "Create skeleton HTML for each tab: Voice, Sprint, Planning, Patterns, Activity, Settings placeholders"
+estimated_lines = 100
+estimated_time = "2 hours"
+dependencies = ["A-002"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "All 6 tabs navigable",
+    "Each tab shows unique placeholder",
+    "No JavaScript errors",
+    "Smooth tab switching"
+]
+performance_target = "Tab content render <20ms"
+files_to_modify = ["vscode-lumina/src/commands/voicePanel.ts"]
+
+[tasks.A-004]
+id = "A-004"
+name = "Add Hotkey (`) Focus Logic"
+phase = "Voice Panel v0.5 - Foundation"
+assigned_engineer = "engineer_1"
+status = "completed"
+completed_date = "2025-10-21"
+description = "Ensure ` hotkey always focuses Voice tab (check if promoted, handle accordingly)"
+estimated_lines = 50
+estimated_time = "1 hour"
+dependencies = ["A-002"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "` hotkey focuses Voice tab",
+    "Works from any VS Code view",
+    "Latency <100ms"
+]
+performance_target = "Hotkey focus <100ms"
+patterns = ["Pattern-UI-014"]
+files_to_modify = ["vscode-lumina/package.json", "vscode-lumina/src/extension.ts", "vscode-lumina/src/commands/voicePanel.ts"]
+
+# PHASE 2B: Voice Tab Refinement (Week 2-3)
+# Goal: Compact UI, auto-terminal-selection
+
+[tasks.B-001]
+id = "B-001"
+name = "Redesign Voice Tab with Icon Bar"
+phase = "Voice Panel v0.5 - Voice Tab Refinement"
+assigned_engineer = "engineer_1"
+status = "completed"
+completed_date = "2025-10-22"
+description = "Replace text buttons with icon bar (32px height): 🎤 Record/Stop, ✨ Enhance, 📤 Send, 🗑️ Clear, 🔄 Refresh"
+estimated_lines = 80
+estimated_time = "2 hours"
+dependencies = ["ENORM-004"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Icon bar renders with 5 icons",
+    "Tooltips on hover",
+    "Height reduced to 32px"
+]
+performance_target = "Icon click response <50ms"
+files_to_modify = ["vscode-lumina/src/commands/voicePanel.ts"]
+
+[tasks.B-002]
+id = "B-002"
+name = "Compact Terminal List UI"
+phase = "Voice Panel v0.5 - Voice Tab Refinement"
+assigned_engineer = "engineer_1"
+status = "completed"
+completed_date = "2025-10-22"
+description = "Redesign terminal list: checkmark (✓) for selected, pencil icon (✏️) for rename, 24px row height, no header"
+estimated_lines = 60
+estimated_time = "2 hours"
+dependencies = ["B-001"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Terminal list with checkmark for active",
+    "Row height 24px",
+    "Pencil icons for inline edit"
+]
+performance_target = "List render <20ms"
+files_to_modify = ["vscode-lumina/src/commands/voicePanel.ts"]
+
+[tasks.B-003]
+id = "B-003"
+name = "Implement Auto-Terminal-Selection"
+phase = "Voice Panel v0.5 - Voice Tab Refinement"
+assigned_engineer = "engineer_1"
+status = "completed"
+completed_date = "2025-10-22"
+description = "Monitor terminals for command completion, auto-select next waiting terminal using Shell Integration API"
+estimated_lines = 200
+estimated_time = "4 hours"
+dependencies = ["B-002"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Shell Integration API listener",
+    "Auto-select after command completes",
+    "⏳ icon for waiting terminals",
+    "Setting to toggle behavior"
+]
+performance_target = "Auto-selection <10ms"
+patterns = ["Pattern-UI-012"]
+files_to_create = ["vscode-lumina/src/commands/AutoTerminalSelector.ts"]
+
+[tasks.B-004]
+id = "B-004"
+name = "Add Inline Terminal Rename"
+phase = "Voice Panel v0.5 - Voice Tab Refinement"
+assigned_engineer = "engineer_1"
+status = "completed"
+completed_date = "2025-10-22"
+description = "Click pencil → editable input, Enter to rename, Escape to cancel"
+estimated_lines = 80
+estimated_time = "2 hours"
+dependencies = ["B-002"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Pencil icon toggles edit mode",
+    "Enter renames terminal",
+    "Escape cancels",
+    "Info message shown"
+]
+performance_target = "Edit mode toggle <10ms"
+files_to_modify = ["vscode-lumina/src/commands/voicePanel.ts"]
+
+[tasks.B-005]
+id = "B-005"
+name = "Reduce Transcription Textarea Height"
+phase = "Voice Panel v0.5 - Voice Tab Refinement"
+assigned_engineer = "engineer_1"
+status = "completed"
+completed_date = "2025-10-22"
+description = "Change textarea from 120px to 60px default, auto-resize to max 120px, scrollbar if exceeds"
+estimated_lines = 40
+estimated_time = "1 hour"
+dependencies = ["B-001"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Textarea default 60px",
+    "Auto-resize max 120px",
+    "Total Voice tab ~200px height"
+]
+performance_target = "Auto-resize <20ms"
+files_to_modify = ["vscode-lumina/src/commands/voicePanel.ts"]
+
+[tasks.B-006]
+id = "B-006"
+name = "Add Keyboard Shortcuts Hints"
+phase = "Voice Panel v0.5 - Voice Tab Refinement"
+assigned_engineer = "engineer_1"
+status = "completed"
+completed_date = "2025-10-22"
+description = "Add subtle hints at bottom: '` - Voice | Ctrl+Enter - Send' (10px font, gray)"
+estimated_lines = 20
+estimated_time = "30 minutes"
+dependencies = ["B-001"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Hints render at bottom",
+    "10px font, gray color",
+    "Adds 20px to total height"
+]
+performance_target = "Render <5ms"
+files_to_modify = ["vscode-lumina/src/commands/voicePanel.ts"]
+
+# ============================================================
+# PHASE BUG: CRITICAL BUG FIXES (Week URGENT - Before Phase 2B)
+# Duration: 1.5-2 weeks | Priority: CRITICAL
+# Goal: Fix 9 production bugs blocking Voice Panel v0.5 usage
+# ============================================================
+
+[tasks.BUG-001]
+id = "BUG-001"
+name = "Fix Extension Load Time (17,023ms → <500ms)"
+phase = "Voice Panel v0.5 - Critical Bugs"
+assigned_engineer = "engineer_1"
+status = "completed"
+completed_date = "2025-10-24"
+description = """
+Extension takes 17 seconds to activate (34× slower than 500ms target).
+Root causes: 1s setTimeout + 15s IPC timeout + synchronous operations.
+Fix: Lazy load non-critical components, async desktop launch, defer IPC init.
+"""
+estimated_lines = 200
+estimated_time = "3-4 hours"
+dependencies = []
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Refactor launchDesktopApp() to fire-and-forget",
+    "Lazy load IPCClient (initialize on first use)",
+    "Defer voice panel creation until ` pressed",
+    "Move RealtimeSyncManager to background",
+    "Add activation profiling instrumentation"
+]
+performance_target = "<500ms activation time"
+patterns = ["Pattern-PERF-001"]
+validation_criteria = [
+    "Extension activates in <500ms",
+    "All features still work",
+    "No user-visible regressions",
+    "Profile shows no blocking operations >100ms"
+]
+files_to_modify = [
+    "vscode-lumina/src/extension.ts"
+]
+why = """
+17s load time blocks ALL functionality and makes extension feel broken.
+User cannot use voice capture until extension fully activates.
+Performance target (SOP-004) requires <500ms for good UX.
+"""
+context = """
+User tested extension and reported 17,023ms activation time.
+Critical blocker for Voice Panel v0.5 - must fix before continuing Phase 2B.
+Extension.ts has blocking operations: 1s setTimeout (line 178) + IPC connect timeout.
+"""
+reasoning_chain = [
+    "1. Extension activation calls launchDesktopApp() synchronously",
+    "2. Waits 1 second for desktop app to start (line 178)",
+    "3. Then awaits ipcClient.connect() which times out if app not running (15s)",
+    "4. All other initialization blocked until these complete",
+    "5. Solution: Make these async/lazy, only load essentials during activate()",
+    "6. Defer heavy components (voice panel, IPC) until first use",
+    "7. Result: <500ms activation, features load on-demand"
+]
+success_impact = """
+When BUG-001 fixed:
+✅ Extension activation <500ms (vs 17s)
+✅ Immediate responsiveness (no perceived lag)
+✅ All features still work (lazy loading validated)
+✅ Unblocks user workflow
+"""
+
+[tasks.BUG-002]
+id = "BUG-002"
+name = "Fix Desktop App Not Auto-Launching"
+phase = "Voice Panel v0.5 - Critical Bugs"
+assigned_engineer = "engineer_1"
+status = "completed"
+completed_date = "2025-10-23"
+description = """
+Desktop app does not launch automatically when extension activates.
+Likely causes: Executable not found, spawn fails silently, path incorrect, not built.
+Fix: Add path validation, error logging, user notification if spawn fails.
+"""
+estimated_lines = 150
+estimated_time = "1-2 hours"
+dependencies = []
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Add fs.existsSync() check for executable",
+    "Add spawn error handler with detailed logging",
+    "Show VS Code notification if launch fails",
+    "Verify desktop app compiles successfully",
+    "Test on Windows platform"
+]
+performance_target = "Desktop app launches in <1s"
+patterns = ["Pattern-DESKTOP-AUTO-LAUNCH-001"]
+validation_criteria = [
+    "Desktop app launches in system tray",
+    "IPC server becomes available (port 43215)",
+    "~ hotkey works after launch",
+    "Error message shown if launch fails"
+]
+files_to_modify = [
+    "vscode-lumina/src/extension.ts"
+]
+
+[tasks.BUG-003]
+id = "BUG-003"
+name = "Fix Voice Tab UI Not Updating"
+phase = "Voice Panel v0.5 - Critical Bugs"
+assigned_engineer = "engineer_1"
+status = "completed"
+completed_date = "2025-10-29"
+description = """
+Voice tab UI does not show updates from Phase 1 (tabs not visible, looks unchanged).
+Likely causes: WebView cache, bundle not rebuilt, HTML not generated, CSS not applied.
+Fix: Force WebView cache clear, verify TabManager integration, check for JS errors.
+"""
+estimated_lines = 100
+estimated_time = "2-3 hours"
+dependencies = []
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Add cache-busting query param to webview URIs",
+    "Verify TabManager.getHtml() called in _getHtml()",
+    "Open DevTools to check console errors",
+    "Force extension reload (Developer: Reload Window)",
+    "Verify HTML includes <div class='tab-bar'>"
+]
+performance_target = "WebView render <100ms"
+patterns = ["Pattern-UI-006"]
+validation_criteria = [
+    "Voice tab shows 6 tabs (Voice, Sprint, Planning, Patterns, Activity, Settings)",
+    "Clicking tabs switches content",
+    "Tab bar has visual styles (icons, tooltips)",
+    "No JavaScript errors in console"
+]
+files_to_modify = [
+    "vscode-lumina/src/commands/voicePanel.ts"
+]
+
+[tasks.BUG-006]
+id = "BUG-006"
+name = "Fix ` Hotkey Not Working"
+phase = "Voice Panel v0.5 - Critical Bugs"
+assigned_engineer = "engineer_1"
+status = "completed"
+completed_date = "2025-10-29"
+description = """
+Pressing ` hotkey does nothing (no voice panel opens, no response).
+Likely causes: Keybinding not registered, command not registered, WebView not created, focus logic broken.
+Fix: Verify keybinding in package.json, check command registration, test manually.
+"""
+estimated_lines = 80
+estimated_time = "1-2 hours"
+dependencies = ["BUG-001"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Verify package.json has ` keybinding",
+    "Verify extension.ts registers lumina.captureVoice command",
+    "Test keybinding in VS Code Keyboard Shortcuts editor",
+    "Add error logging to command handler",
+    "Verify Voice Panel WebView created successfully"
+]
+performance_target = "Hotkey response <100ms"
+patterns = ["Pattern-UI-014"]
+validation_criteria = [
+    "` hotkey opens Voice Panel",
+    "Voice tab becomes active/focused",
+    "Works from any VS Code view",
+    "Latency <100ms",
+    "No console errors"
+]
+files_to_modify = [
+    "vscode-lumina/package.json",
+    "vscode-lumina/src/extension.ts"
+]
+
+[tasks.BUG-005]
+id = "BUG-005"
+name = "Fix Terminal Rename Not Updating UI"
+phase = "Voice Panel v0.5 - Critical Bugs"
+assigned_engineer = "engineer_1"
+status = "completed"
+completed_date = "2025-10-29"
+description = """
+Terminal rename says it succeeded but name doesn't update in UI or terminal header.
+Root cause: B-004 not yet implemented (inline rename needs custom name mapping).
+Fix: Implement B-004 (custom terminal names via Map, VS Code API limitation workaround).
+"""
+estimated_lines = 80
+estimated_time = "2 hours"
+dependencies = ["BUG-003"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Implement pencil icon (✏️) for inline edit",
+    "Custom name mapping (Map<actualName, customName>)",
+    "Update terminal list with custom names",
+    "Show info message explaining VS Code limitation",
+    "State persisted across reloads"
+]
+performance_target = "Edit mode toggle <10ms"
+patterns = ["Pattern-TERMINAL-001"]
+validation_criteria = [
+    "Pencil icon toggles edit mode",
+    "Enter key updates custom name",
+    "Terminal list shows new name",
+    "Info message shown to user",
+    "State persisted in workspace"
+]
+files_to_modify = [
+    "vscode-lumina/src/commands/voicePanel.ts"
+]
+
+[tasks.BUG-008]
+id = "BUG-008"
+name = "Fix Record Button Mic Access Denied"
+phase = "Voice Panel v0.5 - Critical Bugs"
+assigned_engineer = "engineer_1"
+status = "completed"
+completed_date = "2025-10-29"
+description = """
+Record button shows 'Mic Access Denied' immediately (no permission prompt).
+Likely causes: MediaDevices API not supported in WebView, permission denied previously, HTTPS required, code error.
+Fix: Investigate WebView API support, add fallback to desktop app IPC.
+"""
+estimated_lines = 150
+estimated_time = "1-2 hours"
+dependencies = ["BUG-002"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Open WebView DevTools, check console for errors",
+    "Test navigator.mediaDevices.getUserMedia() in WebView",
+    "Route recording to desktop app (via IPC) if WebView API unavailable",
+    "Show helpful message if permission denied",
+    "Add error handling for all failure modes"
+]
+performance_target = "Recording start <200ms"
+patterns = ["Pattern-AUDIO-001"]
+validation_criteria = [
+    "Record button triggers microphone access",
+    "User grants permission (if first time)",
+    "Recording starts successfully",
+    "If WebView API unavailable: Desktop app fallback works"
+]
+files_to_modify = [
+    "vscode-lumina/src/commands/voicePanel.ts"
+]
+
+[tasks.BUG-007]
+id = "BUG-007"
+name = "Verify ~ Hotkey After Desktop App Fix"
+phase = "Voice Panel v0.5 - Critical Bugs"
+assigned_engineer = "engineer_1"
+status = "completed"
+completed_date = "2025-10-29"
+description = """
+~ hotkey shows 'desktop app not connected' (expected behavior if app not running).
+This is NOT a bug - it's correct behavior when BUG-002 not fixed.
+After BUG-002 fixed: Test ~ hotkey works for enhanced prompts.
+"""
+estimated_lines = 20
+estimated_time = "30 minutes"
+dependencies = ["BUG-002"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Verify desktop app launches (BUG-002 prerequisite)",
+    "Test ~ hotkey enhances prompt via IPC",
+    "Verify error message only shown if desktop truly unavailable"
+]
+performance_target = "~ hotkey response <200ms"
+patterns = ["Pattern-DESKTOP-AUTO-LAUNCH-001"]
+validation_criteria = [
+    "Desktop app launches on extension activation",
+    "~ hotkey enhances prompt (via desktop app)",
+    "Error message shown only if desktop app unavailable"
+]
+files_to_modify = []
+
+[tasks.BUG-009]
+id = "BUG-009"
+name = "Fix Sprint Panel Misleading Message"
+phase = "Voice Panel v0.5 - Critical Bugs"
+assigned_engineer = "engineer_1"
+status = "completed"
+completed_date = "2025-10-23"
+description = """
+Refresh button shows 'reloaded from CURRENT_SPRINT.md' but actually loads from sprints/ACTIVE_SPRINT.toml.
+Misleading message confuses users about data source.
+Fix: Update message to say 'sprints/ACTIVE_SPRINT.toml' (accurate).
+"""
+estimated_lines = 5
+estimated_time = "5 minutes"
+dependencies = []
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Change line 520 in voicePanel.ts",
+    "Update message to 'sprints/ACTIVE_SPRINT.toml'",
+    "Compile extension"
+]
+performance_target = "Message update <1ms"
+patterns = ["Pattern-UI-006"]
+validation_criteria = [
+    "Refresh button shows correct file name",
+    "Message matches SprintLoader.ts behavior",
+    "No user confusion about data source"
+]
+files_to_modify = [
+    "vscode-lumina/src/commands/voicePanel.ts"
+]
+
+# ============================================================
+# PHASE TESTING: Pre-Release Verification (v0.13.0)
+# Duration: 2-3 days | Priority: HIGH
+# Goal: Test and verify all features before creating release binaries
+# ============================================================
+
+[tasks.TEST-001]
+id = "TEST-001"
+name = "Test Voice Panel UI - Verify 6 Tabs Visible (BUG-003)"
+phase = "v0.13.0 - Pre-Release Testing"
+assigned_engineer = "engineer_1"
+status = "completed"
+completed_date = "2025-10-25"
+description = """
+Execute Test 1 from TESTING_CHECKLIST.md:
+Press ` (backtick) hotkey and verify Voice Panel opens with 6 tabs visible.
+Tabs should be: Voice, Sprint, Planning, Patterns, Activity, Settings.
+Each tab should be clickable with visual active indicator.
+"""
+estimated_time = "30 minutes"
+dependencies = ["BUG-001"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Voice Panel opens when ` pressed",
+    "6 tabs visible at top",
+    "Each tab clickable and switches content",
+    "Active tab has visual indicator",
+    "Test results documented in TESTING_CHECKLIST.md"
+]
+performance_target = "Tab display <50ms"
+patterns = ["Pattern-UI-006"]
+validation_criteria = [
+    "Voice Panel opens in sidebar",
+    "Tab bar visible with 6 tabs",
+    "Tab switching works (<50ms)",
+    "Active tab visually distinct",
+    "No console errors"
+]
+files_to_verify = [
+    "vscode-lumina/src/commands/voicePanel.ts"
+]
+why = """
+BUG-003 documented Voice tab UI not updating.
+Need to verify Phase 1 tab implementation actually visible to users.
+6-tab interface is core UX of Voice Panel v0.5.
+"""
+context = """
+TESTING_CHECKLIST.md Test 1: Voice Panel UI verification.
+Tests BUG-003 fix status (pending).
+Critical for v0.13.0 release - users must see tab interface.
+"""
+reasoning_chain = [
+    "1. Press ` hotkey (primary hotkey, not F13)",
+    "2. Voice Panel should open in sidebar",
+    "3. Tab bar should show 6 tabs",
+    "4. Click each tab → content should switch",
+    "5. Active tab should have visual indicator",
+    "6. Document pass/fail in TESTING_CHECKLIST.md",
+    "7. If fail → BUG-003 needs immediate fix"
+]
+
+[tasks.TEST-002]
+id = "TEST-002"
+name = "Test ` Hotkey Opens Voice Panel (BUG-006)"
+phase = "v0.13.0 - Pre-Release Testing"
+assigned_engineer = "engineer_1"
+status = "completed"
+completed_date = "2025-10-25"
+description = """
+Execute Test 2 from TESTING_CHECKLIST.md:
+Close Voice Panel, press ` (backtick), verify opens in <100ms.
+Test from different VS Code views (editor, terminal, etc.).
+Verify Voice tab becomes active/focused.
+"""
+estimated_time = "20 minutes"
+dependencies = ["BUG-001"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "` hotkey opens Voice Panel from any view",
+    "Response time <100ms",
+    "Voice tab active/focused",
+    "No console errors",
+    "Test results documented"
+]
+performance_target = "Hotkey response <100ms"
+patterns = ["Pattern-UI-014"]
+validation_criteria = [
+    "Voice Panel opens on ` press",
+    "Works from editor view",
+    "Works from terminal view",
+    "Latency <100ms",
+    "Voice tab focused"
+]
+files_to_verify = [
+    "vscode-lumina/package.json",
+    "vscode-lumina/src/extension.ts"
+]
+why = """
+` (backtick) is PRIMARY hotkey for Voice Panel (not F13).
+User must be able to open panel quickly from anywhere in VS Code.
+Performance target: <100ms for good UX (SOP-004).
+"""
+context = """
+TESTING_CHECKLIST.md Test 2: Primary hotkey verification.
+Tests BUG-006 fix status (pending).
+Critical: ` hotkey is main entry point to ÆtherLight features.
+"""
+reasoning_chain = [
+    "1. Close Voice Panel (click X)",
+    "2. Press ` (backtick) key",
+    "3. Panel should open immediately (<100ms)",
+    "4. Voice tab should be active",
+    "5. Test from different VS Code views",
+    "6. Document response time and pass/fail",
+    "7. If fail → BUG-006 needs immediate fix"
+]
+
+[tasks.TEST-003]
+id = "TEST-003"
+name = "Test Voice Tab UI - Icon Bar Display"
+phase = "v0.13.0 - Pre-Release Testing"
+assigned_engineer = "engineer_1"
+status = "pending"
+description = """
+Execute Test 3 from TESTING_CHECKLIST.md:
+Open Voice Panel, click Voice tab, verify icon bar with 5 icons.
+Icons: 🎤 Record, ✨ Enhance, 📤 Send, 🗑️ Clear, 🔄 Refresh.
+Verify tooltips on hover and icons are clickable.
+"""
+estimated_time = "20 minutes"
+dependencies = ["TEST-001"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Icon bar visible (32px height)",
+    "5 icons present and labeled",
+    "Tooltips appear on hover",
+    "Icons clickable",
+    "Test results documented"
+]
+performance_target = "Icon render <20ms"
+patterns = ["Pattern-UI-006"]
+validation_criteria = [
+    "Icon bar displays at top of Voice tab",
+    "All 5 icons visible",
+    "Hover shows tooltips",
+    "Click triggers actions",
+    "No console errors"
+]
+files_to_verify = [
+    "vscode-lumina/src/commands/voicePanel.ts"
+]
+
+[tasks.TEST-004]
+id = "TEST-004"
+name = "Test Terminal List Display"
+phase = "v0.13.0 - Pre-Release Testing"
+assigned_engineer = "engineer_1"
+status = "pending"
+description = """
+Execute Test 4 from TESTING_CHECKLIST.md:
+Open at least 2 terminals, open Voice Panel, verify terminals listed.
+Active terminal should have checkmark (✓).
+Row height should be 24px, pencil icon (✏️) visible.
+"""
+estimated_time = "20 minutes"
+dependencies = ["TEST-001"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "All open terminals listed",
+    "Active terminal has checkmark",
+    "Row height 24px (compact)",
+    "Pencil icons visible",
+    "Test results documented"
+]
+performance_target = "List render <20ms"
+validation_criteria = [
+    "Terminal list shows all open terminals",
+    "Active terminal marked with ✓",
+    "Compact 24px rows",
+    "Pencil icons visible for each terminal",
+    "No console errors"
+]
+files_to_verify = [
+    "vscode-lumina/src/commands/voicePanel.ts"
+]
+
+[tasks.TEST-005]
+id = "TEST-005"
+name = "Test Terminal Rename UI (BUG-005)"
+phase = "v0.13.0 - Pre-Release Testing"
+assigned_engineer = "engineer_1"
+status = "pending"
+description = """
+Execute Test 5 from TESTING_CHECKLIST.md:
+Open Voice Panel, click pencil icon next to a terminal.
+Type new name: "TestTerminal", press Enter.
+Verify name updates in list and info message shown.
+"""
+estimated_time = "30 minutes"
+dependencies = ["TEST-004"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Click pencil → input field appears",
+    "Type new name → Enter updates list",
+    "Info message shown",
+    "Escape cancels edit",
+    "Test results documented"
+]
+performance_target = "Edit mode toggle <10ms"
+patterns = ["Pattern-TERMINAL-001"]
+validation_criteria = [
+    "Pencil icon clickable",
+    "Input field appears inline",
+    "Enter saves new name",
+    "Name updates in list",
+    "Info message displayed",
+    "Escape cancels without changes"
+]
+files_to_verify = [
+    "vscode-lumina/src/commands/voicePanel.ts"
+]
+why = """
+BUG-005 documented terminal rename not updating UI.
+Need to verify B-004 implementation (inline rename) works.
+Custom name mapping is workaround for VS Code API limitation.
+"""
+context = """
+TESTING_CHECKLIST.md Test 5: Terminal rename verification.
+Tests BUG-005 fix status (pending).
+B-004 implemented pencil icon + custom name mapping.
+"""
+reasoning_chain = [
+    "1. Open Voice Panel → Voice tab",
+    "2. Click pencil icon next to terminal",
+    "3. Input field should appear inline",
+    "4. Type 'TestTerminal' → press Enter",
+    "5. Name should update in list",
+    "6. Info message should explain VS Code limitation",
+    "7. Document pass/fail",
+    "8. If fail → BUG-005 needs fix"
+]
+
+[tasks.TEST-006]
+id = "TEST-006"
+name = "Test Shift+` Enhanced Prompts (BUG-007)"
+phase = "v0.13.0 - Pre-Release Testing"
+assigned_engineer = "engineer_1"
+status = "completed"
+completed_date = "2025-10-25"
+description = """
+Execute Test 6 from TESTING_CHECKLIST.md:
+Verify desktop app running in system tray.
+Open terminal, press Shift+` (tilde ~).
+Verify desktop app processes command and enhanced prompt appears.
+"""
+estimated_time = "30 minutes"
+dependencies = ["BUG-002"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Desktop app visible in system tray",
+    "Shift+` triggers desktop app",
+    "Enhanced prompt appears in terminal",
+    "Response time <200ms",
+    "Test results documented"
+]
+performance_target = "Enhanced prompt <200ms"
+patterns = ["Pattern-DESKTOP-AUTO-LAUNCH-001"]
+validation_criteria = [
+    "Desktop app running",
+    "Shift+` processes via IPC",
+    "Enhanced prompt displayed",
+    "No error messages",
+    "Latency <200ms"
+]
+files_to_verify = [
+    "vscode-lumina/src/extension.ts",
+    "products/lumina-desktop/src-tauri/src/main.rs"
+]
+why = """
+Shift+` is global voice capture / enhanced prompts hotkey.
+Desktop app integration critical for voice features.
+BUG-007 documented as verification after BUG-002 fixed.
+"""
+context = """
+TESTING_CHECKLIST.md Test 6: Enhanced prompts via desktop app.
+Tests BUG-007 (pending, depends on BUG-002 complete).
+User confirmed: 'mic access is working through the hot keys and desktop app. please don't break it'
+"""
+reasoning_chain = [
+    "1. Check system tray for desktop app icon",
+    "2. Open terminal in VS Code",
+    "3. Press Shift+` (tilde key)",
+    "4. Desktop app should process via IPC",
+    "5. Enhanced prompt should appear",
+    "6. Measure response time",
+    "7. Document pass/fail",
+    "8. If fail → BUG-007 needs investigation"
+]
+
+[tasks.TEST-007]
+id = "TEST-007"
+name = "Test Sprint Tab Display"
+phase = "v0.13.0 - Pre-Release Testing"
+assigned_engineer = "engineer_1"
+status = "pending"
+description = """
+Execute Test 7 from TESTING_CHECKLIST.md:
+Open Voice Panel, click Sprint tab, wait 1-2 seconds for load.
+Verify progress bar, task list, status icons, scrolling works.
+"""
+estimated_time = "20 minutes"
+dependencies = ["TEST-001"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Sprint tab content loads",
+    "Progress bar visible at top",
+    "Task list grouped by phase",
+    "Status icons (⏳ Pending, ✅ Complete)",
+    "Scrolling works",
+    "Test results documented"
+]
+performance_target = "Sprint load <2s"
+patterns = ["Pattern-UI-006"]
+validation_criteria = [
+    "Sprint tab loads successfully",
+    "Progress bar displayed",
+    "Tasks grouped correctly",
+    "Status icons visible",
+    "Can scroll through tasks",
+    "No console errors"
+]
+files_to_verify = [
+    "vscode-lumina/src/commands/voicePanel.ts",
+    "vscode-lumina/src/commands/SprintLoader.ts"
+]
+
+[tasks.TEST-008]
+id = "TEST-008"
+name = "Test Desktop App Connection (IPC)"
+phase = "v0.13.0 - Pre-Release Testing"
+assigned_engineer = "engineer_1"
+status = "completed"
+completed_date = "2025-10-25"
+description = """
+Execute Test 8 from TESTING_CHECKLIST.md:
+Check system tray for desktop app, open Voice Panel.
+Try voice capture (click 🎤 or press hotkey).
+Verify IPC connection successful and transcription works.
+"""
+estimated_time = "30 minutes"
+dependencies = ["BUG-002"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Desktop app in system tray",
+    "IPC connection successful (no errors)",
+    "Voice capture works",
+    "Transcription appears in Voice Panel",
+    "Test results documented"
+]
+performance_target = "IPC connection <500ms"
+patterns = ["Pattern-IPC-001"]
+validation_criteria = [
+    "Desktop app visible in tray",
+    "No IPC connection errors",
+    "Voice capture functional",
+    "Transcription displayed",
+    "No console errors"
+]
+files_to_verify = [
+    "vscode-lumina/src/extension.ts",
+    "vscode-lumina/src/ipc/client.ts",
+    "products/lumina-desktop/src-tauri/src/main.rs"
+]
+
+[tasks.TEST-009]
+id = "TEST-009"
+name = "Test Extension Activation Time (BUG-001 Verification)"
+phase = "v0.13.0 - Pre-Release Testing"
+assigned_engineer = "engineer_1"
+status = "completed"
+completed_date = "2025-10-25"
+description = """
+Execute Test 9 from TESTING_CHECKLIST.md:
+Close VS Code completely, reopen.
+Measure activation time (should be <500ms, not 17s).
+Verify all features available immediately.
+"""
+estimated_time = "20 minutes"
+dependencies = ["BUG-001"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "VS Code restart",
+    "Activation time measured",
+    "Target: <500ms (vs 17s before fix)",
+    "All features available",
+    "Test results documented"
+]
+performance_target = "Extension activation <500ms"
+patterns = ["Pattern-PERF-001"]
+validation_criteria = [
+    "Extension activates <500ms",
+    "Feels instant (no delay)",
+    "All features work immediately",
+    "No 17-second delay",
+    "No console errors"
+]
+files_to_verify = [
+    "vscode-lumina/src/extension.ts"
+]
+why = """
+BUG-001 fixed extension load time (17s → <500ms).
+Need to verify fix works in production.
+Critical performance target (SOP-004).
+"""
+context = """
+TESTING_CHECKLIST.md Test 9: Extension activation performance.
+Verifies BUG-001 fix (completed 2025-10-24).
+Before: 17,023ms (34× too slow) | After: <500ms target.
+"""
+reasoning_chain = [
+    "1. Close VS Code completely",
+    "2. Reopen VS Code",
+    "3. Observe activation time (check console logs)",
+    "4. Should feel instant (<500ms)",
+    "5. Verify all features available",
+    "6. Document actual time",
+    "7. If >500ms → investigate regression"
+]
+
+[tasks.TEST-010]
+id = "TEST-010"
+name = "Test Tab Switching Performance"
+phase = "v0.13.0 - Pre-Release Testing"
+assigned_engineer = "engineer_1"
+status = "pending"
+description = """
+Execute Test 10 from TESTING_CHECKLIST.md:
+Open Voice Panel, click through all 6 tabs.
+Verify each tab switch <50ms (feels instant).
+Check for lag, jank, or console errors.
+"""
+estimated_time = "20 minutes"
+dependencies = ["TEST-001"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Click through 6 tabs",
+    "Measure response time",
+    "Target: <50ms per switch",
+    "No lag or jank",
+    "Test results documented"
+]
+performance_target = "Tab switch <50ms"
+patterns = ["Pattern-UI-006"]
+validation_criteria = [
+    "Each tab switch <50ms",
+    "Feels instant (no lag)",
+    "Content updates immediately",
+    "No visual jank",
+    "No console errors"
+]
+files_to_verify = [
+    "vscode-lumina/src/commands/voicePanel.ts"
+]
+
+[tasks.TEST-011]
+id = "TEST-011"
+name = "Document Testing Results and Summary"
+phase = "v0.13.0 - Pre-Release Testing"
+assigned_engineer = "engineer_1"
+status = "pending"
+description = """
+Complete summary section in TESTING_CHECKLIST.md.
+Document: Tests completed/passed, critical bugs found, minor issues.
+Update overall status (Ready for Binary Creation / Needs Bug Fixes).
+"""
+estimated_time = "30 minutes"
+dependencies = ["TEST-001", "TEST-002", "TEST-003", "TEST-004", "TEST-005", "TEST-006", "TEST-007", "TEST-008", "TEST-009", "TEST-010"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "TESTING_CHECKLIST.md fully filled out",
+    "Summary section complete",
+    "Pass/fail for all 10 tests",
+    "Critical bugs list",
+    "Minor issues list",
+    "Overall status decision"
+]
+validation_criteria = [
+    "All test sections have results",
+    "Summary shows X/10 tests passed",
+    "Critical bugs documented (if any)",
+    "Overall status clear",
+    "Next steps identified"
+]
+files_to_modify = [
+    "TESTING_CHECKLIST.md"
+]
+
+[tasks.TEST-012]
+id = "TEST-012"
+name = "Fix Bugs Found During Testing"
+phase = "v0.13.0 - Pre-Release Testing"
+assigned_engineer = "engineer_1"
+status = "pending"
+description = """
+Based on TEST-011 results, fix any bugs discovered during testing.
+Priority: Critical bugs first (block release), then high priority.
+Re-test after fixes to verify resolution.
+"""
+estimated_time = "Variable (depends on bugs found)"
+dependencies = ["TEST-011"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "All critical bugs fixed",
+    "High priority bugs fixed (if time)",
+    "Re-testing completed",
+    "All fixes documented",
+    "Git commits with Chain of Thought"
+]
+validation_criteria = [
+    "Critical bugs resolved",
+    "Re-testing confirms fixes",
+    "No regressions introduced",
+    "Ready for binary creation"
+]
+files_to_modify = [
+    "(Variable - depends on bugs found)"
+]
+
+[tasks.BUG-010]
+id = "BUG-010"
+name = "Remove Pencil Icon from Terminal List (Non-Functional Feature)"
+phase = "Voice Panel v0.5 - Critical Bugs"
+assigned_engineer = "engineer_1"
+status = "completed"
+completed_date = "2025-10-29"
+description = """
+Remove pencil icon (✏️) from terminal list in Voice Panel.
+Terminal rename only updates Voice Panel list, NOT actual VS Code terminal tab.
+Root cause: VS Code API limitation - cannot programmatically rename terminals.
+Feature is pointless if users can't see custom name where it matters.
+"""
+estimated_lines = 20
+estimated_time = "15 minutes"
+dependencies = []
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Remove pencil icon HTML from terminal list",
+    "Remove rename edit mode code",
+    "Remove custom name mapping storage",
+    "Clean up unused code"
+]
+performance_target = "List render faster without edit functionality"
+patterns = ["Pattern-UI-006"]
+validation_criteria = [
+    "No pencil icons visible in terminal list",
+    "Terminal list still shows all terminals",
+    "Checkmarks still work for active terminal",
+    "No broken UI elements"
+]
+files_to_modify = [
+    "vscode-lumina/src/commands/voicePanel.ts"
+]
+why = """
+Testing revealed pencil icon allows renaming in Voice Panel but NOT in VS Code tab.
+Users confirmed feature is pointless - custom names not visible where they matter.
+VS Code API does not support programmatic terminal renaming.
+Clean UI by removing non-functional feature.
+"""
+
+[tasks.BUG-011]
+id = "BUG-011"
+name = "Fix 9.5s Startup Delay (WebSocket Connection Timeout)"
+phase = "Voice Panel v0.5 - Critical Bugs"
+assigned_engineer = "engineer_1"
+status = "completed"
+completed_date = "2025-10-25"
+
+[tasks.BUG-012]
+id = "BUG-012"
+name = "Fix Missing Documentation in New Repositories (Discoverable Setup)"
+phase = "Voice Panel v0.5 - Critical Bugs"
+assigned_engineer = "engineer_1"
+status = "completed"
+completed_date = "2025-10-26"
+description = """
+Extension installs globally but new repositories have ZERO documentation about ÆtherLight.
+Claude Code cannot discover features, making extension completely unusable.
+User reported: 'new repo knows nothing about ether light... there isn't any documentation'
+Fix: Auto-create .vscode/aetherlight.md with comprehensive docs on first run.
+"""
+estimated_lines = 864
+estimated_time = "4-5 hours"
+dependencies = []
+agent = "documentation-enforcer"
+deliverables = [
+    "vscode-lumina/src/firstRunSetup.ts (388 lines) - Auto-setup module",
+    "vscode-lumina/templates/USER_SETUP.md (476 lines) - Documentation template",
+    "extension.ts integration - Setup on activate + workspace changes",
+    "NO F13 references (replaced with Ctrl+` throughout)",
+    "Comprehensive prompt field documentation with examples",
+    "Non-destructive CLAUDE.md enhancement (append-only)",
+    "Multi-workspace support via onDidChangeWorkspaceFolders"
+]
+performance_target = "Setup completes in <100ms (non-blocking)"
+patterns = ["Pattern-META-001", "Pattern-UI-006"]
+validation_criteria = [
+    ".vscode/aetherlight.md auto-created in new repos",
+    "settings.json updated with ÆtherLight config",
+    "CLAUDE.md enhanced (if exists) without destroying user content",
+    "sprints/ACTIVE_SPRINT.toml example created with prompt fields",
+    "Claude Code discovers and follows documentation",
+    "All F13 references removed (key doesn't exist on modern hardware)"
+]
+files_to_create = [
+    "vscode-lumina/src/firstRunSetup.ts",
+    "vscode-lumina/templates/USER_SETUP.md"
+]
+files_to_modify = [
+    "vscode-lumina/src/extension.ts",
+    "vscode-lumina/tsconfig.json"
+]
+why = """
+Extension unusable in new repositories - Claude Code has no context.
+User stated: 'if it doesn't use it then our systems considered a failure'
+Foundational blocker for ALL sprint features in production.
+"""
+context = """
+User installed ÆtherLight in new repo but Claude had no documentation.
+Extension worked but Claude didn't know about Sprint Tab, Voice Panel, ACTIVE_SPRINT.toml.
+System appeared broken despite working code.
+This fix enables discovery in ANY new repository.
+"""
+reasoning_chain = [
+    "1. Extension installed globally in VS Code",
+    "2. User opens new repository",
+    "3. Extension activates but repo has no .vscode/aetherlight.md",
+    "4. Claude Code has zero context about ÆtherLight features",
+    "5. User tries to use features - Claude doesn't understand",
+    "6. Solution: Auto-create documentation on first run",
+    "7. Idempotent setup (safe to run multiple times)",
+    "8. Multi-workspace support (tracks folder changes)",
+    "9. Non-destructive (appends to CLAUDE.md, doesn't overwrite)",
+    "10. Result: Universal discoverability in ANY repository"
+]
+success_impact = """
+When BUG-012 complete:
+✅ .vscode/aetherlight.md auto-created in new repos
+✅ Claude Code discovers ÆtherLight features immediately
+✅ Sprint system operational in fresh repositories
+✅ Voice Panel discoverable and usable
+✅ NO F13 references (replaced with Ctrl+` universally)
+✅ Comprehensive prompt field documentation with examples
+✅ Non-destructive enhancement (preserves user CLAUDE.md content)
+✅ Unblocks ALL sprint features for production adoption
+✅ System no longer appears broken in new repos
+"""
+
+[tasks.TEST-013]
+id = "TEST-013"
+name = "Create Release Binaries (v0.13.0)"
+phase = "v0.13.0 - Pre-Release Testing"
+assigned_engineer = "engineer_1"
+status = "pending"
+description = """
+After all tests pass and bugs fixed, create release binaries.
+Run: cargo build --release in products/lumina-desktop/src-tauri.
+Upload binaries to GitHub releases (v0.1.1).
+Test clean install with auto-download.
+"""
+estimated_time = "1-2 hours"
+dependencies = ["TEST-012"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Desktop app binaries built (Windows/macOS/Linux)",
+    "Uploaded to GitHub releases v0.1.1",
+    "Clean install tested (auto-download works)",
+    "Release notes updated",
+    "v0.13.0 packaged and ready"
+]
+performance_target = "Auto-download completes in <30s"
+patterns = ["Pattern-AUTO-DOWNLOAD-001"]
+validation_criteria = [
+    "Binaries compile successfully",
+    "Uploaded to correct GitHub release",
+    "Auto-download works end-to-end",
+    "Clean install tested on Windows",
+    "All features work in clean install"
+]
+files_to_create = [
+    "lumina-desktop-windows-x64.exe",
+    "lumina-desktop-macos-x64",
+    "lumina-desktop-macos-aarch64",
+    "lumina-desktop-linux-x64"
+]
+
+# PHASE 2B: Sprint Tab (Week 4-5)
+# Goal: Real-time sprint tracking with dependency graph
+
+[tasks.C-001]
+id = "C-001"
+name = "Create SprintLoader.ts"
+phase = "Voice Panel v0.5 - Sprint Tab"
+assigned_engineer = "engineer_1"
+status = "pending"
+description = "File system watcher for sprints/ACTIVE_SPRINT.toml, parse with @iarna/toml, emit events on change"
+estimated_lines = 250
+estimated_time = "4 hours"
+dependencies = ["B-006"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "FileSystemWatcher on sprints/ directory",
+    "Parse ACTIVE_SPRINT.toml",
+    "SprintData interface",
+    "Event emitter for updates"
+]
+performance_target = "Parse + emit <50ms"
+patterns = ["Pattern-SPRINT-001"]
+files_to_create = ["vscode-lumina/src/commands/SprintLoader.ts"]
+
+[tasks.C-002]
+id = "C-002"
+name = "Create SprintRenderer.ts"
+phase = "Voice Panel v0.5 - Sprint Tab"
+assigned_engineer = "engineer_1"
+status = "pending"
+description = "Generate HTML for Sprint tab: progress bar, task list by phase, dependency indicators"
+estimated_lines = 300
+estimated_time = "5 hours"
+dependencies = ["C-001"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Sprint header with progress bar",
+    "Task list grouped by phase",
+    "Status icons (⏳, ✅, ❌)",
+    "Dependency arrows"
+]
+performance_target = "Render <100ms"
+files_to_create = ["vscode-lumina/src/commands/SprintRenderer.ts"]
+
+[tasks.C-003]
+id = "C-003"
+name = "Add Task Click to Open File"
+phase = "Voice Panel v0.5 - Sprint Tab"
+assigned_engineer = "engineer_1"
+status = "pending"
+description = "Click task → open file (from files_to_create or files_to_modify) in editor"
+estimated_lines = 80
+estimated_time = "2 hours"
+dependencies = ["C-002"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Task click handler",
+    "Open first file in task.files_to_create/modify",
+    "Show info if no files",
+    "Cursor jumps to relevant line"
+]
+performance_target = "Open file <200ms"
+files_to_modify = ["vscode-lumina/src/commands/voicePanel.ts"]
+
+[tasks.C-004]
+id = "C-004"
+name = "Add Sprint Metadata Display"
+phase = "Voice Panel v0.5 - Sprint Tab"
+assigned_engineer = "engineer_1"
+status = "pending"
+description = "Show sprint name, period, focus area, estimated weeks at top of Sprint tab"
+estimated_lines = 60
+estimated_time = "1 hour"
+dependencies = ["C-002"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Sprint header with metadata",
+    "Name, period, focus, weeks",
+    "Styled to match VS Code"
+]
+performance_target = "Render <20ms"
+files_to_modify = ["vscode-lumina/src/commands/SprintRenderer.ts"]
+
+[tasks.C-005]
+id = "C-005"
+name = "Implement Dependency Graph Visualization"
+phase = "Voice Panel v0.5 - Sprint Tab"
+assigned_engineer = "engineer_1"
+status = "pending"
+description = "Use Mermaid.js to render dependency graph: nodes = tasks, edges = dependencies, color by status"
+estimated_lines = 150
+estimated_time = "3 hours"
+dependencies = ["C-001"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Mermaid.js integrated",
+    "Generate graph definition from tasks",
+    "Color nodes by status",
+    "Click node → scroll to task"
+]
+performance_target = "Graph render <500ms"
+patterns = ["Pattern-UI-015"]
+files_to_modify = ["vscode-lumina/src/commands/SprintRenderer.ts"]
+
+[tasks.C-006]
+id = "C-006"
+name = "Add Filtering Controls"
+phase = "Voice Panel v0.5 - Sprint Tab"
+assigned_engineer = "engineer_1"
+status = "pending"
+description = "Filter buttons: All, In Progress, Completed, Blocked. Update task list on click."
+estimated_lines = 80
+estimated_time = "2 hours"
+dependencies = ["C-002"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "4 filter buttons",
+    "Click toggles filter",
+    "Task list updates",
+    "Active filter highlighted"
+]
+performance_target = "Filter update <50ms"
+files_to_modify = ["vscode-lumina/src/commands/SprintRenderer.ts"]
+
+[tasks.C-007]
+id = "C-007"
+name = "Real-Time Sprint Updates (500ms polling)"
+phase = "Voice Panel v0.5 - Sprint Tab"
+assigned_engineer = "engineer_1"
+status = "pending"
+description = "Poll ACTIVE_SPRINT.toml every 500ms, re-render Sprint tab if file changed"
+estimated_lines = 60
+estimated_time = "1 hour"
+dependencies = ["C-001", "C-002"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "500ms interval polling",
+    "Detect file changes (mtime check)",
+    "Re-render on change",
+    "Dispose interval on tab close"
+]
+performance_target = "Polling overhead <5ms"
+files_to_modify = ["vscode-lumina/src/commands/voicePanel.ts"]
+
+[tasks.C-008]
+id = "C-008"
+name = "Add Progress Bar Animation"
+phase = "Voice Panel v0.5 - Sprint Tab"
+assigned_engineer = "engineer_1"
+status = "pending"
+description = "Animated progress bar at top of Sprint tab: width = (completed / total) * 100%, color = green/yellow/red based on velocity"
+estimated_lines = 80
+estimated_time = "2 hours"
+dependencies = ["C-002"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Progress bar with animation",
+    "Color based on velocity",
+    "Tooltip shows completed/total",
+    "CSS transitions smooth"
+]
+performance_target = "Animation 60fps"
+files_to_modify = ["vscode-lumina/src/commands/SprintRenderer.ts"]
+
+[tasks.C-009]
+id = "C-009"
+name = "Handle Sprint Not Found Error"
+phase = "Voice Panel v0.5 - Sprint Tab"
+assigned_engineer = "engineer_1"
+status = "pending"
+description = "Show friendly error if ACTIVE_SPRINT.toml not found: 'No active sprint. Create sprints/ACTIVE_SPRINT.toml'"
+estimated_lines = 40
+estimated_time = "30 minutes"
+dependencies = ["C-001"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Error message display",
+    "Friendly guidance",
+    "Link to sprint docs"
+]
+performance_target = "Error render <20ms"
+files_to_modify = ["vscode-lumina/src/commands/SprintLoader.ts"]
+
+[tasks.C-010]
+id = "C-010"
+name = "Add Task Status Update Button"
+phase = "Voice Panel v0.5 - Sprint Tab"
+assigned_engineer = "engineer_1"
+status = "pending"
+description = "Right-click task → context menu: Mark Complete, Mark In Progress, Mark Blocked. Update TOML file."
+estimated_lines = 120
+estimated_time = "3 hours"
+dependencies = ["C-002"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Right-click context menu",
+    "3 status options",
+    "Update TOML file",
+    "Re-render sprint"
+]
+performance_target = "Status update <100ms"
+files_to_modify = ["vscode-lumina/src/commands/voicePanel.ts", "vscode-lumina/src/commands/SprintLoader.ts"]
+
+[tasks.C-011]
+id = "C-011"
+name = "Add Estimated vs Actual Time Tracking"
+phase = "Voice Panel v0.5 - Sprint Tab"
+assigned_engineer = "engineer_1"
+status = "pending"
+description = "Show estimated_time and actual_time for each task, calculate variance, highlight if >20% over"
+estimated_lines = 80
+estimated_time = "2 hours"
+dependencies = ["C-002"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Time display for each task",
+    "Variance calculation",
+    "Warning if >20% over",
+    "Tooltip with details"
+]
+performance_target = "Render <50ms"
+files_to_modify = ["vscode-lumina/src/commands/SprintRenderer.ts"]
+
+[tasks.C-012]
+id = "C-012"
+name = "Add Phase Collapse/Expand"
+phase = "Voice Panel v0.5 - Sprint Tab"
+assigned_engineer = "engineer_1"
+status = "pending"
+description = "Click phase header → collapse/expand task list for that phase, save state to workspace"
+estimated_lines = 100
+estimated_time = "2 hours"
+dependencies = ["C-002"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Phase headers clickable",
+    "Collapse/expand animation",
+    "State saved to workspace",
+    "Icon indicates collapsed/expanded"
+]
+performance_target = "Animation 60fps"
+files_to_modify = ["vscode-lumina/src/commands/SprintRenderer.ts", "vscode-lumina/src/commands/voicePanel.ts"]
+
+[tasks.C-013]
+id = "C-013"
+name = "Add Sprint Switching Dropdown"
+phase = "Voice Panel v0.5 - Sprint Tab"
+assigned_engineer = "engineer_1"
+status = "pending"
+description = "Dropdown at top of Sprint tab to switch between ACTIVE_SPRINT.toml and backlog/*.toml files"
+estimated_lines = 120
+estimated_time = "3 hours"
+dependencies = ["C-001"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Dropdown lists all sprint files",
+    "Click switches active sprint",
+    "Re-render Sprint tab",
+    "Save selection to workspace"
+]
+performance_target = "Switch sprint <100ms"
+files_to_modify = ["vscode-lumina/src/commands/voicePanel.ts", "vscode-lumina/src/commands/SprintLoader.ts"]
+
+# PHASE 2C: Planning, Patterns, Activity, Settings Tabs (Week 6-7)
+# Goal: Placeholder → functional for each tab
+
+[tasks.D-001]
+id = "D-001"
+name = "Implement Planning Tab (Sprint Builder)"
+phase = "Voice Panel v0.5 - Additional Tabs"
+assigned_engineer = "engineer_1"
+status = "pending"
+description = "Interactive sprint builder: add tasks, set dependencies, generate TOML file"
+estimated_lines = 400
+estimated_time = "8 hours"
+dependencies = ["C-013"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Add task form",
+    "Dependency selector",
+    "Generate TOML button",
+    "Save to sprints/ directory"
+]
+performance_target = "Form interactions <50ms"
+files_to_modify = ["vscode-lumina/src/commands/voicePanel.ts"]
+
+[tasks.D-002]
+id = "D-002"
+name = "Implement Patterns Tab (Pattern Browser)"
+phase = "Voice Panel v0.5 - Additional Tabs"
+assigned_engineer = "engineer_1"
+status = "pending"
+description = "Browse docs/patterns/, search by name/domain, click to open in editor"
+estimated_lines = 300
+estimated_time = "5 hours"
+dependencies = ["C-013"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Pattern list from docs/patterns/",
+    "Search box",
+    "Filter by domain",
+    "Click opens file"
+]
+performance_target = "Search <100ms"
+files_to_modify = ["vscode-lumina/src/commands/voicePanel.ts"]
+
+[tasks.E-001]
+id = "E-001"
+name = "Implement Activity Tab (Real-Time Sync Integration)"
+phase = "Voice Panel v0.5 - Additional Tabs"
+assigned_engineer = "engineer_1"
+status = "pending"
+description = "Integrate Phase 3.9 Real-Time Context Sync: show design decisions, blockers, discoveries from team"
+estimated_lines = 350
+estimated_time = "6 hours"
+dependencies = ["C-013"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Connect to WebSocket server",
+    "Display events in timeline",
+    "Click event → show details",
+    "Auto-scroll to latest"
+]
+performance_target = "Event display <200ms"
+patterns = ["Pattern-WEBSOCKET-001"]
+files_to_modify = ["vscode-lumina/src/commands/voicePanel.ts"]
+
+[tasks.E-002]
+id = "E-002"
+name = "Implement Settings Tab (Voice Panel Configuration)"
+phase = "Voice Panel v0.5 - Additional Tabs"
+assigned_engineer = "engineer_1"
+status = "pending"
+description = "Expose settings: autoSelectTerminal, showSuccessFeedback, compactMode, voiceHotkey"
+estimated_lines = 250
+estimated_time = "4 hours"
+dependencies = ["C-013"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Setting controls (toggles, inputs)",
+    "Save to workspace config",
+    "Apply immediately on change",
+    "Reset to defaults button"
+]
+performance_target = "Setting apply <50ms"
+files_to_modify = ["vscode-lumina/src/commands/voicePanel.ts"]
+
+# PHASE 2D: Success Feedback (Week 8)
+# Goal: Automatic outcome detection + visual feedback
+
+[tasks.E-003]
+id = "E-003"
+name = "Implement Outcome Detection (Levenshtein Distance)"
+phase = "Voice Panel v0.5 - Success Feedback"
+assigned_engineer = "engineer_1"
+status = "pending"
+description = "Monitor terminal output, detect if transcription appears (Levenshtein distance <20%), trigger success feedback"
+estimated_lines = 200
+estimated_time = "4 hours"
+dependencies = ["E-002"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Terminal output monitoring",
+    "Levenshtein distance calculation",
+    "Threshold check (<20%)",
+    "Success event emission"
+]
+performance_target = "Detection <10ms"
+patterns = ["Pattern-UI-011"]
+files_to_create = ["vscode-lumina/src/commands/OutcomeDetector.ts"]
+
+[tasks.E-004]
+id = "E-004"
+name = "Add Success Feedback Animation"
+phase = "Voice Panel v0.5 - Success Feedback"
+assigned_engineer = "engineer_1"
+status = "pending"
+description = "Show ✅ icon + green flash in Voice tab when outcome detected, fade after 2s"
+estimated_lines = 80
+estimated_time = "2 hours"
+dependencies = ["E-003"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "✅ icon display",
+    "Green flash animation",
+    "2s fade-out",
+    "CSS transitions"
+]
+performance_target = "Animation 60fps"
+files_to_modify = ["vscode-lumina/src/commands/voicePanel.ts"]
+
+[tasks.E-005]
+id = "E-005"
+name = "Add Terminal Layout Initialization"
+phase = "Voice Panel v0.5 - Success Feedback"
+assigned_engineer = "engineer_1"
+status = "pending"
+description = "On ` hotkey, initialize terminal layout: 2-column grid, Column A (Review/INACTIVE), Column B (Working/ACTIVE)"
+estimated_lines = 150
+estimated_time = "3 hours"
+dependencies = ["E-002"]
+agent = "tauri-desktop-dev"
+deliverables = [
+    "Detect terminal layout",
+    "Create 2-column grid if not exists",
+    "Assign columns (A=Review, B=Working)",
+    "Focus Column B"
+]
+performance_target = "Layout init <100ms"
+patterns = ["Pattern-UI-012"]
+files_to_modify = ["vscode-lumina/src/commands/voicePanel.ts"]
+
+[tasks.E-006]
+id = "E-006"
+name = "End-to-End Testing and Polish"
+phase = "Voice Panel v0.5 - Success Feedback"
+assigned_engineer = "engineer_1"
+status = "pending"
+description = "Full integration test: voice capture → pattern matching → send to terminal → success feedback loop"
+estimated_lines = 300
+estimated_time = "5 hours"
+dependencies = ["E-003", "E-004", "E-005"]
+agent = "documentation-enforcer"
+deliverables = [
+    "E2E test suite",
+    "Performance benchmarks",
+    "Bug fixes",
+    "Documentation complete"
+]
+performance_target = "All targets met"
+patterns = ["Pattern-TESTING-001"]
+files_to_create = ["vscode-lumina/src/tests/voicePanel.e2e.test.ts"]
+
+# ============================================================
+# VALIDATION CRITERIA
+# ============================================================
+
+[meta.validation]
+completion_threshold = 1.0
+test_coverage_target = 0.85
+documentation_compliance = 1.0
+performance_targets_met = true
+enforcement_ready = true
+
+[meta.notes]
+enforcement_blocks_start = "Voice Panel v0.5 cannot start until ENORM-004 complete"
+dogfooding_next = "After Voice Panel complete, run Code Analyzer dogfooding sprint"
+enforcement_reviews_dogfooding = "Enforcement rules will review/enforce during dogfooding execution"

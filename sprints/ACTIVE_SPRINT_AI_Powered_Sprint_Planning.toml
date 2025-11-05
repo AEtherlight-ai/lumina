@@ -1,0 +1,715 @@
+# ÆtherLight Sprint: AI-Powered Sprint Planning
+# Created: 2025-10-31
+# Duration: 3 days
+# Complexity: High
+
+[sprint]
+name = "AI-Powered Sprint Planning Implementation"
+start_date = "2025-10-31"
+end_date = "2025-11-02"
+goals = [
+    "Replace template-based sprint planning with AI-powered codebase analysis",
+    "Enable ClaudeAgent to explore codebase and generate context-rich prompts",
+    "Provide graceful fallback to templates when AI unavailable",
+    "Complete testing and user documentation"
+]
+branch = "feature/ai-powered-sprint-planning"
+status = "planned"
+
+# Epic: AI Agent Core Service
+[epic.ai_agent_core]
+title = "AI Agent Core Service"
+description = "Create ClaudeAgent service that uses Anthropic API to analyze codebases and generate enhanced prompts"
+branch = "feature/ai-powered-sprint-planning"
+priority = "critical"
+estimated_hours = 6
+status = "pending"
+
+[[epic.ai_agent_core.tasks]]
+id = "AI-001"
+title = "Create ClaudeAgent.ts service file"
+description = """
+Create new service at vscode-lumina/src/services/ClaudeAgent.ts with:
+- AgentOptions and AgentResult interfaces
+- Constructor with API key loading from settings
+- analyze() method for AI-powered codebase analysis
+- buildSystemPrompt() and buildAgentPrompt() methods
+- extractMetadata() and calculateConfidence() helper methods
+
+DESIGN DECISION: Use Claude API directly instead of CLI
+WHY: API is faster, more integrated, better error handling than subprocess
+
+FILES TO CREATE:
+- vscode-lumina/src/services/ClaudeAgent.ts (500+ lines)
+
+PATTERN: Pattern-AI-AGENT-001 (AI-Powered Code Analysis)
+"""
+assignee = "developer"
+phase = 1
+estimated_hours = 4
+dependencies = []
+files = ["vscode-lumina/src/services/ClaudeAgent.ts"]
+validation = [
+    "ClaudeAgent.ts compiles without errors",
+    "All interfaces properly typed",
+    "API key loading from settings works",
+    "Error handling for missing API key"
+]
+
+[[epic.ai_agent_core.tasks]]
+id = "AI-002"
+title = "Add Anthropic SDK dependency"
+description = """
+Add @anthropic-ai/sdk to vscode-lumina dependencies:
+- Update package.json with SDK dependency
+- Run npm install to download SDK
+- Verify SDK imports work correctly
+
+FILES TO MODIFY:
+- vscode-lumina/package.json (dependencies section)
+
+COMMAND:
+cd vscode-lumina && npm install @anthropic-ai/sdk
+"""
+assignee = "developer"
+phase = 1
+estimated_hours = 0.5
+dependencies = []
+files = ["vscode-lumina/package.json"]
+validation = [
+    "SDK appears in package.json dependencies",
+    "node_modules/@anthropic-ai/sdk exists",
+    "Import from '@anthropic-ai/sdk' works in TypeScript"
+]
+
+[[epic.ai_agent_core.tasks]]
+id = "AI-003"
+title = "Add API key configuration to extension settings"
+description = """
+Add Anthropic API key configuration to VS Code settings:
+- Add aetherlight.anthropic.apiKey to package.json contributions
+- Configure as string type with description
+- Order it appropriately in settings UI
+
+FILES TO MODIFY:
+- vscode-lumina/package.json (contributes.configuration section)
+
+VALIDATION:
+- Settings UI shows "Anthropic API Key" under ÆtherLight section
+- Description includes link to console.anthropic.com
+"""
+assignee = "developer"
+phase = 1
+estimated_hours = 0.5
+dependencies = ["AI-002"]
+files = ["vscode-lumina/package.json"]
+validation = [
+    "Setting appears in VS Code settings UI",
+    "Description is clear and includes API key URL",
+    "Setting persists across VS Code reloads"
+]
+
+[[epic.ai_agent_core.tasks]]
+id = "AI-004"
+title = "Implement system prompt builder"
+description = """
+Implement buildSystemPrompt() method in ClaudeAgent:
+- Define agent role and capabilities
+- Specify analysis levels (quick/medium/thorough)
+- Define exact output format structure
+- Include critical rules for file references and pattern descriptions
+
+CRITICAL RULES TO ENFORCE:
+1. ALWAYS provide actual file paths with line numbers (file.ts:100-200)
+2. NEVER return generic placeholders like "docs" or "Pattern-001"
+3. Read pattern files to understand content, don't just list IDs
+4. Clean up transcription artifacts from user intent
+5. Focus on RELEVANT files only
+
+FILES TO MODIFY:
+- vscode-lumina/src/services/ClaudeAgent.ts (buildSystemPrompt method)
+"""
+assignee = "developer"
+phase = 1
+estimated_hours = 1
+dependencies = ["AI-001"]
+files = ["vscode-lumina/src/services/ClaudeAgent.ts"]
+validation = [
+    "System prompt includes all required sections",
+    "Output format clearly defined",
+    "Critical rules explicitly stated",
+    "Examples of good vs bad output included"
+]
+
+# Epic: PromptEnhancer Integration
+[epic.prompt_enhancer_integration]
+title = "PromptEnhancer Integration"
+description = "Integrate ClaudeAgent with PromptEnhancer for sprint planning and code analysis"
+branch = "feature/ai-powered-sprint-planning"
+priority = "critical"
+estimated_hours = 8
+status = "pending"
+
+[[epic.prompt_enhancer_integration.tasks]]
+id = "PE-001"
+title = "Update generateSprintPlannerPrompt to use AI agent"
+description = """
+Replace template-based sprint planning with AI agent:
+- Import ClaudeAgent dynamically
+- Determine thoroughness based on complexity
+- Invoke agent.analyze() with proper options
+- Return enhanced prompt from AI
+- Keep existing implementation as fallback (rename to generateSprintPlannerPromptFallback)
+
+REASONING CHAIN:
+1. User enters: "Fix bugs in voice panel UI"
+2. Old: String template with "docs" and "Pattern-001"
+3. New: AI agent explores voicePanel.ts, finds bugs, identifies patterns
+4. Result: Prompt with "voicePanel.ts:100-500", "Pattern-WEBVIEW-001 (message passing)"
+
+FILES TO MODIFY:
+- vscode-lumina/src/services/PromptEnhancer.ts:485 (generateSprintPlannerPrompt method)
+
+PATTERN: Pattern-AI-PLANNING-001 (AI-Powered Sprint Planning)
+"""
+assignee = "developer"
+phase = 2
+estimated_hours = 2
+dependencies = ["AI-001", "AI-002", "AI-003"]
+files = ["vscode-lumina/src/services/PromptEnhancer.ts"]
+validation = [
+    "AI agent invoked for sprint planning",
+    "Thoroughness determined by complexity",
+    "Fallback works when AI fails",
+    "Enhanced prompt returns actual file:line references"
+]
+
+[[epic.prompt_enhancer_integration.tasks]]
+id = "PE-002"
+title = "Update generateCodeAnalyzerPrompt to use AI agent"
+description = """
+Replace template-based code analysis with AI agent:
+- Same pattern as sprint planner
+- Use 'Explore' subagent type (more thorough)
+- Default to 'very thorough' for code analysis
+- Keep fallback implementation
+
+FILES TO MODIFY:
+- vscode-lumina/src/services/PromptEnhancer.ts:416 (generateCodeAnalyzerPrompt method)
+
+WHY THOROUGH: Code analysis benefits from comprehensive exploration
+"""
+assignee = "developer"
+phase = 2
+estimated_hours = 1.5
+dependencies = ["PE-001"]
+files = ["vscode-lumina/src/services/PromptEnhancer.ts"]
+validation = [
+    "Code analyzer uses Explore subagent",
+    "Defaults to very thorough analysis",
+    "Fallback implementation exists",
+    "Compiles without errors"
+]
+
+[[epic.prompt_enhancer_integration.tasks]]
+id = "PE-003"
+title = "Update EnhancementResult interface with AI metadata"
+description = """
+Add metadata field to EnhancementResult interface:
+- filesAnalyzed: string[] (list of analyzed files)
+- patternsFound: string[] (patterns referenced)
+- tokensUsed: number (API usage tracking)
+- durationMs: number (performance tracking)
+- aiPowered: boolean (flag for AI vs fallback)
+
+FILES TO MODIFY:
+- vscode-lumina/src/services/PromptEnhancer.ts (top of file, interface definitions)
+
+PURPOSE: Track AI agent statistics for logging and optimization
+"""
+assignee = "developer"
+phase = 2
+estimated_hours = 0.5
+dependencies = ["PE-001"]
+files = ["vscode-lumina/src/services/PromptEnhancer.ts"]
+validation = [
+    "Interface includes all metadata fields",
+    "All fields properly typed",
+    "Metadata populated when AI agent used",
+    "TypeScript compilation succeeds"
+]
+
+[[epic.prompt_enhancer_integration.tasks]]
+id = "PE-004"
+title = "Update enhancePrompt to return metadata"
+description = """
+Update enhancePrompt() method to return metadata:
+- When AI agent used, include filesAnalyzed, patternsFound, etc.
+- When fallback used, set aiPowered: false
+- Ensure backward compatibility
+
+FILES TO MODIFY:
+- vscode-lumina/src/services/PromptEnhancer.ts:75 (enhancePrompt method)
+"""
+assignee = "developer"
+phase = 2
+estimated_hours = 1
+dependencies = ["PE-003"]
+files = ["vscode-lumina/src/services/PromptEnhancer.ts"]
+validation = [
+    "Metadata returned when AI agent succeeds",
+    "aiPowered flag correctly set",
+    "No breaking changes to calling code"
+]
+
+[[epic.prompt_enhancer_integration.tasks]]
+id = "PE-005"
+title = "Add progress feedback to UI"
+description = """
+Update voicePanel.ts sprint planner button handler to show AI-specific progress:
+- Show "🤖 AI Agent Analyzing Codebase..." message
+- Display "Exploring files, patterns, and architecture"
+- Indicate time estimate (30-60 seconds)
+- Update spinner/progress indicator
+
+FILES TO MODIFY:
+- vscode-lumina/src/commands/voicePanel.ts:1493-1511 (button handler)
+"""
+assignee = "developer"
+phase = 2
+estimated_hours = 1
+dependencies = ["PE-001"]
+files = ["vscode-lumina/src/commands/voicePanel.ts"]
+validation = [
+    "Progress message displays when AI agent starts",
+    "Message is clear and informative",
+    "Time estimate shown",
+    "UI updates properly"
+]
+
+[[epic.prompt_enhancer_integration.tasks]]
+id = "PE-006"
+title = "Handle AI agent results in voicePanel message handler"
+description = """
+Update 'enhancePrompt' message handler in voicePanel.ts:
+- Log AI agent statistics (tokens, files, duration)
+- Send enhanced prompt back to webview with metadata
+- Show success message with file count
+- Handle errors gracefully (API key missing, network errors)
+- Display appropriate error messages to user
+
+FILES TO MODIFY:
+- vscode-lumina/src/commands/voicePanel.ts (enhancePrompt message handler)
+
+ERROR HANDLING:
+- API key missing: "🔑 Anthropic API key required. Set it in Settings → ÆtherLight"
+- Network error: Show error, fall back to templates
+- Other errors: Display error message, don't crash extension
+"""
+assignee = "developer"
+phase = 2
+estimated_hours = 2
+dependencies = ["PE-001", "PE-003"]
+files = ["vscode-lumina/src/commands/voicePanel.ts"]
+validation = [
+    "AI statistics logged to console",
+    "Success message shows file count",
+    "Error messages are helpful",
+    "Fallback works on all error types",
+    "Extension doesn't crash on errors"
+]
+
+# Epic: Testing and Validation
+[epic.testing_validation]
+title = "Testing and Validation"
+description = "Comprehensive testing of AI-powered sprint planning with quality and performance validation"
+branch = "feature/ai-powered-sprint-planning"
+priority = "high"
+estimated_hours = 6
+status = "pending"
+
+[[epic.testing_validation.tasks]]
+id = "TEST-001"
+title = "Test Case 1: API Key Not Set"
+description = """
+Manual test for missing API key scenario:
+
+STEPS:
+1. Don't set aetherlight.anthropic.apiKey in settings
+2. Click "Sprint Planner" button
+3. Enter intent: "Fix bugs in voice panel"
+4. Click "Enhance & Generate Prompt"
+
+EXPECTED RESULTS:
+- Error message: "🔑 Anthropic API key required. Set it in Settings → ÆtherLight"
+- Extension falls back to template-based prompt
+- No crash or undefined errors
+- Fallback prompt displays (with warning banner)
+
+VALIDATION CRITERIA:
+✅ Error message is clear and actionable
+✅ Fallback prompt generated successfully
+✅ No console errors or crashes
+✅ User can still proceed with template-based prompt
+"""
+assignee = "developer"
+phase = 3
+estimated_hours = 0.5
+dependencies = ["PE-001", "PE-006"]
+files = []
+validation = [
+    "Test case executed successfully",
+    "All expected results verified",
+    "Error message helpful",
+    "Fallback works correctly"
+]
+
+[[epic.testing_validation.tasks]]
+id = "TEST-002"
+title = "Test Case 2: Simple Request (Quick Analysis)"
+description = """
+Manual test for quick AI analysis:
+
+SETUP:
+1. Set valid API key in settings
+2. Compile extension: cd vscode-lumina && npm run compile
+
+STEPS:
+1. Open Extension Development Host (F5)
+2. Click "Sprint Planner" button
+3. Enter intent: "Add logging to voicePanel.ts"
+4. Click "Enhance & Generate Prompt"
+
+EXPECTED RESULTS:
+- Analysis completes in 10-20 seconds
+- Progress message displays: "🤖 AI Agent Analyzing Codebase..."
+- Finds voicePanel.ts with specific line numbers
+- Goal is clean (no transcription artifacts)
+- Success message shows file count
+- Enhanced prompt has actual file:line references
+
+VALIDATION CRITERIA:
+✅ Analysis time < 20 seconds
+✅ voicePanel.ts found and referenced
+✅ Line numbers included (e.g., voicePanel.ts:100-500)
+✅ No "docs" or "Pattern-001" placeholders
+✅ Token usage logged to console
+"""
+assignee = "developer"
+phase = 3
+estimated_hours = 1
+dependencies = ["PE-001", "PE-006"]
+files = []
+validation = [
+    "Analysis completes quickly",
+    "Actual file paths returned",
+    "Line numbers included",
+    "Quality metrics met"
+]
+
+[[epic.testing_validation.tasks]]
+id = "TEST-003"
+title = "Test Case 3: Complex Request (Thorough Analysis)"
+description = """
+Manual test for comprehensive AI analysis:
+
+STEPS:
+1. Click "Sprint Planner"
+2. Enter complex intent with transcription artifacts:
+   "I'm looking to build a sprint to fix the bugs. ding, code analyzer, sprint planner,
+    enhancement, send, and clear to where it currently says command slash transcription.
+    We don't need those words. Reorganize voice panel UI..."
+3. Click "Enhance"
+
+EXPECTED RESULTS:
+- Analysis takes 30-60 seconds
+- Progress indicator shows
+- Enhanced prompt includes:
+  ✅ Clean goal (NO "ding, code analyzer" garbage)
+  ✅ Actual files: voicePanel.ts:X-Y, terminalManager.ts:X-Y
+  ✅ Patterns with descriptions: "Pattern-WEBVIEW-001 (Webview message passing)"
+  ✅ Current state analysis with code findings
+  ✅ Specific files to modify with line numbers
+- Success message: "✅ AI analysis complete! Analyzed 8 files"
+
+QUALITY CHECKS:
+✅ No transcription artifacts in goal
+✅ All file references have line numbers
+✅ Patterns include descriptions (not just IDs)
+✅ Current state backed by actual code findings
+✅ Specific, actionable recommendations
+
+PERFORMANCE CHECKS:
+✅ Duration: 30-60 seconds
+✅ Token usage: < 20,000 tokens
+✅ Cost: < $0.50
+"""
+assignee = "developer"
+phase = 3
+estimated_hours = 1.5
+dependencies = ["PE-001", "PE-006"]
+files = []
+validation = [
+    "All quality checks pass",
+    "Performance within targets",
+    "Enhanced prompt is actionable",
+    "No transcription artifacts"
+]
+
+[[epic.testing_validation.tasks]]
+id = "TEST-004"
+title = "Test Case 4: Network Error Handling"
+description = """
+Manual test for network failure scenario:
+
+STEPS:
+1. Disconnect internet or block API requests
+2. Click "Sprint Planner"
+3. Enter any intent
+4. Click "Enhance"
+
+EXPECTED RESULTS:
+- Error message displayed
+- Extension falls back to template-based prompt
+- No crash or unhandled promise rejection
+- User can still use extension
+- Helpful error message (not just raw API error)
+
+VALIDATION:
+✅ Graceful degradation to fallback
+✅ Clear error message
+✅ No console errors or crashes
+✅ Extension remains functional
+"""
+assignee = "developer"
+phase = 3
+estimated_hours = 0.5
+dependencies = ["PE-006"]
+files = []
+validation = [
+    "Graceful error handling",
+    "Fallback works",
+    "No crashes",
+    "User experience maintained"
+]
+
+[[epic.testing_validation.tasks]]
+id = "TEST-005"
+title = "Test Case 5: Code Analyzer Button"
+description = """
+Manual test for code analyzer with AI:
+
+STEPS:
+1. Click "Code Analyzer" button
+2. Enter: "Find all TODO comments in voice panel"
+3. Click "Enhance & Generate Prompt"
+
+EXPECTED RESULTS:
+- AI agent uses 'Explore' subagent type
+- Analysis is thorough (may take 40-60 seconds)
+- Finds voicePanel.ts
+- Lists TODO comments with line numbers
+- Each TODO includes context
+
+EXAMPLE OUTPUT:
+**Primary Files**:
+- vscode-lumina/src/commands/voicePanel.ts:869 (TODO: Add terminal grouping)
+- vscode-lumina/src/commands/voicePanel.ts:1205 (TODO: Implement pattern caching)
+
+VALIDATION:
+✅ Code Analyzer uses thorough analysis
+✅ TODOs found with line numbers
+✅ Context provided for each TODO
+"""
+assignee = "developer"
+phase = 3
+estimated_hours = 1
+dependencies = ["PE-002"]
+files = []
+validation = [
+    "Code analyzer works with AI",
+    "TODOs found accurately",
+    "Line numbers correct",
+    "Analysis thorough"
+]
+
+[[epic.testing_validation.tasks]]
+id = "TEST-006"
+title = "Validate quality metrics"
+description = """
+Review all test results against quality metrics:
+
+QUALITY METRICS:
+✅ No transcription artifacts in output
+✅ All file references include line numbers (file.ts:100-200)
+✅ Patterns include descriptions, not just IDs
+✅ Goal is clean and concise (1-2 sentences)
+✅ Current state analysis backed by actual code findings
+✅ Success criteria are specific and measurable
+
+PERFORMANCE METRICS:
+✅ Quick analysis: < 20 seconds
+✅ Medium analysis: 20-40 seconds
+✅ Thorough analysis: 40-60 seconds
+✅ Token usage: < 20,000 tokens per request
+✅ API cost: < $0.50 per request
+
+RELIABILITY METRICS:
+✅ Graceful fallback when API key missing
+✅ Graceful fallback on network errors
+✅ Helpful error messages
+✅ Progress feedback during analysis
+
+Create validation report documenting all results.
+"""
+assignee = "developer"
+phase = 3
+estimated_hours = 1.5
+dependencies = ["TEST-001", "TEST-002", "TEST-003", "TEST-004", "TEST-005"]
+files = []
+validation = [
+    "All quality metrics met",
+    "All performance metrics met",
+    "All reliability metrics met",
+    "Validation report created"
+]
+
+# Epic: Documentation
+[epic.documentation]
+title = "Documentation and User Guidance"
+description = "Create comprehensive documentation for AI-powered sprint planning feature"
+branch = "feature/ai-powered-sprint-planning"
+priority = "medium"
+estimated_hours = 2
+status = "pending"
+
+[[epic.documentation.tasks]]
+id = "DOC-001"
+title = "Update CLAUDE.md with AI Sprint Planning section"
+description = """
+Add new section to .claude/CLAUDE.md:
+
+SECTIONS TO ADD:
+1. ## AI-Powered Sprint Planning
+   - Status: IMPLEMENTED (v0.16.0+)
+   - Overview
+   - Setup (API key configuration)
+   - Usage (sprint planning and code analysis)
+   - How It Works (architecture diagram)
+   - Cost Estimation
+   - Fallback Mode
+   - Troubleshooting
+
+FILES TO MODIFY:
+- .claude/CLAUDE.md (add new section after existing content)
+
+VALIDATION:
+- Section is comprehensive
+- Setup instructions are clear
+- Troubleshooting covers common issues
+"""
+assignee = "developer"
+phase = 3
+estimated_hours = 1
+dependencies = ["TEST-006"]
+files = [".claude/CLAUDE.md"]
+validation = [
+    "Documentation section added",
+    "All subsections included",
+    "Instructions are clear",
+    "Examples provided"
+]
+
+[[epic.documentation.tasks]]
+id = "DOC-002"
+title = "Create AI Sprint Planning User Guide"
+description = """
+Create comprehensive user guide:
+
+FILE TO CREATE:
+- .aetherlight/internals/AI_SPRINT_PLANNING_USER_GUIDE.md
+
+SECTIONS:
+1. Quick Start (getting API key, first use)
+2. Writing Good Intents (examples of good vs bad)
+3. Understanding Results (how to read enhanced prompts)
+4. Cost Management (budgeting tips)
+5. Troubleshooting (common issues)
+
+TONE: User-friendly, practical, example-heavy
+"""
+assignee = "developer"
+phase = 3
+estimated_hours = 1
+dependencies = ["TEST-006"]
+files = [".aetherlight/internals/AI_SPRINT_PLANNING_USER_GUIDE.md"]
+validation = [
+    "User guide created",
+    "All sections complete",
+    "Examples are helpful",
+    "Tone is accessible"
+]
+
+# Success Criteria for Sprint
+[success_criteria]
+implementation = [
+    "ClaudeAgent service created and functional",
+    "Anthropic SDK integrated",
+    "PromptEnhancer uses AI for sprint planning and code analysis",
+    "Graceful fallback to templates implemented",
+    "Progress feedback displays during analysis",
+    "Error handling covers all common failures"
+]
+
+quality = [
+    "No transcription artifacts in enhanced prompts",
+    "All file references include line numbers",
+    "Patterns include descriptions (not just IDs)",
+    "Current state analysis backed by code findings",
+    "Specific, actionable recommendations"
+]
+
+user_experience = [
+    "Clear progress feedback shown",
+    "Helpful error messages for all failure modes",
+    "Analysis completes in reasonable time (< 60s)",
+    "Easy API key configuration",
+    "Clear, comprehensive documentation"
+]
+
+performance = [
+    "Quick analysis: < 20 seconds",
+    "Thorough analysis: < 60 seconds",
+    "Token usage: < 20,000 per request",
+    "Cost per request: < $0.50"
+]
+
+# Rollout Plan
+[rollout]
+week_1 = "Development (Days 1-3)"
+week_2 = "Beta testing with 5-10 sprint plans"
+week_3 = "Release v0.16.0 with AI-powered sprint planning"
+
+# Maintenance Plan
+[maintenance]
+monitoring = [
+    "Track API usage and costs monthly",
+    "Monitor token usage per request",
+    "Track analysis duration metrics",
+    "Collect user feedback on quality"
+]
+
+optimization = [
+    "Cache analysis results for similar intents",
+    "Fine-tune system prompts based on results",
+    "Add user preferences for analysis depth",
+    "Implement smart thoroughness detection"
+]
+
+future_enhancements = [
+    "Support for Claude Opus (higher quality)",
+    "Support for Claude Haiku (lower cost)",
+    "Analysis result caching",
+    "User feedback loop (Was this helpful?)",
+    "Generate sprint TOML directly from AI"
+]

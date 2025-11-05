@@ -879,6 +879,138 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 }
                 break;
 
+            case 'getSkills':
+                /**
+                 * UI-006: Get list of skills from .claude/skills directory
+                 * WHY: User needs to see installed skills and open them for editing
+                 * REASONING: Read directory, parse skill metadata, return to webview
+                 */
+                try {
+                    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+                    if (!workspaceRoot) {
+                        webview.postMessage({
+                            type: 'skillsList',
+                            skills: [],
+                            error: 'No workspace folder open'
+                        });
+                        break;
+                    }
+
+                    const skillsPath = path.join(workspaceRoot, '.claude', 'skills');
+
+                    // Check if skills directory exists
+                    if (!fs.existsSync(skillsPath)) {
+                        webview.postMessage({
+                            type: 'skillsList',
+                            skills: [],
+                            error: 'Skills directory not found (.claude/skills/)'
+                        });
+                        break;
+                    }
+
+                    // Read all subdirectories in skills/
+                    const skillDirs = fs.readdirSync(skillsPath, { withFileTypes: true })
+                        .filter(dirent => dirent.isDirectory())
+                        .map(dirent => dirent.name);
+
+                    // Read SKILL.md from each directory
+                    const skills = skillDirs.map(skillName => {
+                        const skillFile = path.join(skillsPath, skillName, 'SKILL.md');
+                        let description = 'No description available';
+
+                        if (fs.existsSync(skillFile)) {
+                            const content = fs.readFileSync(skillFile, 'utf-8');
+                            // Extract first line as description (skip # title)
+                            const lines = content.split('\n').filter(l => l.trim());
+                            const descLine = lines.find(l => !l.startsWith('#'));
+                            if (descLine) {
+                                description = descLine.trim();
+                            }
+                        }
+
+                        return {
+                            name: skillName,
+                            description: description,
+                            path: skillFile
+                        };
+                    });
+
+                    webview.postMessage({
+                        type: 'skillsList',
+                        skills: skills
+                    });
+                } catch (error) {
+                    console.error('[ÆtherLight] Failed to read skills:', error);
+                    webview.postMessage({
+                        type: 'skillsList',
+                        skills: [],
+                        error: `Failed to read skills: ${(error as Error).message}`
+                    });
+                }
+                break;
+
+            case 'openSkill':
+                /**
+                 * UI-006: Open skill file in VS Code editor
+                 * WHY: User wants to edit skill files directly
+                 * REASONING: Open file in editor, show in active column
+                 */
+                try {
+                    const skillPath = message.path;
+                    if (skillPath && fs.existsSync(skillPath)) {
+                        const doc = await vscode.workspace.openTextDocument(skillPath);
+                        await vscode.window.showTextDocument(doc, {
+                            viewColumn: vscode.ViewColumn.One,
+                            preview: false
+                        });
+                    } else {
+                        vscode.window.showErrorMessage(`Skill file not found: ${skillPath}`);
+                    }
+                } catch (error) {
+                    console.error('[ÆtherLight] Failed to open skill:', error);
+                    vscode.window.showErrorMessage(`Failed to open skill: ${(error as Error).message}`);
+                }
+                break;
+
+            case 'getSettings':
+                /**
+                 * UI-006: Get current settings from VS Code configuration
+                 * WHY: Display current settings values in UI
+                 * REASONING: Read from workspace configuration, return to webview
+                 */
+                try {
+                    const config = vscode.workspace.getConfiguration('aetherlight');
+                    const devMode = config.get<boolean>('devMode', false);
+                    const sprintPath = config.get<string>('sprintPath', 'internal/sprints/ACTIVE_SPRINT.toml');
+
+                    webview.postMessage({
+                        type: 'settingsData',
+                        settings: {
+                            devMode: devMode,
+                            sprintPath: sprintPath
+                        }
+                    });
+                } catch (error) {
+                    console.error('[ÆtherLight] Failed to get settings:', error);
+                }
+                break;
+
+            case 'updateSetting':
+                /**
+                 * UI-006: Update setting in VS Code configuration
+                 * WHY: Save user's setting changes persistently
+                 * REASONING: Write to workspace configuration, changes take effect immediately
+                 */
+                try {
+                    const config = vscode.workspace.getConfiguration('aetherlight');
+                    await config.update(message.key, message.value, vscode.ConfigurationTarget.Workspace);
+                    vscode.window.showInformationMessage(`Setting "${message.key}" updated successfully`);
+                } catch (error) {
+                    console.error('[ÆtherLight] Failed to update setting:', error);
+                    vscode.window.showErrorMessage(`Failed to update setting: ${(error as Error).message}`);
+                }
+                break;
+
             case 'startRecording':
                 /**
                  * DESIGN DECISION: Use IPC to desktop app for recording (not webview)
@@ -3181,37 +3313,322 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             };
 
             // RIGHT TOOLBAR: Utilities
+            /**
+             * UI-006: Bug Report Form
+             * WHY: Structured bug reporting with enhancement and terminal submission
+             */
             window.openBugReport = function() {
                 const content = \`
-                    <p>Bug Report workflow will be implemented in Phase 6 (UI-006).</p>
-                    <p>This will allow you to submit bug reports with structured templates.</p>
+                    <div style="padding: 16px;">
+                        <div style="margin-bottom: 12px;">
+                            <label style="display: block; margin-bottom: 4px; font-weight: 600;">Title</label>
+                            <input type="text" id="bugTitle" style="width: 100%; padding: 6px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border);" placeholder="Brief description of the bug">
+                        </div>
+
+                        <div style="margin-bottom: 12px;">
+                            <label style="display: block; margin-bottom: 4px; font-weight: 600;">Category</label>
+                            <select id="bugCategory" style="width: 100%; padding: 6px; background: var(--vscode-dropdown-background); color: var(--vscode-dropdown-foreground); border: 1px solid var(--vscode-dropdown-border);">
+                                <option value="ui">UI/UX Issue</option>
+                                <option value="functionality">Functionality</option>
+                                <option value="performance">Performance</option>
+                                <option value="crash">Crash/Error</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+
+                        <div style="margin-bottom: 12px;">
+                            <label style="display: block; margin-bottom: 4px; font-weight: 600;">Steps to Reproduce</label>
+                            <textarea id="bugSteps" rows="3" style="width: 100%; padding: 6px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); font-family: monospace;" placeholder="1. Step one\n2. Step two\n3. ..."></textarea>
+                        </div>
+
+                        <div style="margin-bottom: 12px;">
+                            <label style="display: block; margin-bottom: 4px; font-weight: 600;">Expected Behavior</label>
+                            <textarea id="bugExpected" rows="2" style="width: 100%; padding: 6px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border);" placeholder="What should happen"></textarea>
+                        </div>
+
+                        <div style="margin-bottom: 12px;">
+                            <label style="display: block; margin-bottom: 4px; font-weight: 600;">Actual Behavior</label>
+                            <textarea id="bugActual" rows="2" style="width: 100%; padding: 6px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border);" placeholder="What actually happens"></textarea>
+                        </div>
+
+                        <button onclick="submitBugReport()" style="padding: 8px 16px; background: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">
+                            Submit Bug Report
+                        </button>
+                    </div>
                 \`;
                 window.showWorkflow('bug-report', '🐛 Bug Report', content);
             };
 
+            window.submitBugReport = function() {
+                const title = document.getElementById('bugTitle').value;
+                const category = document.getElementById('bugCategory').value;
+                const steps = document.getElementById('bugSteps').value;
+                const expected = document.getElementById('bugExpected').value;
+                const actual = document.getElementById('bugActual').value;
+
+                if (!title.trim()) {
+                    showStatus('⚠️ Please enter a bug title', 'error');
+                    return;
+                }
+
+                const bugReport = \`# Bug Report: \${title}
+
+**Category:** \${category}
+
+## Steps to Reproduce
+\${steps || 'Not specified'}
+
+## Expected Behavior
+\${expected || 'Not specified'}
+
+## Actual Behavior
+\${actual || 'Not specified'}
+
+---
+Generated by ÆtherLight Bug Reporter\`;
+
+                // Set to text area for user to review/edit
+                document.getElementById('transcriptionText').value = bugReport;
+                autoResizeTextarea();
+                updateSendButton();
+
+                // Close workflow
+                window.closeWorkflow();
+                showStatus('✅ Bug report generated - review and send to terminal', 'info');
+            };
+
+            /**
+             * UI-006: Feature Request Form
+             * WHY: Structured feature requests with use cases and acceptance criteria
+             */
             window.openFeatureRequest = function() {
                 const content = \`
-                    <p>Feature Request workflow will be implemented in Phase 6 (UI-006).</p>
-                    <p>This will allow you to submit feature requests with use cases.</p>
+                    <div style="padding: 16px;">
+                        <div style="margin-bottom: 12px;">
+                            <label style="display: block; margin-bottom: 4px; font-weight: 600;">Feature Title</label>
+                            <input type="text" id="featureTitle" style="width: 100%; padding: 6px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border);" placeholder="Brief description of the feature">
+                        </div>
+
+                        <div style="margin-bottom: 12px;">
+                            <label style="display: block; margin-bottom: 4px; font-weight: 600;">Priority</label>
+                            <select id="featurePriority" style="width: 100%; padding: 6px; background: var(--vscode-dropdown-background); color: var(--vscode-dropdown-foreground); border: 1px solid var(--vscode-dropdown-border);">
+                                <option value="low">Low - Nice to have</option>
+                                <option value="medium" selected>Medium - Would be helpful</option>
+                                <option value="high">High - Important for workflow</option>
+                                <option value="critical">Critical - Blocking work</option>
+                            </select>
+                        </div>
+
+                        <div style="margin-bottom: 12px;">
+                            <label style="display: block; margin-bottom: 4px; font-weight: 600;">Use Case / Problem</label>
+                            <textarea id="featureUseCase" rows="3" style="width: 100%; padding: 6px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border);" placeholder="Describe the problem this feature would solve and how you would use it"></textarea>
+                        </div>
+
+                        <div style="margin-bottom: 12px;">
+                            <label style="display: block; margin-bottom: 4px; font-weight: 600;">Proposed Solution</label>
+                            <textarea id="featureSolution" rows="3" style="width: 100%; padding: 6px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border);" placeholder="How would this feature work? What would the UI/UX look like?"></textarea>
+                        </div>
+
+                        <div style="margin-bottom: 12px;">
+                            <label style="display: block; margin-bottom: 4px; font-weight: 600;">Acceptance Criteria (optional)</label>
+                            <textarea id="featureCriteria" rows="2" style="width: 100%; padding: 6px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); font-family: monospace;" placeholder="- Criterion 1\n- Criterion 2\n- ..."></textarea>
+                        </div>
+
+                        <button onclick="submitFeatureRequest()" style="padding: 8px 16px; background: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">
+                            Submit Feature Request
+                        </button>
+                    </div>
                 \`;
                 window.showWorkflow('feature-request', '🔧 Feature Request', content);
             };
 
+            window.submitFeatureRequest = function() {
+                const title = document.getElementById('featureTitle').value;
+                const priority = document.getElementById('featurePriority').value;
+                const useCase = document.getElementById('featureUseCase').value;
+                const solution = document.getElementById('featureSolution').value;
+                const criteria = document.getElementById('featureCriteria').value;
+
+                if (!title.trim()) {
+                    showStatus('⚠️ Please enter a feature title', 'error');
+                    return;
+                }
+
+                const featureRequest = \`# Feature Request: \${title}
+
+**Priority:** \${priority}
+
+## Use Case / Problem
+\${useCase || 'Not specified'}
+
+## Proposed Solution
+\${solution || 'Not specified'}
+
+\${criteria ? \`## Acceptance Criteria\n\${criteria}\` : ''}
+
+---
+Generated by ÆtherLight Feature Request\`;
+
+                // Set to text area for user to review/edit
+                document.getElementById('transcriptionText').value = featureRequest;
+                autoResizeTextarea();
+                updateSendButton();
+
+                // Close workflow
+                window.closeWorkflow();
+                showStatus('✅ Feature request generated - review and send to terminal', 'info');
+            };
+
+            /**
+             * UI-006: Skills Management
+             * WHY: Show all installed skills and allow editing
+             * REASONING: Request skills from extension, display list with click handlers
+             */
             window.openSkills = function() {
+                // Request skills from extension
+                vscode.postMessage({ type: 'getSkills' });
+
+                // Show loading state
                 const content = \`
-                    <p>Skills Management workflow will be implemented in Phase 6 (UI-006).</p>
-                    <p>This will show installed skills and allow you to manage them.</p>
+                    <div id="skillsContent" style="padding: 16px;">
+                        <p style="color: var(--vscode-descriptionForeground);">Loading skills...</p>
+                    </div>
                 \`;
                 window.showWorkflow('skills', '📦 Skills', content);
             };
 
+            window.openSkillFile = function(skillPath) {
+                vscode.postMessage({
+                    type: 'openSkill',
+                    path: skillPath
+                });
+            };
+
+            // Handle skills list response from extension
+            window.addEventListener('message', event => {
+                const message = event.data;
+
+                if (message.type === 'skillsList') {
+                    const contentEl = document.getElementById('skillsContent');
+                    if (!contentEl) return;
+
+                    if (message.error) {
+                        contentEl.innerHTML = \`
+                            <div style="padding: 16px; text-align: center;">
+                                <p style="color: var(--vscode-errorForeground); margin-bottom: 12px;">⚠️ \${message.error}</p>
+                                <p style="color: var(--vscode-descriptionForeground); font-size: 12px;">
+                                    Skills should be located in <code>.claude/skills/</code> directory.
+                                </p>
+                            </div>
+                        \`;
+                        return;
+                    }
+
+                    if (message.skills.length === 0) {
+                        contentEl.innerHTML = \`
+                            <div style="padding: 16px; text-align: center;">
+                                <p style="color: var(--vscode-descriptionForeground); margin-bottom: 12px;">
+                                    No skills found in <code>.claude/skills/</code>
+                                </p>
+                                <p style="font-size: 12px; color: var(--vscode-descriptionForeground);">
+                                    Create skill directories with SKILL.md files to see them here.
+                                </p>
+                            </div>
+                        \`;
+                        return;
+                    }
+
+                    // Display skills list
+                    const skillsHTML = message.skills.map(skill => \`
+                        <div class="skill-item" onclick="openSkillFile('\${skill.path}')" style="padding: 12px; margin-bottom: 8px; background: var(--vscode-editor-background); border: 1px solid var(--vscode-panel-border); border-radius: 4px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='var(--vscode-list-hoverBackground)'" onmouseout="this.style.background='var(--vscode-editor-background)'">
+                            <div style="font-weight: 600; margin-bottom: 4px; color: var(--vscode-foreground);">
+                                📦 \${skill.name}
+                            </div>
+                            <div style="font-size: 12px; color: var(--vscode-descriptionForeground);">
+                                \${skill.description}
+                            </div>
+                        </div>
+                    \`).join('');
+
+                    contentEl.innerHTML = \`
+                        <div style="margin-bottom: 12px;">
+                            <p style="color: var(--vscode-descriptionForeground); font-size: 12px;">
+                                Click any skill to open and edit it in VS Code.
+                            </p>
+                        </div>
+                        \${skillsHTML}
+                    \`;
+                }
+            });
+
+            /**
+             * UI-006: Settings UI
+             * WHY: Minimal settings for dev mode and sprint file path
+             * REASONING: Request current settings, display form, save on change
+             */
             window.openSettings = function() {
+                // Request current settings from extension
+                vscode.postMessage({ type: 'getSettings' });
+
+                // Show loading state
                 const content = \`
-                    <p>Settings workflow will be implemented in Phase 6 (UI-006).</p>
-                    <p>This will provide minimal settings (dev mode, sprint path, etc.).</p>
+                    <div id="settingsContent" style="padding: 16px;">
+                        <p style="color: var(--vscode-descriptionForeground);">Loading settings...</p>
+                    </div>
                 \`;
                 window.showWorkflow('settings', '⚙️ Settings', content);
             };
+
+            window.updateSetting = function(key, value) {
+                vscode.postMessage({
+                    type: 'updateSetting',
+                    key: key,
+                    value: value
+                });
+            };
+
+            // Handle settings response from extension
+            window.addEventListener('message', event => {
+                const message = event.data;
+
+                if (message.type === 'settingsData') {
+                    const contentEl = document.getElementById('settingsContent');
+                    if (!contentEl) return;
+
+                    const devMode = message.settings.devMode || false;
+                    const sprintPath = message.settings.sprintPath || 'internal/sprints/ACTIVE_SPRINT.toml';
+
+                    contentEl.innerHTML = \`
+                        <div style="max-width: 500px;">
+                            <div style="margin-bottom: 20px;">
+                                <label style="display: flex; align-items: center; cursor: pointer; padding: 12px; background: var(--vscode-editor-background); border: 1px solid var(--vscode-panel-border); border-radius: 4px;">
+                                    <input type="checkbox" id="devModeToggle" \${devMode ? 'checked' : ''} onchange="updateSetting('devMode', this.checked)" style="margin-right: 12px; cursor: pointer;">
+                                    <div>
+                                        <div style="font-weight: 600; margin-bottom: 4px;">Dev Mode</div>
+                                        <div style="font-size: 12px; color: var(--vscode-descriptionForeground);">
+                                            Use <code>internal/sprints/</code> directory instead of <code>sprints/</code>
+                                        </div>
+                                    </div>
+                                </label>
+                            </div>
+
+                            <div style="margin-bottom: 20px;">
+                                <label style="display: block; margin-bottom: 8px; font-weight: 600;">
+                                    Sprint File Path
+                                </label>
+                                <div style="font-size: 12px; color: var(--vscode-descriptionForeground); margin-bottom: 8px;">
+                                    Relative path from workspace root to sprint TOML file
+                                </div>
+                                <input type="text" id="sprintPathInput" value="\${sprintPath}" onchange="updateSetting('sprintPath', this.value)" style="width: 100%; padding: 8px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); border-radius: 3px; font-family: monospace;">
+                            </div>
+
+                            <div style="padding: 12px; background: var(--vscode-textBlockQuote-background); border-left: 3px solid var(--vscode-textBlockQuote-border); border-radius: 3px; font-size: 12px; color: var(--vscode-descriptionForeground);">
+                                ℹ️ Settings are saved automatically and take effect immediately
+                            </div>
+                        </div>
+                    \`;
+                }
+            });
 
             function showStatus(message, type) {
                 const statusEl = document.getElementById('statusMessage');

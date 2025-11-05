@@ -1,0 +1,41 @@
+{
+  "CLAUDE.2.5.1": [
+    {
+      "content": "/// EXAMPLE: @CLAUDE.2.5.1",
+      "file": "build.rs",
+      "line": 31
+    },
+    {
+      "content": "// Matches: @CLAUDE.2.5.1, @PHASE_3.12.3, etc.",
+      "file": "build.rs",
+      "line": 40
+    },
+    {
+      "content": "///     {\"file\": \"src/agents/knowledge.rs\", \"line\": 329, \"content\": \"// See @CLAUDE.2.5.1\"},",
+      "file": "build.rs",
+      "line": 92
+    },
+    {
+      "content": "///     {\"file\": \"docs/patterns/Pattern-006.md\", \"line\": 42, \"content\": \"References @CLAUDE.2.5.1\"}",
+      "file": "build.rs",
+      "line": 93
+    },
+    {
+      "content": "line_content: \"// See @CLAUDE.2.5.1 for details\".to_string(),",
+      "file": "src\\content_addressing.rs",
+      "line": 515
+    },
+    {
+      "content": "line_content: \"// Implements @CLAUDE.2.5.1 pattern\".to_string(),",
+      "file": "src\\content_addressing.rs",
+      "line": 521
+    }
+  ],
+  "CLAUDE.12.5.2": [
+    {
+      "content": "let address = \"@CLAUDE.12.5.2\";",
+      "file": "examples\\knowledge_agent_with_content_addressing.rs",
+      "line": 266
+    }
+  ]
+}
