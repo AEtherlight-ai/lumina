@@ -440,13 +440,19 @@ impl<'ast> Visit<'ast> for RustVisitor {
             })
             .collect();
 
+        // Extract attributes and add "async" if function is async
+        let mut attrs = Self::extract_attributes(&f.attrs);
+        if f.sig.asyncness.is_some() {
+            attrs.push("async".to_string());
+        }
+
         self.items.push(RustItem {
             kind: "fn".to_string(),
             name: f.sig.ident.to_string(),
             visibility: Self::visibility_to_string(&f.vis),
             location: Self::placeholder_location(),
             documentation: Self::extract_documentation(&f.attrs),
-            attrs: Some(Self::extract_attributes(&f.attrs)),
+            attrs: Some(attrs),
             fields: None,
             methods: None,
             params: Some(params),

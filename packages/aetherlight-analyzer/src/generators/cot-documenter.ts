@@ -661,7 +661,7 @@ ${decision.relatedDecisions.length > 0 ? `## Related Decisions\n\n${decision.rel
   }
 
   private getTechnicalDebt(analysis: AnalysisResult): TechnicalDebtAnalysis {
-    const analyzer = analysis.analyzers.find((a) => a.name === 'technicalDebt');
+    const analyzer = analysis.analyzers.find((a) => a.name === 'technical-debt');
     return analyzer?.data as TechnicalDebtAnalysis;
   }
 }

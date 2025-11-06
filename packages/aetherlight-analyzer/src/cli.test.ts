@@ -297,8 +297,12 @@ describe('CLI', () => {
         timestamp: new Date().toISOString(),
       };
 
+      // Ensure reports directory exists before writing
+      const reportsDir = path.join(aetherlightDir, 'reports');
+      await fs.mkdir(reportsDir, { recursive: true });
+
       await fs.writeFile(
-        path.join(aetherlightDir, 'reports', 'analysis.json'),
+        path.join(reportsDir, 'analysis.json'),
         JSON.stringify(mockResult, null, 2)
       );
     });

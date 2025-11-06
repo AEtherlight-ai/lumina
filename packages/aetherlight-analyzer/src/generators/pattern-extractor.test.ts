@@ -404,7 +404,7 @@ function createMockAnalysis(): AnalysisResult {
         data: complexity,
       },
       {
-        name: 'technicalDebt',
+        name: 'technical-debt',
         version: '1.0.0',
         executionTimeMs: 180,
         data: technicalDebt,
@@ -477,7 +477,7 @@ function createEmptyAnalysis(): AnalysisResult {
         data: complexity,
       },
       {
-        name: 'technicalDebt',
+        name: 'technical-debt',
         version: '1.0.0',
         executionTimeMs: 10,
         data: technicalDebt,
