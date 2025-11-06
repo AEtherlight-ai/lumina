@@ -245,7 +245,7 @@ function checkAnalyzerTests() {
 
   try {
     console.log('  Running analyzer tests...');
-    execSync('npm test', {
+    const result = execSync('npm test', {
       cwd: path.join(ROOT, 'packages/aetherlight-analyzer'),
       stdio: 'pipe',
       encoding: 'utf-8'
@@ -253,6 +253,13 @@ function checkAnalyzerTests() {
 
     console.log(`${GREEN}✓ All analyzer tests pass${RESET}`);
   } catch (error) {
+    // Check exit code - 0 means success even if stderr has output
+    if (error.status === 0) {
+      console.log(`${GREEN}✓ All analyzer tests pass${RESET}`);
+      return;
+    }
+
+    // Tests actually failed
     const output = error.stdout || error.stderr || '';
     const failedTests = output.match(/Tests:\s+(\d+) failed/);
     const failCount = failedTests ? failedTests[1] : 'unknown';
