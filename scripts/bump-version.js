@@ -35,15 +35,15 @@ function setVersion(packagePath, newVersion) {
   const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
   pkg.version = newVersion;
 
-  // Update internal dependencies
+  // Update internal dependencies (skip file: references for bundling)
   if (pkg.dependencies) {
-    if (pkg.dependencies['aetherlight-analyzer']) {
+    if (pkg.dependencies['aetherlight-analyzer'] && !pkg.dependencies['aetherlight-analyzer'].startsWith('file:')) {
       pkg.dependencies['aetherlight-analyzer'] = `^${newVersion}`;
     }
-    if (pkg.dependencies['aetherlight-node']) {
+    if (pkg.dependencies['aetherlight-node'] && !pkg.dependencies['aetherlight-node'].startsWith('file:')) {
       pkg.dependencies['aetherlight-node'] = `^${newVersion}`;
     }
-    if (pkg.dependencies['aetherlight-sdk']) {
+    if (pkg.dependencies['aetherlight-sdk'] && !pkg.dependencies['aetherlight-sdk'].startsWith('file:')) {
       pkg.dependencies['aetherlight-sdk'] = `^${newVersion}`;
     }
   }
