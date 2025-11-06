@@ -601,8 +601,9 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 break;
 
             /**
-             * REFACTOR-000-UI: Start Next Task (smart task selection)
-             * WHY: Enforce TDD workflow, dependency validation, sprint TOML updates
+             * PROTECT-000: Start Next Task with AI-enhanced prompt export
+             * WHY: Show AI-enhanced prompt before execution (temporal context, current state)
+             * FLOW: Find next task → Export AI-enhanced prompt → Show in text area → User: Copy OR Start
              */
             case 'startNextTask':
                 {
@@ -612,34 +613,95 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                         break;
                     }
 
-                    // Show confirmation before starting
-                    const confirm = await vscode.window.showInformationMessage(
-                        `Start task ${nextTask.id}: ${nextTask.name}?\n\nEstimated time: ${nextTask.estimated_time}`,
-                        { modal: true },
-                        'Start Task'
-                    );
+                    try {
+                        // PROTECT-000: Generate AI-enhanced prompt
+                        vscode.window.showInformationMessage(`⏳ Generating AI-enhanced prompt for ${nextTask.id}...`);
 
-                    if (confirm === 'Start Task') {
-                        try {
-                            const sprintPath = this.sprintLoader.getSprintFilePath();
-                            await this.taskStarter.startTask(nextTask, this.sprintTasks, sprintPath);
+                        const { TaskPromptExporter } = await import('../services/TaskPromptExporter');
+                        const exporter = new TaskPromptExporter();
 
-                            // Reload sprint data and refresh UI
-                            await this.loadSprintTasks();
-                            webview.html = this._getHtmlForWebview(webview);
-                            if (this._view && this._view.webview !== webview) {
-                                this._view.webview.html = this._getHtmlForWebview(this._view.webview);
-                            }
-                            for (const poppedPanel of this.poppedOutPanels) {
-                                if (poppedPanel.webview !== webview) {
-                                    poppedPanel.webview.html = this._getHtmlForWebview(poppedPanel.webview);
+                        // Export task with AI enhancement (temporal drift detection, current state analysis)
+                        const enhancedPrompt = await exporter.generateEnhancedPrompt(nextTask.id);
+
+                        // Show enhanced prompt in webview (TaskPromptViewer component)
+                        // User can: Copy to Clipboard OR Start Task
+                        webview.postMessage({
+                            type: 'showEnhancedPrompt',
+                            taskId: nextTask.id,
+                            enhancedPrompt: enhancedPrompt,
+                            taskName: nextTask.name,
+                            estimatedTime: nextTask.estimated_time
+                        });
+
+                    } catch (error) {
+                        vscode.window.showErrorMessage(`Failed to generate enhanced prompt: ${(error as Error).message}`);
+
+                        // Fallback: Show basic confirmation (old behavior)
+                        const confirm = await vscode.window.showInformationMessage(
+                            `Start task ${nextTask.id}: ${nextTask.name}?\n\nEstimated time: ${nextTask.estimated_time}\n\n⚠️ AI enhancement failed - proceeding without enhanced prompt.`,
+                            { modal: true },
+                            'Start Task'
+                        );
+
+                        if (confirm === 'Start Task') {
+                            try {
+                                const sprintPath = this.sprintLoader.getSprintFilePath();
+                                await this.taskStarter.startTask(nextTask, this.sprintTasks, sprintPath);
+
+                                // Reload sprint data and refresh UI
+                                await this.loadSprintTasks();
+                                webview.html = this._getHtmlForWebview(webview);
+                                if (this._view && this._view.webview !== webview) {
+                                    this._view.webview.html = this._getHtmlForWebview(this._view.webview);
                                 }
-                            }
+                                for (const poppedPanel of this.poppedOutPanels) {
+                                    if (poppedPanel.webview !== webview) {
+                                        poppedPanel.webview.html = this._getHtmlForWebview(poppedPanel.webview);
+                                    }
+                                }
 
-                            vscode.window.showInformationMessage(`✅ Task ${nextTask.id} started! Remember to follow TDD workflow.`);
-                        } catch (error) {
-                            vscode.window.showErrorMessage(`Failed to start task: ${(error as Error).message}`);
+                                vscode.window.showInformationMessage(`✅ Task ${nextTask.id} started! Remember to follow TDD workflow.`);
+                            } catch (startError) {
+                                vscode.window.showErrorMessage(`Failed to start task: ${(startError as Error).message}`);
+                            }
                         }
+                    }
+                }
+                break;
+
+            /**
+             * PROTECT-000: Handle user action from TaskPromptViewer
+             * User clicked "Start Task" after reviewing enhanced prompt
+             */
+            case 'confirmStartTask':
+                {
+                    const taskId = message.taskId;
+                    const task = this.sprintTasks.find(t => t.id === taskId);
+
+                    if (!task) {
+                        vscode.window.showErrorMessage(`Task ${taskId} not found`);
+                        break;
+                    }
+
+                    try {
+                        const sprintPath = this.sprintLoader.getSprintFilePath();
+                        await this.taskStarter.startTask(task, this.sprintTasks, sprintPath);
+
+                        // Reload sprint data and refresh UI
+                        await this.loadSprintTasks();
+                        webview.html = this._getHtmlForWebview(webview);
+                        if (this._view && this._view.webview !== webview) {
+                            this._view.webview.html = this._getHtmlForWebview(this._view.webview);
+                        }
+                        for (const poppedPanel of this.poppedOutPanels) {
+                            if (poppedPanel.webview !== webview) {
+                                poppedPanel.webview.html = this._getHtmlForWebview(poppedPanel.webview);
+                            }
+                        }
+
+                        vscode.window.showInformationMessage(`✅ Task ${taskId} started! Remember to follow TDD workflow.`);
+                    } catch (error) {
+                        vscode.window.showErrorMessage(`Failed to start task: ${(error as Error).message}`);
                     }
                 }
                 break;
@@ -1496,6 +1558,66 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             const message = event.data;
 
             switch (message.type) {
+                case 'showEnhancedPrompt':
+                    // PROTECT-000: Display AI-enhanced task prompt in overlay
+                    const overlay = document.createElement('div');
+                    overlay.id = 'enhancedPromptOverlay';
+                    overlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--vscode-editor-background); z-index: 9999; overflow: auto; padding: 20px;';
+
+                    overlay.innerHTML = '<div style="max-width: 900px; margin: 0 auto;">' +
+                        '<div style="margin-bottom: 15px; border-bottom: 2px solid var(--vscode-panel-border); padding-bottom: 10px;">' +
+                            '<h2 style="margin: 0 0 5px 0; font-size: 20px;">📋 Task Prompt: ' + message.taskId + '</h2>' +
+                            '<div style="font-size: 13px; color: var(--vscode-descriptionForeground); font-style: italic;">AI-enhanced with current project state analysis</div>' +
+                        '</div>' +
+                        '<div style="border: 1px solid var(--vscode-panel-border); border-radius: 4px; margin-bottom: 15px; overflow: hidden;">' +
+                            '<textarea id="enhancedPromptText" readonly spellcheck="false" style="width: 100%; height: 60vh; padding: 15px; font-family: var(--vscode-editor-font-family); font-size: 13px; line-height: 1.6; background: var(--vscode-editor-background); color: var(--vscode-editor-foreground); border: none; resize: none; white-space: pre-wrap;">' +
+                                message.enhancedPrompt +
+                            '</textarea>' +
+                        '</div>' +
+                        '<div style="display: flex; gap: 10px; justify-content: center; margin-bottom: 15px;">' +
+                            '<button id="copyPromptBtn" style="padding: 10px 20px; font-size: 14px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; background: var(--vscode-button-background); color: var(--vscode-button-foreground);">📋 Copy to Clipboard</button>' +
+                            '<button id="startTaskBtn" style="padding: 10px 20px; font-size: 14px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; background: #28a745; color: #ffffff;">▶️ Start Task</button>' +
+                            '<button id="cancelPromptBtn" style="padding: 10px 20px; font-size: 14px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground);">Cancel</button>' +
+                        '</div>' +
+                        '<div style="padding: 15px; background: var(--vscode-textBlockQuote-background); border: 1px solid var(--vscode-panel-border); border-radius: 4px; font-size: 13px;">' +
+                            '<strong>💡 Usage:</strong>' +
+                            '<ul style="margin: 10px 0 0 0; padding-left: 20px;">' +
+                                '<li><strong>Copy to Clipboard</strong> → Paste in external terminal (parallel execution)</li>' +
+                                '<li><strong>Start Task</strong> → Claude Code executes with full context</li>' +
+                                '<li><strong>Cancel</strong> → Return to sprint panel</li>' +
+                            '</ul>' +
+                        '</div>' +
+                    '</div>';
+
+                    document.body.appendChild(overlay);
+
+                    // Copy button handler
+                    document.getElementById('copyPromptBtn').addEventListener('click', async () => {
+                        const text = document.getElementById('enhancedPromptText').value;
+                        try {
+                            await navigator.clipboard.writeText(text);
+                            const btn = document.getElementById('copyPromptBtn');
+                            btn.textContent = '✅ Copied!';
+                            setTimeout(() => {
+                                btn.textContent = '📋 Copy to Clipboard';
+                            }, 2000);
+                        } catch (error) {
+                            console.error('Failed to copy:', error);
+                        }
+                    });
+
+                    // Start Task button handler
+                    document.getElementById('startTaskBtn').addEventListener('click', () => {
+                        document.getElementById('enhancedPromptOverlay').remove();
+                        vscode.postMessage({ type: 'confirmStartTask', taskId: message.taskId });
+                    });
+
+                    // Cancel button handler
+                    document.getElementById('cancelPromptBtn').addEventListener('click', () => {
+                        document.getElementById('enhancedPromptOverlay').remove();
+                    });
+                    break;
+
                 case 'updateTaskDetail':
                     // Update just the detail panel without full page refresh
                     const detailPanel = document.querySelector('.task-detail-panel');

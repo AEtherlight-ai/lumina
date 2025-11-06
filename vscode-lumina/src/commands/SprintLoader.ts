@@ -519,7 +519,18 @@ required_expertise = []
                 completed_date: task.completed_date,
                 files_to_create: task.files_to_create,
                 files_to_modify: task.files_to_modify,
-                validation_criteria: task.validation_criteria
+                validation_criteria: task.validation_criteria,
+                // Enhanced prompt fields (rich task display)
+                why: task.why,
+                context: task.context,
+                reasoning_chain: task.reasoning_chain,
+                pattern_context: task.pattern_context,
+                success_impact: task.success_impact,
+                // Test-related fields (TDD enforcement)
+                error_handling: task.error_handling,
+                test_requirements: task.test_requirements,
+                test_files: task.test_files,
+                test_coverage_requirement: task.test_coverage_requirement
             });
         }
 
