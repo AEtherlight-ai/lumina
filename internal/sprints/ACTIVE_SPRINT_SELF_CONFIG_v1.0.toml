@@ -1633,12 +1633,259 @@ deliverables = [
 dependencies = ["SELF-021", "SELF-022", "SELF-023", "SELF-024"]
 
 # =============================================================================
+# PHASE 0: POST-RELEASE CLEANUP (v0.16.7 issues) - PREREQUISITE
+# =============================================================================
+
+[tasks.POST-001]
+id = "POST-001"
+name = "Fix .vscodeignore bloat for v0.16.8"
+status = "completed"
+phase = "phase-0-post-release-cleanup"
+agent = "infrastructure-agent"
+
+why = """
+v0.16.7 shipped with 18MB+ of test cache bloat in npm package.
+Must fix before next release to prevent user experience degradation.
+"""
+
+description = """
+Fix test bloat in npm package by excluding .vscode-test-* directories.
+
+**Issue Discovered in v0.16.7:**
+- npm package includes 18MB+ of .vscode-test-user-data cache files
+- .vscodeignore pattern `.vscode-test/**` didn't match actual directories
+- Published package bloated with test artifacts
+
+**Root Cause:**
+.vscodeignore had pattern `.vscode-test/**` but actual directories are:
+- .vscode-test-extensions/
+- .vscode-test-user-data/
+
+**Fix Applied (commit 48ce25b):**
+Added explicit exclusions to .vscodeignore:
+- .vscode-test-extensions/**
+- .vscode-test-user-data/**
+"""
+
+estimated_time = "COMPLETED"
+dependencies = []
+
+deliverables = [
+    ".vscodeignore updated with explicit patterns",
+    "Commit 48ce25b pushed to master",
+    "Next release (v0.16.8+) will exclude test artifacts"
+]
+
+[tasks.POST-002]
+id = "POST-002"
+name = "Fix analyzer package test failures (36 tests)"
+status = "pending"
+phase = "phase-0-post-release-cleanup"
+agent = "infrastructure-agent"
+
+why = """
+36 failing tests indicate real regressions in analyzer functionality.
+Users may experience broken sprint generation or analysis features.
+Must fix before starting new feature work (self-config system).
+"""
+
+description = """
+Investigate and fix 36 failing tests in @aetherlight/analyzer package.
+
+**Test Failures (v0.16.7 publish attempt):**
+
+1. ComplexityAnalyzer (2 failures)
+   - should generate file-level heatmap
+   - should sort heatmap by average complexity
+   - Issue: Heatmap array returns empty
+
+2. RustParser (4 failures)
+   - should extract struct with fields
+   - should extract trait with methods
+   - should extract impl blocks
+   - should extract top-level functions
+   - Issue: File parsing returns no results
+
+3. TypeScriptParser (1 failure)
+   - should parse 10k LOC in <2 seconds
+   - Issue: Performance regression (7243ms vs 2000ms expected)
+
+4. SprintGenerator (29 failures)
+   - All debt cleanup task generation tests
+   - Issue: debtAnalysis.issues is undefined
+
+**Impact:**
+Had to bypass prepublishOnly hook with --ignore-scripts to publish v0.16.7.
+Tests are regressions in existing features, not TDD tests for new code.
+
+**Investigation Plan:**
+1. Run tests locally, capture full error output
+2. Git bisect to find regression commit
+3. Fix each category systematically
+4. Add regression tests to prevent recurrence
+"""
+
+test_requirements = """
+TDD Requirements (Infrastructure Task):
+1. All 36 tests must pass
+2. Add regression tests for each fixed category
+3. Coverage: 90% for affected services
+4. Performance: TypeScriptParser <2s for 10k LOC
+"""
+
+estimated_time = "4-6 hours"
+dependencies = []
+
+deliverables = [
+    "All 36 tests passing",
+    "Root cause analysis documented",
+    "Regression prevention strategy implemented",
+    "prepublishOnly hook functional again"
+]
+
+[tasks.POST-003]
+id = "POST-003"
+name = "Update publish script - remove outdated sub-package logic"
+status = "pending"
+phase = "phase-0-post-release-cleanup"
+agent = "infrastructure-agent"
+
+why = """
+Publish script has outdated logic that fails on current architecture.
+v0.16.7 publish had to be done manually, violating Pattern-PUBLISH-002.
+Must fix before next release to restore automation.
+"""
+
+description = """
+Remove outdated sub-package publishing logic from scripts/publish-release.js.
+
+**Architecture Changed:**
+Sub-packages now bundled as file: dependencies:
+- @aetherlight/analyzer: file:../packages/aetherlight-analyzer/...
+- Listed in bundledDependencies
+- Packaged WITH .vsix, NOT published separately to npm
+
+**Outdated Script Logic (lines 448-478):**
+Script tries to publish sub-packages separately:
+```javascript
+const packagesToPublish = [
+  { name: 'aetherlight-analyzer', path: 'packages/aetherlight-analyzer' },
+  { name: 'aetherlight-sdk', path: 'packages/aetherlight-sdk' },
+  { name: 'aetherlight-node', path: 'packages/aetherlight-node' },
+  { name: 'aetherlight', path: 'vscode-lumina' }
+];
+```
+
+This causes npm publish failures:
+- Error: Scope not found (@aetherlight)
+- Error: Package not in registry
+
+**Fix Required:**
+1. Remove sub-package publishing loop (lines 448-478)
+2. Only publish main aetherlight package
+3. Update verification logic (lines 480-496)
+4. Test on Windows (cross-platform compatibility)
+"""
+
+test_requirements = """
+Integration Tests:
+1. Test publish script dry-run mode
+2. Verify only main package attempted
+3. Test on Windows (where it failed)
+4. Verify GitHub release creation still works
+"""
+
+estimated_time = "1-2 hours"
+dependencies = []
+
+deliverables = [
+    "Publish script updated (no sub-packages)",
+    "Script tested on Windows",
+    "Documentation updated (SKILL.md, CLAUDE.md)",
+    "Automation restored for next release"
+]
+
+[tasks.POST-004]
+id = "POST-004"
+name = "Add publishing order enforcement to prevent protocol violations"
+status = "pending"
+phase = "phase-0-post-release-cleanup"
+agent = "infrastructure-agent"
+
+why = """
+v0.16.7 violated Pattern-PUBLISH-001 by publishing npm BEFORE git push.
+This bypassed automation and could have caused artifact mismatches.
+Need enforcement mechanism to prevent future violations.
+"""
+
+description = """
+Add enforcement to ensure git push happens BEFORE npm publish.
+
+**Protocol Violation in v0.16.7:**
+Manually published to npm BEFORE pushing fixes to git.
+
+This violates Pattern-PUBLISH-001 order:
+1. ✅ Commit and tag
+2. ✅ Push to GitHub (FIRST)
+3. ✅ Create GitHub release
+4. ❌ Publish to npm (LAST) - Done out of order!
+
+**Why This Order Matters:**
+- GitHub release must exist before npm publish
+- If npm publish fails, GitHub release still available
+- Users install from GitHub releases (desktop app, CLI)
+- Ensures all artifacts ready before announcing
+
+**Enforcement Options:**
+1. Git pre-push hook: Check if unpublished npm version exists
+2. Publish script: Add confirmation after GitHub push
+3. Publish script: Verify GitHub release assets before npm publish
+
+**Recommended Approach:**
+Add verification step to publish script (after line 428):
+```javascript
+// After GitHub release created
+log('\n📋 Step 14.5: Confirm ready for npm publish', 'yellow');
+const ghReleaseUrl = `https://github.com/.../releases/tag/v${newVersion}`;
+log(`GitHub release: ${ghReleaseUrl}`, 'cyan');
+
+if (!autoYes) {
+  const confirmed = await confirmAction(
+    'GitHub release created. Ready to publish to npm? (yes/no): '
+  );
+  if (!confirmed) {
+    log('npm publish cancelled by user', 'yellow');
+    process.exit(0);
+  }
+}
+```
+"""
+
+test_requirements = """
+Manual Testing:
+1. Run publish script with --yes flag (should skip confirmation)
+2. Run publish script without flag (should prompt)
+3. Test cancellation at confirmation prompt
+4. Verify GitHub assets exist before npm publish
+"""
+
+estimated_time = "1-2 hours"
+dependencies = []
+
+deliverables = [
+    "Confirmation step added to publish script",
+    "Documentation updated (Pattern-PUBLISH-001)",
+    "CLAUDE.md updated with rationale",
+    "Protocol violation prevented in future"
+]
+
+# =============================================================================
 # PROGRESS TRACKING
 # =============================================================================
 
 [progress]
-total_tasks = 26
-completed_tasks = 0
+total_tasks = 30
+completed_tasks = 1
 in_progress_tasks = 0
-pending_tasks = 26
-completion_percentage = 0
+pending_tasks = 29
+completion_percentage = 3

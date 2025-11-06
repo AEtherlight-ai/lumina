@@ -601,8 +601,9 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 break;
 
             /**
-             * REFACTOR-000-UI: Start Next Task (smart task selection)
-             * WHY: Enforce TDD workflow, dependency validation, sprint TOML updates
+             * PROTECT-000: Start Next Task with AI-enhanced prompt
+             * WHY: Generate comprehensive task prompt with current project state
+             * FLOW: Find next task → Generate AI-enhanced prompt → Insert into Voice text area → User reviews + sends to terminal
              */
             case 'startNextTask':
                 {
@@ -612,34 +613,28 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                         break;
                     }
 
-                    // Show confirmation before starting
-                    const confirm = await vscode.window.showInformationMessage(
-                        `Start task ${nextTask.id}: ${nextTask.name}?\n\nEstimated time: ${nextTask.estimated_time}`,
-                        { modal: true },
-                        'Start Task'
-                    );
+                    try {
+                        // PROTECT-000: Generate AI-enhanced prompt
+                        vscode.window.showInformationMessage(`⏳ Generating AI-enhanced prompt for ${nextTask.id}...`);
 
-                    if (confirm === 'Start Task') {
-                        try {
-                            const sprintPath = this.sprintLoader.getSprintFilePath();
-                            await this.taskStarter.startTask(nextTask, this.sprintTasks, sprintPath);
+                        const { TaskPromptExporter } = await import('../services/TaskPromptExporter');
+                        const exporter = new TaskPromptExporter();
 
-                            // Reload sprint data and refresh UI
-                            await this.loadSprintTasks();
-                            webview.html = this._getHtmlForWebview(webview);
-                            if (this._view && this._view.webview !== webview) {
-                                this._view.webview.html = this._getHtmlForWebview(this._view.webview);
-                            }
-                            for (const poppedPanel of this.poppedOutPanels) {
-                                if (poppedPanel.webview !== webview) {
-                                    poppedPanel.webview.html = this._getHtmlForWebview(poppedPanel.webview);
-                                }
-                            }
+                        // Export task with AI enhancement (temporal drift detection, current state analysis)
+                        const enhancedPrompt = await exporter.generateEnhancedPrompt(nextTask.id);
 
-                            vscode.window.showInformationMessage(`✅ Task ${nextTask.id} started! Remember to follow TDD workflow.`);
-                        } catch (error) {
-                            vscode.window.showErrorMessage(`Failed to start task: ${(error as Error).message}`);
-                        }
+                        // Insert enhanced prompt into Voice text area
+                        // User can then review, edit, select terminal, and send
+                        webview.postMessage({
+                            type: 'insertEnhancedPrompt',
+                            enhancedPrompt: enhancedPrompt,
+                            taskId: nextTask.id
+                        });
+
+                        vscode.window.showInformationMessage(`✅ AI-enhanced prompt for ${nextTask.id} inserted into text area. Review and send to terminal when ready.`);
+
+                    } catch (error) {
+                        vscode.window.showErrorMessage(`Failed to generate enhanced prompt: ${(error as Error).message}`);
                     }
                 }
                 break;
@@ -1496,6 +1491,24 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             const message = event.data;
 
             switch (message.type) {
+                case 'insertEnhancedPrompt':
+                    // PROTECT-000: Insert AI-enhanced prompt into Voice text area
+                    // User can then review, edit, select terminal, and send
+                    const textArea = document.getElementById('transcriptionText');
+                    if (textArea) {
+                        textArea.value = message.enhancedPrompt;
+
+                        // Enable send button
+                        const sendBtn = document.getElementById('sendBtn');
+                        if (sendBtn) {
+                            sendBtn.disabled = false;
+                        }
+
+                        // Focus text area
+                        textArea.focus();
+                    }
+                    break;
+
                 case 'updateTaskDetail':
                     // Update just the detail panel without full page refresh
                     const detailPanel = document.querySelector('.task-detail-panel');
