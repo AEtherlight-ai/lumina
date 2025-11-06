@@ -995,6 +995,209 @@ After POST-004 complete:
 ✅ Audit trail logged for troubleshooting
 """
 
+[tasks.POST-005]
+id = "POST-005"
+name = "Fix automated publish script to handle package architecture changes"
+phase = "phase-0-protection"
+assigned_engineer = "engineer_1"
+status = "pending"
+description = """
+Fix the automated publish script (scripts/publish-release.js) to handle the package architecture changes introduced in v0.16.15.
+
+v0.16.15 required manual bypass due to three automation failures:
+1. Missing @types/mocha in devDependencies caused TypeScript compilation errors
+2. Import paths still using old scoped names (@aetherlight/*) after package rename
+3. Version handling: Script bumped to 0.16.15 when 0.16.14 was expected
+
+Root causes:
+- Pre-publish compilation check doesn't validate devDependencies completeness
+- No validation that import paths match package names
+- No graceful handling when version already at target
+- Manual intervention required (Pattern-PUBLISH-002 bypass needed)
+
+Fix requirements:
+1. Add devDependencies validation step (check for @types/mocha, @types/node)
+2. Add import path consistency check (grep for old @aetherlight/* imports)
+3. Integrate pre-publish-check.js validation (created in v0.16.15)
+4. Better version handling (detect already-bumped versions, offer options)
+5. Improve error messages (explain WHY compilation failed, suggest fixes)
+
+Success criteria:
+- Publish v0.16.16 using ONLY automated script (no manual bypass)
+- All 7 pre-publish checks pass automatically
+- TypeScript compiles without errors
+- All 4 packages publish successfully
+- GitHub release created with .vsix + installers
+"""
+estimated_lines = 250
+estimated_time = "3-4 hours"
+dependencies = []
+agent = "infrastructure-agent"
+
+deliverables = [
+    "scripts/publish-release.js enhanced with pre-publish validation integration",
+    "devDependencies completeness check (ensure @types/* present)",
+    "Import path consistency validator (detect @aetherlight/* usage)",
+    "Version handling improvements (detect already-bumped, offer reset/continue)",
+    "Error messages enhanced with actionable suggestions",
+    "Test: Successfully publish v0.16.16 with zero manual intervention",
+    "Documentation: Update CLAUDE.md Publishing Enforcement section"
+]
+
+performance_target = "Pre-publish validation completes in <10s (all 7 checks)"
+
+patterns = ["Pattern-PUBLISH-002", "Pattern-PUBLISH-004", "Pattern-PKG-001"]
+
+files_to_modify = [
+    "scripts/publish-release.js (add validation hooks)",
+    "scripts/pre-publish-check.js (may need enhancements)",
+    ".claude/CLAUDE.md (update known issues, remove v0.16.15 manual bypass note)"
+]
+
+validation_criteria = [
+    "Run: node scripts/publish-release.js patch (from v0.16.15 state)",
+    "Output: All 7 pre-publish checks execute and pass",
+    "Output: '@types/mocha present in devDependencies' ✅",
+    "Output: 'No legacy @aetherlight/* imports found' ✅",
+    "Output: 'Version sync validated across 4 packages' ✅",
+    "Output: TypeScript compilation succeeds without errors",
+    "Output: All 4 packages publish to npm successfully",
+    "Output: GitHub release created with all assets",
+    "Verify: v0.16.16 published without any manual intervention",
+    "Verify: No manual file edits required during publish",
+    "Verify: No manual npm publish commands needed",
+    "Test: Simulate missing @types/mocha → Script catches it and suggests fix",
+    "Test: Simulate old import path → Script catches it and suggests fix"
+]
+
+why = """
+v0.16.15 required manual bypass (violating Pattern-PUBLISH-002) due to automation gaps.
+Manual bypasses waste 2+ hours per release and introduce human error risk.
+
+Historical impact:
+- v0.16.15: Manual bypass, forgot desktop installers initially (2 hour fix)
+- v0.13.28: Manual bypass, version mismatch (2 hour fix)
+- v0.13.29: Manual bypass, missed sub-package publish (2 hour fix)
+- Total wasted time: 6+ hours across recent releases
+
+Pattern-PUBLISH-002 states: "ALWAYS attempt automated script first, only bypass with user approval after explaining risks."
+
+The automation exists to prevent these bugs. If the automation has gaps, we must FIX the automation, not normalize manual bypasses.
+
+This task ensures v0.16.16+ can publish without manual intervention.
+"""
+
+context = """
+Background - Package Architecture Changes (v0.16.13-0.16.15):
+The project migrated from scoped packages (@aetherlight/*) to unscoped (aetherlight-*).
+This required changes across multiple files, and the automated publish script didn't catch all issues.
+
+v0.16.15 Manual Bypass Timeline:
+1. Started automated publish script
+2. TypeScript compilation failed: "Cannot find name 'suite'. Need @types/mocha"
+3. Manually added @types/mocha to devDependencies
+4. Compilation failed again: "Cannot find module '@aetherlight/analyzer'"
+5. Manually fixed import paths from scoped to unscoped
+6. Version was already at 0.16.15 (previous failed attempt bumped it)
+7. User chose "continue with 16.15" instead of resetting to 0.16.14
+8. Manual publish completed successfully with all 4 packages
+
+Files created during manual bypass (Pattern-PUBLISH-004):
+- scripts/pre-publish-check.js: Validates 7 critical checks
+  1. Version sync across 4 packages
+  2. Unscoped package names (@aetherlight/* → aetherlight-*)
+  3. Dependency references correct
+  4. No native dependencies
+  5. No forbidden runtime npm dependencies
+  6. Git working directory clean
+  7. Analyzer tests passing
+
+- .release-notes.tmp: Documents package architecture fixes
+  - Package naming changes
+  - Dependency bundling fixes
+  - TypeScript compilation fixes
+  - Breaking change warnings (import path updates)
+
+Automation gaps identified:
+1. No devDependencies completeness check
+   - Missing: Validate @types/mocha, @types/node present
+   - Impact: TypeScript compilation fails with cryptic errors
+
+2. No import path consistency check
+   - Missing: Grep for old @aetherlight/* patterns
+   - Impact: Compilation fails after package rename
+
+3. No integration of pre-publish-check.js
+   - Exists: scripts/pre-publish-check.js (7 checks)
+   - Missing: Integration into publish-release.js workflow
+   - Impact: Validations must be run manually
+
+4. Poor version handling
+   - Issue: If version already bumped, script doesn't offer options
+   - Missing: Detect state, offer reset or continue
+   - Impact: User forced to manual intervention
+
+5. Weak error messages
+   - Issue: "Compilation failed" without explaining WHY
+   - Missing: Parse error output, suggest fixes
+   - Impact: User must debug manually
+"""
+
+reasoning_chain = [
+    "1. v0.16.15 required manual bypass due to automation gaps",
+    "2. Manual bypasses waste time (2+ hours) and introduce errors",
+    "3. Pattern-PUBLISH-002 requires automation-first approach",
+    "4. Identify root causes:",
+    "   - No devDependencies validation",
+    "   - No import path consistency check",
+    "   - pre-publish-check.js not integrated",
+    "   - Poor version handling",
+    "   - Weak error messages",
+    "5. Solution approach:",
+    "   a. Integrate pre-publish-check.js into publish-release.js",
+    "   b. Add devDependencies completeness check",
+    "   c. Add import path consistency validator",
+    "   d. Enhance version handling (detect state, offer options)",
+    "   e. Improve error messages (parse errors, suggest fixes)",
+    "6. Validation strategy:",
+    "   - Test with v0.16.16 publish (real-world validation)",
+    "   - Simulate failure scenarios (missing deps, bad imports)",
+    "   - Ensure zero manual intervention required",
+    "7. Success criteria:",
+    "   - v0.16.16 publishes with ONLY automated script",
+    "   - All validations pass automatically",
+    "   - Clear error messages if issues detected",
+    "   - No manual file edits needed",
+    "8. Documentation updates:",
+    "   - Remove v0.16.15 manual bypass note from CLAUDE.md",
+    "   - Document new validation hooks",
+    "   - Update Pattern-PUBLISH-002 examples"
+]
+
+success_impact = """
+After POST-005 complete:
+✅ Automated publish script handles package architecture changes
+✅ devDependencies validated before compilation
+✅ Import paths checked for consistency
+✅ pre-publish-check.js integrated (7 automated checks)
+✅ Better version handling (detect state, offer options)
+✅ Clear error messages with actionable suggestions
+✅ v0.16.16+ publishes without manual intervention
+✅ Pattern-PUBLISH-002 compliance restored (automation-first)
+✅ Saves 2+ hours per release (no manual bypass)
+✅ Reduces human error risk
+✅ Builds confidence in automation
+✅ Future package changes handled gracefully
+
+Historical bugs prevented (with this automation):
+- v0.16.15 type: Missing @types/mocha → Auto-detected, suggested npm install
+- v0.16.15 type: Old imports → Auto-detected, listed files to fix
+- v0.13.28 type: Version mismatch → Auto-detected by pre-publish-check.js
+- v0.13.29 type: Missing sub-packages → Auto-verified by dependency checks
+
+Total time savings: 2 hours per release × 10 releases/year = 20 hours/year
+"""
+
 # =============================================================================
 # PHASE 0.5: VOICE PANEL UX POLISH (from v0.16.7 manual testing)
 # =============================================================================
