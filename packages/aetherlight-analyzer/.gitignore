@@ -1,0 +1,5 @@
+
+# Test artifacts
+test-output/
+src/__test-repo__/
+src/**/__test-sprint__/
