@@ -22,12 +22,15 @@ describe('PatternExtractor', () => {
   let extractor: PatternExtractor;
   let mockAnalysis: AnalysisResult;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    // Use unique directory per test suite to avoid conflicts
+    await fs.mkdir('test-output/pattern-extractor', { recursive: true });
+
     extractor = new PatternExtractor({
       minQualityScore: 0.8,
       maxComplexity: 15,
       maxPatterns: 20,
-      outputDir: 'test-output/patterns',
+      outputDir: 'test-output/pattern-extractor',
     });
 
     mockAnalysis = createMockAnalysis();
@@ -36,7 +39,7 @@ describe('PatternExtractor', () => {
   afterEach(async () => {
     // Clean up test output
     try {
-      await fs.rm('test-output', { recursive: true, force: true });
+      await fs.rm('test-output/pattern-extractor', { recursive: true, force: true });
     } catch (error) {
       // Ignore errors
     }
@@ -187,7 +190,7 @@ describe('PatternExtractor', () => {
       await extractor.generatePatternFiles(patterns, 'TestRepository');
 
       // Verify directory exists
-      const stats = await fs.stat('test-output/patterns');
+      const stats = await fs.stat('test-output/pattern-extractor');
       expect(stats.isDirectory()).toBe(true);
     });
 

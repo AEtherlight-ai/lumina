@@ -27,7 +27,10 @@ describe('CoTDocumenter', () => {
   let documenter: CoTDocumenter;
   let mockAnalysis: AnalysisResult;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    // Ensure test output directory exists
+    await fs.mkdir('test-output/chain-of-thought', { recursive: true });
+
     documenter = new CoTDocumenter({
       outputDir: 'test-output/chain-of-thought',
       minConfidence: 0.7,
@@ -38,9 +41,9 @@ describe('CoTDocumenter', () => {
   });
 
   afterEach(async () => {
-    // Clean up test output
+    // Clean up test output (only this test suite's directory)
     try {
-      await fs.rm('test-output', { recursive: true, force: true });
+      await fs.rm('test-output/chain-of-thought', { recursive: true, force: true });
     } catch (error) {
       // Ignore errors
     }
