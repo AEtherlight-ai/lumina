@@ -1,5 +1,5 @@
 /**
- * Analyze Workspace Command - Integrates @aetherlight/analyzer into VS Code
+ * Analyze Workspace Command - Integrates aetherlight-analyzer into VS Code
  *
  * DESIGN DECISION: Integrate analyzer as workspace command (not CLI)
  * WHY: Users can analyze their codebase directly from VS Code without switching to terminal
@@ -13,20 +13,20 @@
  * 6. Result: Zero-friction codebase analysis from VS Code
  *
  * PATTERN: Pattern-IDE-002 (Integrated Code Analysis)
- * RELATED: @aetherlight/analyzer (packages/aetherlight-analyzer)
+ * RELATED: aetherlight-analyzer (packages/aetherlight-analyzer)
  */
 
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import { TypeScriptParser } from '@aetherlight/analyzer';
-import { ArchitectureAnalyzer, ComplexityAnalyzer, TechnicalDebtAnalyzer } from '@aetherlight/analyzer';
-import { SprintGenerator } from '@aetherlight/analyzer';
+import { TypeScriptParser } from 'aetherlight-analyzer';
+import { ArchitectureAnalyzer, ComplexityAnalyzer, TechnicalDebtAnalyzer } from 'aetherlight-analyzer';
+import { SprintGenerator } from 'aetherlight-analyzer';
 import type {
 	ArchitectureAnalysis,
 	ComplexityAnalysis,
 	TechnicalDebtAnalysis
-} from '@aetherlight/analyzer';
+} from 'aetherlight-analyzer';
 
 /**
  * Register analyze workspace commands
@@ -147,7 +147,7 @@ async function analyzeWorkspace(context: vscode.ExtensionContext, generateSprint
 			if (generateSprints) {
 				outputChannel.appendLine('\n📋 Sprint generation...');
 				outputChannel.appendLine('⚠️  Sprint generation not yet implemented in VS Code command');
-				outputChannel.appendLine('💡 Use CLI for sprint generation: npx @aetherlight/analyzer generate-sprints');
+				outputChannel.appendLine('💡 Use CLI for sprint generation: npx aetherlight-analyzer generate-sprints');
 				outputChannel.appendLine('   See: https://github.com/AEtherlight-ai/lumina/tree/main/packages/aetherlight-analyzer');
 			}
 
