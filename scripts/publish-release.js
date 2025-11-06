@@ -16,6 +16,16 @@
  * 8. Create git tag and push
  * 9. Create GitHub release
  *
+ * TODO (POST-005): Enhance automation with validation integration
+ * - Integrate pre-publish-check.js validation (7 automated checks)
+ * - Add devDependencies completeness check (validate @types/mocha, @types/node)
+ * - Add import path consistency validator (detect @aetherlight/* usage)
+ * - Better version handling (detect already-bumped, offer reset/continue)
+ * - Enhanced error messages with actionable suggestions
+ * - Goal: v0.16.16+ publishes with ZERO manual intervention
+ * - See: internal/sprints/ACTIVE_SPRINT.toml - Task POST-005
+ * - See: .claude/CLAUDE.md - Known Issues section (v0.16.15)
+ *
  * PATTERN: Pattern-PUBLISH-001 (Automated Release Pipeline)
  * USAGE: node scripts/publish-release.js [patch|minor|major]
  *

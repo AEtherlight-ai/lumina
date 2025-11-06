@@ -347,4 +347,37 @@ ls -lh ../../vscode-lumina/Lumina*.exe ../../vscode-lumina/Lumina*.msi
 4. Fails loudly if any package verification fails
 **Files:** `scripts/publish-release.js:270-322`
 
+### v0.16.15: Automation gaps - manual bypass required (IN PROGRESS)
+**Issue:** Automated script failed, requiring manual bypass to publish
+**Cause:** Three automation gaps exposed by package architecture changes (scoped → unscoped)
+**Impact:** Manual bypass required (2 hours), violates Pattern-PUBLISH-002
+
+**Three Automation Failures:**
+1. **Missing @types/mocha** - TypeScript compilation failed without type definitions
+2. **Old scoped imports** - Import paths still used `@aetherlight/*` after package rename
+3. **Poor version handling** - Script didn't handle already-bumped version gracefully
+
+**Manual Bypass Process (Pattern-PUBLISH-002 compliant):**
+- Claude asked user for approval BEFORE bypassing
+- Explained risks and missing steps
+- User approved: "continue with 16.15"
+- Manual publish completed successfully
+
+**Fix In Progress:** Sprint Task POST-005
+- Integrate pre-publish-check.js validation (7 automated checks)
+- Add devDependencies completeness validation
+- Add import path consistency checks
+- Better version state handling (detect, offer reset/continue)
+- Enhanced error messages with actionable suggestions
+- **Goal:** v0.16.16+ publishes with ZERO manual intervention
+
+**Files Created:**
+- `scripts/pre-publish-check.js` - 7 validation checks (Pattern-PUBLISH-004)
+- Sprint Task: `internal/sprints/ACTIVE_SPRINT.toml` - POST-005
+- Known Issue entry: `.claude/CLAUDE.md` - Lines 1649-1752
+
+**Status:** TASK CREATED - Fix scheduled in current sprint
+**Estimated completion:** 3-4 hours implementation
+**See:** `.claude/CLAUDE.md` Known Issues section for full details
+
 **Key lesson:** ALWAYS use the automated script. Manual steps WILL cause bugs.

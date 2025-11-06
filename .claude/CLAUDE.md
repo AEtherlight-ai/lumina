@@ -1646,6 +1646,111 @@ const agentFiles = allFiles
 - `chalk`, `colors` ❌ (use VS Code output channel styling)
 - Any pure utility library ❌ (inline the code or use built-ins)
 
+### Issue: Automated publish script failed - manual bypass required (v0.16.15)
+**Status:** TASK CREATED (POST-005) - Fix scheduled in current sprint
+**Time to Fix:** 2 hours manual bypass + 3-4 hours automation fix
+**Severity:** HIGH - Violates Pattern-PUBLISH-002 (automation-first approach)
+**Cause:** Three automation gaps exposed by package architecture changes (scoped → unscoped)
+**Impact:** Manual bypass required, automation confidence degraded
+
+**Three Automation Failures:**
+1. **Missing @types/mocha in devDependencies**
+   - TypeScript compilation failed: "Cannot find name 'suite'. Need @types/mocha"
+   - Script didn't validate devDependencies completeness
+   - Required manual: `npm install --save-dev @types/mocha`
+
+2. **Old scoped import paths after package rename**
+   - Import statements still used `@aetherlight/*` after rename to `aetherlight-*`
+   - Compilation failed: "Cannot find module '@aetherlight/analyzer'"
+   - Script didn't check import path consistency
+   - Required manual: Update all imports in analyzeWorkspace.ts
+
+3. **Poor version handling**
+   - Version already at 0.16.15 from previous failed attempt
+   - Script didn't detect state or offer reset/continue options
+   - User forced to choose "continue with 16.15" instead of intended 0.16.14
+
+**Root Cause Analysis:**
+Package architecture migration (v0.16.13-0.16.15) changed:
+- Package names: `@aetherlight/*` → `aetherlight-*`
+- Dependency bundling: `file:` references must be preserved
+- Test compilation: `@types/mocha` required but missing
+
+Automated script had validation gaps:
+1. No devDependencies completeness check
+2. No import path consistency validation
+3. No integration of pre-publish-check.js (created during fix)
+4. Poor version state detection and recovery
+5. Weak error messages without actionable suggestions
+
+**Manual Bypass Timeline (2 hours):**
+1. Started automated publish script
+2. TypeScript compilation failed (missing @types/mocha)
+3. Manually added to devDependencies
+4. Compilation failed again (old imports)
+5. Manually fixed import paths
+6. Version already at 0.16.15
+7. User chose "continue with 16.15"
+8. Manual publish completed successfully
+
+**Pattern-PUBLISH-002 Violation:**
+Automated script should be attempted FIRST. Manual bypass should only occur with:
+- User approval after explaining risks
+- Clear understanding of why automation failed
+- Commitment to fix automation afterward
+
+v0.16.15 followed proper protocol (asked user, explained risks), but exposed gaps in automation.
+
+**Fix Created:**
+- **Sprint Task:** POST-005 - Fix automated publish script
+- **Deliverables:**
+  1. Integrate pre-publish-check.js validation (7 automated checks)
+  2. Add devDependencies completeness check
+  3. Add import path consistency validator
+  4. Enhanced version handling (detect state, offer options)
+  5. Improved error messages with fix suggestions
+  6. Test: Publish v0.16.16 with ZERO manual intervention
+
+**Files Created During Manual Bypass:**
+- `scripts/pre-publish-check.js` - 7 validation checks (Pattern-PUBLISH-004)
+  1. Version sync across 4 packages
+  2. Unscoped package names validation
+  3. Dependency references correct
+  4. No native dependencies (Pattern-PUBLISH-003)
+  5. No forbidden runtime npm dependencies
+  6. Git working directory clean
+  7. Analyzer tests passing
+
+- `.release-notes.tmp` - Documents package architecture fixes
+  - Package naming changes
+  - Dependency bundling fixes
+  - TypeScript compilation fixes
+  - Breaking change warnings (import path updates)
+
+**Prevention (POST-005 Task):**
+After POST-005 complete:
+- v0.16.16+ publishes with ONLY automated script
+- All 7 pre-publish checks run automatically
+- devDependencies validated before compilation
+- Import paths checked for consistency
+- Better version handling (detect, offer reset/continue)
+- Clear error messages with actionable suggestions
+- Pattern-PUBLISH-002 compliance restored
+- Saves 2+ hours per release (no manual bypass)
+
+**Historical Context:**
+Similar manual bypass issues:
+- v0.16.15: Package architecture (2 hours)
+- v0.13.28: Version mismatch (2 hours)
+- v0.13.29: Missing sub-packages (2 hours)
+- **Total:** 6+ hours wasted on manual bypasses
+
+POST-005 task prevents recurrence by fixing automation root causes.
+
+**Pattern Reference:** Pattern-PUBLISH-002 (Publishing Enforcement), Pattern-PUBLISH-004 (Pre-Publish Validation)
+
+**Sprint Task:** `internal/sprints/ACTIVE_SPRINT.toml` - POST-005
+
 ---
 
 ## Package Architecture (Pattern-PKG-001)

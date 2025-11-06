@@ -43,6 +43,12 @@ node scripts/publish-release.js patch   # or minor/major
 - Automatic rollback if any step fails
 - Consistent versioning across all artifacts
 
+**Note (v0.16.15):** Automation improvements in progress (Sprint Task POST-005):
+- v0.16.15 required manual bypass due to missing @types/mocha and old import paths
+- Task POST-005 adds pre-publish validation integration (7 automated checks)
+- Goal: v0.16.16+ publishes with ZERO manual intervention
+- See `.claude/CLAUDE.md` Known Issues section for details
+
 ---
 
 ## Manual Publish (Not Recommended)
