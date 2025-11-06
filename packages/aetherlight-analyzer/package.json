@@ -1,5 +1,5 @@
 {
-  "name": "@aetherlight/analyzer",
+  "name": "aetherlight-analyzer",
   "version": "0.16.13",
   "description": "Code analysis tool to generate ÆtherLight sprint plans from any codebase",
   "main": "dist/index.js",

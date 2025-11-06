@@ -1,5 +1,5 @@
 {
-  "name": "@aetherlight/sdk",
+  "name": "aetherlight-sdk",
   "version": "0.16.13",
   "description": "ÆtherLight Application Integration SDK - Add voice control to any application with natural language function calling",
   "main": "dist/index.js",

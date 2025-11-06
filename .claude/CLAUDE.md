@@ -1648,6 +1648,160 @@ const agentFiles = allFiles
 
 ---
 
+## Package Architecture (Pattern-PKG-001)
+
+**CRITICAL: Read this section before publishing to understand the 4-package structure**
+
+ÆtherLight publishes **4 npm packages** with synchronized versions:
+
+### 1. aetherlight (main, unscoped)
+- **What:** VS Code extension + CLI installer + Desktop app
+- **Install:** `npm install -g aetherlight` (this is what users run)
+- **Bundles:** All sub-packages included via bundledDependencies
+- **Location:** `vscode-lumina/`
+
+### 2. aetherlight-analyzer (unscoped, standalone)
+- **What:** Code analysis tool for generating sprint plans
+- **Use cases:**
+  - CI/CD pipeline integration
+  - Standalone code analysis
+  - Custom build tools
+- **Install:** `npm install aetherlight-analyzer`
+- **Location:** `packages/aetherlight-analyzer/`
+
+### 3. aetherlight-sdk (unscoped, standalone)
+- **What:** SDK for embedding voice control in any application
+- **Use cases:**
+  - Add voice control to web apps
+  - Natural language function calling
+  - Custom integrations
+- **Install:** `npm install aetherlight-sdk`
+- **Location:** `packages/aetherlight-sdk/`
+
+### 4. aetherlight-node (unscoped, standalone)
+- **What:** Rust NAPI bindings for pattern matching engine
+- **Use cases:**
+  - Core confidence scoring
+  - Pattern matching without full stack
+  - Performance-critical applications
+- **Install:** `npm install aetherlight-node`
+- **Location:** `packages/aetherlight-node/`
+
+### Publishing Rules (Pattern-PUBLISH-004)
+
+**ALWAYS use automated script:**
+```bash
+node scripts/publish-release.js [patch|minor|major]
+```
+
+**NEVER:**
+- Publish packages individually
+- Manually bump versions
+- Skip pre-publish validation
+
+**Automated script does:**
+1. ✅ Runs pre-publish validation (`scripts/pre-publish-check.js`)
+2. ✅ Bumps version across all 4 packages (synchronized)
+3. ✅ Compiles TypeScript (all packages)
+4. ✅ Runs all tests (blocks publish if failures)
+5. ✅ Packages VS Code extension (.vsix)
+6. ✅ Creates git tag (e.g., v0.16.14)
+7. ✅ Pushes to GitHub
+8. ✅ Creates GitHub Release (with .vsix + desktop installers)
+9. ✅ Publishes to npm (all 4 packages in dependency order)
+
+**Pre-Publish Validation (Pattern-PUBLISH-004):**
+
+The validation script blocks publish if:
+- ❌ Version mismatch across packages
+- ❌ Package names use scoped format (@aetherlight/*)
+- ❌ Dependency references incorrect
+- ❌ Native dependencies present (Pattern-PUBLISH-003)
+- ❌ Forbidden runtime npm dependencies (Pattern-PUBLISH-003)
+- ❌ Git working directory not clean
+- ❌ Analyzer tests failing
+
+**Run validation manually:**
+```bash
+node scripts/pre-publish-check.js
+```
+
+### Naming Convention
+
+**Use UNSCOPED names** (no @ prefix):
+- ✅ `aetherlight-analyzer`
+- ✅ `aetherlight-sdk`
+- ✅ `aetherlight-node`
+- ❌ `@aetherlight/analyzer` (WRONG - will fail npm publish)
+
+**Why unscoped:**
+- Already established on npm registry as unscoped
+- No npm organization required
+- Simpler publishing (no `--access public` flag)
+- Matches historical naming
+
+### Dependency Structure
+
+```
+aetherlight (main)
+├── aetherlight-analyzer (bundled)
+├── aetherlight-sdk (bundled)
+├── aetherlight-node (bundled)
+├── @iarna/toml (whitelisted)
+├── form-data (whitelisted)
+├── node-fetch (whitelisted)
+└── ws (whitelisted)
+```
+
+**Main package bundles sub-packages** using:
+```json
+{
+  "dependencies": {
+    "aetherlight-analyzer": "file:../packages/aetherlight-analyzer/..."
+  },
+  "bundledDependencies": [
+    "aetherlight-analyzer"
+  ]
+}
+```
+
+This ensures users get everything with a single `npm install -g aetherlight`.
+
+### Version Sync Enforcement
+
+**ALL 4 packages MUST have the same version number.**
+
+If versions drift:
+- ✅ Pre-publish validation catches it
+- ✅ Script blocks publish
+- ✅ Clear error message with fix instructions
+
+**Fix version drift:**
+```bash
+node scripts/bump-version.js [patch|minor|major]
+```
+
+This updates all 4 package.json files atomically.
+
+### Historical Bugs Prevented
+
+This architecture + validation prevents:
+- **v0.13.28-29:** Version mismatch → User installs broken (2 hours fix)
+- **v0.13.23:** Native dependency added → Extension broken (9 hours fix)
+- **v0.15.31-32:** Runtime npm dep → Extension activation failed (2 hours fix)
+- **v0.16.13:** Scoped/unscoped naming mismatch → npm publish blocked
+
+**Total prevented: 15+ hours of debugging**
+
+### Related Patterns
+
+- **Pattern-PUBLISH-001:** Automated Release Pipeline
+- **Pattern-PUBLISH-002:** Publishing Enforcement
+- **Pattern-PUBLISH-003:** Avoid Runtime npm Dependencies
+- **Pattern-PUBLISH-004:** Pre-Publish Validation (this pattern)
+
+---
+
 ## Design Patterns
 
 ### Pattern-DOCS-001: Documentation Philosophy - Only Create Patterns for Reusable Knowledge
