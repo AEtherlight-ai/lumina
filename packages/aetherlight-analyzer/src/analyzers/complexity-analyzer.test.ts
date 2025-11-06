@@ -141,12 +141,12 @@ describe('ComplexityAnalyzer', () => {
       const parseResult: ParseResult = {
         files: [
           createMockFile('file1.ts', [
-            { name: 'func1', complexity: 10 },
-            { name: 'func2', complexity: 20 },
+            createMockFunction('func1', 10),
+            createMockFunction('func2', 20),
           ]),
           createMockFile('file2.ts', [
-            { name: 'func3', complexity: 5 },
-            { name: 'func4', complexity: 15 },
+            createMockFunction('func3', 5),
+            createMockFunction('func4', 15),
           ]),
         ],
         totalFiles: 2,
@@ -168,9 +168,9 @@ describe('ComplexityAnalyzer', () => {
     it('should sort heatmap by average complexity', () => {
       const parseResult: ParseResult = {
         files: [
-          createMockFile('lowComplexity.ts', [{ name: 'func1', complexity: 5 }]),
-          createMockFile('highComplexity.ts', [{ name: 'func2', complexity: 30 }]),
-          createMockFile('mediumComplexity.ts', [{ name: 'func3', complexity: 15 }]),
+          createMockFile('lowComplexity.ts', [createMockFunction('func1', 5)]),
+          createMockFile('highComplexity.ts', [createMockFunction('func2', 30)]),
+          createMockFile('mediumComplexity.ts', [createMockFunction('func3', 15)]),
         ],
         totalFiles: 3,
         totalLinesOfCode: 300,

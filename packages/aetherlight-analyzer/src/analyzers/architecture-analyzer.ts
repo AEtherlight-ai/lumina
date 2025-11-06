@@ -179,7 +179,7 @@ export class ArchitectureAnalyzer {
 
       default:
         // Generic layers for Monolith/Unknown
-        layers.push(this.extractLayer(parseResult, 'API', ['api', 'route', 'endpoint']));
+        layers.push(this.extractLayer(parseResult, 'API', ['api', 'route', 'endpoint', 'controller']));
         layers.push(this.extractLayer(parseResult, 'Logic', ['service', 'business', 'logic']));
         layers.push(this.extractLayer(parseResult, 'Data', ['model', 'entity', 'repository']));
         layers.push(this.extractLayer(parseResult, 'UI', ['component', 'view', 'ui']));

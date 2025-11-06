@@ -300,8 +300,8 @@ export class TechnicalDebtAnalyzer {
             });
           }
 
-          // Potential API key pattern (long alphanumeric strings)
-          const apiKeyPattern = /['"][A-Za-z0-9]{32,}['"]/;
+          // Potential API key pattern (long alphanumeric strings with underscores/dashes)
+          const apiKeyPattern = /['"][A-Za-z0-9_\-]{32,}['"]/;
           if (line.match(apiKeyPattern)) {
             issues.push({
               category: TechnicalDebtCategory.HARDCODED_STRING,

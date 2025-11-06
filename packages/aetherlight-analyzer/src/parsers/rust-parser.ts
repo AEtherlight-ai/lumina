@@ -97,10 +97,14 @@ export class RustParser {
      * DESIGN DECISION: Locate Rust parser binary in project or PATH
      * WHY: Flexible deployment - bundled binary or system-installed
      */
-    this.rustParserPath =
-      rustParserPath ||
-      path.join(__dirname, '../../../bin/rust-parser') ||
-      'rust-parser'; // Fallback to PATH
+    if (rustParserPath) {
+      this.rustParserPath = rustParserPath;
+    } else {
+      // Add .exe extension on Windows
+      // From dist/parsers/ -> ../../bin/ = packages/aetherlight-analyzer/bin/
+      const binaryName = process.platform === 'win32' ? 'rust-parser.exe' : 'rust-parser';
+      this.rustParserPath = path.join(__dirname, '../../bin', binaryName);
+    }
   }
 
   /**
