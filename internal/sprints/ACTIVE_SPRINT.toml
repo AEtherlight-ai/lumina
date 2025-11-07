@@ -863,7 +863,7 @@ id = "PROTECT-001"
 name = "Annotate passing code with protection levels"
 phase = "phase-1-stabilization"
 assigned_engineer = "engineer_1"
-status = "pending"
+status = "completed"
 description = "Review v0.16.7 manual test results, annotate passing features with @protected/@immutable, create bug tasks for failures"
 estimated_lines = 200
 estimated_time = "2-4 hours"
@@ -6664,7 +6664,7 @@ Enables:\r
 
 [progress]
 total_tasks = 62
-completed_tasks = 3
+completed_tasks = 4
 in_progress_tasks = 0
-pending_tasks = 59
-completion_percentage = 5
+pending_tasks = 58
+completion_percentage = 6
