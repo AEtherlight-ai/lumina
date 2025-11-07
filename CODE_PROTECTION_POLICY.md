@@ -179,6 +179,57 @@ graph LR
   F -->|Tagged| G[Protected Forever]
 ```
 
+## Protected Files (v0.16.7 Lock-down)
+
+**Locked:** 2025-11-07 (PROTECT-001 stabilization)
+**Manual Test:** v0.16.7 passing features
+
+### Core Extension (@protected)
+- `vscode-lumina/src/extension.ts`
+  - Protection Level: @protected (activation, command registration)
+  - Tests: Core extension activation, command registration
+  - Lock Date: 2025-11-07
+
+### Sprint Management (@protected)
+- `vscode-lumina/src/commands/SprintLoader.ts`
+  - Protection Level: @protected (TOML parsing, rich fields)
+  - Tests: TOML parsing with rich fields (description, why, context, reasoning_chain)
+  - Critical Section: parseTomlTasks (lines 504-534)
+  - Lock Date: 2025-11-07
+
+### Services (@protected)
+- `vscode-lumina/src/commands/AutoTerminalSelector.ts`
+  - Protection Level: @protected (terminal integration)
+  - Tests: Terminal list/dropdown logic, shell integration monitoring
+  - Lock Date: 2025-11-07
+
+- `vscode-lumina/src/services/TaskDependencyValidator.ts`
+  - Protection Level: @protected (dependency validation)
+  - Tests: Dependency blocking functionality (described as "BRILLIANT!" in test results)
+  - Lock Date: 2025-11-07
+
+### Voice Panel (@protected - partial)
+- `vscode-lumina/src/commands/voicePanel.ts`
+  - Protection Level: @protected (specific sections only)
+  - Protected Sections:
+    - Terminal list/dropdown logic
+    - Sprint dropdown
+    - Sprint refresh button
+    - Skills browser (Test 5.5)
+    - Settings UI (Test 5.6)
+  - Lock Date: 2025-11-07
+  - **Note:** Other sections (enhance buttons, task starter) have known issues and are NOT protected. See Phase 0b UX Polish tasks for fixes.
+
+### WebView UI (@protected)
+- Single unified screen (no tabs) → @protected
+- Minimal spacing layout → @protected
+
+**Total:** 5 files locked with @protected annotations
+**Historical Precedent:** v0.13.23 native dependency broke extension (9 hours wasted)
+**Purpose:** Prevent regression of passing features while building new functionality
+
+---
+
 ## Enforcement Mechanisms
 
 ### 1. File Annotations

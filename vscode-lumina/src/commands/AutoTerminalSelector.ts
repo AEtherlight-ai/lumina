@@ -3,6 +3,11 @@ import * as vscode from 'vscode';
 /**
  * AutoTerminalSelector - Intelligent terminal selection with Shell Integration monitoring
  *
+ * @protected - Core terminal integration, refactor only
+ * Locked: 2025-11-07 (v0.16.7 manual test PASS)
+ * Tests: Terminal list/dropdown logic, shell integration monitoring
+ * Reference: PROTECT-001 stabilization (phase-1)
+ *
  * DESIGN DECISION: Monitor terminal command execution and auto-select next waiting terminal
  * WHY: Eliminate manual terminal selection during multi-terminal workflows
  *

@@ -13,6 +13,19 @@ import { TaskDependencyValidator } from '../services/TaskDependencyValidator';
 import { PromptEnhancer } from '../services/PromptEnhancer';
 
 /**
+ * @protected - Partial protection for passing sections (see details below)
+ * Locked: 2025-11-07 (v0.16.7 manual test PASS)
+ * Protected sections:
+ *   - Terminal list/dropdown logic → @protected
+ *   - Sprint dropdown → @protected
+ *   - Sprint refresh button → @protected
+ *   - Skills browser → @protected (Test 5.5)
+ *   - Settings UI → @protected (Test 5.6)
+ * Reference: PROTECT-001 stabilization (phase-1)
+ *
+ * Note: Other sections (enhance buttons, task starter) have known issues
+ * and are NOT protected. See Phase 0b UX Polish tasks for fixes.
+ *
  * DESIGN DECISION: Clean single-panel UI with Voice at top, Sprint below - NO TABS
  * WHY: User preference for streamlined workflow without tab navigation
  *

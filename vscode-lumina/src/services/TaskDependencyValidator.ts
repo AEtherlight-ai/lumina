@@ -3,6 +3,11 @@ import { SprintTask } from '../commands/SprintLoader';
 /**
  * REFACTOR-000: TaskDependencyValidator Service
  *
+ * @protected - Core dependency validation, refactor only
+ * Locked: 2025-11-07 (v0.16.7 manual test PASS)
+ * Tests: Dependency blocking functionality (prevents starting tasks with unmet dependencies)
+ * Reference: PROTECT-001 stabilization (phase-1), described as "BRILLIANT!" in test results
+ *
  * DESIGN DECISION: Validate sprint task dependencies before starting
  * WHY: Prevents starting tasks with unmet dependencies
  *
