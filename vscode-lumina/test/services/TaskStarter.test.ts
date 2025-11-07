@@ -209,4 +209,262 @@ suite('TaskStarter Tests', () => {
 
         assert.ok(true, 'startTask() should allow override for blocked task');
     });
+
+    /**
+     * PROTECT-000B: Phase-Aware Smart Selection Tests
+     * Tests for enhanced selection algorithm with phase awareness
+     */
+    suite('PROTECT-000B: Phase-Aware Smart Selection', () => {
+        test('Prioritizes tasks in same phase as last completed', () => {
+            const phaseAwareTasks: SprintTask[] = [
+                {
+                    id: 'COMPLETED-001',
+                    name: 'Last Completed',
+                    status: 'completed',
+                    phase: 'phase-2-core',
+                    agent: 'test-agent',
+                    estimated_time: '1 hour',
+                    dependencies: [],
+                    completed_date: '2025-11-07'
+                },
+                {
+                    id: 'PENDING-PHASE-1',
+                    name: 'Phase 1 Task',
+                    status: 'pending',
+                    phase: 'phase-1-foundation',
+                    agent: 'test-agent',
+                    estimated_time: '1 hour',
+                    dependencies: []
+                },
+                {
+                    id: 'PENDING-PHASE-2',
+                    name: 'Phase 2 Task (Same as last completed)',
+                    status: 'pending',
+                    phase: 'phase-2-core',
+                    agent: 'test-agent',
+                    estimated_time: '1 hour',
+                    dependencies: []
+                },
+                {
+                    id: 'PENDING-PHASE-3',
+                    name: 'Phase 3 Task',
+                    status: 'pending',
+                    phase: 'phase-3-advanced',
+                    agent: 'test-agent',
+                    estimated_time: '1 hour',
+                    dependencies: []
+                }
+            ];
+
+            const next = taskStarter.findNextReadyTask(phaseAwareTasks);
+
+            assert.strictEqual(
+                next!.id,
+                'PENDING-PHASE-2',
+                'Should select task in same phase as last completed (phase-2)'
+            );
+            assert.strictEqual(next!.phase, 'phase-2-core');
+        });
+
+        test('Prioritizes earlier phases when no last completed phase', () => {
+            const neverStartedTasks: SprintTask[] = [
+                {
+                    id: 'PENDING-PHASE-3',
+                    name: 'Phase 3 Task',
+                    status: 'pending',
+                    phase: 'phase-3-advanced',
+                    agent: 'test-agent',
+                    estimated_time: '1 hour',
+                    dependencies: []
+                },
+                {
+                    id: 'PENDING-PHASE-1',
+                    name: 'Phase 1 Task',
+                    status: 'pending',
+                    phase: 'phase-1-foundation',
+                    agent: 'test-agent',
+                    estimated_time: '1 hour',
+                    dependencies: []
+                },
+                {
+                    id: 'PENDING-PHASE-2',
+                    name: 'Phase 2 Task',
+                    status: 'pending',
+                    phase: 'phase-2-core',
+                    agent: 'test-agent',
+                    estimated_time: '1 hour',
+                    dependencies: []
+                }
+            ];
+
+            const next = taskStarter.findNextReadyTask(neverStartedTasks);
+
+            assert.strictEqual(
+                next!.id,
+                'PENDING-PHASE-1',
+                'Should select earliest phase (phase-1) when no completed tasks'
+            );
+        });
+
+        test('Applies full priority order: phase → dependencies → time', () => {
+            const complexTasks: SprintTask[] = [
+                {
+                    id: 'COMPLETED-001',
+                    name: 'Last Completed Phase 1',
+                    status: 'completed',
+                    phase: 'phase-1-foundation',
+                    agent: 'test-agent',
+                    estimated_time: '1 hour',
+                    dependencies: [],
+                    completed_date: '2025-11-07'
+                },
+                {
+                    id: 'PENDING-PHASE-1-LONG',
+                    name: 'Phase 1, 0 deps, 4 hours',
+                    status: 'pending',
+                    phase: 'phase-1-foundation',
+                    agent: 'test-agent',
+                    estimated_time: '4 hours',
+                    dependencies: []
+                },
+                {
+                    id: 'PENDING-PHASE-1-SHORT',
+                    name: 'Phase 1, 0 deps, 1 hour',
+                    status: 'pending',
+                    phase: 'phase-1-foundation',
+                    agent: 'test-agent',
+                    estimated_time: '1 hour',
+                    dependencies: []
+                },
+                {
+                    id: 'PENDING-PHASE-1-WITH-DEPS',
+                    name: 'Phase 1, 1 dep, 30 minutes',
+                    status: 'pending',
+                    phase: 'phase-1-foundation',
+                    agent: 'test-agent',
+                    estimated_time: '30 minutes',
+                    dependencies: ['COMPLETED-001']
+                },
+                {
+                    id: 'PENDING-PHASE-2',
+                    name: 'Phase 2, 0 deps, 30 minutes',
+                    status: 'pending',
+                    phase: 'phase-2-core',
+                    agent: 'test-agent',
+                    estimated_time: '30 minutes',
+                    dependencies: []
+                }
+            ];
+
+            const next = taskStarter.findNextReadyTask(complexTasks);
+
+            // Priority order:
+            // 1. Same phase as last completed (phase-1) - all phase-1 tasks qualify
+            // 2. Earlier phase (phase-1 before phase-2) - already phase-1
+            // 3. Fewest dependencies (0 deps) - PENDING-PHASE-1-LONG and PENDING-PHASE-1-SHORT qualify
+            // 4. Shortest time (1 hour < 4 hours) - PENDING-PHASE-1-SHORT wins
+
+            assert.strictEqual(
+                next!.id,
+                'PENDING-PHASE-1-SHORT',
+                'Should apply full priority: same phase → fewest deps → shortest time'
+            );
+        });
+
+        test('Phase number extraction works correctly', () => {
+            const phaseTests: SprintTask[] = [
+                {
+                    id: 'TASK-PHASE-10',
+                    name: 'Phase 10',
+                    status: 'pending',
+                    phase: 'phase-10-final',
+                    agent: 'test-agent',
+                    estimated_time: '1 hour',
+                    dependencies: []
+                },
+                {
+                    id: 'TASK-PHASE-2',
+                    name: 'Phase 2',
+                    status: 'pending',
+                    phase: 'phase-2-core',
+                    agent: 'test-agent',
+                    estimated_time: '1 hour',
+                    dependencies: []
+                },
+                {
+                    id: 'TASK-PHASE-1',
+                    name: 'Phase 1',
+                    status: 'pending',
+                    phase: 'phase-1-foundation',
+                    agent: 'test-agent',
+                    estimated_time: '1 hour',
+                    dependencies: []
+                }
+            ];
+
+            const next = taskStarter.findNextReadyTask(phaseTests);
+
+            assert.strictEqual(
+                next!.id,
+                'TASK-PHASE-1',
+                'Should correctly parse phase numbers and sort (1 < 2 < 10)'
+            );
+        });
+
+        test('Performance: Selection completes in <100ms', () => {
+            // Create 100 mock tasks for performance testing
+            const largeTasks: SprintTask[] = [];
+            for (let i = 1; i <= 100; i++) {
+                largeTasks.push({
+                    id: `TASK-${i.toString().padStart(3, '0')}`,
+                    name: `Task ${i}`,
+                    status: i <= 50 ? 'completed' : 'pending',
+                    phase: `phase-${(i % 5) + 1}`,
+                    agent: 'test-agent',
+                    estimated_time: `${i % 8 + 1} hours`,
+                    dependencies: i > 50 && i <= 60 ? [`TASK-${(i - 50).toString().padStart(3, '0')}`] : [],
+                    completed_date: i <= 50 ? '2025-11-07' : undefined
+                });
+            }
+
+            const startTime = Date.now();
+            const next = taskStarter.findNextReadyTask(largeTasks);
+            const duration = Date.now() - startTime;
+
+            assert.notStrictEqual(next, null, 'Should find a ready task');
+            assert.ok(duration < 100, `Selection should complete in <100ms (took ${duration}ms)`);
+        });
+
+        test('Handles tasks with unusual phase names gracefully', () => {
+            const unusualPhaseTasks: SprintTask[] = [
+                {
+                    id: 'TASK-1',
+                    name: 'No phase number',
+                    status: 'pending',
+                    phase: 'initialization',
+                    agent: 'test-agent',
+                    estimated_time: '1 hour',
+                    dependencies: []
+                },
+                {
+                    id: 'TASK-2',
+                    name: 'Standard phase',
+                    status: 'pending',
+                    phase: 'phase-1-foundation',
+                    agent: 'test-agent',
+                    estimated_time: '2 hours',
+                    dependencies: []
+                }
+            ];
+
+            const next = taskStarter.findNextReadyTask(unusualPhaseTasks);
+
+            // Should prefer standard phase format (phase-1) over unparseable phase (defaults to 99)
+            assert.strictEqual(
+                next!.id,
+                'TASK-2',
+                'Should handle unparseable phase names (default to low priority)'
+            );
+        });
+    });
 });

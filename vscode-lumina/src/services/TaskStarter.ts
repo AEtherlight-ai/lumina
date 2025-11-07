@@ -31,11 +31,18 @@ export class TaskStarter {
     /**
      * Find next ready task (no blocking dependencies)
      *
-     * ALGORITHM:
+     * ALGORITHM (PROTECT-000B - Phase-Aware Smart Selection):
      * 1. Filter to pending tasks
      * 2. Check dependencies for each
-     * 3. Sort by: no deps > short time > phase order
-     * 4. Return first match
+     * 3. Find last completed task's phase
+     * 4. Sort by: Same phase as last completed → Earlier phase → Fewest deps → Shortest time
+     * 5. Return first match
+     *
+     * REASONING: Phase-aware selection maintains sprint momentum
+     * - Same phase: Complete current phase before moving to next
+     * - Earlier phase: Sequential progression (phase-1 before phase-2)
+     * - Fewest deps: Quick wins, reduce blocking
+     * - Shortest time: Quick wins, maintain velocity
      *
      * @param allTasks - All tasks in the sprint
      * @returns Next ready task or null if all blocked
@@ -53,30 +60,86 @@ export class TaskStarter {
             return null;
         }
 
-        // Sort by priority:
-        // 1. Tasks with no dependencies (independent work)
-        // 2. Shortest estimated time (quick wins)
-        // 3. Phase order (maintain sprint sequence)
+        // PROTECT-000B: Find last completed task's phase
+        const lastCompletedPhase = this.getLastCompletedTaskPhase(allTasks);
+
+        // Sort by priority (PROTECT-000B - Phase-Aware):
+        // 1. Same phase as last completed (maintain momentum)
+        // 2. Earlier phase number (sequential progression)
+        // 3. Fewest dependencies (quick wins, reduce blocking)
+        // 4. Shortest estimated time (quick wins, maintain velocity)
         ready.sort((a, b) => {
-            // Priority 1: No dependencies first
+            // Priority 1: Same phase as last completed
+            if (lastCompletedPhase) {
+                const aIsLastPhase = a.phase === lastCompletedPhase;
+                const bIsLastPhase = b.phase === lastCompletedPhase;
+                if (aIsLastPhase !== bIsLastPhase) {
+                    return aIsLastPhase ? -1 : 1; // Same phase first
+                }
+            }
+
+            // Priority 2: Earlier phase number (phase-1 before phase-2)
+            const aPhaseNum = this.extractPhaseNumber(a.phase);
+            const bPhaseNum = this.extractPhaseNumber(b.phase);
+            if (aPhaseNum !== bPhaseNum) {
+                return aPhaseNum - bPhaseNum;
+            }
+
+            // Priority 3: Fewest dependencies (independent work, quick wins)
             const aDeps = a.dependencies?.length || 0;
             const bDeps = b.dependencies?.length || 0;
             if (aDeps !== bDeps) {
                 return aDeps - bDeps;
             }
 
-            // Priority 2: Shorter time first
+            // Priority 4: Shorter time first (quick wins)
             const aTime = this.parseEstimatedTime(a.estimated_time);
             const bTime = this.parseEstimatedTime(b.estimated_time);
-            if (aTime !== bTime) {
-                return aTime - bTime;
-            }
-
-            // Priority 3: Phase order
-            return a.phase.localeCompare(b.phase);
+            return aTime - bTime;
         });
 
         return ready[0];
+    }
+
+    /**
+     * Get last completed task's phase
+     * PROTECT-000B: Used for phase-aware task selection
+     *
+     * @param allTasks - All tasks in the sprint
+     * @returns Phase of last completed task, or null if none completed
+     */
+    private getLastCompletedTaskPhase(allTasks: SprintTask[]): string | null {
+        // Filter to completed tasks
+        const completed = allTasks.filter(t => t.status === 'completed');
+
+        if (completed.length === 0) {
+            return null;
+        }
+
+        // Sort by completion date (most recent first)
+        // If no completion date, use id as tiebreaker (assumes sequential IDs)
+        completed.sort((a, b) => {
+            if (a.completed_date && b.completed_date) {
+                return b.completed_date.localeCompare(a.completed_date);
+            }
+            if (a.completed_date) return -1;
+            if (b.completed_date) return 1;
+            return b.id.localeCompare(a.id); // Fallback to ID comparison
+        });
+
+        return completed[0].phase;
+    }
+
+    /**
+     * Extract phase number from phase string
+     * PROTECT-000B: Helper for phase-aware sorting
+     *
+     * @param phase - Phase string (e.g., "phase-1-foundation", "phase-2-core")
+     * @returns Phase number (e.g., 1, 2) or 99 if can't parse
+     */
+    private extractPhaseNumber(phase: string): number {
+        const match = phase.match(/phase-(\d+)/i);
+        return match ? parseInt(match[1]) : 99; // Default to high number if can't parse
     }
 
     /**
