@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import * as toml from '@iarna/toml';
+import { TaskAnalyzer } from './TaskAnalyzer';
 
 const execAsync = promisify(exec);
 
@@ -31,10 +32,12 @@ export interface ProjectState {
 export class TaskPromptExporter {
     private workspaceRoot: string;
     private sprintFilePath: string;
+    private analyzer: TaskAnalyzer;
 
     constructor() {
         this.workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
         this.sprintFilePath = path.join(this.workspaceRoot, 'internal', 'sprints', 'ACTIVE_SPRINT.toml');
+        this.analyzer = new TaskAnalyzer(this.workspaceRoot);
     }
 
     /**
@@ -211,6 +214,8 @@ export class TaskPromptExporter {
      * Combines TOML baseline with current project state analysis
      *
      * NOTE: This is what I (Claude Code) would execute when receiving the terminal command
+     *
+     * PROTECT-000A Integration: Uses TaskAnalyzer for gap detection before generating prompt
      */
     public async generateEnhancedPrompt(taskId: string): Promise<string> {
         // Read TOML task
@@ -219,8 +224,15 @@ export class TaskPromptExporter {
             throw new Error(`Task ${taskId} not found in sprint TOML`);
         }
 
-        // Analyze current project state
+        // PROTECT-000A: Analyze task for gaps using TaskAnalyzer
         const state = await this.analyzeProjectState(taskId);
+        const completedTasksWithStatus = state.completedTasks.map(t => ({ ...t, status: 'completed' }));
+        const analysisResult = await this.analyzer.analyzeTask(task, completedTasksWithStatus);
+
+        // If gaps found, return questions instead of prompt
+        if (analysisResult.status === 'needs_clarification') {
+            return this.formatGapsAndQuestions(analysisResult, taskId);
+        }
 
         // Calculate temporal drift
         const createdDate = new Date('2025-11-05'); // TODO: Extract from task or git
@@ -422,5 +434,67 @@ ${this.formatRelatedTasks(task.dependencies, state.completedTasks)}
 
     private sleep(ms: number): Promise<void> {
         return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    /**
+     * Format gaps and questions for user
+     * PROTECT-000A: Returns formatted questions when gaps detected
+     */
+    private formatGapsAndQuestions(analysisResult: any, taskId: string): string {
+        const gaps = analysisResult.gaps || [];
+        const questions = analysisResult.questions || [];
+
+        let output = `# ⚠️  Task Analysis - Gaps Detected for ${taskId}\n\n`;
+        output += `**Status:** ${analysisResult.status}\n\n`;
+        output += `---\n\n`;
+
+        // Format gaps
+        if (gaps.length > 0) {
+            output += `## 🔍 Gaps Detected (${gaps.length})\n\n`;
+            for (const gap of gaps) {
+                const emoji = gap.severity === 'blocking' ? '🚫' : '⚠️';
+                output += `### ${emoji} ${gap.type.replace(/_/g, ' ').toUpperCase()}\n\n`;
+                output += `**Severity:** ${gap.severity}\n\n`;
+                output += `**Issue:** ${gap.message}\n\n`;
+                if (gap.suggestion) {
+                    output += `**Suggestion:** ${gap.suggestion}\n\n`;
+                }
+                if (gap.relatedTo) {
+                    output += `**Related to:** ${gap.relatedTo}\n\n`;
+                }
+                output += `---\n\n`;
+            }
+        }
+
+        // Format questions
+        if (questions.length > 0) {
+            output += `## ❓ Questions to Resolve (${questions.length})\n\n`;
+            for (let i = 0; i < questions.length; i++) {
+                const q = questions[i];
+                output += `### Question ${i + 1}: ${q.question}\n\n`;
+                output += `**Type:** ${q.type}\n`;
+                output += `**Required:** ${q.required ? 'Yes' : 'No'}\n\n`;
+                if (q.choices && q.choices.length > 0) {
+                    output += `**Choices:**\n`;
+                    q.choices.forEach((choice: string) => {
+                        output += `- ${choice}\n`;
+                    });
+                    output += `\n`;
+                }
+                if (q.helpText) {
+                    output += `**Help:** ${q.helpText}\n\n`;
+                }
+                output += `---\n\n`;
+            }
+        }
+
+        output += `\n## Next Steps\n\n`;
+        output += `1. Address the gaps listed above\n`;
+        output += `2. Answer the questions\n`;
+        output += `3. Re-run task analysis after making changes\n`;
+        output += `4. Once gaps resolved, prompt will generate automatically\n\n`;
+        output += `--- END ANALYSIS ---`;
+
+        return output;
     }
 }
