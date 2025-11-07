@@ -331,7 +331,7 @@ id = "PROTECT-000A"
 name = "Build variable-driven task analyzer (MVP)"
 phase = "phase-3-mvp-prompt-system"
 assigned_engineer = "engineer_1"
-status = "pending"
+status = "in_progress"
 agent = "infrastructure-agent"
 
 description = """
@@ -7048,9 +7048,125 @@ validation_criteria = [
   "No interference with other keyboard shortcuts"
 ]
 
+[tasks.QA-001]
+id = "QA-001"
+name = "Manual testing validation for all completed tasks"
+status = "pending"
+phase = "phase-0b-ux-polish"
+agent = "general-purpose"
+assigned_engineer = "engineer_1"
+why = """
+Tasks marked "completed" but not manually tested = unvalidated work.\r
+Need to verify that completed features actually function as intended.\r
+Prevents technical debt from accumulating (code that claims to work but hasn't been validated).\r
+"""
+context = """
+Completed tasks (status="completed") in this sprint:\r
+1. PROTECT-000: Task prompt export system for AI delegation\r
+2. PROTECT-001: Annotate passing code with protection levels\r
+3. PROTECT-002: Build pre-commit protection enforcement\r
+4. POST-001: Fix .vscodeignore bloat for v0.16.8\r
+5. (5th task per progress, needs identification)\r
+\r
+Current gap:\r
+- Tasks marked complete based on implementation\r
+- No manual validation that features work end-to-end\r
+- Risk: Completed != Validated\r
+\r
+Quality assurance principle:\r
+Code complete → Manual test → Validated → Ship\r
+We're skipping the manual test step.\r
+"""
+description = """
+Execute manual testing using existing test documents:\r
+\r
+1. Use existing testing documents (already created):\r
+   - TESTING_CHECKLIST.md (master template)\r
+   - MANUAL_TEST_PROTECT-001.md (code annotations test)\r
+   - MANUAL_TEST_PROTECT-002.md (pre-commit hook test)\r
+   - internal/sprints/TESTING_CHECKLIST_v0.16.0.md (version-specific)\r
+\r
+2. Execute tests for each completed task:\r
+   - PROTECT-000: Task prompt export system\r
+     * Follow validation_criteria from task\r
+     * Test: Start Next Task → Verify AI-enhanced prompt appears\r
+   - PROTECT-001: Code protection annotations\r
+     * Execute: MANUAL_TEST_PROTECT-001.md\r
+     * Verify all checkboxes pass\r
+   - PROTECT-002: Pre-commit hook enforcement\r
+     * Execute: MANUAL_TEST_PROTECT-002.md\r
+     * Verify hook blocks protected code changes\r
+   - POST-001: .vscodeignore bloat fix\r
+     * Run: vsce package\r
+     * Verify .vsix file size reduced\r
+\r
+3. Document results in testing checklist:\r
+   - Check boxes for PASS\r
+   - Document FAIL with details\r
+   - Take screenshots if needed\r
+\r
+4. Create bug tasks for any failures:\r
+   - Extract failure details from test documents\r
+   - Create BUG-XXX task with reproduction steps\r
+\r
+5. Deliver validation report:\r
+   - Summary: X/Y tests passed\r
+   - Failures: List any bug tasks created\r
+   - Sign-off: All completed tasks validated\r
+\r
+6. Mark QA-001 complete when:\r
+   - All test documents executed\r
+   - All checkboxes marked (PASS or bug created)\r
+   - Validation report delivered\r
+"""
+estimated_time = "2-3 hours"
+estimated_lines = 0
+dependencies = [ ]
+deliverables = [
+  "Executed: MANUAL_TEST_PROTECT-001.md (all checkboxes marked)",
+  "Executed: MANUAL_TEST_PROTECT-002.md (all checkboxes marked)",
+  "Executed: TESTING_CHECKLIST.md sections for completed tasks",
+  "Test execution for PROTECT-000 (task prompt export)",
+  "Test execution for POST-001 (.vscodeignore fix)",
+  "Validation report (X/Y tests passed)",
+  "Bug tasks created for any FAILs",
+  "Updated test documents with results and screenshots"
+]
+patterns = [ "Pattern-TDD-001 (Testing discipline)" ]
+files_to_modify = [ ]
+validation_criteria = [
+  "All completed tasks have been manually tested",
+  "Test results documented (PASS or FAIL)",
+  "Any FAIL results have bug tasks created",
+  "Validation report delivered",
+  "No completed task left unvalidated"
+]
+reasoning_chain = [
+  "1. Query sprint for completed tasks",
+  "2. Extract validation_criteria from each task",
+  "3. Create manual test steps from criteria",
+  "4. Execute tests hands-on",
+  "5. Document results (PASS/FAIL)",
+  "6. Create bug tasks for FAILs",
+  "7. Deliver validation report",
+  "8. Result: Completed tasks are validated"
+]
+success_impact = """
+After QA-001 complete:\r
+✅ All completed tasks manually validated\r
+✅ Quality assurance gap closed\r
+✅ Confidence that "completed" = "works"\r
+✅ Any issues found early (before shipping)\r
+✅ Technical debt prevented\r
+✅ Sprint health validated before progressing\r
+\r
+Ensures quality:\r
+Completed → Validated → Shippable\r
+"""
+
 [progress]
-total_tasks = 68
+total_tasks = 69
 completed_tasks = 5
 in_progress_tasks = 0
-pending_tasks = 63
+pending_tasks = 64
 completion_percentage = 7
