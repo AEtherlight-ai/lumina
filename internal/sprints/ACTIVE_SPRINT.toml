@@ -859,6 +859,199 @@ After PROTECT-000E complete:
 ✅ Users don't manually create config (automated)
 """
 
+[tasks.PROTECT-000F]
+id = "PROTECT-000F"
+name = "Extend MVP-003 system to support template-based enhancements"
+phase = "phase-3-mvp-prompt-system"
+assigned_engineer = "engineer_1"
+status = "pending"
+agent = "infrastructure-agent"
+
+description = """
+Extend TaskPromptExporter to support template-based task objects (not just TOML task IDs).
+
+Current state:
+- TaskPromptExporter.generateEnhancedPrompt(taskId) works for sprint tasks ✓
+- Uses TaskAnalyzer for gap detection, questions, variable resolution ✓
+- Start Next Task and play buttons use this system ✓
+
+Gap:
+- Enhancement buttons (Code Analyzer, Sprint Planner, Bug Report, Feature Request, General Enhance) use basic PromptEnhancer ✗
+- No gap detection, no question modals, no variable resolution ✗
+- Inconsistent quality across features ✗
+
+Solution:
+Add generateEnhancedPromptFromTemplate(templateTask) method that:
+1. Accepts template task object (not TOML ID)
+2. Runs through TaskAnalyzer (gap detection)
+3. Shows question modal if gaps found
+4. Generates enhanced prompt with project state
+5. Returns to text area for user review
+
+Template task structure:
+{
+  id: 'CODE-ANALYZER-TEMPLATE',
+  name: 'Analyze workspace structure',
+  description: 'Analyze ${workspaceRoot} for patterns and recommendations',
+  files_to_modify: ['detected from workspace'],
+  patterns: ['Pattern-CODE-001'],
+  agent: 'infrastructure-agent',
+  variables: {
+    workspaceRoot: '/path/to/workspace',
+    languages: 'TypeScript, Rust',
+    frameworks: 'VS Code, Tauri'
+  }
+}
+
+Buttons that will use this:
+1. Code Analyzer → CODE-ANALYZER-TEMPLATE
+2. Sprint Planner → SPRINT-PLANNER-TEMPLATE
+3. Bug Report → BUG-REPORT-TEMPLATE (with form data as variables)
+4. Feature Request → FEATURE-REQUEST-TEMPLATE (with form data as variables)
+5. General Enhance → GENERAL-ENHANCE-TEMPLATE (with user prompt as variable)
+"""
+
+estimated_time = "6-8 hours"
+estimated_lines = 400
+
+dependencies = ["PROTECT-000A", "PROTECT-000D"]
+
+deliverables = [
+    "Add generateEnhancedPromptFromTemplate() to TaskPromptExporter",
+    "Create template task builders for each button type",
+    "Update Code Analyzer button to use MVP-003 system",
+    "Update Sprint Planner button to use MVP-003 system",
+    "Update Bug Report button to use MVP-003 system",
+    "Update Feature Request button to use MVP-003 system",
+    "Update General Enhance button to use MVP-003 system",
+    "All buttons now have gap detection + question modals",
+    "Unit tests with 90% coverage"
+]
+
+why = """
+User expectation: ALL enhancement buttons should provide same quality prompts.
+Current state: Start Next Task has MVP-003 intelligence, other buttons use basic enhancement.
+Problem: Inconsistent quality. Code Analyzer doesn't detect gaps, doesn't ask questions.
+
+Solution: Universal enhancement engine using same MVP-003 system everywhere.
+Benefits:
+- One system to maintain → improvements cascade everywhere
+- Consistent quality across all features
+- Unified UX (gap detection, questions, variables)
+- Future enhancements (better analyzer, better prompts) benefit ALL features
+"""
+
+context = """
+MVP-003 system components (already exist):
+- TaskAnalyzer: Generic gap detection (PROTECT-000A) ✓
+- TaskQuestionModal: Q&A wizard UI (PROTECT-000D) ✓
+- TaskPromptExporter: Enhanced prompt generation ✓
+
+Current limitation:
+- TaskPromptExporter.generateEnhancedPrompt(taskId) expects TOML task ID
+- Enhancement buttons have ad-hoc content (not TOML tasks)
+
+Solution approach:
+- Add generateEnhancedPromptFromTemplate(task) that accepts task objects
+- Template tasks follow SprintTask interface but aren't in TOML
+- Same TaskAnalyzer logic applies (gap detection, questions)
+- Same enhanced prompt format (temporal drift, project state, validation)
+
+This makes MVP-003 truly universal - works for sprint tasks AND ad-hoc enhancements.
+"""
+
+reasoning_chain = [
+    "1. User clicks Code Analyzer button (or any enhancement button)",
+    "2. Button constructs template task object:",
+    "   - id: 'CODE-ANALYZER-TEMPLATE'",
+    "   - description: with variables (workspaceRoot, languages, etc.)",
+    "   - agent: appropriate agent",
+    "   - patterns: relevant patterns",
+    "3. Button calls: TaskPromptExporter.generateEnhancedPromptFromTemplate(templateTask)",
+    "4. TaskPromptExporter runs TaskAnalyzer.analyzeTask(templateTask)",
+    "5. IF gaps detected:",
+    "   - Show TaskQuestionModal with questions",
+    "   - User answers questions",
+    "   - Regenerate with answers filled",
+    "6. IF no gaps:",
+    "   - Generate enhanced prompt immediately",
+    "7. Return enhanced prompt to text area",
+    "8. User reviews and sends to terminal"
+]
+
+patterns = ["Pattern-CODE-001", "Pattern-IMPROVEMENT-001"]
+
+files_to_modify = [
+    "vscode-lumina/src/services/TaskPromptExporter.ts (add generateEnhancedPromptFromTemplate method)",
+    "vscode-lumina/src/commands/voicePanel.ts (update enhancement button handlers)"
+]
+
+files_to_create = [
+    "vscode-lumina/src/services/TemplateTaskBuilder.ts (NEW - constructs template tasks)",
+    "vscode-lumina/test/services/templateTaskBuilder.test.ts"
+]
+
+validation_criteria = [
+    "generateEnhancedPromptFromTemplate() method exists",
+    "Code Analyzer button uses MVP-003 system",
+    "Sprint Planner button uses MVP-003 system",
+    "Bug Report button uses MVP-003 system",
+    "Feature Request button uses MVP-003 system",
+    "General Enhance button uses MVP-003 system",
+    "All buttons show question modal when gaps detected",
+    "All buttons generate enhanced prompts with project state",
+    "Consistent prompt quality across all buttons"
+]
+
+test_requirements = """
+TDD Requirements (Infrastructure Task - 90% coverage):
+
+RED Phase - Write tests FIRST:
+1. generateEnhancedPromptFromTemplate(task) accepts task object (not ID)
+2. Calls TaskAnalyzer.analyzeTask() with template task
+3. Returns enhanced prompt with project state
+4. Shows questions modal when gaps detected
+5. Template task with variables fills correctly
+6. Code Analyzer template constructs correctly
+7. Sprint Planner template constructs correctly
+8. Bug Report template with form data works
+9. Feature Request template with form data works
+10. General Enhance template with user prompt works
+
+GREEN Phase - Implement to pass tests
+REFACTOR Phase - Optimize performance
+"""
+
+test_files = [
+    "vscode-lumina/test/services/taskPromptExporter.test.ts (extend existing)",
+    "vscode-lumina/test/services/templateTaskBuilder.test.ts"
+]
+
+test_coverage_requirement = 0.9
+
+performance_target = "Template enhancement < 3s (same as TOML task enhancement)"
+
+error_handling = """
+- Wrap TaskAnalyzer calls in try-catch
+- Handle missing variables gracefully (prompt user)
+- Handle template task construction errors
+- Validate template task structure before analyzing
+- Log errors with template context for debugging
+- Preserve user input on errors (don't lose form data)
+"""
+
+success_impact = """
+After PROTECT-000F complete:
+✅ ALL enhancement buttons use same MVP-003 intelligence system
+✅ Consistent quality across Code Analyzer, Sprint Planner, Bug Report, Feature Request, General Enhance
+✅ Gap detection works for all enhancements (not just sprint tasks)
+✅ Question modals work for all enhancements
+✅ Variable resolution works for all enhancements
+✅ One system to maintain → future improvements cascade everywhere
+✅ Universal enhancement engine achieved (Pattern-IMPROVEMENT-001)
+✅ User gets same high-quality prompts regardless of which button they click
+"""
+
 [tasks.MVP-001]
 id = "MVP-001"
 name = "Add skill assignment to sprint-plan workflow (Step 3.6)"
@@ -2832,7 +3025,8 @@ id = "TEMPLATE-006"
 name = "Test template system by generating Phase 7 tasks"
 phase = "phase-1-template-system"
 assigned_engineer = "engineer_1"
-status = "pending"
+status = "completed"
+completed_date = "2025-11-07"
 description = """
 Use sprint-plan skill ENHANCE mode to generate Phase 7 tasks:\r
 \r
@@ -3266,7 +3460,7 @@ files_to_modify = [
 [tasks.UX-009]
 id = "UX-009"
 name = "Terminal selection persistence"
-status = "pending"
+status = "in_progress"
 phase = "phase-0b-ux-polish"
 agent = "ui-agent"
 why = """
@@ -7130,8 +7324,8 @@ Completed → Validated → Shippable\r
 """
 
 [progress]
-total_tasks = 69
+total_tasks = 70
 completed_tasks = 5
 in_progress_tasks = 0
-pending_tasks = 64
+pending_tasks = 65
 completion_percentage = 7
