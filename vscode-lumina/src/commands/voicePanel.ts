@@ -643,6 +643,15 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 }
                 break;
 
+            case 'saveTextareaHeight':
+                /**
+                 * UX-006: Save textarea height for persistence
+                 * WHY: User manually resizes textarea, preserve size across reloads
+                 * PATTERN: Store state only (no UI refresh to avoid losing textarea content)
+                 */
+                await this._context.workspaceState.update('textareaHeight', message.height);
+                break;
+
             /**
              * PROTECT-000: Start Next Task with AI-enhanced prompt
              * WHY: Generate comprehensive task prompt with current project state
@@ -1931,18 +1940,13 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             margin-bottom: 16px;
         }
 
-        .transcription-editor label {
-            display: block;
-            margin-bottom: 4px;
-            font-size: 12px;
-            font-weight: 600;
-            color: var(--vscode-descriptionForeground);
-        }
+        /* UX-006: Removed label styling (label no longer exists) */
 
         .transcription-editor textarea {
             width: 100%;
-            height: 60px; /* B-005: Default 60px height */
-            max-height: 120px; /* B-005: Auto-resize max */
+            height: 60px; /* UX-006: Default 60px (3 lines) */
+            min-height: 60px; /* UX-006: Minimum 3 lines */
+            max-height: 400px; /* UX-006: Maximum 20 lines */
             padding: 8px;
             background-color: var(--vscode-input-background);
             color: var(--vscode-input-foreground);
@@ -1950,8 +1954,8 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             border-radius: 4px;
             font-family: var(--vscode-editor-font-family);
             font-size: 13px;
-            resize: none; /* B-005: Disable manual resize, use auto-resize */
-            overflow-y: auto; /* B-005: Scrollbar when exceeds max */
+            resize: vertical; /* UX-006: Enable vertical resize handle */
+            overflow-y: auto; /* Scrollbar when exceeds max */
             box-sizing: border-box;
         }
 
@@ -3272,6 +3276,9 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
     }
 
     private getVoiceTabScripts(): string {
+        // UX-006: Get saved textarea height from workspace state
+        const savedHeight = this._context.workspaceState.get<number>('textareaHeight', 60);
+
         return `
             // Recording state (declared once at top)
             let mediaRecorder = null;
@@ -3289,34 +3296,47 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             }
 
             /**
-             * B-005: Auto-resize textarea from 60px to max 120px
-             * DESIGN DECISION: Dynamic height based on content, scrollbar when exceeds max
-             * WHY: Compact default (60px) saves space, auto-grows for longer prompts
+             * UX-006: Restore saved textarea height and enable manual resize persistence
+             * DESIGN DECISION: Manual resize with persistence replaces auto-resize
+             * WHY: User control over textarea size, preserves preference across reloads
              *
              * REASONING CHAIN:
-             * 1. Default 60px height (2-3 lines) for typical voice commands
-             * 2. Auto-resize as user types more content
-             * 3. Max 120px prevents textarea from dominating panel
-             * 4. Scrollbar appears when content exceeds 120px
-             * 5. Result: Voice tab ~200px total height, compact and efficient
+             * 1. Restore saved height from workspace state (min 60px, max 400px)
+             * 2. User can manually resize via drag handle (CSS: resize: vertical)
+             * 3. ResizeObserver detects size changes and saves to workspace state
+             * 4. Debounce saves to avoid excessive state updates
              */
-            function autoResizeTextarea() {
-                const textarea = document.getElementById('transcriptionText');
-                if (!textarea) return;
-
-                // Reset height to calculate scrollHeight correctly
-                textarea.style.height = '60px';
-
-                // Calculate new height (min 60px, max 120px)
-                const newHeight = Math.min(Math.max(textarea.scrollHeight, 60), 120);
-                textarea.style.height = newHeight + 'px';
-            }
-
-            // Attach auto-resize to textarea
+            const savedHeight = ${savedHeight};
             if (transcriptionText) {
-                transcriptionText.addEventListener('input', autoResizeTextarea);
-                // Initial resize in case there's pre-filled content
-                autoResizeTextarea();
+                // Restore saved height (enforce min/max constraints)
+                const constrainedHeight = Math.max(60, Math.min(400, savedHeight));
+                transcriptionText.style.height = constrainedHeight + 'px';
+
+                // Debounced save function to avoid excessive state updates
+                let saveTimeout = null;
+                function saveTextareaHeight(height) {
+                    clearTimeout(saveTimeout);
+                    saveTimeout = setTimeout(() => {
+                        vscode.postMessage({
+                            type: 'saveTextareaHeight',
+                            height: Math.max(60, Math.min(400, height))
+                        });
+                    }, 500); // Save 500ms after user stops resizing
+                }
+
+                // Observe textarea resize events
+                const resizeObserver = new ResizeObserver((entries) => {
+                    for (const entry of entries) {
+                        if (entry.target === transcriptionText) {
+                            const newHeight = entry.contentRect.height;
+                            // Only save if height actually changed
+                            if (Math.abs(newHeight - constrainedHeight) > 1) {
+                                saveTextareaHeight(newHeight);
+                            }
+                        }
+                    }
+                });
+                resizeObserver.observe(transcriptionText);
             }
 
             window.refreshTerminals = function() {
@@ -4358,7 +4378,6 @@ function getVoicePanelBodyContent(): string {
     </div>
 
     <div class="transcription-editor">
-        <label for="transcriptionText">Command / Transcription:</label>
         <textarea
             id="transcriptionText"
             placeholder="Press \` (backtick) to record, or type directly..."
