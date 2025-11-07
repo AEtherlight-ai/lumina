@@ -2996,7 +2996,7 @@ After TEMPLATE-006 complete:\r
 [tasks.UX-001]
 id = "UX-001"
 name = "Universal Enhancement Pattern - Fix ALL enhancement buttons"
-status = "pending"
+status = "in_progress"
 phase = "phase-0b-ux-polish"
 agent = "infrastructure-agent"
 why = """
