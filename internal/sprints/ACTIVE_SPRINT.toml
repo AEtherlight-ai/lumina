@@ -3244,7 +3244,7 @@ files_to_modify = [
 [tasks.UX-008]
 id = "UX-008"
 name = "Remove terminal edit button"
-status = "in_progress"
+status = "completed"
 phase = "phase-0b-ux-polish"
 agent = "infrastructure-agent"
 why = """

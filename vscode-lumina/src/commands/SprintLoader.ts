@@ -52,6 +52,7 @@ export interface SprintTask {
     dependencies: string[];
     status: TaskStatus;
     agent: string;
+    skill?: string;  // MVP-001: Optional automated workflow to use (publish, code-analyze, protect, etc.)
     assigned_engineer: string;
     required_expertise: string[];
     performance_target?: string;
