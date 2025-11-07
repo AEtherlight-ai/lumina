@@ -3193,7 +3193,7 @@ id = "UX-009"
 name = "Terminal selection persistence"
 status = "pending"
 phase = "phase-0b-ux-polish"
-agent = "infrastructure-agent"
+agent = "ui-agent"
 why = """
 Terminal selection keeps resetting to first terminal instead of staying on selected one.\r
 User must re-select terminal repeatedly, causing frustration and workflow interruption.\r
@@ -6662,9 +6662,285 @@ Enables:\r
 - Open source readiness (quality bar for contributions)\r
 """
 
+[tasks.UX-010]
+id = "UX-010"
+name = "Text area content persistence in Voice panel"
+status = "pending"
+phase = "phase-0b-ux-polish"
+agent = "ui-agent"
+assigned_engineer = "engineer_1"
+why = """
+Text area content disappears when navigating away from Voice tab and returning.\r
+User loses work-in-progress prompts, causing frustration and data loss.\r
+Content should persist until explicitly cleared (sent to terminal or cleared).\r
+"""
+context = """
+Current behavior:\r
+- User types/pastes content into text area\r
+- User switches to another tab (Sprint, Terminal, etc.)\r
+- User returns to Voice tab → Text area is empty (content lost)\r
+\r
+Expected behavior:\r
+- Content persists when switching tabs\r
+- Content persists when closing/reopening panel\r
+- Content only clears when: a) Sent to terminal, b) User clicks Clear, c) User manually deletes\r
+\r
+Root cause: Text area value not stored in localStorage, webview re-render clears DOM state.\r
+"""
+description = """
+Fix text area content persistence:\r
+\r
+1. Add state persistence: Store text area content in localStorage on every change (debounced)\r
+2. Restore content on panel open: Read from localStorage when Voice tab activates\r
+3. Clear content only when appropriate: After Send to Terminal or Clear button\r
+4. Test scenarios: Type → Switch tabs → Return → Content persists\r
+"""
+estimated_time = "1-2 hours"
+estimated_lines = 100
+dependencies = [ ]
+deliverables = [
+  "Text area content persists across tab switches",
+  "Content stored in localStorage with debouncing",
+  "Content restored on panel reopen",
+  "Content clears only after Send or Clear actions"
+]
+patterns = [ "Pattern-STATE-001" ]
+files_to_modify = [
+  "vscode-lumina/src/commands/voicePanel.ts (text area state management)"
+]
+validation_criteria = [
+  "Type text → Switch tabs → Return → Content persists",
+  "Type text → Send to terminal → Content cleared"
+]
+
+[tasks.UX-011]
+id = "UX-011"
+name = "Make text area resizable with size persistence"
+status = "pending"
+phase = "phase-0b-ux-polish"
+agent = "ui-agent"
+assigned_engineer = "engineer_1"
+why = """
+Text area has fixed height (60px default, max 120px auto-resize).\r
+Users working with longer prompts need more vertical space.\r
+Manual resize capability improves UX for different use cases.\r
+"""
+context = """
+Current behavior:\r
+- Text area height: 60px default (voicePanel.ts:1845)\r
+- Auto-resizes to max 120px (voicePanel.ts:3179)\r
+- User cannot manually adjust height\r
+- Height resets to default on panel reopen\r
+\r
+Expected behavior:\r
+- User can drag bottom edge to resize\r
+- Min 60px, max 400px\r
+- Resized height persists across tab switches and panel reopens\r
+"""
+description = """
+Make text area user-resizable:\r
+\r
+1. Add CSS resize capability: 'resize: vertical' with min-height 60px, max-height 400px\r
+2. Capture resize events: ResizeObserver on textarea, debounced storage writes\r
+3. Persist and restore height: Store in localStorage, apply on panel open\r
+4. Balance with auto-resize: User's manual size takes precedence\r
+"""
+estimated_time = "2-3 hours"
+estimated_lines = 150
+dependencies = [ ]
+deliverables = [
+  "Text area has resize handle (CSS resize: vertical)",
+  "User can drag to resize between 60px-400px",
+  "Resized height persists across tab switches and panel reopens",
+  "ResizeObserver captures and stores height changes"
+]
+patterns = [ "Pattern-STATE-001" ]
+files_to_modify = [
+  "vscode-lumina/src/commands/voicePanel.ts (textarea styles and resize logic)"
+]
+validation_criteria = [
+  "Resize to 200px → Switch tabs → Return → Still 200px",
+  "Resize to 200px → Close panel → Reopen → Still 200px",
+  "Min/max height constraints enforced (60px-400px)"
+]
+
+[tasks.UX-012]
+id = "UX-012"
+name = "Auto-expand text area for pasted/modal content, then restore user size"
+status = "pending"
+phase = "phase-0b-ux-polish"
+agent = "ui-agent"
+assigned_engineer = "engineer_1"
+why = """
+When content is pasted or inserted from modals (Sprint Planner, Code Analyzer, etc.),\r
+it often exceeds text area's current size, forcing user to manually resize.\r
+Auto-expansion shows full content immediately.\r
+Auto-restoration after Send preserves user's preferred working size.\r
+"""
+context = """
+Workflow:\r
+1. User's preferred size: 100px (compact)\r
+2. Modal inserts 500px of content → Auto-expand to show content (up to 400px max)\r
+3. User reviews, clicks Send to Terminal → Auto-restore to 100px\r
+\r
+Triggers: Paste (Ctrl+V), modal content insertion, Enhance button, Start Next Task.\r
+"""
+description = """
+Implement auto-expand/restore:\r
+\r
+1. Track two heights: userPreferredHeight (manual resize), currentHeight (actual)\r
+2. Auto-expand on content insertion: Detect paste/modal events, expand to content height (max 400px)\r
+3. Store temporary expansion: Don't overwrite userPreferredHeight, use isAutoExpanded flag\r
+4. Auto-restore on Send: Restore to userPreferredHeight after Send to Terminal\r
+5. Respect manual resize: If user resizes during auto-expansion, update preferred size\r
+"""
+estimated_time = "3-4 hours"
+estimated_lines = 200
+dependencies = [ "UX-011" ]
+deliverables = [
+  "Dual height tracking (userPreferredHeight and currentHeight)",
+  "Auto-expansion on paste events and modal content insertion",
+  "Auto-restoration after Send to Terminal",
+  "Manual resize during expansion updates preferred size",
+  "Max height 400px enforced, scrollbar for excess"
+]
+patterns = [ "Pattern-STATE-001" ]
+files_to_modify = [
+  "vscode-lumina/src/commands/voicePanel.ts (paste/modal handlers and Send handler)"
+]
+validation_criteria = [
+  "User size 100px → Paste large content → Auto-expands",
+  "Send to terminal → Restores to 100px",
+  "Auto-expanded → User resizes → New preferred size captured",
+  "Content exceeds 400px → Clamps to 400px with scrollbar"
+]
+
+[tasks.UX-013]
+id = "UX-013"
+name = "Add Ctrl+` hotkey to return focus to text area"
+status = "pending"
+phase = "phase-0b-ux-polish"
+agent = "ui-agent"
+assigned_engineer = "engineer_1"
+why = """
+After sending content to terminal, cursor moves to terminal window.\r
+User must manually click back into text area to continue recording/typing.\r
+Hotkey (Ctrl+`) provides quick return to text area, improving workflow speed.\r
+"""
+context = """
+Current workflow: Send to Terminal → Focus moves to terminal → User must click text area\r
+Improved workflow: Send to Terminal → Focus moves to terminal → Press Ctrl+` → Focus returns to text area\r
+\r
+Why Ctrl+`: VS Code uses Ctrl+` to toggle terminal, similar mental model for terminal-related actions.\r
+"""
+description = """
+Add Ctrl+` hotkey:\r
+\r
+1. Register VS Code command: 'aetherlight.focusVoiceTextArea'\r
+2. Add keybinding: Ctrl+` (Windows/Linux), Cmd+` (Mac) in package.json\r
+3. Implement focus message handler: textArea.focus() in webview\r
+4. Set context key: aetherlight.voicePanelVisible (ensures hotkey only works when panel active)\r
+5. Test: Voice panel open → Press Ctrl+` → Text area gains focus\r
+"""
+estimated_time = "2-3 hours"
+estimated_lines = 150
+dependencies = [ ]
+deliverables = [
+  "VS Code command: aetherlight.focusVoiceTextArea",
+  "Keybinding: Ctrl+` (Cmd+` on Mac)",
+  "Context key: aetherlight.voicePanelVisible",
+  "Message handler: focusTextArea in webview",
+  "Documentation updated with keybinding"
+]
+patterns = [ "Pattern-KEYBINDING-001" ]
+files_to_modify = [
+  "vscode-lumina/package.json (contributes.keybindings)",
+  "vscode-lumina/src/commands/voicePanel.ts (command registration and message handler)",
+  "vscode-lumina/src/extension.ts (register command)"
+]
+validation_criteria = [
+  "Voice panel open → Press Ctrl+` → Text area gains focus",
+  "Terminal has focus → Press Ctrl+` → Focus moves to text area",
+  "Voice panel closed → Press Ctrl+` → No action",
+  "Sprint tab active → Press Ctrl+` → No action"
+]
+
+[tasks.UX-014]
+id = "UX-014"
+name = "Make Ctrl+Enter work globally (not just in text area)"
+status = "pending"
+phase = "phase-0b-ux-polish"
+agent = "ui-agent"
+assigned_engineer = "engineer_1"
+why = """
+Ctrl+Enter only sends to terminal when cursor is inside text area.\r
+User must click text area before using keyboard shortcut.\r
+This breaks workflow - user should be able to hit Ctrl+Enter from anywhere in Voice panel.\r
+"""
+context = """
+Current behavior:\r
+- Cursor in text area → Press Ctrl+Enter → Sends to terminal ✓\r
+- Cursor anywhere else (Sprint list, terminal list, buttons) → Press Ctrl+Enter → Nothing happens ✗\r
+\r
+Expected behavior:\r
+- Cursor anywhere in Voice panel → Press Ctrl+Enter → Sends text area content to terminal\r
+- Focus state doesn't matter - shortcut works globally within Voice panel\r
+\r
+Root cause: Keyboard event listener attached to text area element only, not to webview document.\r
+"""
+description = """
+Make Ctrl+Enter keyboard shortcut work globally:\r
+\r
+1. Move event listener from text area to document level:\r
+   - Remove keydown listener from textarea element\r
+   - Add keydown listener to document (webview scope)\r
+   - Intercept Ctrl+Enter before it reaches specific elements\r
+\r
+2. Check for Ctrl+Enter combination:\r
+   - Listen for keydown event\r
+   - Check: event.ctrlKey (or event.metaKey on Mac) + event.key === 'Enter'\r
+   - Prevent default behavior (don't insert newline)\r
+\r
+3. Trigger send action:\r
+   - Call existing sendToTerminal() function\r
+   - Same validation (terminal selected, text not empty)\r
+   - Same success/error handling\r
+\r
+4. Ensure no conflicts:\r
+   - Don't interfere with Ctrl+Enter in other contexts (modals, inputs)\r
+   - Only trigger when Voice tab is active\r
+   - Respect existing text area Ctrl+Enter handler (should be redundant now)\r
+\r
+5. Test scenarios:\r
+   - Cursor in terminal list → Press Ctrl+Enter → Sends to terminal\r
+   - Cursor in Sprint button → Press Ctrl+Enter → Sends to terminal\r
+   - Cursor in text area → Press Ctrl+Enter → Sends to terminal (still works)\r
+   - Voice panel closed → Press Ctrl+Enter → No action\r
+"""
+estimated_time = "1-2 hours"
+estimated_lines = 50
+dependencies = [ ]
+deliverables = [
+  "Document-level keydown listener for Ctrl+Enter",
+  "Event handler checks for Ctrl/Cmd+Enter combination",
+  "Calls sendToTerminal() from anywhere in Voice panel",
+  "No conflicts with other keyboard shortcuts",
+  "Works regardless of focus state"
+]
+patterns = [ "Pattern-KEYBOARD-001 (Global Keyboard Shortcuts)" ]
+files_to_modify = [
+  "vscode-lumina/src/commands/voicePanel.ts (move keydown listener to document scope)"
+]
+validation_criteria = [
+  "Cursor in terminal list → Press Ctrl+Enter → Sends to terminal",
+  "Cursor in text area → Press Ctrl+Enter → Still works",
+  "Voice panel closed → Press Ctrl+Enter → No action",
+  "No interference with other keyboard shortcuts"
+]
+
 [progress]
-total_tasks = 62
+total_tasks = 67
 completed_tasks = 5
 in_progress_tasks = 0
-pending_tasks = 57
-completion_percentage = 8
+pending_tasks = 62
+completion_percentage = 7

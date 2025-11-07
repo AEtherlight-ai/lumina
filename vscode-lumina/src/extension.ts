@@ -1,10 +1,14 @@
 /**
  * Lumina VS Code Extension - Entry Point
  *
- * @protected - Core functionality, refactor only
- * Locked: 2025-11-07 (v0.16.7 manual test PASS)
- * Tests: Core Extension activation, command registration
+ * @protected
+ * Locked: 2025-11-07 (v0.16.7)
+ * Test: MANUAL_TEST_PROTECT-001.md - Test 3.1 (Extension activation)
+ * Status: PASSING - Core functionality works
  * Reference: PROTECT-001 stabilization (phase-1)
+ *
+ * Extension activation and command registration.
+ * DO NOT modify without approval - breaks extension startup for all users.
  *
  * DESIGN DECISION: Extension activates on VS Code startup (onStartupFinished)
  * WHY: Immediate availability for voice hotkeys (` and Shift+`) without manual activation

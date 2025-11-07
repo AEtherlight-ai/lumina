@@ -6,10 +6,14 @@ import * as toml from '@iarna/toml';
 /**
  * SprintLoader: Loads and parses sprint data from TOML files
  *
- * @protected - Core sprint parsing functionality, refactor only
- * Locked: 2025-11-07 (v0.16.7 manual test PASS)
- * Tests: TOML parsing with rich fields (description, why, context, reasoning_chain)
- * Reference: PROTECT-001 stabilization (phase-1), SprintLoader.ts:504-534 parseTomlTasks
+ * @protected
+ * Locked: 2025-11-07 (v0.16.7)
+ * Test: MANUAL_TEST_PROTECT-001.md - Test 3.2 (Sprint loading)
+ * Status: PASSING - TOML parsing works correctly
+ * Reference: PROTECT-001 stabilization (phase-1), Critical: parseTomlTasks (lines 504-534)
+ *
+ * Sprint TOML parsing with rich fields (description, why, context, reasoning_chain).
+ * DO NOT modify without approval - breaks sprint panel for all projects.
  *
  * DESIGN DECISION: Read directly from TOML files (not Markdown)
  * WHY: TOML enables autonomous agent execution + continuous sprint loading
