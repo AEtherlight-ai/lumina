@@ -1471,22 +1471,26 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
             case 'sendToTerminal':
                 /**
-                 * DESIGN DECISION: Execute command immediately (addNewLine: true)
-                 * WHY: User wants one-click execution, not manual Enter
+                 * UX-007: Flexible terminal send (with or without auto-execute)
+                 * WHY: Give users choice between review-before-execute and immediate execution
                  *
                  * REASONING CHAIN:
-                 * 1. sendText() with addNewLine=true executes command immediately
-                 * 2. No need for user to press Enter in terminal
-                 * 3. Frontend clears input box after sending
-                 * 4. Result: Smooth voice → terminal → execute → clear workflow
+                 * 1. message.autoExecute determines if command executes immediately
+                 * 2. autoExecute=false: sendText(text, false) - text appears in terminal, user reviews and presses Enter
+                 * 3. autoExecute=true: sendText(text, true) - command executes immediately
+                 * 4. Keyboard shortcuts:
+                 *    - Ctrl+Enter: autoExecute=false (review before executing)
+                 *    - Ctrl+Shift+Enter: autoExecute=true (immediate execution)
+                 * 5. Default to autoExecute=true for backwards compatibility with existing workflows
                  */
                 const targetTerminal = vscode.window.terminals.find(
                     t => t.name === message.terminalName
                 );
 
                 if (targetTerminal) {
-                    // Execute command immediately (addNewLine: true by default)
-                    targetTerminal.sendText(message.text, true);
+                    // UX-007: Use autoExecute parameter (default true for backwards compatibility)
+                    const autoExecute = message.autoExecute !== undefined ? message.autoExecute : true;
+                    targetTerminal.sendText(message.text, autoExecute);
                     targetTerminal.show();
                 } else {
                     vscode.window.showErrorMessage(
@@ -3680,6 +3684,7 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 updateSendButton();
             }
 
+            // UX-007: Send to terminal WITHOUT auto-execute (Ctrl+Enter)
             window.sendToTerminal = function() {
                 const text = document.getElementById('transcriptionText').value;
 
@@ -3696,14 +3701,43 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 vscode.postMessage({
                     type: 'sendToTerminal',
                     terminalName: selectedTerminal,
-                    text
+                    text,
+                    autoExecute: false // UX-007: Don't auto-execute (allows editing)
                 });
 
                 // Clear input box after sending
                 document.getElementById('transcriptionText').value = '';
                 updateSendButton();
 
-                showStatus('📤 Sent to ' + selectedTerminal + ' ✓', 'info');
+                showStatus('📤 Sent to ' + selectedTerminal + ' (review before Enter)', 'info');
+            };
+
+            // UX-007: Send to terminal WITH auto-execute (Ctrl+Shift+Enter)
+            window.sendToTerminalAndExecute = function() {
+                const text = document.getElementById('transcriptionText').value;
+
+                if (!selectedTerminal) {
+                    showStatus('⚠️ Please select a terminal', 'error');
+                    return;
+                }
+
+                if (!text.trim()) {
+                    showStatus('⚠️ Nothing to send', 'error');
+                    return;
+                }
+
+                vscode.postMessage({
+                    type: 'sendToTerminal',
+                    terminalName: selectedTerminal,
+                    text,
+                    autoExecute: true // UX-007: Auto-execute immediately
+                });
+
+                // Clear input box after sending
+                document.getElementById('transcriptionText').value = '';
+                updateSendButton();
+
+                showStatus('📤 Sent to ' + selectedTerminal + ' and executed ✓', 'info');
             };
 
             window.clearText = function() {
@@ -3711,12 +3745,20 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 updateSendButton();
             };
 
-            // Support Ctrl+Enter to send
+            // UX-007: Support Ctrl+Enter (send only) and Ctrl+Shift+Enter (send + execute)
             const textArea = document.getElementById('transcriptionText');
             if (textArea) {
                 textArea.addEventListener('keydown', (e) => {
                     if (e.ctrlKey && e.key === 'Enter') {
-                        window.sendToTerminal();
+                        e.preventDefault(); // Prevent default Enter behavior
+
+                        if (e.shiftKey) {
+                            // Ctrl+Shift+Enter: Send to terminal AND execute
+                            window.sendToTerminalAndExecute();
+                        } else {
+                            // Ctrl+Enter: Send to terminal only (allows editing)
+                            window.sendToTerminal();
+                        }
                     }
                 });
 
