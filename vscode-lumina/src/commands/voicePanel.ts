@@ -619,6 +619,30 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 }
                 break;
 
+            case 'toggleHideCompleted':
+                /**
+                 * UX-003: Toggle Hide Completed Tasks filter
+                 * WHY: Allow users to focus on active/pending tasks in large sprints
+                 * PATTERN: Store state → Refresh UI
+                 */
+                await this._context.workspaceState.update('hideCompletedTasks', message.hideCompleted);
+
+                // Refresh the webview that sent the message
+                webview.html = this._getHtmlForWebview(webview);
+
+                // Also refresh the sidebar view if it exists and is different from the sender
+                if (this._view && this._view.webview !== webview) {
+                    this._view.webview.html = this._getHtmlForWebview(this._view.webview);
+                }
+
+                // Refresh all popped-out panels
+                for (const poppedPanel of this.poppedOutPanels) {
+                    if (poppedPanel.webview !== webview) {
+                        poppedPanel.webview.html = this._getHtmlForWebview(poppedPanel.webview);
+                    }
+                }
+                break;
+
             /**
              * PROTECT-000: Start Next Task with AI-enhanced prompt
              * WHY: Generate comprehensive task prompt with current project state
@@ -1546,6 +1570,11 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             vscode.postMessage({ type: 'reloadSprint' });
         };
 
+        // UX-003: Toggle Hide Completed Tasks filter
+        window.toggleHideCompleted = function(checked) {
+            vscode.postMessage({ type: 'toggleHideCompleted', hideCompleted: checked });
+        };
+
         // DEBUG-004: Switch to different sprint file
         window.switchSprint = function(filename) {
             if (filename && filename !== 'Loading sprint files...') {
@@ -2209,6 +2238,18 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 </div>
             </div>
 
+            <!-- UX-003: Show/Hide Completed Tasks checkbox -->
+            <div class="filter-section" style="margin: 8px 0; padding: 4px 8px;">
+                <label style="display: flex; align-items: center; cursor: pointer; user-select: none;">
+                    <input type="checkbox"
+                           id="hideCompletedCheckbox"
+                           onchange="toggleHideCompleted(this.checked)"
+                           style="margin-right: 6px;"
+                           ${this._context.workspaceState.get('hideCompletedTasks', false) ? 'checked' : ''}>
+                    <span style="font-size: 12px;">Hide completed tasks</span>
+                </label>
+            </div>
+
             <div class="start-task-section">
                 <button class="start-next-task-btn" onclick="startNextTask()" title="Start the next ready task (with all dependencies met)">
                     ▶️ Start Next Task
@@ -2233,6 +2274,12 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             `;
 
             for (const task of tasks) {
+                // UX-003: Skip completed tasks if filter is enabled
+                const hideCompleted = this._context.workspaceState.get('hideCompletedTasks', false);
+                if (hideCompleted && task.status === 'completed') {
+                    continue;
+                }
+
                 const statusIcon = this.getStatusIcon(task.status);
                 const statusClass = `task-status-${task.status}`;
                 const selectedClass = this.selectedTaskId === task.id ? 'selected' : '';

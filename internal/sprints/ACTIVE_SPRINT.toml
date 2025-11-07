@@ -458,7 +458,8 @@ id = "PROTECT-000D"
 name = "Build Q&A modal UI (generic wizard)"
 phase = "phase-3-mvp-prompt-system"
 assigned_engineer = "engineer_1"
-status = "pending"
+status = "completed"
+completed_date = "2025-11-07"
 agent = "infrastructure-agent"
 
 description = """
@@ -2044,7 +2045,8 @@ id = "TEMPLATE-001"
 name = "Create SPRINT_TEMPLATE.toml"
 phase = "phase-1-template-system"
 assigned_engineer = "engineer_1"
-status = "pending"
+status = "completed"
+completed_date = "2025-11-07"
 description = """
 Create internal/sprints/SPRINT_TEMPLATE.toml with normalized tasks:\r
 \r
@@ -2180,7 +2182,8 @@ id = "TEMPLATE-002"
 name = "Enhance sprint-plan skill with template injection"
 phase = "phase-1-template-system"
 assigned_engineer = "engineer_1"
-status = "pending"
+status = "completed"
+completed_date = "2025-11-07"
 description = """
 Update .claude/skills/sprint-plan/SKILL.md to inject template:\r
 \r
@@ -2327,7 +2330,8 @@ id = "TEMPLATE-003"
 name = "Update SprintSchemaValidator with template validation"
 phase = "phase-1-template-system"
 assigned_engineer = "engineer_1"
-status = "pending"
+status = "completed"
+completed_date = "2025-11-07"
 description = """
 Update vscode-lumina/src/services/SprintSchemaValidator.ts:\r
 \r
@@ -3074,56 +3078,10 @@ files_to_modify = [
   "vscode-lumina/src/services/PromptEnhancer.ts (enhancement service)"
 ]
 
-[tasks.UX-002]
-id = "UX-002"
-name = "Integrate semantic search into PromptEnhancer"
-status = "pending"
-phase = "phase-0b-ux-polish"
-agent = "infrastructure-agent"
-why = """
-PromptEnhancer uses keyword matching → produces template prompts.\r
-ContextEnhancer uses Voyage AI + Supabase semantic search → produces intelligent prompts.\r
-Test 2.5 failed because keyword matching isn't good enough.\r
-"""
-context = """
-Current (PromptEnhancer.ts:590-624): Simple keyword matching\r
-Better (ContextEnhancer.ts:159-177): Voyage-3-large embeddings + Supabase pgvector\r
-\r
-ContextEnhancer features:\r
-- 1024-dim embeddings\r
-- HNSW index for fast search\r
-- 42 deployed patterns with confidence scores\r
-- Multi-source context aggregation\r
-- <500ms performance target\r
-"""
-description = """
-Replace keyword matching with semantic search in PromptEnhancer:\r
-\r
-1. Extract pattern matching logic from ContextEnhancer.ts\r
-2. Integrate into PromptEnhancer.findRelevantPatterns()\r
-3. Replace string matching with semantic search\r
-4. Use Voyage AI embeddings + Supabase query\r
-5. Return confidence-scored patterns\r
-6. Maintain backward compatibility (fallback to keywords if Supabase unavailable)\r
-"""
-estimated_time = "2-3 hours"
-dependencies = [ "UX-001" ]
-deliverables = [
-  "PromptEnhancer uses semantic search",
-  "Pattern matching improved from keywords to AI",
-  "Test 2.5 scenarios passing",
-  "Performance <500ms maintained"
-]
-files_to_modify = [
-  "vscode-lumina/src/services/PromptEnhancer.ts (pattern matching)",
-  "vscode-lumina/src/terminal/context-enhancer.ts (extract semantic search)",
-  "vscode-lumina/src/ipc_dogfooding/PatternRecommender.ts (Supabase integration)"
-]
-
 [tasks.UX-003]
 id = "UX-003"
 name = "Show/Hide Completed Tasks checkbox"
-status = "pending"
+status = "in_progress"
 phase = "phase-0b-ux-polish"
 agent = "infrastructure-agent"
 why = """
@@ -3388,7 +3346,7 @@ id = "SELF-001"
 name = "Implement VariableResolver service"
 phase = "phase-2-foundation"
 assigned_engineer = "engineer_1"
-status = "pending"
+status = "completed"
 description = """
 Implement VariableResolver service with recursive variable substitution:\r
 \r
@@ -3495,7 +3453,7 @@ id = "SELF-002"
 name = "Implement ProjectConfigGenerator service"
 phase = "phase-2-foundation"
 assigned_engineer = "engineer_1"
-status = "pending"
+status = "in_progress"
 description = "Implement ProjectConfigGenerator service: generate() method (DetectionResults + InterviewAnswers → ProjectConfig), schema validation (ajv), default value application, config serialization (JSON pretty-print to .aetherlight/project-config.json), error classes (ValidationError, MissingRequiredFieldError)"
 estimated_lines = 300
 estimated_time = "10-12 hours"
