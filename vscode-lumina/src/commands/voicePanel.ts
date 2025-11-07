@@ -4325,13 +4325,13 @@ function getVoicePanelBodyContent(): string {
                 📋
             </button>
             <button id="recordBtn" class="toolbar-btn" onclick="toggleRecording()" title="Record Voice (Press backtick key)">
-                🎤 Record
+                🎤
             </button>
             <button id="enhanceBtn" class="toolbar-btn" onclick="enhanceText()" disabled title="Enhance with Patterns">
                 ✨
             </button>
             <button id="sendBtn" class="toolbar-btn primary" onclick="sendToTerminal()" disabled title="Send to Terminal (Ctrl+Enter)">
-                📤 Send
+                📤
             </button>
             <button id="clearBtn" class="toolbar-btn" onclick="clearText()" title="Clear">
                 🗑️
