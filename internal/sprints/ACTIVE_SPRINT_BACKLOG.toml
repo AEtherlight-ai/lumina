@@ -1,0 +1,562 @@
+# ÆtherLight Backlog Sprint - Intelligence Layer
+# Future enhancements for AI prompt system
+# These tasks enhance MVP with advanced intelligence
+
+[metadata]
+version = "1.0.0"
+sprint_number = "backlog"
+status = "backlog"
+created = "2025-11-07"
+start_date = "TBD"
+target_completion = "TBD"
+
+[metadata.focus]
+primary = "Advanced intelligence layer for prompt generation"
+secondary = "Breadcrumb navigation, selective context loading"
+tertiary = "Historical learning, temporal drift detection"
+
+[metadata.priority_order]
+intelligence = "Enhanced AI capabilities (AFTER MVP complete)"
+
+[metadata.progression]
+previous_sprint = "ACTIVE_SPRINT.toml"
+next_sprint = "TBD"
+triggers_hotfix_release = false
+git_branch = "TBD"
+
+[metadata.team]
+team_size = 1
+default_engineer = "engineer_1"
+
+[[metadata.team.engineers]]
+id = "engineer_1"
+name = "BB_Aelor"
+expertise = ["typescript", "ai-systems", "architecture"]
+available_agents = ["infrastructure-agent"]
+max_parallel_tasks = 2
+daily_capacity_hours = 8
+
+[notes]
+strategy = """
+These tasks build on PROTECT-000A/B/C/D/E (MVP).
+MVP provides basic gap detection and Q&A flow.
+Intelligence layer adds:
+- Breadcrumb navigation (Dewey decimal system for codebase)
+- Selective context loading (only load relevant information)
+- Advanced gap detection (temporal drift, pattern violations)
+- Historical learning (analyze KNOWN_ISSUES.md, prevent repeat failures)
+
+Pre-requisite: MVP (phase-3) must be completed and tested first.
+"""
+
+priority_order = """
+1. INTEL-001: Breadcrumb navigation (foundation for all intelligence)
+2. INTEL-002-005: Advanced detection features (parallel work possible)
+3. INTEL-006: Documentation (after implementation complete)
+"""
+
+# =============================================================================
+# INTELLIGENCE LAYER ENHANCEMENTS
+# =============================================================================
+
+[tasks.INTEL-001]
+id = "INTEL-001"
+name = "Build breadcrumb navigation system"
+phase = "intelligence"
+assigned_engineer = "engineer_1"
+status = "backlog"
+agent = "infrastructure-agent"
+
+description = """
+Implement Dewey decimal-style knowledge map for codebase navigation.
+
+System knows WHERE to find information (not storing everything):
+- Task definitions: ${config.structure.sprintDir}/ACTIVE_SPRINT.toml
+- Project rules: .claude/CLAUDE.md
+- Patterns: ${config.workflows.patternsDir}
+- Historical issues: ${config.workflows.knownIssuesPath}
+- Current state: git commands
+- Dependencies: TOML task scanning
+
+Analyzer follows only RELEVANT breadcrumbs for each task.
+"""
+
+estimated_time = "8-10 hours"
+estimated_lines = 600
+
+dependencies = ["PROTECT-000A", "PROTECT-000E"]
+
+deliverables = [
+    "Knowledge map architecture (where everything is)",
+    "Breadcrumb loader (selective context loading)",
+    "Relevance analyzer (which breadcrumbs needed for THIS task)",
+    "Integration with TaskAnalyzer.ts"
+]
+
+why = """
+Problem: Loading ALL context = bloat, slow, hallucinations
+Solution: Know where everything is, load only what's needed
+
+Like Dewey decimal: Don't read every book, know which shelf to check.
+"""
+
+context = """
+This is the INTELLIGENCE upgrade to 000A MVP.
+MVP detects gaps, Intelligence knows what to load.
+
+Architecture:
+- Knowledge map defines WHERE everything is
+- Relevance analyzer determines WHAT to load
+- Breadcrumb loader fetches ONLY relevant context
+- Prompt includes NO bloat (only what matters)
+"""
+
+reasoning_chain = [
+    "1. Task analyzer receives task ID",
+    "2. Load knowledge map (paths to all information)",
+    "3. Determine relevance:",
+    "   - If task has dependencies → Load dependency info",
+    "   - If task modifies TOML → Load pre-flight checklist",
+    "   - If task is infrastructure → Load testing patterns",
+    "4. Follow breadcrumbs (load ONLY relevant files)",
+    "5. Incorporate into prompt (no bloat)",
+    "6. Result: Focused, relevant context"
+]
+
+patterns = ["Pattern-CODE-001", "Pattern-TDD-001"]
+
+files_to_modify = [
+    "vscode-lumina/src/services/TaskAnalyzer.ts (add breadcrumb system)"
+]
+
+files_to_create = [
+    "vscode-lumina/src/services/KnowledgeMap.ts (NEW)",
+    "vscode-lumina/src/services/BreadcrumbLoader.ts (NEW)",
+    "vscode-lumina/test/services/knowledgeMap.test.ts"
+]
+
+validation_criteria = [
+    "Knowledge map loads from config",
+    "Relevance analyzer determines correct breadcrumbs",
+    "Only relevant context loaded (not everything)",
+    "Prompt size reduced vs MVP (no bloat)",
+    "Works with different project types"
+]
+
+performance_target = "Breadcrumb loading < 500ms"
+
+success_impact = """
+After INTEL-001 complete:
+✅ Intelligent context selection (not blind loading)
+✅ Reduced prompt bloat (only relevant info)
+✅ Faster analysis (selective loading)
+✅ Foundation for INTEL-002-005 (all use breadcrumbs)
+"""
+
+[tasks.INTEL-002]
+id = "INTEL-002"
+name = "Advanced gap detection (temporal drift)"
+phase = "intelligence"
+assigned_engineer = "engineer_1"
+status = "backlog"
+agent = "infrastructure-agent"
+
+description = """
+Detect when tasks are STALE (written Day 1, executed Day 14+).
+
+Intelligence:
+- Calculate days elapsed since task created
+- Detect new files added since then
+- Detect scope changes (files_to_modify no longer accurate)
+- Recommend scope updates
+- Flag assumptions that may be outdated
+
+Generates questions: "3 files changed since task written. Update scope?"
+"""
+
+estimated_time = "4-6 hours"
+estimated_lines = 300
+
+dependencies = ["INTEL-001"]
+
+deliverables = [
+    "Temporal drift calculator",
+    "Scope change detector",
+    "Assumption validator",
+    "Recommendation generator"
+]
+
+why = """
+Tasks written weeks ago become stale.
+Files change, dependencies complete, assumptions break.
+Need to detect and warn user BEFORE execution.
+"""
+
+context = """
+Uses breadcrumb system (INTEL-001) to compare:
+- Task creation date (from git or TOML)
+- Current project state (git diff, new files)
+- Expected vs actual scope
+"""
+
+reasoning_chain = [
+    "1. Extract task creation date",
+    "2. Calculate days elapsed",
+    "3. If > 7 days → Run drift detection",
+    "4. Compare task.files_to_modify to current files",
+    "5. Detect new files in same directory",
+    "6. Generate question: 'Task is 14 days old, 3 files changed. Review scope?'",
+    "7. If user says yes → Recommend adding new files"
+]
+
+patterns = ["Pattern-CODE-001"]
+
+files_to_modify = [
+    "vscode-lumina/src/services/TaskAnalyzer.ts (add drift detection)"
+]
+
+validation_criteria = [
+    "Detects tasks > 7 days old",
+    "Finds new files since task written",
+    "Generates appropriate questions",
+    "Recommendations make sense"
+]
+
+performance_target = "Drift detection < 1 second"
+
+success_impact = """
+After INTEL-002 complete:
+✅ Stale tasks flagged automatically
+✅ User warned about scope changes
+✅ Recommendations provided
+✅ Reduces execution failures (outdated assumptions)
+"""
+
+[tasks.INTEL-003]
+id = "INTEL-003"
+name = "Historical learning from KNOWN_ISSUES.md"
+phase = "intelligence"
+assigned_engineer = "engineer_1"
+status = "backlog"
+agent = "infrastructure-agent"
+
+description = """
+Analyze KNOWN_ISSUES.md to prevent repeat failures.
+
+Intelligence:
+- Parse historical bugs (BUG-012: duplicate ID crashed VS Code)
+- Match task context to historical issues
+- Generate preventive warnings
+- Add to prompt: "⚠️ Historical lesson: Check for duplicates (BUG-012)"
+
+Generic: Works for ANY project's KNOWN_ISSUES.md format.
+"""
+
+estimated_time = "3-4 hours"
+estimated_lines = 200
+
+dependencies = ["INTEL-001"]
+
+deliverables = [
+    "KNOWN_ISSUES.md parser (generic)",
+    "Issue → task matcher (detect relevance)",
+    "Warning generator",
+    "Integration with prompt generator"
+]
+
+why = """
+History repeats when forgotten.
+KNOWN_ISSUES.md has 15+ hours of debugging lessons.
+System should learn from past mistakes automatically.
+"""
+
+context = """
+Uses breadcrumb system to locate KNOWN_ISSUES.md:
+- Path from config.workflows.knownIssuesPath
+- Parse markdown sections
+- Extract issue IDs, descriptions, root causes
+- Match to current task context
+"""
+
+reasoning_chain = [
+    "1. Load KNOWN_ISSUES.md (from config)",
+    "2. Parse issues (markdown format)",
+    "3. For current task, check:",
+    "   - Does it modify same files as past bugs?",
+    "   - Does it have similar patterns?",
+    "4. If match found → Generate warning",
+    "5. Add to prompt: '⚠️ Learn from BUG-012: Always validate before committing'",
+    "6. User sees historical context"
+]
+
+patterns = ["Pattern-CODE-001"]
+
+files_to_modify = [
+    "vscode-lumina/src/services/TaskAnalyzer.ts (add historical learning)"
+]
+
+files_to_create = [
+    "vscode-lumina/src/services/HistoricalLearning.ts (NEW)",
+    "vscode-lumina/test/services/historicalLearning.test.ts"
+]
+
+validation_criteria = [
+    "Parses KNOWN_ISSUES.md correctly",
+    "Matches issues to tasks accurately",
+    "Warnings are relevant",
+    "Works with different markdown formats"
+]
+
+performance_target = "Historical analysis < 500ms"
+
+success_impact = """
+After INTEL-003 complete:
+✅ Past mistakes not repeated
+✅ Warnings based on actual history
+✅ Learning system (gets smarter over time)
+✅ Reduces debugging time (prevention vs cure)
+"""
+
+[tasks.INTEL-004]
+id = "INTEL-004"
+name = "Pattern violation detection"
+phase = "intelligence"
+assigned_engineer = "engineer_1"
+status = "backlog"
+agent = "infrastructure-agent"
+
+description = """
+Detect when tasks violate project patterns.
+
+Intelligence:
+- Task modifies TOML → Check if pre-flight checklist mentioned
+- Task adds dependency → Check if Pattern-PUBLISH-003 followed
+- Task is infrastructure → Check if TDD workflow included
+
+Generates blockers: "🚨 TOML edit without pre-flight checklist reference"
+"""
+
+estimated_time = "4-6 hours"
+estimated_lines = 300
+
+dependencies = ["INTEL-001"]
+
+deliverables = [
+    "Pattern loader (reads from ${config.workflows.patternsDir})",
+    "Violation detector (matches task → required patterns)",
+    "Blocker generator",
+    "Integration with gap detection"
+]
+
+why = """
+Patterns exist to prevent mistakes.
+If task violates pattern, catch it BEFORE execution.
+Example: Edit TOML without reading parser = broken sprint panel.
+"""
+
+context = """
+Uses breadcrumb system to:
+- Load pattern docs from config.workflows.patternsDir
+- Parse pattern requirements
+- Match to task context
+- Generate blockers if violated
+"""
+
+reasoning_chain = [
+    "1. Load task details",
+    "2. Check task.files_to_modify for pattern triggers:",
+    "   - TOML files → Require pre-flight checklist",
+    "   - package.json → Require Pattern-PUBLISH-003",
+    "3. Check task.patterns field (should list required patterns)",
+    "4. If pattern missing → Generate blocker",
+    "5. User must acknowledge pattern before proceeding"
+]
+
+patterns = ["Pattern-CODE-001"]
+
+files_to_modify = [
+    "vscode-lumina/src/services/TaskAnalyzer.ts (add pattern checking)"
+]
+
+validation_criteria = [
+    "Detects TOML edits without checklist",
+    "Detects dependency adds without review",
+    "Generates appropriate blockers",
+    "Works with custom project patterns"
+]
+
+performance_target = "Pattern checking < 200ms"
+
+success_impact = """
+After INTEL-004 complete:
+✅ Pattern violations caught early
+✅ Pre-flight checklists enforced
+✅ Reduces critical bugs (pattern-based prevention)
+✅ Project-specific rules respected
+"""
+
+[tasks.INTEL-005]
+id = "INTEL-005"
+name = "Prompt compression and relevance filtering"
+phase = "intelligence"
+assigned_engineer = "engineer_1"
+status = "backlog"
+agent = "infrastructure-agent"
+
+description = """
+Remove irrelevant information from prompts (reduce bloat).
+
+Intelligence:
+- Task has NO dependencies → Don't include dependency section
+- Task is < 1 hour → Don't include TDD requirements
+- Task has NO patterns → Don't include pattern references
+- Files haven't changed → Don't include "Changes Since" section
+
+Result: Prompts only include RELEVANT context.
+"""
+
+estimated_time = "3-4 hours"
+estimated_lines = 200
+
+dependencies = ["INTEL-001", "INTEL-002"]
+
+deliverables = [
+    "Relevance filter (which sections to include)",
+    "Conditional prompt sections",
+    "Bloat detector (remove empty sections)",
+    "Integration with prompt generator"
+]
+
+why = """
+Bloated prompts = wasted tokens, slower analysis, confusion.
+Only include what's NEEDED for THIS task.
+"""
+
+context = """
+Uses breadcrumb system + drift detection to determine:
+- Which sections are relevant?
+- Which can be omitted?
+- Result: Lean, focused prompts
+"""
+
+reasoning_chain = [
+    "1. Analyze task requirements",
+    "2. For each prompt section, check relevance:",
+    "   - Dependencies section: Skip if task.dependencies empty",
+    "   - TDD section: Skip if task < 1 hour",
+    "   - Temporal drift: Skip if task < 3 days old",
+    "3. Generate prompt with only relevant sections",
+    "4. Result: 30-50% smaller prompts, same quality"
+]
+
+patterns = ["Pattern-CODE-001"]
+
+files_to_modify = [
+    "vscode-lumina/src/services/TaskAnalyzer.ts (add compression)"
+]
+
+validation_criteria = [
+    "Irrelevant sections omitted",
+    "Relevant sections included",
+    "Prompt size reduced vs MVP",
+    "Quality maintained (no information loss)"
+]
+
+performance_target = "Filtering < 100ms"
+
+success_impact = """
+After INTEL-005 complete:
+✅ Leaner prompts (30-50% smaller)
+✅ Faster to read and understand
+✅ Lower token costs
+✅ Same quality, less bloat
+"""
+
+[tasks.INTEL-006]
+id = "INTEL-006"
+name = "Documentation: Intelligence layer architecture"
+phase = "documentation"
+assigned_engineer = "engineer_1"
+status = "backlog"
+agent = "documentation-agent"
+
+description = """
+Document intelligence layer for future developers.
+
+Covers:
+- Breadcrumb navigation architecture
+- Knowledge map design
+- Gap detection algorithms
+- Historical learning system
+- Pattern violation detection
+"""
+
+estimated_time = "2-3 hours"
+estimated_lines = 400
+
+dependencies = ["INTEL-001", "INTEL-002", "INTEL-003", "INTEL-004", "INTEL-005"]
+
+deliverables = [
+    "docs/architecture/INTELLIGENCE_LAYER.md",
+    "Update .claude/CLAUDE.md with intelligence references",
+    "Add examples and diagrams"
+]
+
+why = """
+Complex intelligence system needs documentation.
+Future developers need to understand architecture.
+Users need to understand how it works.
+"""
+
+context = """
+Documents the complete intelligence layer:
+- How breadcrumbs work
+- When intelligence activates
+- What gets analyzed
+- How decisions are made
+"""
+
+reasoning_chain = [
+    "1. Write architecture overview",
+    "2. Document each intelligence component:",
+    "   - Breadcrumb navigation (INTEL-001)",
+    "   - Temporal drift (INTEL-002)",
+    "   - Historical learning (INTEL-003)",
+    "   - Pattern violations (INTEL-004)",
+    "   - Prompt compression (INTEL-005)",
+    "3. Add examples for each",
+    "4. Include diagrams showing flow",
+    "5. Update .claude/CLAUDE.md references"
+]
+
+patterns = ["Pattern-DOCS-001"]
+
+files_to_create = [
+    "docs/architecture/INTELLIGENCE_LAYER.md"
+]
+
+files_to_modify = [
+    ".claude/CLAUDE.md (add intelligence layer references)"
+]
+
+validation_criteria = [
+    "All components documented",
+    "Examples provided",
+    "Diagrams clear",
+    "References updated"
+]
+
+success_impact = """
+After INTEL-006 complete:
+✅ Intelligence layer fully documented
+✅ Future developers can understand system
+✅ Users know how intelligence works
+✅ Easier to maintain and extend
+"""
+
+[progress]
+total_tasks = 6
+completed_tasks = 0
+in_progress_tasks = 0
+pending_tasks = 6
+completion_percentage = 0
