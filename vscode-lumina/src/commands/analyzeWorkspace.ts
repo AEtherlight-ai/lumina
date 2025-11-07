@@ -27,6 +27,7 @@ import type {
 	ComplexityAnalysis,
 	TechnicalDebtAnalysis
 } from 'aetherlight-analyzer';
+import { ConfigGenerator } from '../services/ConfigGenerator';
 
 /**
  * Register analyze workspace commands
@@ -79,6 +80,101 @@ async function analyzeWorkspace(context: vscode.ExtensionContext, generateSprint
 		fs.mkdirSync(aetherlightDir, { recursive: true });
 	}
 
+	// PROTECT-000E: Generate config.json if it doesn't exist
+	const configGenerator = new ConfigGenerator(workspaceRoot);
+	if (!configGenerator.configExists()) {
+		outputChannel.appendLine('🔧 Configuring ÆtherLight for your project...');
+
+		try {
+			// Load package.json
+			const packageJsonPath = path.join(workspaceRoot, 'package.json');
+			if (!fs.existsSync(packageJsonPath)) {
+				throw new Error('No package.json found in workspace root');
+			}
+
+			const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+
+			// Auto-detect project settings
+			const projectType = await configGenerator.detectProjectType(packageJson);
+			const framework = await configGenerator.detectTestingFramework(packageJson, workspaceRoot);
+			const structure = await configGenerator.detectFileStructure(workspaceRoot);
+
+			outputChannel.appendLine(`  Detected: ${projectType} project with ${framework.framework} tests`);
+			outputChannel.appendLine(`  Source: ${structure.sourceDir}, Tests: ${structure.testsDir}`);
+
+			// Prompt user for preferences
+			const coverageChoice = await vscode.window.showQuickPick(
+				[
+					{ label: 'Default Coverage Targets', description: 'Infrastructure: 90%, API: 85%, UI: 70%', value: 'default' },
+					{ label: 'Custom Coverage Targets', description: 'Set your own targets', value: 'custom' }
+				],
+				{ placeHolder: 'Select test coverage targets' }
+			);
+
+			if (!coverageChoice) {
+				vscode.window.showWarningMessage('ÆtherLight: Config generation cancelled');
+				return;
+			}
+
+			let customCoverage;
+			if (coverageChoice.value === 'custom') {
+				// TODO: Add custom coverage input
+				vscode.window.showInformationMessage('Custom coverage not yet implemented, using defaults');
+			}
+
+			const tddChoice = await vscode.window.showQuickPick(
+				[
+					{ label: 'Yes', description: 'Require Test-Driven Development (write tests first)', value: true },
+					{ label: 'No', description: 'Tests optional', value: false }
+				],
+				{ placeHolder: 'Require TDD (Test-Driven Development)?' }
+			);
+
+			if (!tddChoice) {
+				vscode.window.showWarningMessage('ÆtherLight: Config generation cancelled');
+				return;
+			}
+
+			const sprintChoice = await vscode.window.showQuickPick(
+				[
+					{ label: 'sprints/', description: 'Top-level sprints directory', value: 'sprints' },
+					{ label: 'internal/sprints/', description: 'Internal sprints directory', value: 'internal/sprints' },
+					{ label: '.aetherlight/sprints/', description: 'Hidden sprints directory', value: '.aetherlight/sprints' }
+				],
+				{ placeHolder: 'Select sprint directory location' }
+			);
+
+			if (!sprintChoice) {
+				vscode.window.showWarningMessage('ÆtherLight: Config generation cancelled');
+				return;
+			}
+
+			// Generate config
+			const config = await configGenerator.generateConfig({
+				projectType,
+				framework: framework.framework,
+				sourceDir: structure.sourceDir,
+				testsDir: structure.testsDir,
+				docsDir: structure.docsDir,
+				coverageTargets: coverageChoice.value as 'default' | 'custom',
+				customCoverage,
+				requireTDD: tddChoice.value as boolean,
+				sprintDir: sprintChoice.value
+			});
+
+			// Save config
+			const configPath = await configGenerator.saveConfig(config);
+			outputChannel.appendLine(`✅ Config saved to: ${configPath}`);
+			vscode.window.showInformationMessage('ÆtherLight: Project configured successfully!');
+
+		} catch (error: any) {
+			outputChannel.appendLine(`⚠️  Config generation failed: ${error.message}`);
+			outputChannel.appendLine('  Continuing with analysis...');
+		}
+	} else {
+		outputChannel.appendLine('✅ Config already exists, skipping generation');
+	}
+
 	// Run analysis with progress indicator
 	await vscode.window.withProgress({
 		location: vscode.ProgressLocation.Notification,
@@ -87,7 +183,7 @@ async function analyzeWorkspace(context: vscode.ExtensionContext, generateSprint
 	}, async (progress) => {
 		try {
 			// Step 1: Parse TypeScript files
-			outputChannel.appendLine('🔍 Parsing TypeScript/JavaScript files...');
+			outputChannel.appendLine('\n🔍 Parsing TypeScript/JavaScript files...');
 			progress.report({ increment: 10, message: 'Parsing files...' });
 
 			const parser = new TypeScriptParser();
