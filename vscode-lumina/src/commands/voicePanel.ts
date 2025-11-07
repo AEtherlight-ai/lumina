@@ -2215,6 +2215,9 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 <select id="sprintFileDropdown" class="sprint-file-dropdown" title="Select sprint file to view" onchange="switchSprint(this.value)">
                     <option>Loading sprint files...</option>
                 </select>
+                <button class="icon-btn" onclick="startNextTask()" title="Start the next ready task (with all dependencies met)">
+                    ▶️
+                </button>
                 <div class="sprint-header-actions">
                     <button class="icon-btn" onclick="reloadSprint()" title="Refresh Sprint Data">
                         🔄
@@ -2248,12 +2251,6 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                            ${this._context.workspaceState.get('hideCompletedTasks', false) ? 'checked' : ''}>
                     <span style="font-size: 12px;">Hide completed tasks</span>
                 </label>
-            </div>
-
-            <div class="start-task-section">
-                <button class="start-next-task-btn" onclick="startNextTask()" title="Start the next ready task (with all dependencies met)">
-                    ▶️ Start Next Task
-                </button>
             </div>
 
             ${teamSize > 1 ? this.getEngineerTabs(engineers) : ''}
