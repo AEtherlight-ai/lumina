@@ -232,51 +232,114 @@ graph LR
 
 ## Enforcement Mechanisms
 
-### 1. File Annotations
+**Status:** ✅ ACTIVE (PROTECT-002 complete - 2025-11-07)
+
+### 1. File Annotations (PROTECT-001)
+
+Protection level annotations in code:
+
 ```typescript
 /**
- * @protected since v1.0.0
- * @immutable - DO NOT MODIFY
- * @refactor-only - Interface must be preserved
+ * @protected - Core functionality, refactor only
+ * Locked: 2025-11-07 (v0.16.7 manual test PASS)
+ * Tests: Core extension activation, command registration
+ * Reference: PROTECT-001 stabilization (phase-1)
  *
- * This function is part of the public API.
- * Any changes require refactor/ branch and 2 reviews.
+ * Lumina VS Code Extension - Entry Point
+ * ...
  */
-export function criticalFunction() { }
 ```
 
-### 2. Pre-commit Hooks
+**Annotation format:**
+- `@protected`: Refactor only (preserve interface and behavior)
+- `@immutable`: Never change (API contracts, external integrations)
+- `@maintainable`: Bug fixes allowed (partial implementations)
+- Lock date: Date when protection was applied
+- Test reference: Manual test that verified functionality
+- Status: PASSING/STABLE/PARTIAL
+
+### 2. Pre-commit Hook Enforcement (PROTECT-002)
+
+**Location:** `.git/hooks/pre-commit` (integrated with existing hooks)
+
+**Protection validation script:** `scripts/validate-protection.js`
+
+**How it works:**
+1. Hook scans staged files for @protected/@immutable annotations
+2. If protected files found, prompts user for approval
+3. User must explicitly answer "yes" to proceed
+4. If approved, commit succeeds with audit trail message
+5. If denied, commit is blocked and files unstaged
+
+**Example enforcement flow:**
 ```bash
-#!/bin/bash
-# .githooks/pre-commit
+$ git commit -m "Fix bug in SprintLoader"
 
-# Check for protected file modifications
-git diff --cached --name-only | while read file; do
-  if grep -q "@protected\|@immutable" "$file"; then
-    current_branch=$(git branch --show-current)
-    if [[ ! "$current_branch" =~ ^refactor/ ]]; then
-      echo "ERROR: Protected file $file can only be modified in refactor/ branches"
-      exit 1
-    fi
-  fi
-done
+🔒 Checking code protection...
+
+⚠️  PROTECTED CODE MODIFICATION DETECTED
+
+The following protected files are being modified:
+
+  🟡 PROTECTED: vscode-lumina/src/commands/SprintLoader.ts:10
+
+Protection levels:
+  🔴 IMMUTABLE: NEVER modify (API contracts, critical systems)
+  🟡 PROTECTED: Refactor only (preserve interface and behavior)
+
+Do you approve modifying protected code? (yes/no): yes
+
+✅ Approval granted
+
+IMPORTANT: Add this to your commit message for audit trail:
+
+PROTECTED CODE MODIFICATION APPROVED:
+  - vscode-lumina/src/commands/SprintLoader.ts (protected)
 ```
 
-### 3. CI/CD Checks
-```yaml
-# .github/workflows/protection.yml
-name: Code Protection Check
-on: [pull_request]
+**CI Mode:** Skip protection checks in automated environments:
+```bash
+SKIP_PROTECTION_CHECK=1 git commit -m "Automated update"
+```
 
-jobs:
-  check:
-    steps:
-      - name: Verify Branch Type
-        run: |
-          if [[ "${{ github.head_ref }}" =~ ^feature/ ]]; then
-            # Ensure no protected files modified
-            ./scripts/check-protected-files.sh
-          fi
+### 3. Validation Script (scripts/validate-protection.js)
+
+**Features:**
+- Scans staged files for protection annotations
+- Interactive approval prompts for protected file changes
+- Audit trail messages for approved modifications
+- Exit codes: 0 (approved/none), 1 (denied), 2 (error)
+- CI mode support via SKIP_PROTECTION_CHECK environment variable
+
+**Usage:**
+```bash
+# Manual validation (used by pre-commit hook)
+node scripts/validate-protection.js
+
+# CI mode (skip checks)
+SKIP_PROTECTION_CHECK=1 node scripts/validate-protection.js
+```
+
+### 4. Protection Audit (scripts/audit-protection.js)
+
+**Status:** Planned (not yet implemented)
+
+**Will provide:**
+- Protection coverage reports
+- Consistency verification against CODE_PROTECTION_POLICY.md
+- Historical protection trends
+- Unprotected passing feature detection
+
+**Usage (future):**
+```bash
+# Generate protection report
+node scripts/audit-protection.js --report=summary
+
+# Verify consistency
+node scripts/audit-protection.js --verify
+
+# Coverage metrics
+node scripts/audit-protection.js --coverage
 ```
 
 ### 4. Code Review Rules

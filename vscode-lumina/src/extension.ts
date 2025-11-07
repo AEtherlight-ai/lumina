@@ -726,3 +726,4 @@ export function deactivate(): void {
 	// IPC client cleanup handled by IPCClient destructor
 	console.log('Lumina extension deactivated successfully');
 }
+// Test comment
