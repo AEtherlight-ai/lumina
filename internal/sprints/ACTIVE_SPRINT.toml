@@ -854,6 +854,114 @@ After PROTECT-000E complete:
 ✅ Users don't manually create config (automated)
 """
 
+[tasks.MVP-001]
+id = "MVP-001"
+name = "Add skill assignment to sprint-plan workflow (Step 3.6)"
+status = "pending"
+phase = "phase-3-mvp-prompt-system"
+agent = "infrastructure-agent"
+assigned_engineer = "engineer_1"
+why = """
+Sprint-plan skill assigns agents (expertise) but not skills (workflow automation).\r
+Gap identified: Tasks like "Publish v0.16.7" should have both agent=infrastructure-agent AND skill=publish.\r
+Without skill assignment, autonomous execution is incomplete - tasks don't know which automated workflow to use.\r
+"""
+context = """
+Current state:\r
+- Step 3.5 assigns agents (ui-agent, infrastructure-agent, etc.) ✓\r
+- No step assigns skills (publish, code-analyze, protect, etc.) ✗\r
+\r
+Available skills in .claude/skills/:\r
+- publish: Publishing releases (npm + GitHub)\r
+- code-analyze: Codebase analysis and pattern detection\r
+- protect: Code protection annotation\r
+- protection-audit: Protection system audit\r
+- sprint-plan: Sprint creation and enhancement\r
+- validate-protection: Protection enforcement validation\r
+\r
+Benefits of skill assignment:\r
+1. Autonomous execution: Task knows which skill to invoke\r
+2. Consistency: Skills have built-in workflows (e.g., Pattern-PUBLISH-001)\r
+3. Error prevention: Skills have validation (prevents manual mistakes)\r
+4. Self-documenting: Clear which tasks are automated vs manual\r
+\r
+Example:\r
+[tasks.PATCH-001]\r
+agent = "infrastructure-agent"  # Who has expertise (current)\r
+skill = "publish"                # What workflow to use (missing)\r
+"""
+description = """
+Add Step 3.6 to sprint-plan skill ENHANCE workflow:\r
+\r
+1. Add Step 3.6: MANDATORY Skill Assignment (after Step 3.5 Agent Validation):\r
+   - Check if task matches a skill workflow\r
+   - List available skills from .claude/skills/\r
+   - Skill assignment checklist (similar to agent validation)\r
+\r
+2. Skill assignment logic:\r
+   - Publishing/releasing? → skill = "publish"\r
+   - Code analysis/audit? → skill = "code-analyze"\r
+   - Protecting code? → skill = "protect"\r
+   - Sprint planning? → skill = "sprint-plan"\r
+   - Validation? → skill = "validate-protection"\r
+   - No match? → Omit field (most tasks won't have skills)\r
+\r
+3. Add to task template:\r
+   - Add `skill` as optional field\r
+   - Document when to use (automated workflows only)\r
+   - Add examples with skill field\r
+\r
+4. Update agent validation example:\r
+   - Show both agent AND skill assignment\r
+   - Clarify: agent = expertise, skill = workflow\r
+\r
+5. Validation:\r
+   - Warn if task name suggests skill exists but not assigned\r
+   - Example: Task name "Publish v0.16.7" → Should have skill="publish"\r
+"""
+estimated_time = "3-4 hours"
+estimated_lines = 200
+dependencies = [ ]
+deliverables = [
+  "Step 3.6 added to sprint-plan skill.md (after Step 3.5)",
+  "Skill assignment checklist with OUT LOUD validation",
+  "Task template includes optional 'skill' field",
+  "Available skills listed from .claude/skills/",
+  "Examples showing agent + skill assignment",
+  "Validation warns for missing skill when task name suggests one"
+]
+patterns = [ "Pattern-SPRINT-PLAN-001", "Pattern-TRACKING-001" ]
+files_to_modify = [
+  ".claude/skills/sprint-plan/skill.md (add Step 3.6 after line 1002)"
+]
+validation_criteria = [
+  "Step 3.6 follows same format as Step 3.5 (OUT LOUD checklist)",
+  "Available skills listed with descriptions",
+  "Task template shows skill field as optional",
+  "Examples include both agent and skill fields",
+  "Clear when to use: automated workflows only"
+]
+reasoning_chain = [
+  "1. User creates task: 'Publish v0.16.7'",
+  "2. Step 3.5 assigns agent: infrastructure-agent (expertise)",
+  "3. Step 3.6 assigns skill: publish (workflow automation)",
+  "4. Task TOML includes both: agent + skill",
+  "5. Autonomous execution: Agent has context, skill has workflow",
+  "6. Result: Fully autonomous task execution"
+]
+success_impact = """
+After MVP-001 complete:\r
+✅ Sprint-plan assigns both agent (expertise) AND skill (workflow)\r
+✅ Tasks know which automated workflow to use\r
+✅ Autonomous execution is complete: context + workflow\r
+✅ Self-documenting: Clear which tasks are automated\r
+✅ Consistency: Skills enforce patterns (e.g., Pattern-PUBLISH-001)\r
+✅ Error prevention: Skills have built-in validation\r
+\r
+Completes autonomous workflow architecture:\r
+Agent (who has expertise) + Skill (what workflow to use) = Fully autonomous\r
+"""
+
 # =============================================================================
 # PHASE 1: STABILIZATION (Do First - Lock Down What Works)
 # =============================================================================
@@ -1124,6 +1232,7 @@ After PROTECT-003 complete:\r
 ✅ Reduces confusion and support questions\r
 ✅ Protection system ready for production use\r
 """
+completed_date = "2025-11-07"
 
 [tasks.POST-001]
 id = "POST-001"
@@ -6940,8 +7049,8 @@ validation_criteria = [
 ]
 
 [progress]
-total_tasks = 67
+total_tasks = 68
 completed_tasks = 5
 in_progress_tasks = 0
-pending_tasks = 62
+pending_tasks = 63
 completion_percentage = 7
