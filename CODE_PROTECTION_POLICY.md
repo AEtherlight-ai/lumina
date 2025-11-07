@@ -342,9 +342,114 @@ node scripts/audit-protection.js --verify
 node scripts/audit-protection.js --coverage
 ```
 
-### 4. Code Review Rules
-```markdown
-## PR Review Checklist
+---
+
+## Override Process
+
+**When you need to modify protected code:**
+
+### Step 1: Document Justification
+
+Include in commit message:
+```
+PROTECTED CODE MODIFICATION APPROVED:
+
+Justification: [Why this change is necessary]
+Files modified: [List of protected files]
+Protection level: @protected (refactor only) / @immutable (critical)
+Approval: [Reference to approval - PR, issue, discussion]
+Testing: [How you verified the change doesn't break functionality]
+```
+
+### Step 2: Get Approval (Based on Protection Level)
+
+**@immutable files:**
+- Architecture review required
+- User impact assessment
+- Migration plan for breaking changes
+- Minimum 2 senior reviewers
+
+**@protected files:**
+- Technical lead approval
+- All existing tests must pass
+- Interface preserved (no behavior changes)
+- Performance same or better
+
+**@maintainable files:**
+- Self-approval allowed
+- Document justification in commit message
+- Add regression test for the bug being fixed
+
+### Step 3: Update Tests
+
+After modifying protected code:
+```bash
+# Re-run all tests
+cd vscode-lumina && npm test
+
+# Update manual test document if applicable
+# Update protection annotation if status changes
+```
+
+### Example Override
+
+```bash
+git commit -m "PROTECTED CODE MODIFICATION APPROVED: Fix SprintLoader memory leak
+
+Justification: Memory leak causing extension crashes after 6+ hours
+Files modified: vscode-lumina/src/commands/SprintLoader.ts (@protected)
+Protection level: @protected - Refactored file watching logic
+Approval: Issue #42, Technical lead: @BB_Aelor
+Testing: Manual test 24-hour run, memory usage stable
+All tests pass: ✅ 127 passing, 0 failing
+
+Implementation preserves interface and behavior.
+Only internal file watch cleanup logic changed."
+```
+
+---
+
+## Audit Trail
+
+### View All Protected Code Changes
+
+```bash
+# Show all commits that modified protected code
+git log --grep="PROTECTED CODE MODIFICATION APPROVED" --oneline
+
+# Show changes to specific protected file
+git log --grep="PROTECTED" -- vscode-lumina/src/commands/SprintLoader.ts
+
+# Show full details of protected changes
+git log --grep="PROTECTED CODE MODIFICATION APPROVED" -p
+```
+
+### Verify Protection Annotations
+
+```bash
+# Find all @protected annotations
+grep -r "@protected" vscode-lumina/src/ --include="*.ts"
+
+# Find all @immutable annotations
+grep -r "@immutable" vscode-lumina/src/ --include="*.ts"
+
+# Count protected files
+grep -r "@protected\|@immutable" vscode-lumina/src/ --include="*.ts" | wc -l
+```
+
+### Check Recent Protected File Modifications
+
+```bash
+# Last 30 days of protected file changes
+git log --since="30 days ago" --grep="PROTECTED" --oneline
+
+# Protected files modified in current branch
+git diff master --name-only | xargs grep -l "@protected\|@immutable"
+```
+
+---
+
+## Code Review Rules
 
 ### For Refactor Branches
 - [ ] Interface unchanged?
@@ -364,7 +469,8 @@ node scripts/audit-protection.js --coverage
 - [ ] Regression test added?
 - [ ] Root cause documented?
 - [ ] CHANGELOG updated?
-```
+
+---
 
 ## Examples
 
