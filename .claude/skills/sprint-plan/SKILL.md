@@ -91,6 +91,348 @@ The skill will:
   - Add validation criteria for error boundaries
   - Include error recovery strategies
 
+### 2.5: Inject Template Tasks (Pattern-SPRINT-TEMPLATE-001)
+
+**CRITICAL: After generating feature tasks, automatically inject normalized template tasks.**
+
+This step ensures every sprint includes quality assurance, documentation, and retrospective tasks.
+
+#### Template Injection Process
+
+**Step 1: Load Template**
+```javascript
+// Load SPRINT_TEMPLATE.toml
+const fs = require('fs');
+const toml = require('@iarna/toml');
+
+const templatePath = 'internal/sprints/SPRINT_TEMPLATE.toml';
+const templateContent = fs.readFileSync(templatePath, 'utf-8');
+const template = toml.parse(templateContent);
+
+// Template structure:
+// - template.metadata (version, task counts)
+// - template.required.* (13 tasks - always include)
+// - template.suggested.* (4 tasks - include with skip option)
+// - template.conditional.* (8 tasks - condition-based)
+// - template.retrospective.* (2 tasks - always include)
+```
+
+**Step 2: Detect Conditions**
+
+Analyze sprint requirements to determine which conditional tasks to include:
+
+```javascript
+// Condition detection logic
+const sprintName = metadata.sprint_name || "";
+const sprintDescription = userRequirements || "";
+const combinedText = (sprintName + " " + sprintDescription).toLowerCase();
+
+// Publishing condition
+const isPublishing = combinedText.includes("publish") ||
+                     combinedText.includes("release") ||
+                     combinedText.includes("version bump") ||
+                     combinedText.includes("v1.0") ||
+                     combinedText.includes("deploy");
+
+// User-facing changes condition
+const isUserFacing = combinedText.includes("ui") ||
+                     combinedText.includes("ux") ||
+                     combinedText.includes("user experience") ||
+                     combinedText.includes("interface") ||
+                     combinedText.includes("component") ||
+                     combinedText.includes("breaking change");
+```
+
+**Condition Keywords:**
+
+**Publishing Keywords** (triggers PUB-001 to PUB-005):
+- "publish", "release", "version bump", "v1.0", "v2.0", "deploy", "distribution"
+- Example: "Release v1.0 with authentication" → Publishing tasks included
+
+**User-Facing Keywords** (triggers UX-001 to UX-003):
+- "ui", "ux", "user experience", "interface", "component", "breaking change", "migration"
+- Example: "Redesign authentication UI" → UX tasks included
+
+**Step 3: Extract Template Tasks**
+
+```javascript
+// Extract task categories from template
+const requiredTasks = Object.entries(template.required).map(([key, task]) => ({
+  ...task,
+  category: "REQUIRED",
+  canSkip: false
+}));
+
+const suggestedTasks = Object.entries(template.suggested).map(([key, task]) => ({
+  ...task,
+  category: "SUGGESTED",
+  canSkip: true,
+  skipJustification: ""  // Prompt user for justification if skipping
+}));
+
+const conditionalTasks = [];
+if (isPublishing) {
+  // Include publishing tasks (PUB-001 to PUB-005)
+  Object.entries(template.conditional)
+    .filter(([key, task]) => task.id.startsWith("PUB-"))
+    .forEach(([key, task]) => {
+      conditionalTasks.push({
+        ...task,
+        category: "CONDITIONAL-PUBLISHING",
+        condition: "Sprint includes publishing/release"
+      });
+    });
+}
+
+if (isUserFacing) {
+  // Include UX tasks (UX-001 to UX-003)
+  Object.entries(template.conditional)
+    .filter(([key, task]) => task.id.startsWith("UX-"))
+    .forEach(([key, task]) => {
+      conditionalTasks.push({
+        ...task,
+        category: "CONDITIONAL-UX",
+        condition: "Sprint has user-facing changes"
+      });
+    });
+}
+
+const retrospectiveTasks = Object.entries(template.retrospective).map(([key, task]) => ({
+  ...task,
+  category: "RETROSPECTIVE",
+  canSkip: false
+}));
+
+// Total template tasks to inject
+const allTemplateTasks = [
+  ...requiredTasks,     // 13 tasks
+  ...suggestedTasks,    // 4 tasks
+  ...conditionalTasks,  // 0-8 tasks (condition-dependent)
+  ...retrospectiveTasks // 2 tasks
+];
+```
+
+**Step 4: Task ID Collision Avoidance**
+
+Template tasks use category prefixes that won't collide with feature tasks:
+
+**Template Task ID Prefixes** (reserved, never use for features):
+- `DOC-*` - Documentation tasks (CHANGELOG, README, patterns)
+- `QA-*` - Quality assurance tasks (tests, coverage, audits)
+- `AGENT-*` - Agent synchronization tasks (context updates)
+- `INFRA-*` - Infrastructure tasks (git hooks, validation)
+- `CONFIG-*` - Configuration tasks (settings schema)
+- `PERF-*` - Performance tasks (regression testing)
+- `SEC-*` - Security tasks (vulnerability scans)
+- `COMPAT-*` - Compatibility tasks (cross-platform, backwards compat)
+- `PUB-*` - Publishing tasks (pre-publish, artifacts, verification)
+- `UX-*` - User experience tasks (upgrade docs, screenshots)
+- `RETRO-*` - Retrospective tasks (sprint retrospective, pattern extraction)
+
+**Feature Task ID Prefixes** (use for generated tasks):
+- `FEAT-*` - New features
+- `AUTH-*` - Authentication features
+- `API-*` - API endpoints
+- `UI-*` - UI components (not to be confused with UX-* template tasks)
+- `BUG-*` - Bug fixes
+- `REFACTOR-*` - Refactoring tasks
+- `[CUSTOM]-*` - Domain-specific prefixes (e.g., VOICE-*, DATA-*, SYNC-*)
+
+**Validation:** Before adding feature tasks, ensure none use reserved template prefixes.
+
+**Step 5: Merge Tasks**
+
+```javascript
+// Merge feature tasks with template tasks
+const allTasks = {
+  // Feature tasks (generated from requirements)
+  ...featureTasks,
+
+  // Template tasks (injected from SPRINT_TEMPLATE.toml)
+  ...allTemplateTasks.reduce((acc, task) => {
+    acc[task.id] = task;
+    return acc;
+  }, {})
+};
+
+// Example merged task list:
+// - FEAT-001: Implement user authentication (feature)
+// - FEAT-002: Add password reset flow (feature)
+// - DOC-001: Update CHANGELOG.md (template-required)
+// - DOC-002: Update README.md (template-required)
+// - QA-001: Run ripple analysis (template-required)
+// - PUB-001: Pre-publish validation (template-conditional, if publishing)
+// - RETRO-001: Sprint retrospective (template-retrospective)
+```
+
+**Step 6: Generate Sprint TOML with Merged Tasks**
+
+The final sprint TOML includes both feature and template tasks:
+
+```toml
+[metadata]
+version = "1.0.0"
+sprint_number = 1
+status = "active"
+# ... rest of metadata
+
+# Feature tasks (from requirements)
+[tasks.FEAT-001]
+id = "FEAT-001"
+name = "Implement user authentication"
+status = "pending"
+phase = "feature-development"
+agent = "infrastructure-agent"
+# ... rich format fields
+
+[tasks.FEAT-002]
+id = "FEAT-002"
+name = "Add password reset flow"
+status = "pending"
+phase = "feature-development"
+agent = "infrastructure-agent"
+# ... rich format fields
+
+# Template tasks (injected automatically)
+[tasks.DOC-001]
+id = "DOC-001"
+name = "Update CHANGELOG.md with sprint changes"
+status = "pending"
+phase = "documentation"
+agent = "documentation-agent"
+# ... full template task definition
+
+[tasks.QA-001]
+id = "QA-001"
+name = "Run ripple analysis for breaking changes"
+status = "pending"
+phase = "quality-assurance"
+agent = "testing-agent"
+# ... full template task definition
+
+# ... all other template tasks (DOC-002, DOC-003, DOC-004, QA-002, QA-003, QA-004, etc.)
+
+[tasks.RETRO-001]
+id = "RETRO-001"
+name = "Sprint retrospective"
+status = "pending"
+phase = "retrospective"
+agent = "documentation-agent"
+# ... full template task definition
+```
+
+#### Template Injection Summary
+
+**Before Template Injection:**
+- Feature tasks only: 5-10 tasks
+- No quality assurance built in
+- Easy to forget documentation, tests, retrospectives
+
+**After Template Injection:**
+- Feature tasks: 5-10 tasks
+- Template tasks: 19-27 tasks (depending on conditions)
+- Total: 24-37 tasks per sprint
+- Quality assurance guaranteed
+- Consistent sprint structure
+
+**Benefits:**
+- ✅ Never forget CHANGELOG updates
+- ✅ Never skip test coverage checks
+- ✅ Always include dependency audits
+- ✅ Consistent retrospectives
+- ✅ Automatic publishing checklists (when releasing)
+- ✅ Built-in quality ratchet (prevents regression)
+
+**Historical Bug Prevention:**
+- DOC-001 (CHANGELOG) prevents undocumented releases (v0.13.29 issue)
+- QA-003 (dependency audit) prevents native dep bugs (v0.13.23 issue)
+- PUB-001 (pre-publish checklist) prevents version mismatch (v0.13.28 issue)
+- INFRA-002 (sprint validation) prevents TOML format bugs (2025-11-03 issue)
+
+**Total Time Saved:** 15+ hours of historical debugging prevented per sprint.
+
+#### Example: Feature-Only Sprint
+
+User: "Plan a sprint to build API endpoints for user management"
+
+**Generated Feature Tasks:**
+- API-001: Design user endpoints architecture
+- API-002: Implement GET /users
+- API-003: Implement POST /users
+- API-004: Implement PUT /users/:id
+- API-005: Implement DELETE /users/:id
+
+**Injected Template Tasks (23 tasks):**
+- REQUIRED (13): DOC-001 to DOC-004, QA-001 to QA-004, AGENT-001 to AGENT-002, INFRA-001 to INFRA-002, CONFIG-001
+- SUGGESTED (4): PERF-001, SEC-001, COMPAT-001, COMPAT-002
+- CONDITIONAL (0): No publishing keywords detected, no PUB-* tasks
+- RETROSPECTIVE (2): RETRO-001, RETRO-002
+
+**Total: 5 feature + 19 template = 24 tasks**
+
+**Condition Detection:**
+- isPublishing: false (no "release" or "publish" keywords)
+- isUserFacing: false (API-only, no UI keywords)
+
+#### Example: Release Sprint
+
+User: "Plan a sprint to release v2.0 with UI redesign"
+
+**Generated Feature Tasks:**
+- UI-001: Redesign dashboard layout
+- UI-002: Update theme system
+- UI-003: Implement responsive design
+
+**Injected Template Tasks (27 tasks):**
+- REQUIRED (13): DOC-001 to DOC-004, QA-001 to QA-004, AGENT-001 to AGENT-002, INFRA-001 to INFRA-002, CONFIG-001
+- SUGGESTED (4): PERF-001, SEC-001, COMPAT-001, COMPAT-002
+- CONDITIONAL (8):
+  - PUB-001 to PUB-005 (publishing detected: "release v2.0")
+  - UX-001 to UX-003 (user-facing detected: "UI redesign")
+- RETROSPECTIVE (2): RETRO-001, RETRO-002
+
+**Total: 3 feature + 27 template = 30 tasks**
+
+**Condition Detection:**
+- isPublishing: true ("release" + "v2.0" keywords detected)
+- isUserFacing: true ("UI" + "redesign" keywords detected)
+
+#### SUGGESTED Task Handling
+
+SUGGESTED tasks are included by default but can be skipped with written justification:
+
+**User Prompt (during sprint creation):**
+```
+Template includes 4 SUGGESTED tasks:
+- PERF-001: Performance regression testing
+- SEC-001: Security vulnerability scan
+- COMPAT-001: Cross-platform testing (Windows/Mac/Linux)
+- COMPAT-002: Backwards compatibility check
+
+These tasks are recommended but optional. Would you like to:
+1. Include all suggested tasks (recommended)
+2. Skip some tasks with justification
+
+If skipping, please provide justification for each (e.g., "No performance-critical changes this sprint").
+```
+
+**If user skips with justification:**
+```toml
+# Add skip justification to sprint notes
+[notes]
+template_task_justifications = """
+SUGGESTED Tasks Skipped:
+- PERF-001: No performance-critical changes (API-only sprint)
+- COMPAT-001: No platform-specific code changes
+"""
+```
+
+**Justification examples:**
+- "No performance-critical changes this sprint" (skip PERF-001)
+- "Internal-only changes, no security risk" (skip SEC-001)
+- "Pure TypeScript, no platform-specific code" (skip COMPAT-001)
+- "No VS Code API changes, backwards compatible" (skip COMPAT-002)
+
 ### 3. Git Workflow Setup
 
 #### For Each Epic/Feature:
@@ -153,6 +495,9 @@ phase = "authentication"           # Phase name
 agent = "infrastructure-agent"     # Agent assignment (from AgentRegistry)
 
 # COMMON OPTIONAL FIELDS (recommended for most tasks)
+skill = "publish"                  # Optional: Automated workflow to use (see Step 3.6)
+                                    # Only for tasks with automated workflows (publish, code-analyze, protect, etc.)
+                                    # Omit for manual work (most tasks)
 description = "Add JWT token generation and validation"
 estimated_time = "4-6 hours"
 estimated_lines = 300
@@ -909,6 +1254,240 @@ deliverables = [
     "Documentation updated"
 ]
 ```
+
+### Step 3.5: MANDATORY Agent Validation (CRITICAL - DO NOT SKIP)
+
+**STOP. Before proceeding to Step 4, you MUST validate agent assignments.**
+
+**Why this is critical:**
+- Wrong agent = Wrong context loaded = Wrong patterns applied = Bugs
+- Historical evidence: UX tasks wrongly assigned to infrastructure-agent (this conversation)
+- Impact: Agent can't execute task properly with mismatched expertise
+
+**Validation Process (Answer OUT LOUD):**
+
+For EACH new task, complete this checklist:
+
+```
+Task: [TASK-ID] - [Task Name]
+
+1. ✅ What is the task category?
+   - [ ] UI/UX (components, layouts, styling, state management, user interactions)
+   - [ ] Infrastructure (middleware, services, orchestration, CI/CD)
+   - [ ] API (REST endpoints, GraphQL, error handling)
+   - [ ] Documentation (patterns, guides, README)
+   - [ ] Database (schemas, migrations, queries)
+   - [ ] Testing (test infrastructure, test patterns)
+
+2. ✅ What are the key task indicators?
+   Extract keywords from task name + description:
+   - UI keywords: "component", "layout", "CSS", "state", "resize", "focus", "click", "paste", "persistence", "text area", "button", "modal", "webview"
+   - Infrastructure keywords: "service", "middleware", "orchestration", "pipeline", "publishing", "deployment"
+   - API keywords: "endpoint", "REST", "GraphQL", "HTTP", "authentication"
+
+3. ✅ Query Agent Selection Guide (line 470-482):
+   | Task Type | Recommended Agent |
+   |-----------|------------------|
+   | Service architecture, middleware | infrastructure-agent |
+   | UI components, layouts, styling | ui-agent |
+   | REST APIs, GraphQL, endpoints | api-agent |
+   | Patterns, guides, README | documentation-agent |
+   | Native desktop features | tauri-desktop-agent |
+   | Bug fixes (any category) | general-purpose |
+
+4. ✅ Verify agent context file (internal/agents/{agent}-context.md):
+   Read the agent's responsibilities section to confirm capability match.
+
+   Example:
+   - ui-agent-context.md line 14-19:
+     * Create React components (TypeScript)
+     * Implement responsive layouts (CSS, Tailwind)
+     * Handle user interactions (events, state)
+     * Ensure accessibility (WCAG 2.1 AA)
+
+   Does the agent have the required capabilities? YES/NO
+
+5. ✅ Final verification:
+   - Task category matches agent specialization? YES/NO
+   - Agent context confirms capability? YES/NO
+   - If NO to either: CORRECT THE AGENT NOW
+```
+
+**Common Agent Assignment Mistakes:**
+
+❌ **DON'T assign to infrastructure-agent:**
+- UI state management (localStorage persistence) → ui-agent
+- CSS changes (resize handles, layouts) → ui-agent
+- User interaction handlers (click, paste, focus) → ui-agent
+- Webview rendering logic → ui-agent
+- Component state (React hooks, context) → ui-agent
+
+❌ **DON'T assign to ui-agent:**
+- VS Code API middleware services → infrastructure-agent
+- Service orchestration (multi-service workflows) → infrastructure-agent
+- Publishing automation → infrastructure-agent
+- CI/CD pipelines → infrastructure-agent
+- Backend API logic → api-agent
+
+**Example Validation (UX Task):**
+
+```
+Task: UX-014 - Make Ctrl+Enter work globally (not just in text area)
+
+1. Task category: UI/UX (user interaction, keyboard shortcut)
+2. Keywords: "Ctrl+Enter", "keyboard", "focus", "text area", "send to terminal"
+3. Agent Selection Guide: UI components/layouts/styling → ui-agent
+4. Agent context (ui-agent-context.md): "Handle user interactions (events, state)" ✓
+5. Final verification:
+   - UI category matches ui-agent? YES ✓
+   - Agent has keyboard event handling capability? YES ✓
+   - Assigned agent: ui-agent ✓
+```
+
+**If you skip this step, you WILL assign wrong agents (proven by this conversation).**
+
+### Step 3.6: MANDATORY Skill Assignment (Autonomous Execution)
+
+**STOP. Before proceeding to Step 4, you MUST check if tasks need skill assignments.**
+
+**Why this is critical:**
+- Agent = Expertise/context (WHO has the knowledge to execute)
+- Skill = Automated workflow (WHAT workflow/automation to use)
+- Without skill: Task is manual, agent must implement from scratch
+- With skill: Task uses built-in automation (e.g., Pattern-PUBLISH-001 for publishing)
+
+**Validation Process (Answer OUT LOUD):**
+
+For EACH new task, complete this checklist:
+
+```
+Task: [TASK-ID] - [Task Name]
+
+1. ✅ Does this task match an automated workflow?
+   Check task name and description for keywords:
+   - Publishing/releasing keywords: "publish", "release", "npm", "GitHub release", "version bump"
+   - Code analysis keywords: "analyze", "audit", "scan", "complexity", "technical debt"
+   - Protection keywords: "protect", "annotate", "@protected", "@immutable"
+   - Sprint planning keywords: "sprint plan", "create sprint", "enhance sprint"
+   - Validation keywords: "validate protection", "pre-commit", "hook"
+
+2. ✅ Query Available Skills (from .claude/skills/):
+
+   | Skill Name | Purpose | When to Use |
+   |-----------|---------|-------------|
+   | `publish` | Publishing releases (npm + GitHub) | Task involves version bumping, npm publish, or GitHub releases |
+   | `code-analyze` | Codebase analysis and pattern detection | Task involves analyzing code, detecting patterns, or complexity metrics |
+   | `protect` | Code protection annotation | Task involves annotating code with @protected/@immutable |
+   | `protection-audit` | Protection system audit | Task involves auditing protection system, generating reports |
+   | `sprint-plan` | Sprint creation and enhancement | Task involves creating new sprints or adding tasks to existing sprints |
+   | `validate-protection` | Protection enforcement validation | Task involves validating protection enforcement via pre-commit hooks |
+
+3. ✅ Decision Tree:
+   - Does task name contain "Publish" or "Release"? → skill = "publish"
+   - Does task involve code analysis or audit? → skill = "code-analyze"
+   - Does task involve protecting code? → skill = "protect"
+   - Does task involve sprint planning? → skill = "sprint-plan"
+   - Does task involve protection validation? → skill = "validate-protection" or "protection-audit"
+   - No match? → Omit skill field (most tasks are manual work)
+
+4. ✅ Verify skill exists:
+   Skill file location: .claude/skills/{skill-name}/SKILL.md
+   - Does the skill file exist? YES/NO
+   - Does the skill description match the task? YES/NO
+
+5. ✅ Final verification:
+   - Task matches automated workflow pattern? YES/NO
+   - Skill exists and matches task? YES/NO
+   - If YES to both: Add `skill = "{skill-name}"` to task
+   - If NO: Omit skill field (manual task, agent implements from scratch)
+```
+
+**Common Skill Assignment Patterns:**
+
+✅ **DO assign skill for automated workflows:**
+- "Publish v0.16.7" → skill = "publish" (uses Pattern-PUBLISH-001)
+- "Analyze codebase for complexity" → skill = "code-analyze"
+- "Annotate passing code with @protected" → skill = "protect"
+- "Create sprint for Phase 4" → skill = "sprint-plan"
+- "Validate protection enforcement" → skill = "validate-protection"
+
+❌ **DON'T assign skill for manual work:**
+- "Fix bug in TaskStarter.ts" → No skill (manual coding)
+- "Implement new UI component" → No skill (manual React development)
+- "Write unit tests for ConfigGenerator" → No skill (manual test writing)
+- "Update documentation for config schema" → No skill (manual documentation)
+
+**Example Validation (Publishing Task):**
+
+```
+Task: PATCH-001 - Publish v0.16.7
+
+1. Automated workflow match: YES ✓
+   Keywords: "Publish", "v0.16.7" (version number)
+
+2. Available Skills: Check "publish" skill
+   - Purpose: Publishing releases (npm + GitHub)
+   - When to Use: Task involves version bumping, npm publish, or GitHub releases
+   - Match? YES ✓
+
+3. Decision Tree: Task name contains "Publish" → skill = "publish" ✓
+
+4. Verify skill exists:
+   - .claude/skills/publish/SKILL.md exists? YES ✓
+   - Skill description matches task? YES ✓ (automates npm publish + GitHub release)
+
+5. Final verification:
+   - Task matches automated workflow? YES ✓ (publishing is automated)
+   - Skill exists and matches? YES ✓
+   - Assigned skill: skill = "publish" ✓
+```
+
+**Example Validation (Manual Task):**
+
+```
+Task: PROTECT-000C - Implement 'Start This Task' with prompt generation
+
+1. Automated workflow match: NO ✗
+   Keywords: "Implement", "prompt generation" (custom coding)
+
+2. Available Skills: No match
+   - Not publishing (no skill = "publish")
+   - Not analyzing (no skill = "code-analyze")
+   - Not protecting (no skill = "protect")
+   - Custom feature development
+
+3. Decision Tree: No automated workflow match → Omit skill field ✓
+
+4. Verify: Manual coding task, agent implements from scratch
+
+5. Final verification:
+   - Task matches automated workflow? NO ✗
+   - Omit skill field: YES ✓ (manual work, no automation)
+   - agent = "infrastructure-agent" (has expertise)
+   - skill = (omitted) (manual implementation)
+```
+
+**Key Distinction:**
+
+```toml
+# Example 1: Automated workflow (has skill)
+[tasks.PATCH-001]
+id = "PATCH-001"
+name = "Publish v0.16.7"
+agent = "infrastructure-agent"  # WHO: Has publishing expertise
+skill = "publish"                # WHAT: Use automated publish workflow
+```
+
+```toml
+# Example 2: Manual work (no skill)
+[tasks.PROTECT-000C]
+id = "PROTECT-000C"
+name = "Implement 'Start This Task' with prompt generation"
+agent = "infrastructure-agent"  # WHO: Has infrastructure expertise
+# skill = (omitted)              # WHAT: Manual implementation (no automation)
+```
+
+**If you skip this step, tasks won't know which automated workflow to use (incomplete autonomous execution).**
 
 ### Step 4: Update [progress] Section
 

@@ -862,7 +862,8 @@ After PROTECT-000E complete:
 [tasks.MVP-001]
 id = "MVP-001"
 name = "Add skill assignment to sprint-plan workflow (Step 3.6)"
-status = "pending"
+status = "completed"
+completed_date = "2025-11-07"
 phase = "phase-3-mvp-prompt-system"
 agent = "infrastructure-agent"
 assigned_engineer = "engineer_1"
@@ -2639,7 +2640,8 @@ id = "TEMPLATE-005"
 name = "Document sprint template system"
 phase = "phase-1-template-system"
 assigned_engineer = "engineer_1"
-status = "pending"
+status = "completed"
+completed_date = "2025-11-07"
 description = """
 Create internal/SPRINT_TEMPLATE_GUIDE.md with comprehensive documentation:\r
 \r
@@ -3206,7 +3208,7 @@ files_to_modify = [
 [tasks.UX-007]
 id = "UX-007"
 name = "Ctrl+Shift+Enter send + submit hotkey"
-status = "in_progress"
+status = "completed"
 phase = "phase-0b-ux-polish"
 agent = "infrastructure-agent"
 why = """
@@ -3242,7 +3244,7 @@ files_to_modify = [
 [tasks.UX-008]
 id = "UX-008"
 name = "Remove terminal edit button"
-status = "pending"
+status = "in_progress"
 phase = "phase-0b-ux-polish"
 agent = "infrastructure-agent"
 why = """
@@ -3457,7 +3459,7 @@ id = "SELF-002"
 name = "Implement ProjectConfigGenerator service"
 phase = "phase-2-foundation"
 assigned_engineer = "engineer_1"
-status = "pending"
+status = "completed"
 description = "Implement ProjectConfigGenerator service: generate() method (DetectionResults + InterviewAnswers → ProjectConfig), schema validation (ajv), default value application, config serialization (JSON pretty-print to .aetherlight/project-config.json), error classes (ValidationError, MissingRequiredFieldError)"
 estimated_lines = 300
 estimated_time = "10-12 hours"

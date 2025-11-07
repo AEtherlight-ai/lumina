@@ -2373,6 +2373,14 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 <p>${task.agent}</p>
             </div>
 
+            ${(task as any).skill ? `
+            <div class="detail-section">
+                <h4>⚡ Skill</h4>
+                <p class="skill-name">${(task as any).skill}</p>
+                <p class="skill-description" style="font-size: 0.85em; color: var(--vscode-descriptionForeground); margin-top: 4px;">Automated workflow</p>
+            </div>
+            ` : ''}
+
             ${task.dependencies && task.dependencies.length > 0 ? `
             <div class="detail-section">
                 <h4>🔗 Dependencies</h4>
@@ -3507,13 +3515,13 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                     item.dataset.terminalName = terminal.name; // Display name
                     item.dataset.actualName = terminal.actualName || terminal.name; // B-004: Actual VS Code terminal name
 
-                    // B-002: Compact terminal list with checkmark and pencil icon
+                    // B-002: Compact terminal list with checkmark
                     // B-003: Add ⏳ icon for executing terminals
+                    // UX-008: Removed edit icon (editing must be done in VS Code terminal tab header)
                     item.innerHTML = \`
                         <span class="terminal-checkmark">✓</span>
                         <span class="terminal-name">\${terminal.name}</span>
                         \${terminal.isExecuting ? '<span class="terminal-executing-icon" title="Command executing">⏳</span>' : ''}
-                        <span class="terminal-edit-icon" title="Rename terminal">✏️</span>
                     \`;
 
                     // Click on terminal name to select
@@ -3522,73 +3530,13 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                         selectTerminal(terminal.name);
                     });
 
-                    // Click to select (anywhere except edit icon)
-                    item.addEventListener('click', (e) => {
-                        if (!e.target.classList.contains('terminal-edit-icon')) {
-                            selectTerminal(terminal.name);
-                        }
+                    // UX-008: Simplified click handler (no need to check for edit icon anymore)
+                    item.addEventListener('click', () => {
+                        selectTerminal(terminal.name);
                     });
 
-                    // B-004: Click pencil icon to enable inline rename
-                    const editIcon = item.querySelector('.terminal-edit-icon');
-                    editIcon.addEventListener('click', (e) => {
-                        e.stopPropagation();
-
-                        // Convert terminal name to editable input
-                        const terminalNameSpan = item.querySelector('.terminal-name');
-                        const originalName = terminal.name; // Display name
-                        const actualName = terminal.actualName || terminal.name; // B-004: Actual terminal name for rename operation
-
-                        // Create input element
-                        const input = document.createElement('input');
-                        input.type = 'text';
-                        input.className = 'terminal-name-input';
-                        input.value = originalName;
-
-                        // Replace span with input
-                        terminalNameSpan.replaceWith(input);
-                        input.focus();
-                        input.select();
-
-                        // Handle Enter key to confirm rename
-                        input.addEventListener('keydown', (e) => {
-                            if (e.key === 'Enter') {
-                                e.preventDefault();
-                                const newName = input.value.trim();
-
-                                if (newName && newName !== originalName) {
-                                    // B-004: Send rename request using actualName (not display name)
-                                    vscode.postMessage({
-                                        type: 'renameTerminal',
-                                        oldName: actualName, // Use actual VS Code terminal name
-                                        newName: newName
-                                    });
-                                }
-
-                                // Restore span (will be updated by terminal list refresh)
-                                const span = document.createElement('span');
-                                span.className = 'terminal-name';
-                                span.textContent = newName || originalName;
-                                input.replaceWith(span);
-                            } else if (e.key === 'Escape') {
-                                // Cancel rename - restore original span
-                                e.preventDefault();
-                                const span = document.createElement('span');
-                                span.className = 'terminal-name';
-                                span.textContent = originalName;
-                                input.replaceWith(span);
-                            }
-                        });
-
-                        // Handle blur (click outside) - cancel rename
-                        input.addEventListener('blur', () => {
-                            // Restore original span
-                            const span = document.createElement('span');
-                            span.className = 'terminal-name';
-                            span.textContent = originalName;
-                            input.replaceWith(span);
-                        });
-                    });
+                    // UX-008: Removed edit icon event handler (inline rename functionality)
+                    // Reason: Editing must be done in VS Code terminal tab header, not from Voice panel
 
                     // Keyboard navigation
                     item.addEventListener('keydown', (e) => {
