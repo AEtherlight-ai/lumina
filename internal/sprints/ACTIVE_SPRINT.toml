@@ -6664,7 +6664,7 @@ Enables:\r
 
 [progress]
 total_tasks = 62
-completed_tasks = 4
+completed_tasks = 3
 in_progress_tasks = 0
-pending_tasks = 58
-completion_percentage = 6
+pending_tasks = 59
+completion_percentage = 5
