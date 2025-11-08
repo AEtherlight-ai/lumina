@@ -180,6 +180,30 @@ async function main() {
   const newVersion = readPackageJson('vscode-lumina').version;
   log(`✓ Version bumped to ${newVersion}`, 'green');
 
+  // Step 3.5: Pre-publish validation (Pattern-PUBLISH-004)
+  log('\n📋 Step 3.5: Pre-publish validation', 'yellow');
+  log('⚠️  Validates 6 critical checks before compilation:', 'yellow');
+  log('   • Version sync across 4 packages', 'yellow');
+  log('   • Package naming consistency (unscoped)', 'yellow');
+  log('   • Dependency references', 'yellow');
+  log('   • No native dependencies', 'yellow');
+  log('   • No forbidden runtime npm dependencies', 'yellow');
+  log('   • Git working directory clean', 'yellow');
+
+  try {
+    exec('node scripts/pre-publish-check.js');
+    log('✓ Pre-publish validation passed', 'green');
+  } catch (error) {
+    log('✗ CRITICAL: Pre-publish validation FAILED', 'red');
+    log('\n⚠️  Publishing blocked due to validation failures', 'red');
+    log('Run manually to see details: node scripts/pre-publish-check.js', 'yellow');
+    log('\nHistorical impact:', 'yellow');
+    log('  • v0.16.15: Missing @types/mocha → manual bypass (2 hours)', 'yellow');
+    log('  • v0.13.29: Version mismatch → manual fix (2 hours)', 'yellow');
+    log('\nSee .claude/CLAUDE.md Known Issues for prevention strategies', 'yellow');
+    process.exit(1);
+  }
+
   // Step 4: Compile TypeScript
   log('\n📋 Step 4: Compile TypeScript', 'yellow');
   exec('npm run compile', path.join(process.cwd(), 'vscode-lumina'));
@@ -447,6 +471,37 @@ Then reload VS Code to see the update.
       log('⚠️  Warning: No desktop installers found - desktop app will not be available', 'yellow');
     }
   }
+
+  // Step 14.5: Confirmation checkpoint - verify GitHub release before npm publish
+  // WHY: Gives user chance to review GitHub release and abort before npm publish
+  // PATTERN: Pattern-PUBLISH-001 (GitHub release MUST be verified before npm publish)
+  // PREVENTS: v0.16.7 bug (npm published when GitHub release had issues)
+  log('\n📋 Step 14.5: Confirm GitHub Release Before npm Publish', 'yellow');
+
+  // Get GitHub release URL
+  const releaseUrl = `https://github.com/AEtherlight-ai/lumina/releases/tag/v${newVersion}`;
+  const vsixUrl = `https://github.com/AEtherlight-ai/lumina/releases/download/v${newVersion}/aetherlight-${newVersion}.vsix`;
+
+  log('\n✅ GitHub Release Verified:', 'green');
+  log(`   Release URL: ${releaseUrl}`, 'cyan');
+  log(`   .vsix URL:   ${vsixUrl}`, 'cyan');
+  log('\n   You can verify in browser if needed (open URLs above)', 'blue');
+
+  const npmConfirmed = autoYes || await confirmAction('\n📦 Ready to publish to npm registry? (yes/no): ');
+  if (!npmConfirmed) {
+    log('\n✓ npm publish cancelled - GitHub release exists but npm not published', 'yellow');
+    log('   GitHub release URL: ' + releaseUrl, 'cyan');
+    log('   You can manually publish later:', 'yellow');
+    log('   1. Verify GitHub release looks correct', 'yellow');
+    log('   2. Run: cd vscode-lumina && npm publish --access public', 'yellow');
+    log('   3. For sub-packages: cd packages/[package] && npm publish --access public', 'yellow');
+    process.exit(0);
+  }
+  if (autoYes) {
+    log('✓ Auto-confirmed (--yes flag)', 'green');
+  }
+
+  log('✓ User confirmed - proceeding with npm publish', 'green');
 
   // Step 15: Publish to npm (AFTER GitHub release)
   log('\n📋 Step 15: Publish to npm registry', 'yellow');

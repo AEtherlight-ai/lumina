@@ -238,10 +238,98 @@ function checkGitState() {
 }
 
 /**
- * Check 7: Analyzer Tests
+ * Check 7: devDependencies Completeness
+ */
+function checkDevDependencies() {
+  console.log(`${BLUE}📋 Check 7: devDependencies Completeness${RESET}`);
+
+  const mainPkg = readPackageJson('vscode-lumina/package.json');
+  const devDeps = Object.keys(mainPkg.devDependencies || {});
+
+  // Critical devDependencies needed for TypeScript compilation
+  const requiredDevDeps = [
+    '@types/mocha',
+    '@types/node',
+    '@types/vscode',
+    'typescript'
+  ];
+
+  const missing = requiredDevDeps.filter(dep => !devDeps.includes(dep));
+
+  if (missing.length > 0) {
+    throw new ValidationError(
+      `❌ Missing required devDependencies: ${missing.join(', ')}\n\nTypeScript compilation will fail without these.`,
+      `Add to vscode-lumina/package.json devDependencies:\n` +
+      missing.map(dep => `  "${dep}": "^<version>"`).join('\n') +
+      `\n\nThen run: cd vscode-lumina && npm install`
+    );
+  }
+
+  console.log(`${GREEN}✓ All required devDependencies present${RESET}`);
+}
+
+/**
+ * Check 8: Import Path Consistency
+ */
+function checkImportPaths() {
+  console.log(`${BLUE}📋 Check 8: Import Path Consistency${RESET}`);
+
+  const { execSync } = require('child_process');
+
+  try {
+    // Search for old scoped import paths (@aetherlight/*)
+    const result = execSync(
+      'git grep "@aetherlight/" -- "*.ts" "*.js" ":(exclude)node_modules" ":(exclude).git" ":(exclude)out" ":(exclude)dist"',
+      { cwd: ROOT, encoding: 'utf-8' }
+    );
+
+    if (result.trim()) {
+      const lines = result.trim().split('\n').slice(0, 10); // Show first 10 matches
+      const matches = lines.map(l => `  ${l}`).join('\n');
+      const more = result.split('\n').length > 10 ? `\n  ... and ${result.split('\n').length - 10} more` : '';
+
+      throw new ValidationError(
+        `❌ Old scoped import paths found!\n\nMatches:\n${matches}${more}`,
+        `Replace @aetherlight/* with aetherlight-* in import statements:\n` +
+        `  - @aetherlight/analyzer → aetherlight-analyzer\n` +
+        `  - @aetherlight/sdk → aetherlight-sdk\n` +
+        `  - @aetherlight/node → aetherlight-node`
+      );
+    }
+
+    console.log(`${GREEN}✓ No legacy import paths found${RESET}`);
+  } catch (error) {
+    // git grep exits with code 1 when no matches found (which is what we want)
+    if (error.status === 1 && !error.stdout) {
+      console.log(`${GREEN}✓ No legacy import paths found${RESET}`);
+      return;
+    }
+
+    // If there's output on stdout, that means matches were found
+    if (error.stdout && error.stdout.trim()) {
+      const lines = error.stdout.trim().split('\n').slice(0, 10);
+      const matches = lines.map(l => `  ${l}`).join('\n');
+      const more = error.stdout.split('\n').length > 10 ? `\n  ... and ${error.stdout.split('\n').length - 10} more` : '';
+
+      throw new ValidationError(
+        `❌ Old scoped import paths found!\n\nMatches:\n${matches}${more}`,
+        `Replace @aetherlight/* with aetherlight-* in import statements:\n` +
+        `  - @aetherlight/analyzer → aetherlight-analyzer\n` +
+        `  - @aetherlight/sdk → aetherlight-sdk\n` +
+        `  - @aetherlight/node → aetherlight-node`
+      );
+    }
+
+    // Other git errors
+    throw error;
+  }
+}
+
+/**
+ * Check 9: Analyzer Tests
  */
 function checkAnalyzerTests() {
-  console.log(`${BLUE}📋 Check 7: Analyzer Tests${RESET}`);
+  console.log(`${BLUE}📋 Check 9: Analyzer Tests${RESET}`);
 
   try {
     console.log('  Running analyzer tests...');
@@ -284,7 +372,9 @@ async function main() {
     checkNativeDependencies,
     checkRuntimeDependencies,
     checkGitState,
-    // Note: Analyzer tests skipped here - publish script will run them anyway
+    checkDevDependencies,     // NEW: Check 7 - prevents v0.16.15 @types/mocha issue
+    checkImportPaths,         // NEW: Check 8 - prevents scoped import path issues
+    // Note: Analyzer tests (Check 9) skipped - publish script will run them anyway
     // The test check has issues with Jest stderr output being treated as errors
   ];
 
