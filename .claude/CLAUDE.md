@@ -147,7 +147,7 @@ All detailed protocols are now in `docs/patterns/`. Reference them for deep dive
 - **[KNOWN_ISSUES.md](../docs/KNOWN_ISSUES.md)** - Historical bugs & fixes (15+ hours of debugging lessons)
 - **[PUBLISHING.md](../PUBLISHING.md)** - Publishing guide
 - **[SPRINT_TEMPLATE_GUIDE.md](../internal/SPRINT_TEMPLATE_GUIDE.md)** - Sprint template system guide (27 normalized tasks)
-- **[Pattern Library Index](../docs/patterns/INDEX.md)** - All 77+ patterns
+- **[Pattern Library Index](../docs/patterns/INDEX.md)** - All 76+ patterns
 
 ---
 
@@ -378,19 +378,20 @@ lumina-clean/
 
 ---
 
-## 📊 Refactoring Summary (v2.0)
+## 📊 Refactoring Summary (v2.1 - Sprint 3 Complete)
 
 **Before (v1.0):**
 - CLAUDE.md: 2,126 lines
 - Context burden: ~60k tokens
 - Protocols embedded inline (hard to find)
 
-**After (v2.0):**
+**After (v2.1 - Sprint 3):**
 - CLAUDE.md: ~400-500 lines (75-80% reduction)
 - Context burden: ~15k tokens (75% reduction)
 - 5 new patterns extracted: Pattern-TASK-ANALYSIS-001, Pattern-CODE-001, Pattern-SPRINT-PLAN-001, Pattern-GIT-001, Pattern-IMPROVEMENT-001
 - KNOWN_ISSUES.md created: 500+ lines of historical bug data
-- Pattern-based system: 77+ patterns, all indexed and reusable
+- Pattern-based system: 76+ patterns, all indexed and reusable
+- Sprint 3 completed: MVP-003 Prompt System, Sprint Template System (27 normalized tasks), Self-Configuration System (Phases 2-5), Protection System, UX Polish (14 improvements)
 
 **Benefits:**
 - ✅ Massive context reduction (1,600+ lines → on-demand patterns)
