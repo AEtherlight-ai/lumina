@@ -1455,7 +1455,32 @@ id = "POST-002"
 name = "Fix analyzer package test failures (36 tests)"
 phase = "phase-0-protection"
 assigned_engineer = "engineer_1"
-status = "pending"
+status = "obsolete"
+obsolete_date = "2025-11-08"
+obsolete_reason = """
+Task description was outdated - tests already passing.
+
+VERIFICATION (2025-11-08):
+- Ran: cd packages/aetherlight-analyzer && npm test
+- Result: Test Suites: 11 passed, 11 total
+- Result: Tests: 203 passed, 203 total
+- Exit code: 0 (success)
+
+TASK CLAIMED:
+- 36 failing tests across 4 categories
+- ComplexityAnalyzer (2 failures)
+- RustParser (4 failures)
+- TypeScriptParser (1 failure - performance)
+- SprintGenerator (29 failures - debtAnalysis.issues undefined)
+
+REALITY:
+✅ ALL 203 tests passing
+✅ 0 failures
+✅ All test suites pass in 58s
+
+CONCLUSION:
+Tests must have been fixed between task creation and now. No action needed.
+"""
 description = """
 Investigate and fix 36 failing tests in @aetherlight/analyzer package.\r
 \r
@@ -1568,7 +1593,33 @@ id = "POST-003"
 name = "Update publish script - remove outdated sub-package logic"
 phase = "phase-0-protection"
 assigned_engineer = "engineer_1"
-status = "pending"
+status = "obsolete"
+obsolete_date = "2025-11-08"
+obsolete_reason = """
+Task description was based on incorrect assumption about architecture.
+
+REALITY (verified 2025-11-08):
+✅ Current publish script works correctly (published v0.16.15 successfully)
+✅ All 4 packages publish to npm: aetherlight, aetherlight-analyzer, aetherlight-sdk, aetherlight-node
+✅ Sub-packages have normal npm dependencies (no file: dependencies in their package.json)
+✅ Main package has ONE file: dependency (aetherlight-analyzer .tgz for .vsix bundling)
+✅ This hybrid architecture works: sub-packages on npm + analyzer also bundled in .vsix
+
+INCORRECT ASSUMPTION:
+❌ Task claimed "file: dependencies can't be published to npm"
+❌ This is misleading - sub-packages themselves have no file: deps
+❌ Main package's single file: reference doesn't prevent its own npm publishing
+
+VERIFICATION:
+- npm view aetherlight-analyzer version → 0.16.15 ✅
+- npm view aetherlight-sdk version → 0.16.15 ✅
+- npm view aetherlight-node version → 0.16.15 ✅
+- npm view aetherlight version → 0.16.15 ✅
+
+CONCLUSION:
+No action needed. Script works as-is. Doing what this task suggests would BREAK working system.
+See: PUBLISHING.md, commit 246e034 for v0.16.15 documentation.
+"""
 description = """
 Remove outdated sub-package publishing logic from scripts/publish-release.js.\r
 \r
@@ -1680,7 +1731,8 @@ id = "POST-004"
 name = "Add publishing order enforcement to prevent protocol violations"
 phase = "phase-0-protection"
 assigned_engineer = "engineer_1"
-status = "pending"
+status = "completed"
+completed_date = "2025-11-08"
 description = """
 Add enforcement to ensure git push happens BEFORE npm publish.\r
 \r
@@ -1810,7 +1862,8 @@ id = "POST-005"
 name = "Fix automated publish script to handle package architecture changes"
 phase = "phase-0-protection"
 assigned_engineer = "engineer_1"
-status = "pending"
+status = "completed"
+completed_date = "2025-11-08"
 description = """
 Fix the automated publish script (scripts/publish-release.js) to handle the package architecture changes introduced in v0.16.15.\r
 \r
@@ -2002,124 +2055,6 @@ Historical bugs prevented (with this automation):\r
 \r
 Total time savings: 2 hours per release × 10 releases/year = 20 hours/year\r
 """
-
-[tasks.UI-POLISH-001]
-id = "UI-POLISH-001"
-name = "Remove confusing 'Record Voice' button with text"
-status = "pending"
-phase = "phase-0-ux-polish"
-agent = "ui-agent"
-why = """
-Manual testing revealed confusing UI element.\r
-Button says 'Record Voice' with text 'press backtick key'.\r
-Creates cognitive dissonance - button vs keyboard shortcut.\r
-"""
-description = """
-Remove the 'Record Voice' button/icon that displays 'press backtick key' text.\r
-\r
-**Current State:** Button with text label is confusing\r
-**Desired State:** Rely on placeholder text in text area for instructions\r
-\r
-**Files to Modify:**\r
-- vscode-lumina/webview-ui/voice-panel.html (remove button element)\r
-- vscode-lumina/webview-ui/voice-panel.js (remove button event handlers if any)\r
-"""
-estimated_time = "30 minutes"
-dependencies = [ ]
-deliverables = [ "Confusing button removed", "Voice panel cleaner UI" ]
-
-[tasks.UI-POLISH-002]
-id = "UI-POLISH-002"
-name = "Remove text from toolbar icons (icon-only mode)"
-status = "pending"
-phase = "phase-0-ux-polish"
-agent = "ui-agent"
-why = """
-Text labels on icons create visual clutter.\r
-Modern UI pattern: icon-only buttons with tooltips.\r
-Makes toolbar more compact and professional.\r
-"""
-description = """
-Remove text labels from toolbar icon buttons:\r
-1. 'Send' button → icon only\r
-2. 'Send to Terminal' button → icon only\r
-\r
-Keep tooltips for accessibility (hover to see description).\r
-\r
-**Files to Modify:**\r
-- vscode-lumina/webview-ui/voice-panel.html\r
-- vscode-lumina/webview-ui/voice-panel.css (adjust button styling)\r
-"""
-estimated_time = "30 minutes"
-dependencies = [ ]
-deliverables = [
-  "Icon-only toolbar buttons",
-  "Tooltips added for accessibility",
-  "Cleaner, more compact toolbar"
-]
-
-[tasks.UI-POLISH-003]
-id = "UI-POLISH-003"
-name = "Remove 'Command / Transcription' label above text area"
-status = "pending"
-phase = "phase-0-ux-polish"
-agent = "ui-agent"
-why = """
-Label is redundant - users know what the text area is for.\r
-Removes visual clutter, makes UI cleaner.\r
-"""
-description = """
-Remove the 'Command / Transcription' label that appears above the text area.\r
-\r
-**Files to Modify:**\r
-- vscode-lumina/webview-ui/voice-panel.html (remove label element)\r
-- vscode-lumina/webview-ui/voice-panel.css (adjust spacing if needed)\r
-"""
-estimated_time = "15 minutes"
-dependencies = [ ]
-deliverables = [ "Label removed", "Cleaner visual hierarchy" ]
-
-[tasks.UI-POLISH-004]
-id = "UI-POLISH-004"
-name = "Enhance text area placeholder with comprehensive instructions"
-status = "pending"
-phase = "phase-0-ux-polish"
-agent = "ui-agent"
-why = """
-Current placeholder is minimal - only mentions backtick key.\r
-Users need clear guidance on all interaction methods.\r
-Reduces support burden by providing inline help.\r
-"""
-description = """
-Enhance text area placeholder with comprehensive, concise instructions:\r
-\r
-**Current Placeholder:**\r
-"Press the backtick symbol (`) to record (usually to the left of the 1 key)"\r
-\r
-**New Placeholder (simplified from user input):**\r
-"Press ` (backtick, left of 1 key) to record voice\r
-Or type directly\r
-Hit 'Enhance' to enrich your prompt\r
-Use Ctrl+Enter to send to terminal\r
-Multiple terminals highlighted? They share a name - right-click to rename for unique targeting"\r
-\r
-**Requirements:**\r
-- Placeholder disappears when user types or records\r
-- Placeholder reappears when text area is empty\r
-- Line breaks for readability\r
-- Concise but comprehensive\r
-\r
-**Files to Modify:**\r
-- vscode-lumina/webview-ui/voice-panel.html (update placeholder attribute)\r
-- vscode-lumina/webview-ui/voice-panel.js (ensure placeholder logic works)\r
-"""
-estimated_time = "45 minutes"
-dependencies = [ "UI-POLISH-003" ]
-deliverables = [
-  "Enhanced placeholder text",
-  "Clear, comprehensive user instructions",
-  "Placeholder hide/show behavior verified"
-]
 
 [tasks.BACKLOG-001]
 id = "BACKLOG-001"
@@ -3200,7 +3135,8 @@ After TEMPLATE-006 complete:\r
 [tasks.UX-001]
 id = "UX-001"
 name = "Universal Enhancement Pattern - Fix ALL enhancement buttons"
-status = "in_progress"
+status = "completed"
+completion_date = "2025-11-07"
 phase = "phase-0b-ux-polish"
 agent = "infrastructure-agent"
 why = """
@@ -3844,7 +3780,8 @@ id = "SELF-003A"
 name = "Document all variables with comprehensive context"
 phase = "phase-2-foundation"
 assigned_engineer = "engineer_1"
-status = "pending"
+status = "completed"
+completed_date = "2025-11-07"
 description = "Create comprehensive variable documentation in variable-reference.md: all variables organized by category (language config, build/test, paths, framework-specific), examples for each variable across Node.js/Rust/Python, valid values, default behaviors, detection sources."
 estimated_lines = 800
 estimated_time = "8-10 hours"
@@ -4224,7 +4161,8 @@ id = "SELF-006"
 name = "Implement TechStackDetector service"
 phase = "phase-3-detection"
 assigned_engineer = "engineer_1"
-status = "pending"
+status = "completed"
+completed_date = "2025-11-07"
 description = "Implement TechStackDetector service: auto-detect project language (Node.js, TypeScript, Rust, Python, Go), framework (React, Vue, Express, Tauri), package manager (npm, yarn, pnpm, cargo, pip). File pattern detection (package.json, Cargo.toml, setup.py). Confidence scoring. <200ms performance."
 estimated_lines = 600
 estimated_time = "8-10 hours"
@@ -4348,7 +4286,8 @@ id = "SELF-007"
 name = "Implement ToolDetector service"
 phase = "phase-3-detection"
 assigned_engineer = "engineer_1"
-status = "pending"
+status = "completed"
+completed_date = "2025-11-07"
 description = "Implement ToolDetector service: auto-detect build tools (webpack, vite, cargo, maven), test frameworks (Jest, Mocha, pytest, cargo test), linters (ESLint, Clippy, pylint). Extract tool commands from package.json scripts. Confidence scoring. <150ms performance."
 estimated_lines = 500
 estimated_time = "6-8 hours"
@@ -4473,7 +4412,8 @@ id = "SELF-008"
 name = "Implement WorkflowDetector service"
 phase = "phase-3-detection"
 assigned_engineer = "engineer_1"
-status = "pending"
+status = "completed"
+completed_date = "2025-11-07"
 description = "Implement WorkflowDetector service: auto-detect development workflows (TDD from test files, Git Flow from .git/hooks, CI/CD from .github/workflows or .gitlab-ci.yml). Detect pre-commit hooks, test automation, deployment pipelines. Confidence scoring. <100ms performance."
 estimated_lines = 450
 estimated_time = "8-10 hours"
@@ -4599,7 +4539,8 @@ id = "SELF-009"
 name = "Implement DomainDetector service (software-dev only)"
 phase = "phase-3-detection"
 assigned_engineer = "engineer_1"
-status = "pending"
+status = "completed"
+completed_date = "2025-11-07"
 description = "Implement DomainDetector service: infer project domain from keywords and structure. Phase 1 supports software-dev domain only with sub-types (CLI, web, desktop, library). Keyword analysis (package.json keywords, README). Structure analysis (file organization). Extensible for future domains. <100ms performance."
 estimated_lines = 400
 estimated_time = "6-8 hours"
@@ -4726,7 +4667,8 @@ id = "SELF-010"
 name = "Phase 3 integration tests"
 phase = "phase-3-detection"
 assigned_engineer = "engineer_1"
-status = "pending"
+status = "completed"
+completed_date = "2025-11-07"
 description = "Create comprehensive integration tests for Phase 3 Detection: TechStackDetector + ToolDetector + WorkflowDetector + DomainDetector. Test on real project examples (Node.js, Rust, Python). Full detection pipeline validation. 90% coverage."
 estimated_lines = 600
 estimated_time = "4-6 hours"
