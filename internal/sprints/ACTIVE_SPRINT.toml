@@ -2060,7 +2060,8 @@ Total time savings: 2 hours per release × 10 releases/year = 20 hours/year\r
 [tasks.BACKLOG-001]
 id = "BACKLOG-001"
 name = "Add visual transcription progress indicator"
-status = "pending"
+status = "completed"
+completed_date = "2025-11-08"
 phase = "backlog"
 agent = "ui-agent"
 why = """

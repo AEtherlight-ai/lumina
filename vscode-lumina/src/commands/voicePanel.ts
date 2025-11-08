@@ -1796,6 +1796,39 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             background-color: #0078D4;
         }
 
+        /* BACKLOG-001: Status message visibility improvements */
+        .status-message {
+            padding: 8px 12px;
+            margin-bottom: 12px;
+            border-radius: 4px;
+            font-size: 13px;
+            display: none;
+            animation: fadeIn 0.2s ease-in;
+        }
+
+        .status-message.info {
+            background-color: var(--vscode-inputValidation-infoBorder);
+            color: var(--vscode-input-foreground);
+            border-left: 4px solid var(--vscode-charts-blue);
+        }
+
+        .status-message.success {
+            background-color: rgba(16, 124, 16, 0.2);
+            color: var(--vscode-input-foreground);
+            border-left: 4px solid #107c10;
+        }
+
+        .status-message.error {
+            background-color: var(--vscode-inputValidation-errorBorder);
+            color: var(--vscode-input-foreground);
+            border-left: 4px solid var(--vscode-charts-red);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
         .terminal-selector {
             margin-bottom: 12px;
         }
@@ -4387,6 +4420,20 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 }
             });
 
+            /**
+             * BACKLOG-001: Improved status message visibility
+             * DESIGN DECISION: Don't auto-hide 'info' messages (transcription progress)
+             * WHY: Transcription takes 10-30 seconds, but auto-hide was 5 seconds
+             *
+             * REASONING CHAIN:
+             * 1. User starts transcription → Shows "🎤 Transcribing..."
+             * 2. Old behavior: Message hides after 5 seconds → User thinks it broke
+             * 3. New behavior: 'info' messages persist until replaced
+             * 4. 'success'/'error' messages still auto-hide after 5 seconds
+             * 5. Result: User sees progress indicator throughout transcription
+             *
+             * PATTERN: Pattern-UX-FEEDBACK (Persistent Progress Indicators)
+             */
             function showStatus(message, type) {
                 const statusEl = document.getElementById('statusMessage');
                 if (statusEl) {
@@ -4394,10 +4441,12 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                     statusEl.className = 'status-message ' + type;
                     statusEl.style.display = 'block';
 
-                    // Auto-hide after 5 seconds
-                    setTimeout(() => {
-                        statusEl.style.display = 'none';
-                    }, 5000);
+                    // Only auto-hide success/error messages, keep 'info' visible
+                    if (type !== 'info') {
+                        setTimeout(() => {
+                            statusEl.style.display = 'none';
+                        }, 5000);
+                    }
                 }
             }
         `;
