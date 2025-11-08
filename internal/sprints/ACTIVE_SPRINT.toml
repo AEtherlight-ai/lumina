@@ -5221,7 +5221,8 @@ id = "SELF-014"
 name = "Create variable resolution interview flow"
 phase = "phase-4-interview"
 assigned_engineer = "engineer_1"
-status = "pending"
+status = "completed"
+completed_date = "2025-11-07"
 description = "Implement variable resolution interview: dynamically generate questions for ambiguous/missing variables detected by VariableResolver. User chooses correct value. Update project-config.json with resolved values. Re-run template customization. 85% coverage."
 estimated_lines = 350
 estimated_time = "6-8 hours"
@@ -7679,6 +7680,129 @@ Gap: No Sprint 3 knowledge base.
 Solution: Document every Sprint 3 pitfall.
 """
 
+[tasks.DOC-008]
+id = "DOC-008"
+name = "Refactor documentation for context optimization"
+phase = "phase-7-testing-docs"
+status = "pending"
+agent = "documentation-agent"
+assigned_engineer = "engineer_1"
+description = """
+CRITICAL: This task is NOT additive - it's about REFACTORING and REDUCING bloat.
+
+Refactor all documentation to optimize for AI consumption and reduce context bloat:
+
+1. Review all docs for verbosity and redundancy:
+   - CLAUDE.md (target: <600 lines, currently ~500)
+   - README.md (target: <400 lines)
+   - Agent context files (target: <300 lines each)
+   - Pattern files (target: <200 lines each)
+   - Skills documentation (target: <150 lines each)
+
+2. Refactoring strategies (NOT just adding):
+   - Extract verbose sections to patterns
+   - Remove redundant explanations
+   - Consolidate repetitive content
+   - Simplify complex sentences
+   - Use tables instead of prose where appropriate
+   - Replace long examples with concise ones + links
+
+3. AI consumption optimization:
+   - Clear section headers for easy scanning
+   - Bullet points over paragraphs
+   - Code examples: minimal but complete
+   - Remove "wall of text" sections
+   - Use structured format (When/Why/How/Examples)
+
+4. Pattern extraction (move details OUT of main docs):
+   - Detailed protocols → Pattern-*.md files
+   - Long explanations → Pattern files with links
+   - Historical context → KNOWN_ISSUES.md
+   - Rare edge cases → Pattern files
+
+5. Measure context reduction:
+   - BEFORE line counts (all docs)
+   - AFTER line counts (all docs)
+   - Target: 10-20% reduction while IMPROVING clarity
+   - Example: CLAUDE.md v1.0 (2,126 lines) → v2.0 (500 lines) = 75% reduction
+
+6. Validation (clarity maintained/improved):
+   - AI can still find information quickly
+   - No information loss (moved, not deleted)
+   - Links work (pattern references valid)
+   - Examples still compile/run
+"""
+estimated_lines = -500
+estimated_time = "3-4 hours"
+dependencies = ["DOC-003", "DOC-004", "DOC-005", "DOC-006", "AGENT-001"]
+deliverables = [
+  "Context reduction report (BEFORE/AFTER line counts)",
+  "All docs refactored for AI consumption",
+  "Verbose sections extracted to patterns",
+  "Redundant content removed or consolidated",
+  "10-20% context reduction achieved",
+  "Clarity validation (AI comprehension test)"
+]
+performance_target = "Complete within 4 hours"
+patterns = ["Pattern-DOCS-001"]
+files_to_modify = [
+  ".claude/CLAUDE.md",
+  "README.md",
+  "internal/agents/*-agent-context.md",
+  ".claude/skills/*",
+  "docs/patterns/*.md"
+]
+validation_criteria = [
+  "Measure: BEFORE line counts documented",
+  "Measure: AFTER line counts documented",
+  "Check: 10-20% context reduction achieved",
+  "Check: No information lost (moved to patterns, not deleted)",
+  "Check: AI can still find information (test queries)",
+  "Check: Examples still work (compile/run)",
+  "Check: Links valid (pattern references)",
+  "Test: Ask AI to find 5 random pieces of info - should succeed"
+]
+why = """
+Documentation bloat hurts AI performance and maintainability.
+Currently: Docs grow additively, becoming walls of text.
+Gap: No systematic refactoring/optimization process.
+Solution: Explicit refactoring task with measurable reduction targets.
+
+Historical example:
+CLAUDE.md v1.0: 2,126 lines (bloated)
+CLAUDE.md v2.0: 500 lines (refactored, 75% reduction)
+Result: Faster AI comprehension, easier maintenance, better quality.
+
+This task ensures Sprint 3 docs are ENHANCED, not just EXPANDED.
+"""
+context = """
+Refactoring philosophy (Pattern-DOCS-001):
+- CONCISE > VERBOSE
+- STRUCTURED > PROSE
+- LINKED > INLINED
+- EXAMPLES > EXPLANATIONS
+- SCANNABLE > READABLE
+
+Example refactorings:
+1. Long paragraph → Bullet points
+2. Inline protocol → Pattern-*.md + link
+3. Redundant examples → One good example
+4. Wall of text → Table or structured format
+5. Repeated info → Single source + references
+
+AI consumption patterns:
+- Prefers: Clear headers, bullet points, code blocks
+- Struggles with: Long paragraphs, verbose prose, nested context
+- Benefits from: Structured format, links to details, minimal examples
+
+Target documents (priority order):
+1. CLAUDE.md (highest AI usage)
+2. Agent context files (frequent AI usage)
+3. Skills documentation (task-specific)
+4. README.md (user-facing)
+5. Pattern files (referenced content)
+"""
+
 [tasks.RETRO-001]
 id = "RETRO-001"
 name = "Sprint 3 retrospective"
@@ -7762,8 +7886,8 @@ Solution: Extract patterns from retrospective.
 """
 
 [progress]
-total_tasks = 77
+total_tasks = 78
 completed_tasks = 44
 in_progress_tasks = 0
-pending_tasks = 33
-completion_percentage = 57
+pending_tasks = 34
+completion_percentage = 56

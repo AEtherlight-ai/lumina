@@ -1,0 +1,1541 @@
+# ÆtherLight Sprint Template
+# Version: 1.0.0
+# Created: 2025-11-07
+# Pattern: Pattern-SPRINT-TEMPLATE-001
+
+# ==============================================================================
+# USAGE INSTRUCTIONS
+# ==============================================================================
+#
+# This template contains 27 normalized tasks that should be included in EVERY sprint.
+# The sprint-plan skill automatically injects these tasks into new sprint files.
+#
+# TASK CATEGORIES:
+# - REQUIRED (13 tasks): Cannot skip, must complete every sprint
+# - SUGGESTED (4 tasks): Recommended, can skip with written justification
+# - CONDITIONAL (8 tasks): Only include if condition met
+# - RETROSPECTIVE (2 tasks): Every sprint, captures learnings
+#
+# STRUCTURE:
+# - [template.metadata]: Template version and usage info
+# - [template.required.*]: Tasks that MUST be completed
+# - [template.suggested.*]: Tasks that SHOULD be completed (skip with justification)
+# - [template.conditional.*]: Tasks that ONLY apply if condition is met
+# - [template.retrospective.*]: Learning and improvement tasks
+#
+# TASK ID PREFIXES:
+# - DOC-*: Documentation tasks
+# - QA-*: Quality assurance tasks
+# - AGENT-*: Agent synchronization tasks
+# - INFRA-*: Infrastructure validation tasks
+# - CONFIG-*: Configuration validation tasks
+# - PERF-*: Performance testing tasks
+# - SEC-*: Security audit tasks
+# - COMPAT-*: Compatibility validation tasks
+# - PUB-*: Publishing workflow tasks
+# - UX-*: User experience tasks
+# - RETRO-*: Retrospective tasks
+#
+# INTEGRATION WITH sprint-plan SKILL:
+# 1. User creates new sprint with sprint-plan skill
+# 2. Skill reads this template file
+# 3. Skill evaluates conditions (is publishing? user-facing changes?)
+# 4. Skill injects applicable tasks into new sprint TOML
+# 5. Tasks appear as [tasks.DOC-001], [tasks.QA-001], etc. in sprint file
+#
+# ==============================================================================
+
+[template.metadata]
+version = "1.1.0"
+created = "2025-11-07"
+updated = "2025-11-07"
+validated = "2025-11-07"
+validation_status = "PASS"
+validation_task = "TEMPLATE-006"
+total_tasks = 28
+required_count = 14
+suggested_count = 4
+conditional_count = 8
+retrospective_count = 2
+description = "Normalized sprint tasks ensuring consistent quality across all sprints"
+author = "infrastructure-agent"
+validation_script = "scripts/validate-sprint-schema.js"
+validation_findings = "internal/TEMPLATE_SYSTEM_VALIDATION_FINDINGS.md"
+changelog = "v1.1.0 (2025-11-07): Added DOC-005 (context optimization/refactoring) to ensure docs are enhanced, not just expanded"
+
+# ==============================================================================
+# REQUIRED TASKS (14 tasks - MUST complete every sprint)
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Documentation Tasks (5 tasks)
+# ------------------------------------------------------------------------------
+
+[template.required.DOC-001]
+id = "DOC-001"
+name = "Update CHANGELOG.md with sprint changes"
+phase = "documentation"
+status = "pending"
+description = "Document all changes made during sprint in CHANGELOG.md following Keep a Changelog format. Include Added, Changed, Deprecated, Removed, Fixed, Security sections as applicable."
+estimated_lines = 50
+estimated_time = "30 minutes"
+dependencies = []
+agent = "documentation-agent"
+deliverables = [
+  "CHANGELOG.md updated with new version section",
+  "All sprint changes categorized appropriately",
+  "Links to relevant issues/PRs included",
+  "Breaking changes clearly marked"
+]
+performance_target = "Complete within 30 minutes"
+patterns = ["Pattern-DOCS-001"]
+files_to_modify = ["CHANGELOG.md"]
+validation_criteria = [
+  "Check: CHANGELOG.md has new version section",
+  "Check: All sprint changes documented",
+  "Check: Follows Keep a Changelog format",
+  "Check: Breaking changes clearly identified"
+]
+why = """
+Users need to understand what changed between versions.
+Currently: Changes may be undocumented or scattered.
+Gap: No single source of truth for version changes.
+Solution: Maintain comprehensive CHANGELOG.md with every sprint.
+Without this: Users confused about version differences, upgrade friction.
+With this: Clear upgrade path, understanding of changes, professional documentation.
+"""
+context = """
+CHANGELOG.md follows Keep a Changelog format (https://keepachangelog.com/):
+- [Unreleased] section for work in progress
+- Version sections with date [1.0.0] - 2025-11-07
+- Categories: Added, Changed, Deprecated, Removed, Fixed, Security
+- Each entry describes user-facing impact, not implementation details
+
+Integration: Read git commits, completed tasks, modified files to generate entries.
+"""
+
+[template.required.DOC-002]
+id = "DOC-002"
+name = "Update README.md if user-facing changes"
+phase = "documentation"
+status = "pending"
+description = "Update README.md to reflect any new features, changed APIs, or updated installation instructions. Skip if no user-facing changes this sprint."
+estimated_lines = 100
+estimated_time = "45 minutes"
+dependencies = []
+agent = "documentation-agent"
+deliverables = [
+  "README.md updated with new features",
+  "Installation instructions current",
+  "Usage examples reflect latest API",
+  "Screenshots updated if UI changed"
+]
+performance_target = "Complete within 45 minutes"
+patterns = ["Pattern-DOCS-001"]
+files_to_modify = ["README.md"]
+validation_criteria = [
+  "Check: New features documented in README",
+  "Check: Installation steps accurate",
+  "Check: Code examples compile/run successfully",
+  "Check: Links to documentation valid"
+]
+why = """
+README is first touchpoint for new users and GitHub visitors.
+Currently: May be outdated after sprint changes.
+Gap: Users don't know about new features or how to use them.
+Solution: Update README with every user-facing change.
+Without this: Users miss new features, installation fails, poor first impression.
+With this: Clear onboarding, feature discoverability, professional presentation.
+"""
+context = """
+README.md structure:
+- Project description and value proposition
+- Installation instructions (npm, GitHub, build from source)
+- Quick start guide (5-minute getting started)
+- Feature overview with examples
+- Documentation links
+- Contributing guidelines
+- License
+
+Update frequency: Only when user-facing changes occur (skip if internal-only sprint).
+"""
+
+[template.required.DOC-003]
+id = "DOC-003"
+name = "Extract reusable patterns to docs/patterns/"
+phase = "documentation"
+status = "pending"
+description = "Identify reusable patterns, protocols, or conventions developed during sprint. Extract to Pattern-*.md files in docs/patterns/ following Pattern-DOCS-001 reusability assessment."
+estimated_lines = 200
+estimated_time = "1-2 hours"
+dependencies = []
+agent = "documentation-agent"
+deliverables = [
+  "New Pattern-*.md files for reusable patterns (if any)",
+  "Existing patterns updated if modified",
+  "docs/patterns/INDEX.md updated with new patterns",
+  "CLAUDE.md references new patterns"
+]
+performance_target = "Complete within 2 hours"
+patterns = ["Pattern-DOCS-001", "Pattern-IMPROVEMENT-001"]
+files_to_modify = ["docs/patterns/*.md", "docs/patterns/INDEX.md", ".claude/CLAUDE.md"]
+validation_criteria = [
+  "Check: High reusability patterns extracted (score 8+/10)",
+  "Check: Pattern files follow standard format (When/Why/How/Examples)",
+  "Check: INDEX.md updated with new patterns",
+  "Check: CLAUDE.md references patterns appropriately"
+]
+why = """
+Patterns capture reusable knowledge preventing repeated work.
+Currently: Sprint learnings may stay buried in code/tasks.
+Gap: No systematic knowledge capture mechanism.
+Solution: Pattern extraction with reusability assessment (Pattern-DOCS-001).
+Without this: Repeat mistakes, reinvent solutions, knowledge loss.
+With this: Cumulative knowledge base, faster future sprints, consistency.
+"""
+context = """
+Pattern-DOCS-001 reusability assessment (1-10 scale):
+- Score 1-3: Low reusability → Document inline in code
+- Score 4-6: Medium reusability → Add to CLAUDE.md or agent context
+- Score 7-8: High reusability → Create Pattern-*.md file
+- Score 9-10: Critical pattern → Pattern + enforcement mechanism
+
+Pattern format:
+- Title: Pattern-[CATEGORY]-[NUMBER]
+- When: Situations where pattern applies
+- Why: Problem pattern solves
+- How: Implementation steps
+- Examples: Code/task examples
+- Related: Links to other patterns
+"""
+
+[template.required.DOC-004]
+id = "DOC-004"
+name = "Update CLAUDE.md if workflow changes"
+phase = "documentation"
+status = "pending"
+description = "Update .claude/CLAUDE.md if sprint introduced new workflows, patterns, or project conventions. Keep concise (400-500 lines), extract details to patterns."
+estimated_lines = 50
+estimated_time = "30 minutes"
+dependencies = ["DOC-003"]
+agent = "documentation-agent"
+deliverables = [
+  "CLAUDE.md updated with workflow changes",
+  "Pre-flight checklist updated if new validations",
+  "Pattern references added",
+  "File size remains under 600 lines"
+]
+performance_target = "Complete within 30 minutes"
+patterns = ["Pattern-DOCS-001"]
+files_to_modify = [".claude/CLAUDE.md"]
+validation_criteria = [
+  "Check: Workflow changes documented",
+  "Check: CLAUDE.md under 600 lines (extract to patterns if needed)",
+  "Check: Pre-flight checklist current",
+  "Check: Pattern references accurate"
+]
+why = """
+CLAUDE.md is AI's primary instruction manual for project.
+Currently: May be outdated after sprint changes.
+Gap: AI unaware of new workflows, makes mistakes.
+Solution: Update CLAUDE.md with every workflow change.
+Without this: AI violates new conventions, repeats fixed mistakes.
+With this: AI follows latest protocols, consistent behavior.
+"""
+context = """
+CLAUDE.md structure (concise reference, not encyclopedia):
+- Pre-flight checklist (MANDATORY validations)
+- Project overview (tech stack, architecture)
+- Pattern library (references to docs/patterns/)
+- Quick start guide (common tasks)
+- Critical rules (publishing, versioning, etc.)
+- Known issues (link to docs/KNOWN_ISSUES.md)
+
+Keep under 600 lines - extract detailed protocols to Pattern-*.md files.
+"""
+
+[template.required.DOC-005]
+id = "DOC-005"
+name = "Refactor documentation for context optimization"
+phase = "documentation"
+status = "pending"
+description = "CRITICAL: This task is NOT additive - it's about REFACTORING and REDUCING bloat. Refactor all documentation to optimize for AI consumption and reduce context bloat. Review docs for verbosity, extract verbose sections to patterns, remove redundancy, optimize structure. Target: 10-20% context reduction while IMPROVING clarity."
+estimated_lines = -500
+estimated_time = "3-4 hours"
+dependencies = ["DOC-003", "DOC-004"]
+agent = "documentation-agent"
+deliverables = [
+  "Context reduction report (BEFORE/AFTER line counts)",
+  "All docs refactored for AI consumption",
+  "Verbose sections extracted to patterns",
+  "Redundant content removed or consolidated",
+  "10-20% context reduction achieved",
+  "Clarity validation (AI comprehension test)"
+]
+performance_target = "Complete within 4 hours"
+patterns = ["Pattern-DOCS-001"]
+files_to_modify = [".claude/CLAUDE.md", "README.md", "internal/agents/*-agent-context.md", ".claude/skills/*", "docs/patterns/*.md"]
+validation_criteria = [
+  "Measure: BEFORE line counts documented",
+  "Measure: AFTER line counts documented",
+  "Check: 10-20% context reduction achieved",
+  "Check: No information lost (moved to patterns, not deleted)",
+  "Check: AI can still find information (test queries)",
+  "Check: Examples still work (compile/run)",
+  "Check: Links valid (pattern references)",
+  "Test: Ask AI to find 5 random pieces of info - should succeed"
+]
+why = """
+Documentation bloat hurts AI performance and maintainability.
+Currently: Docs grow additively, becoming walls of text.
+Gap: No systematic refactoring/optimization process.
+Solution: Explicit refactoring task with measurable reduction targets.
+Without this: Bloated docs, slow AI comprehension, maintenance burden.
+With this: Optimized docs, faster AI, better quality.
+Historical: CLAUDE.md v1.0 (2,126 lines) → v2.0 (500 lines) = 75% reduction, IMPROVED clarity.
+"""
+context = """
+Refactoring philosophy (Pattern-DOCS-001):
+- CONCISE > VERBOSE
+- STRUCTURED > PROSE
+- LINKED > INLINED
+- EXAMPLES > EXPLANATIONS
+- SCANNABLE > READABLE
+
+Refactoring strategies (NOT just adding):
+1. Extract verbose sections to patterns
+2. Remove redundant explanations
+3. Consolidate repetitive content
+4. Simplify complex sentences
+5. Use tables instead of prose
+6. Replace long examples with concise ones + links
+
+AI consumption optimization:
+- Clear section headers for easy scanning
+- Bullet points over paragraphs
+- Code examples: minimal but complete
+- Remove "wall of text" sections
+- Use structured format (When/Why/How/Examples)
+
+Target documents (priority order):
+1. CLAUDE.md (target: <600 lines, highest AI usage)
+2. Agent context files (target: <300 lines each)
+3. Skills documentation (target: <150 lines each)
+4. README.md (target: <400 lines)
+5. Pattern files (target: <200 lines each)
+
+Validation: Test AI comprehension - ask AI to find 5 random pieces of information to ensure no information loss.
+"""
+
+# ------------------------------------------------------------------------------
+# Quality Assurance Tasks (4 tasks)
+# ------------------------------------------------------------------------------
+
+[template.required.QA-001]
+id = "QA-001"
+name = "Run ripple analysis for breaking changes"
+phase = "quality-assurance"
+status = "pending"
+description = "Analyze code changes for ripple effects and breaking changes. Use ripple analysis tools or manual review to identify affected systems."
+estimated_lines = 0
+estimated_time = "1 hour"
+dependencies = []
+agent = "testing-agent"
+deliverables = [
+  "Ripple analysis report identifying affected systems",
+  "Breaking changes documented in CHANGELOG.md",
+  "Migration guide created if breaking changes exist",
+  "Deprecation warnings added to affected APIs"
+]
+performance_target = "Complete analysis within 1 hour"
+patterns = ["Pattern-TDD-001", "Pattern-CODE-001"]
+files_to_modify = ["CHANGELOG.md", "docs/MIGRATION.md"]
+validation_criteria = [
+  "Check: All breaking changes identified",
+  "Check: Affected systems documented",
+  "Check: Migration path provided for users",
+  "Check: Deprecation warnings in place"
+]
+why = """
+Breaking changes surprise users and break their workflows.
+Currently: May ship breaking changes without awareness.
+Gap: No systematic analysis of change impact.
+Solution: Ripple analysis before every release.
+Without this: Users frustrated, adoption blocked, support burden.
+With this: Smooth upgrades, clear migration, professional releases.
+"""
+context = """
+Ripple analysis identifies:
+1. Direct dependencies (files importing changed modules)
+2. Indirect dependencies (transitive imports)
+3. API surface changes (public method signatures)
+4. Configuration changes (settings, env vars)
+5. Database schema changes
+6. Breaking behavior changes (same API, different behavior)
+
+Tools: TypeScript compiler API, dependency graphs, manual review.
+"""
+
+[template.required.QA-002]
+id = "QA-002"
+name = "Verify test coverage meets targets"
+phase = "quality-assurance"
+status = "pending"
+description = "Run test coverage analysis and verify meets targets: Infrastructure 90%, API 85%, UI 70%. Add tests if below targets."
+estimated_lines = 200
+estimated_time = "2-3 hours"
+dependencies = []
+agent = "testing-agent"
+deliverables = [
+  "Test coverage report generated",
+  "Coverage meets targets for all categories",
+  "New tests added for uncovered code",
+  "Coverage report saved to docs/coverage/"
+]
+performance_target = "Complete within 3 hours"
+patterns = ["Pattern-TDD-001"]
+files_to_modify = ["vscode-lumina/test/**/*.test.ts"]
+validation_criteria = [
+  "Run: npm test -- --coverage",
+  "Check: Infrastructure coverage >= 90%",
+  "Check: API coverage >= 85%",
+  "Check: UI coverage >= 70%",
+  "Check: No critical paths untested"
+]
+why = """
+Tests prevent regressions and document intended behavior.
+Currently: Coverage may drop during sprint.
+Gap: Untested code ships with bugs.
+Solution: Enforce coverage targets before completion.
+Without this: Regressions sneak in, users hit bugs, support burden.
+With this: Stable releases, regression prevention, confidence.
+"""
+context = """
+Coverage targets by category:
+- Infrastructure (services, middleware): 90%+
+  Why: Foundation code, must be rock solid
+- API (extension commands, public APIs): 85%+
+  Why: User-facing contracts, breaking changes costly
+- UI (webviews, panels): 70%+
+  Why: Visual testing hard, manual testing supplements
+
+Coverage tools: c8, Istanbul, VS Code Test Runner
+"""
+
+[template.required.QA-003]
+id = "QA-003"
+name = "Run dependency audit for vulnerabilities"
+phase = "quality-assurance"
+status = "pending"
+description = "Run npm audit on all packages. Fix critical/high vulnerabilities, document medium/low with acceptance rationale."
+estimated_lines = 0
+estimated_time = "1 hour"
+dependencies = []
+agent = "infrastructure-agent"
+deliverables = [
+  "npm audit run on all packages",
+  "Critical/high vulnerabilities fixed",
+  "Audit report saved to docs/security/",
+  "Medium/low vulnerabilities documented with rationale"
+]
+performance_target = "Complete within 1 hour"
+patterns = ["Pattern-PUBLISH-004"]
+files_to_modify = ["package.json", "packages/*/package.json"]
+validation_criteria = [
+  "Run: npm audit --workspaces",
+  "Check: No critical or high vulnerabilities",
+  "Check: Medium/low vulnerabilities documented",
+  "Check: All packages audited"
+]
+why = """
+Vulnerabilities expose users to security risks.
+Currently: May ship with known vulnerabilities.
+Gap: No systematic security audit.
+Solution: Run npm audit before every release.
+Without this: Users exposed to attacks, reputation damage, liability.
+With this: Secure releases, user trust, professional quality.
+"""
+context = """
+npm audit severity levels:
+- Critical: Fix immediately, block release
+- High: Fix immediately, block release
+- Medium: Fix if easy, document if accepted
+- Low: Document, fix opportunistically
+
+Common fixes:
+- npm audit fix (automated fixes)
+- npm update <package> (manual updates)
+- Find alternative package (if no fix available)
+- Document acceptance (if risk acceptable)
+"""
+
+[template.required.QA-004]
+id = "QA-004"
+name = "Validate TypeScript compilation (zero errors)"
+phase = "quality-assurance"
+status = "pending"
+description = "Run TypeScript compiler on all packages. Fix all errors, no suppressions allowed unless documented."
+estimated_lines = 100
+estimated_time = "1-2 hours"
+dependencies = []
+agent = "infrastructure-agent"
+deliverables = [
+  "TypeScript compiles with zero errors",
+  "No @ts-ignore or @ts-expect-error suppressions (unless documented)",
+  "Type definitions current",
+  "All packages compile successfully"
+]
+performance_target = "Complete within 2 hours"
+patterns = ["Pattern-CODE-001"]
+files_to_modify = ["vscode-lumina/src/**/*.ts", "packages/*/src/**/*.ts"]
+validation_criteria = [
+  "Run: npm run compile (vscode-lumina)",
+  "Run: npm run build --workspaces",
+  "Check: Zero TypeScript errors",
+  "Check: No undocumented type suppressions",
+  "Check: All packages compile"
+]
+why = """
+TypeScript prevents runtime type errors at compile time.
+Currently: May ship with type errors or suppressions.
+Gap: Type safety compromised.
+Solution: Zero tolerance for type errors.
+Without this: Runtime type errors, debugging burden, user frustration.
+With this: Type safety guarantees, fewer bugs, better IntelliSense.
+"""
+context = """
+TypeScript compilation targets:
+- vscode-lumina: ES2020, strict mode
+- packages: ES2020, strict mode
+- Target Node.js >= 18.0.0
+
+Common type errors:
+- Implicit any types
+- Null/undefined access
+- Type assertion abuse
+- Missing return types
+
+Fix, don't suppress: Only use @ts-ignore if TypeScript bug documented.
+"""
+
+# ------------------------------------------------------------------------------
+# Agent Synchronization Tasks (2 tasks)
+# ------------------------------------------------------------------------------
+
+[template.required.AGENT-001]
+id = "AGENT-001"
+name = "Update agent context files with learnings"
+phase = "agent-sync"
+status = "pending"
+description = "Review sprint tasks and update relevant agent context files (internal/agents/*-agent-context.md) with new patterns, pitfalls, or examples."
+estimated_lines = 100
+estimated_time = "1 hour"
+dependencies = ["DOC-003"]
+agent = "documentation-agent"
+deliverables = [
+  "Agent context files updated with sprint learnings",
+  "New pitfalls added if discovered",
+  "Example task executions updated",
+  "Pattern references added"
+]
+performance_target = "Complete within 1 hour"
+patterns = ["Pattern-IMPROVEMENT-001"]
+files_to_modify = ["internal/agents/*-agent-context.md"]
+validation_criteria = [
+  "Check: Agent context files current",
+  "Check: New pitfalls documented",
+  "Check: Examples reflect best practices",
+  "Check: Pattern references accurate"
+]
+why = """
+Agent context files guide AI execution for each agent type.
+Currently: May be outdated after sprint.
+Gap: AI unaware of new patterns, repeats mistakes.
+Solution: Update agent contexts with every sprint.
+Without this: AI ignores new learnings, inconsistent behavior.
+With this: AI improves over time, learns from mistakes, consistent quality.
+"""
+context = """
+Agent context files (internal/agents/):
+- infrastructure-agent-context.md
+- api-agent-context.md
+- documentation-agent-context.md
+- testing-agent-context.md
+- ui-agent-context.md
+
+Each file contains:
+- Agent role and responsibilities
+- Workflow protocols
+- Performance targets
+- Common pitfalls (with examples)
+- Agent-specific patterns
+- Example task executions
+
+Update when: New patterns discovered, pitfalls encountered, workflows changed.
+"""
+
+[template.required.AGENT-002]
+id = "AGENT-002"
+name = "Update KNOWN_ISSUES.md with pitfalls"
+phase = "agent-sync"
+status = "pending"
+description = "Document any bugs, pitfalls, or issues encountered during sprint in docs/KNOWN_ISSUES.md with prevention strategies."
+estimated_lines = 50
+estimated_time = "30 minutes"
+dependencies = []
+agent = "documentation-agent"
+deliverables = [
+  "KNOWN_ISSUES.md updated with new issues",
+  "Prevention strategies documented",
+  "Historical bugs preserved",
+  "Issue index current"
+]
+performance_target = "Complete within 30 minutes"
+patterns = ["Pattern-IMPROVEMENT-001"]
+files_to_modify = ["docs/KNOWN_ISSUES.md"]
+validation_criteria = [
+  "Check: New issues documented",
+  "Check: Prevention strategies clear",
+  "Check: Issues categorized appropriately",
+  "Check: Time-wasted estimates included"
+]
+why = """
+Historical bugs teach prevention strategies.
+Currently: May repeat same mistakes.
+Gap: No knowledge base of past issues.
+Solution: Document every pitfall with prevention.
+Without this: Repeat debugging, wasted time, frustration.
+With this: Learn from mistakes, prevent repeats, cumulative improvement.
+"""
+context = """
+KNOWN_ISSUES.md structure:
+- Top issues to avoid (most time-wasted)
+- Categorized by type (publishing, native deps, TOML format, etc.)
+- Each issue includes:
+  - Version(s) affected
+  - Time wasted debugging
+  - What went wrong
+  - Prevention strategy
+  - Pattern reference if applicable
+
+Example entry:
+**v0.13.23 (9 hours):** Added @nut-tree-fork/nut-js native dependency → Extension broken
+✅ Prevention: Check Pattern-PUBLISH-003 before adding ANY dependency
+"""
+
+# ------------------------------------------------------------------------------
+# Infrastructure Validation Tasks (2 tasks)
+# ------------------------------------------------------------------------------
+
+[template.required.INFRA-001]
+id = "INFRA-001"
+name = "Verify git hooks functioning"
+phase = "infrastructure"
+status = "pending"
+description = "Test pre-commit hooks (sprint schema validation, protection enforcement). Verify hooks block invalid commits."
+estimated_lines = 0
+estimated_time = "30 minutes"
+dependencies = []
+agent = "infrastructure-agent"
+deliverables = [
+  "Pre-commit hooks tested and working",
+  "Invalid commits blocked successfully",
+  "Hook scripts current",
+  "Documentation updated if hooks changed"
+]
+performance_target = "Complete within 30 minutes"
+patterns = ["Pattern-GIT-001"]
+files_to_modify = [".git/hooks/pre-commit", "scripts/validate-sprint-schema.js"]
+validation_criteria = [
+  "Test: Create invalid ACTIVE_SPRINT.toml → Commit blocked",
+  "Test: Modify protected file → Commit blocked",
+  "Check: All hooks installed and executable",
+  "Check: Hook documentation current"
+]
+why = """
+Git hooks prevent invalid commits from entering repository.
+Currently: Hooks may be outdated or broken.
+Gap: Invalid changes reach main branch.
+Solution: Verify hooks every sprint.
+Without this: Bad commits, debugging burden, rollbacks.
+With this: Prevention at commit time, clean history, quality gates.
+"""
+context = """
+Git hooks in ÆtherLight:
+- pre-commit: Sprint schema validation (VAL-001)
+- pre-commit: Protection enforcement (Pattern-PROTECT-002)
+
+Testing hooks:
+1. Make invalid change (break TOML format, edit protected file)
+2. Attempt commit
+3. Verify commit blocked with clear error message
+4. Fix issue
+5. Verify commit succeeds
+
+Hook location: .git/hooks/ (Git) or scripts/ (source)
+"""
+
+[template.required.INFRA-002]
+id = "INFRA-002"
+name = "Run sprint schema validation script"
+phase = "infrastructure"
+status = "pending"
+description = "Run scripts/validate-sprint-schema.js on ACTIVE_SPRINT.toml and any new sprint files. Fix validation errors."
+estimated_lines = 0
+estimated_time = "15 minutes"
+dependencies = []
+agent = "infrastructure-agent"
+deliverables = [
+  "Sprint validation script run successfully",
+  "All validation errors fixed",
+  "ACTIVE_SPRINT.toml validates",
+  "Validation report clean"
+]
+performance_target = "Complete within 15 minutes"
+patterns = ["Pattern-SPRINT-PLAN-001"]
+files_to_modify = ["internal/sprints/ACTIVE_SPRINT.toml"]
+validation_criteria = [
+  "Run: node scripts/validate-sprint-schema.js",
+  "Check: Zero validation errors",
+  "Check: All required fields present",
+  "Check: Task dependencies valid",
+  "Check: No circular dependencies"
+]
+why = """
+Sprint validation catches format errors before extension loads.
+Currently: May have invalid TOML breaking extension.
+Gap: No validation until runtime.
+Solution: Validate sprint schema before commit.
+Without this: Extension crashes, sprint panel broken, debugging.
+With this: Valid sprints guaranteed, clean startup, reliability.
+"""
+context = """
+Sprint schema validation (VAL-001):
+- TOML parse check (@iarna/toml)
+- Required fields present (id, name, status, phase, agent)
+- Task IDs consistent (task id matches section key)
+- Dependencies valid (no circular deps, all referenced tasks exist)
+- Status values valid (pending, in_progress, completed)
+- Format correct ([tasks.ID] not [[epic.*.tasks]])
+
+Script: scripts/validate-sprint-schema.js
+Historical bug: 2025-11-03 (2 hours) - Wrong format broke sprint panel
+"""
+
+# ------------------------------------------------------------------------------
+# Configuration Validation Tasks (1 task)
+# ------------------------------------------------------------------------------
+
+[template.required.CONFIG-001]
+id = "CONFIG-001"
+name = "Validate settings schema if changed"
+phase = "infrastructure"
+status = "pending"
+description = "If extension settings changed, validate package.json configuration schema. Test settings UI in VS Code."
+estimated_lines = 50
+estimated_time = "30 minutes"
+dependencies = []
+agent = "infrastructure-agent"
+deliverables = [
+  "Settings schema validated",
+  "Settings UI tested in VS Code",
+  "Default values appropriate",
+  "Settings documentation current"
+]
+performance_target = "Complete within 30 minutes"
+patterns = ["Pattern-CODE-001"]
+files_to_modify = ["vscode-lumina/package.json"]
+validation_criteria = [
+  "Check: Settings schema valid JSON",
+  "Check: Settings appear in VS Code preferences UI",
+  "Check: Default values work correctly",
+  "Check: Settings descriptions clear"
+]
+why = """
+Settings let users customize extension behavior.
+Currently: Settings changes may break configuration UI.
+Gap: No validation of settings schema.
+Solution: Validate settings if changed.
+Without this: Settings broken, users can't configure, support burden.
+With this: Working configuration, user customization, professional quality.
+"""
+context = """
+VS Code settings in package.json:
+- contributes.configuration.properties section
+- Each setting has: type, default, description, scope
+- Types: string, boolean, number, array, object
+- Scopes: application, window, resource
+
+Testing settings:
+1. Open VS Code preferences (Cmd/Ctrl + ,)
+2. Search for "aetherlight"
+3. Verify all settings appear
+4. Test changing values
+5. Verify extension respects changes
+
+Common issues: Invalid JSON schema, missing defaults, unclear descriptions.
+"""
+
+# ==============================================================================
+# SUGGESTED TASKS (4 tasks - RECOMMENDED, can skip with justification)
+# ==============================================================================
+
+[template.suggested.PERF-001]
+id = "PERF-001"
+name = "Run performance regression tests"
+phase = "performance"
+status = "pending"
+description = "Run performance benchmarks and compare to previous sprint. Flag regressions >10%. Can skip if no performance-critical changes."
+estimated_lines = 100
+estimated_time = "1-2 hours"
+dependencies = []
+agent = "testing-agent"
+deliverables = [
+  "Performance benchmarks run",
+  "Comparison to baseline generated",
+  "Regressions identified and documented",
+  "Performance report saved"
+]
+performance_target = "Complete within 2 hours"
+patterns = ["Pattern-TDD-001"]
+files_to_modify = ["vscode-lumina/test/performance/*.test.ts"]
+validation_criteria = [
+  "Run: npm run test:performance",
+  "Check: No regressions >10%",
+  "Check: Performance report generated",
+  "Check: Baseline updated if improvements"
+]
+why = """
+Performance regressions frustrate users and reduce adoption.
+Currently: May ship slow code unknowingly.
+Gap: No systematic performance testing.
+Solution: Benchmark critical paths every sprint.
+Without this: Slow features, user complaints, bad reviews.
+With this: Fast extension, user satisfaction, performance awareness.
+Skip justification: No performance-critical changes this sprint.
+"""
+context = """
+Performance targets (from infrastructure-agent-context.md):
+- Workflow checks: <500ms
+- Agent assignment: <50ms
+- Confidence scoring: <100ms
+- Test validation: <200ms
+- Extension activation: <200ms
+
+Benchmark tools: VS Code Test Runner with timing, custom performance harness.
+"""
+
+[template.suggested.SEC-001]
+id = "SEC-001"
+name = "Security vulnerability scan"
+phase = "security"
+status = "pending"
+description = "Run security scanning tools (npm audit, Snyk, etc.) beyond dependency audit. Check for code vulnerabilities. Can skip if low-risk sprint."
+estimated_lines = 0
+estimated_time = "1 hour"
+dependencies = ["QA-003"]
+agent = "infrastructure-agent"
+deliverables = [
+  "Security scan completed",
+  "Vulnerabilities documented",
+  "Critical issues fixed",
+  "Security report saved"
+]
+performance_target = "Complete within 1 hour"
+patterns = ["Pattern-PUBLISH-004"]
+files_to_modify = []
+validation_criteria = [
+  "Run: npm audit",
+  "Run: Additional security tools (if available)",
+  "Check: No critical vulnerabilities",
+  "Check: Security report generated"
+]
+why = """
+Security vulnerabilities expose users to attacks.
+Currently: npm audit covers dependencies, not code.
+Gap: Code-level vulnerabilities not scanned.
+Solution: Run additional security tools.
+Without this: Security holes, user data at risk, reputation damage.
+With this: Secure code, user trust, professional quality.
+Skip justification: Low-risk sprint (internal-only changes, no user data handling).
+"""
+context = """
+Security scanning tools:
+- npm audit (dependencies)
+- Snyk (dependencies + code)
+- ESLint security plugins
+- Manual code review for common issues
+
+Common vulnerabilities:
+- Command injection
+- Path traversal
+- XSS in webviews
+- Insecure data storage
+- Hardcoded secrets
+"""
+
+[template.suggested.COMPAT-001]
+id = "COMPAT-001"
+name = "Cross-platform testing (Windows/Mac/Linux)"
+phase = "compatibility"
+status = "pending"
+description = "Test extension on Windows, macOS, and Linux. Verify paths, commands, and UI work correctly. Can skip if no platform-specific changes."
+estimated_lines = 0
+estimated_time = "2 hours"
+dependencies = []
+agent = "testing-agent"
+deliverables = [
+  "Extension tested on all three platforms",
+  "Platform-specific issues documented",
+  "Path separators handled correctly",
+  "Commands work on all platforms"
+]
+performance_target = "Complete within 2 hours"
+patterns = ["Pattern-TDD-001"]
+files_to_modify = []
+validation_criteria = [
+  "Test: Install extension on Windows",
+  "Test: Install extension on macOS",
+  "Test: Install extension on Linux",
+  "Check: All features work on all platforms",
+  "Check: No platform-specific bugs"
+]
+why = """
+Platform differences cause bugs for subset of users.
+Currently: Primary development on one platform.
+Gap: Platform-specific bugs not caught.
+Solution: Test on all supported platforms.
+Without this: Windows/Mac/Linux users hit bugs, bad reviews.
+With this: Cross-platform reliability, broader audience, professional quality.
+Skip justification: No platform-specific changes (pure TypeScript, no native code, no path handling).
+"""
+context = """
+Platform differences:
+- Path separators: Windows (\\) vs Unix (/)
+- Commands: Windows (cmd.exe) vs Unix (bash)
+- Line endings: Windows (CRLF) vs Unix (LF)
+- File system: Case sensitivity, permissions
+
+Use Node.js APIs for cross-platform compatibility:
+- path.join(), path.resolve() (not string concatenation)
+- fs module (handles platform differences)
+- child_process (handle Windows commands)
+"""
+
+[template.suggested.COMPAT-002]
+id = "COMPAT-002"
+name = "Backwards compatibility check"
+phase = "compatibility"
+status = "pending"
+description = "Verify extension works with older VS Code versions (within supported range). Test settings migration if schema changed. Can skip if no API/settings changes."
+estimated_lines = 50
+estimated_time = "1 hour"
+dependencies = []
+agent = "testing-agent"
+deliverables = [
+  "Extension tested on minimum VS Code version",
+  "Settings migration working (if applicable)",
+  "Backwards incompatibilities documented",
+  "Migration guide provided (if breaking)"
+]
+performance_target = "Complete within 1 hour"
+patterns = ["Pattern-PUBLISH-004"]
+files_to_modify = []
+validation_criteria = [
+  "Check: package.json engines.vscode minimum version correct",
+  "Test: Extension activates on minimum VS Code version",
+  "Test: Settings migrate from previous version",
+  "Check: No undocumented breaking changes"
+]
+why = """
+Breaking backwards compatibility forces users to upgrade VS Code.
+Currently: May use new APIs without checking version.
+Gap: Extension breaks on older VS Code versions.
+Solution: Test minimum supported version.
+Without this: Users on older VS Code frustrated, adoption blocked.
+With this: Broad VS Code version support, smooth upgrades.
+Skip justification: No VS Code API changes, no settings schema changes.
+"""
+context = """
+VS Code version support:
+- Minimum: ^1.80.0 (package.json engines.vscode)
+- Test extension on minimum version
+- Check VS Code API compatibility (api.proposal flags, stable APIs only)
+
+Settings migration:
+- Old settings auto-migrate to new schema
+- Deprecated settings show warnings
+- No data loss during migration
+"""
+
+# ==============================================================================
+# CONDITIONAL TASKS (8 tasks - ONLY if condition met)
+# ==============================================================================
+
+[template.conditional.PUB-001]
+id = "PUB-001"
+name = "Run pre-publish validation checklist"
+phase = "publishing"
+status = "pending"
+description = "**CONDITION: Sprint includes publishing/release.** Run Pattern-PUBLISH-004 pre-publish validation. Verify all packages ready for release."
+estimated_lines = 0
+estimated_time = "30 minutes"
+dependencies = []
+agent = "infrastructure-agent"
+condition = "sprint_includes_publishing_or_release"
+deliverables = [
+  "Pre-publish checklist completed",
+  "All validations passing",
+  "Version numbers synchronized",
+  "Packages built successfully"
+]
+performance_target = "Complete within 30 minutes"
+patterns = ["Pattern-PUBLISH-004", "Pattern-PUBLISH-001"]
+files_to_modify = []
+validation_criteria = [
+  "Check: All package versions match",
+  "Check: CHANGELOG.md updated",
+  "Check: All tests passing",
+  "Check: TypeScript compiles with zero errors",
+  "Check: No runtime npm dependencies (Pattern-PUBLISH-003)"
+]
+why = """
+Publishing mistakes are expensive and visible to all users.
+Currently: May skip validation steps when rushing release.
+Gap: No systematic pre-publish checklist.
+Solution: Enforce Pattern-PUBLISH-004 before every release.
+Without this: Broken releases, user frustration, rollbacks, reputation damage.
+With this: Reliable releases, user trust, professional quality.
+"""
+context = """
+Pre-publish validation (Pattern-PUBLISH-004):
+1. Version synchronization (all 4 packages match)
+2. CHANGELOG.md current
+3. Tests passing (all packages)
+4. TypeScript compiles (zero errors)
+5. No runtime npm dependencies (Pattern-PUBLISH-003)
+6. No native dependencies
+7. Extension builds (.vsix created)
+8. Extension installs and activates
+
+Historical bugs: v0.13.28-29 (version mismatch), v0.15.31-32 (runtime deps), v0.13.23 (native deps).
+Total time wasted: 15+ hours. All preventable with checklist.
+"""
+
+[template.conditional.PUB-002]
+id = "PUB-002"
+name = "Build and verify .vsix package"
+phase = "publishing"
+status = "pending"
+description = "**CONDITION: Sprint includes publishing/release.** Build .vsix extension package. Test installation and activation locally."
+estimated_lines = 0
+estimated_time = "30 minutes"
+dependencies = ["PUB-001"]
+agent = "infrastructure-agent"
+condition = "sprint_includes_publishing_or_release"
+deliverables = [
+  ".vsix package built successfully",
+  "Package installed locally for testing",
+  "Extension activates without errors",
+  "Core features tested in packaged extension"
+]
+performance_target = "Complete within 30 minutes"
+patterns = ["Pattern-PUBLISH-001"]
+files_to_modify = []
+validation_criteria = [
+  "Run: cd vscode-lumina && vsce package",
+  "Check: .vsix file created",
+  "Install: code --install-extension aetherlight-*.vsix",
+  "Check: Extension activates (<200ms)",
+  "Test: Core features work (voice capture, sprint panel)"
+]
+why = """
+Packaged extension may behave differently than development version.
+Currently: May skip .vsix testing, ship broken package.
+Gap: No validation of packaged extension.
+Solution: Build and test .vsix before publishing.
+Without this: Broken releases, user frustration, emergency rollbacks.
+With this: Working releases, user trust, confidence.
+"""
+context = """
+Building .vsix package:
+1. cd vscode-lumina
+2. npm run compile (compile TypeScript)
+3. vsce package (create .vsix)
+4. Output: aetherlight-X.Y.Z.vsix
+
+Testing packaged extension:
+1. Uninstall development version
+2. code --install-extension aetherlight-*.vsix
+3. Reload VS Code
+4. Test activation (check Output → ÆtherLight)
+5. Test core features
+6. Uninstall, reinstall development version
+
+Common issues: Missing files (.vsixignore), runtime deps, native deps.
+"""
+
+[template.conditional.PUB-003]
+id = "PUB-003"
+name = "Verify no runtime npm dependencies"
+phase = "publishing"
+status = "pending"
+description = "**CONDITION: Sprint includes publishing/release.** Verify extension has zero runtime npm dependencies (Pattern-PUBLISH-003). Whitelist: @iarna/toml, form-data, node-fetch, ws."
+estimated_lines = 0
+estimated_time = "15 minutes"
+dependencies = []
+agent = "infrastructure-agent"
+condition = "sprint_includes_publishing_or_release"
+deliverables = [
+  "package.json dependencies audited",
+  "Only whitelisted runtime dependencies present",
+  "Node.js built-ins used instead of npm packages",
+  "Dependency audit report clean"
+]
+performance_target = "Complete within 15 minutes"
+patterns = ["Pattern-PUBLISH-003"]
+files_to_modify = []
+validation_criteria = [
+  "Check: vscode-lumina/package.json dependencies section",
+  "Check: Only whitelisted packages present (aetherlight-*, @iarna/toml, form-data, node-fetch, ws)",
+  "Check: No runtime packages like glob, lodash, moment, axios",
+  "Check: DevDependencies OK (build-time only)"
+]
+why = """
+Runtime npm dependencies excluded from .vsix by vsce package --no-dependencies.
+Currently: May add npm package without realizing it won't package.
+Gap: Extension activation fails for users.
+Solution: Enforce Pattern-PUBLISH-003 - no runtime npm deps.
+Without this: Extension broken for users (v0.15.31-32 bug, 2 hours wasted).
+With this: Working extension, reliable activation.
+"""
+context = """
+Pattern-PUBLISH-003: Avoid Runtime NPM Dependencies
+
+Why: vsce package --no-dependencies excludes ALL node_modules from .vsix
+
+Whitelist (bundled with extension):
+- aetherlight-analyzer, aetherlight-sdk, aetherlight-node (our packages)
+- @iarna/toml (TOML parser, bundled)
+- form-data, node-fetch, ws (API client deps, bundled)
+
+Use Node.js built-ins instead:
+- fs, path, util, crypto (file/path operations)
+- https, http (HTTP requests)
+- child_process (subprocess, git commands)
+
+Common mistakes:
+- glob → Use fs.readdirSync + filter
+- lodash → Use native Array methods
+- moment → Use native Date
+- axios → Use node-fetch (whitelisted) or https module
+"""
+
+[template.conditional.PUB-004]
+id = "PUB-004"
+name = "Generate release artifacts"
+phase = "publishing"
+status = "pending"
+description = "**CONDITION: Sprint includes publishing/release.** Generate release artifacts: .vsix, CHANGELOG excerpt, GitHub release notes."
+estimated_lines = 0
+estimated_time = "30 minutes"
+dependencies = ["PUB-002", "DOC-001"]
+agent = "documentation-agent"
+condition = "sprint_includes_publishing_or_release"
+deliverables = [
+  ".vsix package ready for distribution",
+  "CHANGELOG excerpt for release notes",
+  "GitHub release notes drafted",
+  "Release artifacts validated"
+]
+performance_target = "Complete within 30 minutes"
+patterns = ["Pattern-PUBLISH-001"]
+files_to_modify = []
+validation_criteria = [
+  "Check: .vsix file exists and tested",
+  "Check: CHANGELOG.md has current version section",
+  "Check: Release notes drafted (GitHub)",
+  "Check: All artifacts ready for publish"
+]
+why = """
+Release artifacts document what's new and distribute extension.
+Currently: May forget to prepare artifacts.
+Gap: Incomplete release, users don't know what changed.
+Solution: Generate all artifacts before publishing.
+Without this: Incomplete releases, user confusion, unprofessional.
+With this: Complete releases, clear communication, professional quality.
+"""
+context = """
+Release artifacts:
+1. .vsix package (aetherlight-X.Y.Z.vsix)
+2. CHANGELOG excerpt (copy current version section)
+3. GitHub release notes:
+   - Version number
+   - Release date
+   - CHANGELOG excerpt
+   - Breaking changes highlighted
+   - Installation instructions
+   - Link to full CHANGELOG
+
+Automated by: scripts/publish-release.js (Pattern-PUBLISH-001)
+Manual backup: If automation fails, prepare artifacts manually.
+"""
+
+[template.conditional.PUB-005]
+id = "PUB-005"
+name = "Post-publish verification"
+phase = "publishing"
+status = "pending"
+description = "**CONDITION: Sprint includes publishing/release.** After publishing, verify extension appears in marketplace. Test clean installation."
+estimated_lines = 0
+estimated_time = "30 minutes"
+dependencies = ["PUB-004"]
+agent = "infrastructure-agent"
+condition = "sprint_includes_publishing_or_release"
+deliverables = [
+  "Extension visible in VS Code Marketplace",
+  "Clean installation tested",
+  "Extension activates without errors",
+  "npm package published (if applicable)"
+]
+performance_target = "Complete within 30 minutes"
+patterns = ["Pattern-PUBLISH-001"]
+files_to_modify = []
+validation_criteria = [
+  "Check: Open VS Code → Extensions → Search 'aetherlight'",
+  "Check: Latest version appears",
+  "Install: Fresh installation from marketplace",
+  "Check: Extension activates (<200ms)",
+  "Check: Core features work"
+]
+why = """
+Publishing can fail silently or partially.
+Currently: May assume publish succeeded without verification.
+Gap: Broken release available to users.
+Solution: Verify marketplace listing and clean install.
+Without this: Users download broken extension, support burden, rollback.
+With this: Working release confirmed, confidence, quick issue detection.
+"""
+context = """
+Post-publish verification:
+1. Wait 5-10 minutes for marketplace update
+2. Search VS Code marketplace (in VS Code app)
+3. Verify version number correct
+4. Uninstall dev version
+5. Install from marketplace
+6. Test activation (Output → ÆtherLight)
+7. Test core features
+8. Check npm (if packages published): npm view aetherlight-sdk
+
+Common issues: Publish failed silently, wrong version, package corrupted.
+"""
+
+[template.conditional.UX-001]
+id = "UX-001"
+name = "Create upgrade documentation"
+phase = "user-experience"
+status = "pending"
+description = "**CONDITION: Sprint has breaking changes or major new features.** Create upgrade guide for users migrating from previous version."
+estimated_lines = 200
+estimated_time = "1-2 hours"
+dependencies = ["DOC-001", "QA-001"]
+agent = "documentation-agent"
+condition = "sprint_has_breaking_changes_or_major_features"
+deliverables = [
+  "Upgrade guide created (docs/UPGRADE.md or MIGRATION.md)",
+  "Breaking changes documented with migration steps",
+  "New features highlighted",
+  "Example migrations provided"
+]
+performance_target = "Complete within 2 hours"
+patterns = ["Pattern-DOCS-001"]
+files_to_modify = ["docs/UPGRADE.md", "docs/MIGRATION.md"]
+validation_criteria = [
+  "Check: All breaking changes documented",
+  "Check: Migration steps clear and tested",
+  "Check: Examples provided",
+  "Check: Linked from CHANGELOG.md"
+]
+why = """
+Breaking changes block users from upgrading without guidance.
+Currently: Users discover breaking changes through errors.
+Gap: No upgrade path documentation.
+Solution: Detailed migration guide for breaking changes.
+Without this: Users stuck on old version, upgrade friction, support burden.
+With this: Smooth upgrades, clear migration path, user confidence.
+"""
+context = """
+Upgrade guide structure:
+1. Overview: What changed and why
+2. Breaking Changes: Each change with before/after examples
+3. Migration Steps: Step-by-step upgrade process
+4. New Features: Highlights with examples
+5. Deprecations: What's deprecated, alternatives
+6. Troubleshooting: Common issues during upgrade
+
+Link from CHANGELOG.md: "See UPGRADE.md for migration guide"
+"""
+
+[template.conditional.UX-002]
+id = "UX-002"
+name = "Update screenshots and demos"
+phase = "user-experience"
+status = "pending"
+description = "**CONDITION: Sprint has UI changes.** Update screenshots, GIFs, or demo videos in README.md and marketplace listing."
+estimated_lines = 0
+estimated_time = "1-2 hours"
+dependencies = ["DOC-002"]
+agent = "documentation-agent"
+condition = "sprint_has_ui_changes"
+deliverables = [
+  "Screenshots updated in README.md",
+  "GIFs/videos updated (if applicable)",
+  "Marketplace images current",
+  "Visual documentation accurate"
+]
+performance_target = "Complete within 2 hours"
+patterns = ["Pattern-DOCS-001"]
+files_to_modify = ["README.md", "docs/images/", ".vscode/marketplace/"]
+validation_criteria = [
+  "Check: Screenshots show current UI",
+  "Check: GIFs demonstrate features accurately",
+  "Check: Marketplace images updated",
+  "Check: Image quality high (retina-ready)"
+]
+why = """
+Outdated screenshots mislead users about features and UI.
+Currently: Screenshots may show old UI after changes.
+Gap: User expectations don't match reality.
+Solution: Update visual documentation with UI changes.
+Without this: User confusion, poor first impression, support questions.
+With this: Accurate representation, clear expectations, professional presentation.
+"""
+context = """
+Visual documentation locations:
+- README.md (GitHub, primary landing page)
+- docs/images/ (detailed documentation)
+- .vscode/marketplace/ (VS Code Marketplace listing)
+
+Tools:
+- macOS: Cmd+Shift+4 (screenshots)
+- Windows: Win+Shift+S (screenshots)
+- Linux: Various (gnome-screenshot, etc.)
+- GIF recording: LICEcap, Kap, ScreenToGif
+
+Best practices:
+- High resolution (retina/2x)
+- Clean workspace (no personal info)
+- Consistent theme (light or dark)
+- Highlight features clearly
+"""
+
+[template.conditional.UX-003]
+id = "UX-003"
+name = "Generate user-facing release notes"
+phase = "user-experience"
+status = "pending"
+description = "**CONDITION: Sprint has user-facing changes.** Generate user-friendly release notes (not developer-focused). Highlight benefits, not implementation."
+estimated_lines = 100
+estimated_time = "1 hour"
+dependencies = ["DOC-001"]
+agent = "documentation-agent"
+condition = "sprint_has_user_facing_changes"
+deliverables = [
+  "User-facing release notes drafted",
+  "Benefits highlighted (not implementation)",
+  "Examples and use cases provided",
+  "Release notes reviewed and approved"
+]
+performance_target = "Complete within 1 hour"
+patterns = ["Pattern-DOCS-001"]
+files_to_modify = ["CHANGELOG.md", "docs/RELEASE_NOTES.md"]
+validation_criteria = [
+  "Check: Release notes focus on user benefits",
+  "Check: Examples provided for new features",
+  "Check: Language accessible (no jargon)",
+  "Check: Breaking changes clearly communicated"
+]
+why = """
+Users care about benefits, not implementation details.
+Currently: CHANGELOG may be developer-focused.
+Gap: Users don't understand what's new or why they should upgrade.
+Solution: User-friendly release notes highlighting benefits.
+Without this: Users ignore updates, miss new features, low engagement.
+With this: Clear value proposition, feature adoption, upgrade motivation.
+"""
+context = """
+User-facing release notes format:
+
+✅ Good (user benefit):
+"Voice capture now starts automatically when you open the voice panel, saving you a click."
+
+❌ Bad (implementation detail):
+"Refactored VoicePanel.tsx to call startCapture() in componentDidMount()."
+
+Structure:
+1. Headline: What's new (1 sentence)
+2. Benefits: Why you should care (2-3 bullet points)
+3. How to use: Quick example or use case
+4. Breaking changes: What you need to change (if any)
+
+Tone: Friendly, benefit-focused, accessible.
+"""
+
+# ==============================================================================
+# RETROSPECTIVE TASKS (2 tasks - EVERY sprint)
+# ==============================================================================
+
+[template.retrospective.RETRO-001]
+id = "RETRO-001"
+name = "Sprint retrospective"
+phase = "retrospective"
+status = "pending"
+description = "Conduct sprint retrospective. Document what went well, what didn't, and improvements for next sprint."
+estimated_lines = 100
+estimated_time = "1 hour"
+dependencies = []
+agent = "documentation-agent"
+deliverables = [
+  "Sprint retrospective document created",
+  "What went well documented",
+  "What didn't go well documented",
+  "Improvements identified for next sprint",
+  "Action items created (if needed)"
+]
+performance_target = "Complete within 1 hour"
+patterns = ["Pattern-IMPROVEMENT-001"]
+files_to_modify = ["internal/sprints/retrospectives/SPRINT-*.md"]
+validation_criteria = [
+  "Check: Retrospective document created",
+  "Check: All sections completed (well, not well, improvements)",
+  "Check: Action items clear and actionable",
+  "Check: Learnings captured"
+]
+why = """
+Retrospectives capture learnings and drive continuous improvement.
+Currently: May skip reflection, repeat mistakes.
+Gap: No systematic learning mechanism.
+Solution: Retrospective after every sprint.
+Without this: Repeat mistakes, miss improvement opportunities, stagnation.
+With this: Continuous improvement, cumulative knowledge, team learning.
+"""
+context = """
+Sprint retrospective format:
+
+1. What went well:
+   - Tasks completed successfully
+   - Patterns that worked
+   - Time saved by automation
+   - Quality improvements
+
+2. What didn't go well:
+   - Tasks that took longer than expected
+   - Blockers encountered
+   - Bugs introduced
+   - Wasted time
+
+3. Improvements for next sprint:
+   - Process changes
+   - New patterns to create
+   - Tools to adopt
+   - Skills to develop
+
+4. Action items:
+   - Specific, actionable improvements
+   - Owner assigned
+   - Target completion date
+
+Save to: internal/sprints/retrospectives/SPRINT-{NUMBER}-retrospective.md
+"""
+
+[template.retrospective.RETRO-002]
+id = "RETRO-002"
+name = "Extract patterns from sprint learnings"
+phase = "retrospective"
+status = "pending"
+description = "Review sprint retrospective and extract any high-value patterns (score 7+/10 on reusability). Create Pattern-*.md files."
+estimated_lines = 200
+estimated_time = "1-2 hours"
+dependencies = ["RETRO-001"]
+agent = "documentation-agent"
+deliverables = [
+  "High-value patterns extracted (if any)",
+  "Pattern-*.md files created",
+  "docs/patterns/INDEX.md updated",
+  "CLAUDE.md references new patterns"
+]
+performance_target = "Complete within 2 hours"
+patterns = ["Pattern-DOCS-001", "Pattern-IMPROVEMENT-001"]
+files_to_modify = ["docs/patterns/*.md", "docs/patterns/INDEX.md", ".claude/CLAUDE.md"]
+validation_criteria = [
+  "Check: Patterns assessed for reusability (Pattern-DOCS-001)",
+  "Check: High-value patterns (7+/10) extracted",
+  "Check: Pattern files follow standard format",
+  "Check: INDEX.md updated"
+]
+why = """
+Sprint learnings may contain valuable reusable patterns.
+Currently: Learnings stay in retrospective, not reused.
+Gap: No systematic pattern extraction from learnings.
+Solution: Extract high-value patterns after every retrospective.
+Without this: Learnings forgotten, patterns not reused, knowledge loss.
+With this: Cumulative pattern library, faster future sprints, consistency.
+"""
+context = """
+Pattern extraction process (Pattern-IMPROVEMENT-001):
+
+1. Review sprint retrospective (RETRO-001)
+2. Identify potential patterns:
+   - Repeated workflows
+   - Solved problems
+   - Useful conventions
+   - Prevention strategies
+
+3. Assess reusability (Pattern-DOCS-001):
+   - Score 1-3: Low → Keep in retrospective
+   - Score 4-6: Medium → Add to CLAUDE.md
+   - Score 7-8: High → Create Pattern-*.md
+   - Score 9-10: Critical → Pattern + enforcement
+
+4. Extract high-value patterns (7+/10):
+   - Create Pattern-*.md file
+   - Follow standard format (When/Why/How/Examples)
+   - Add to INDEX.md
+   - Reference in CLAUDE.md
+
+5. Update documentation:
+   - Link retrospective to new patterns
+   - Update agent contexts if applicable
+"""
+
+# ==============================================================================
+# END OF TEMPLATE
+# ==============================================================================
+
+# Usage Notes:
+#
+# 1. CONDITIONAL TASK EVALUATION:
+#    - PUB-* tasks: Include if sprint has publishing/release
+#    - UX-* tasks: Include based on specific conditions (breaking changes, UI changes, user-facing changes)
+#
+# 2. SUGGESTED TASK JUSTIFICATION:
+#    - If skipping PERF-001: "No performance-critical changes this sprint"
+#    - If skipping SEC-001: "Low-risk sprint, internal-only changes"
+#    - If skipping COMPAT-001: "No platform-specific code changes"
+#    - If skipping COMPAT-002: "No VS Code API or settings changes"
+#
+# 3. TASK INJECTION PROCESS:
+#    - sprint-plan skill reads this template
+#    - Evaluates conditions for CONDITIONAL tasks
+#    - Prompts user for SUGGESTED task justifications
+#    - Injects applicable tasks into new sprint as [tasks.*]
+#    - User customizes tasks as needed
+#
+# 4. MAINTENANCE:
+#    - Update template when new normalized tasks identified
+#    - Version template when structure changes
+#    - Keep deliverables/validation_criteria current
+#    - Review template effectiveness in retrospectives
+
+# Template Version History:
+# v1.0.0 (2025-11-07): Initial template with 27 normalized tasks
