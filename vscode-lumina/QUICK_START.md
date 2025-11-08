@@ -206,18 +206,19 @@ Claude: Implements OAuth2 correctly first try ✅
 ## Current Status (v0.13.1)
 
 ### ✅ What Works
-- ✅ **F13 voice capture** (desktop app) - **USE THIS**
+- ✅ **Desktop app voice capture** - Works well
 - ✅ Sprint tab shows all tasks
 - ✅ 6 tabs (Voice, Sprint, Planning, Patterns, Activity, Settings)
 - ✅ Fast startup (<2s, BUG-011 fixed)
 - ✅ Desktop app auto-connects
+- **Note:** F13 hotkey has been removed (not available on modern keyboards)
 
 ### ❌ Known Issues (see [KNOWN_ISSUES.md](KNOWN_ISSUES.md))
-- ❌ Webview Record button doesn't work (use F13 instead)
+- ❌ Webview Record button doesn't work (use desktop app instead)
 - ❌ Shift+` enhance button doesn't work yet (BUG-007)
 - ❌ Terminal rename pencil icon (BUG-010, will be removed)
 
-**Ready for feedback!** Core workflow (F13 voice → Sprint tab) works great 🚀
+**Ready for feedback!** Core workflow (desktop app voice → Sprint tab) works great 🚀
 
 ---
 

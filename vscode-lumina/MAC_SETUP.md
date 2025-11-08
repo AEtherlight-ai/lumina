@@ -6,10 +6,10 @@
 
 ## 🍎 Mac Keyboard Limitations
 
-### The F13 Problem
-- ❌ **Modern MacBooks DON'T have F13 key**
-- F13 only exists on older Mac extended keyboards
-- MacBook Pro/Air have F1-F12 only
+### F13 Key (Deprecated)
+- **Status:** F13 hotkey has been removed from ÆtherLight
+- **Reason:** F13 doesn't exist on modern keyboards (Mac/Windows)
+- **Solution:** Use alternative keyboard shortcuts (see below)
 
 ### Good News: Backtick (`) Should Work on Mac!
 
@@ -172,8 +172,8 @@ node --version
 
 | Feature | Windows | Mac |
 |---------|---------|-----|
-| **Default Voice Hotkey** | F13 | ❌ No F13 key |
-| **Recommended Hotkey** | F13 | **Option+V** (⌥V) |
+| **Default Voice Hotkey** | ❌ F13 removed | ❌ F13 removed |
+| **Recommended Hotkey** | **`** (backtick) | **Option+V** (⌥V) or **`** |
 | **Mic Permissions** | Usually works | ⚠️ Must enable in System Preferences |
 | **Desktop App** | lumina-desktop.exe | lumina-desktop (if built for Mac) |
 | **Installation** | npm install -g | Same |
@@ -187,7 +187,7 @@ node --version
 If desktop app doesn't exist for Mac:
 - Voice capture will use OpenAI Whisper API directly (webview)
 - You'll need OpenAI API key configured
-- No desktop app hotkeys (F13 won't work anyway)
+- No desktop app hotkeys (F13 has been removed)
 
 **To configure OpenAI API key:**
 1. VS Code/Cursor → Settings
@@ -250,13 +250,13 @@ If voice capture doesn't work on Mac:
 - Voice capture (if hotkey configured correctly)
 
 ### ⚠️ Mac-Specific Setup Required
-- **Must change hotkey from F13 to Option+V** (⌥V)
+- **Use Option+V (⌥V) or ` (backtick) for hotkey**
 - Must enable mic permissions in System Preferences
 - Must configure OpenAI API key (if no desktop app)
 
 ### ❌ Known Mac Limitations
-- F13 key doesn't exist on modern MacBooks
-- Default Windows hotkeys don't work
+- F13 hotkey has been removed (not available on modern keyboards)
+- Default Windows hotkeys may not work
 - Desktop app may not be built for Mac yet
 
 ---

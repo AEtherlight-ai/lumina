@@ -168,12 +168,6 @@
     ],
     "keybindings": [
       {
-        "command": "aetherlight.quickVoice",
-        "key": "f13",
-        "mac": "f13",
-        "when": "editorTextFocus"
-      },
-      {
         "command": "aetherlight.openVoicePanel",
         "key": "`",
         "mac": "`"

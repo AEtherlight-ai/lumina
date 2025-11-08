@@ -35,11 +35,13 @@ The Lumina IPC (Inter-Process Communication) protocol enables real-time communic
 ```
 1. Desktop app starts → WebSocket server on localhost:43215
 2. VS Code extension activates → IPC client created (not connected yet)
-3. User presses F13 → Client connects lazily (on first use)
+3. User triggers voice capture → Client connects lazily (on first use)
 4. Client sends CaptureVoiceRequest → Desktop starts voice capture
 5. Desktop sends VoiceStatus updates → Client shows progress
 6. Desktop sends CaptureVoiceResponse → Client displays result
 ```
+
+**Note:** F13 hotkey has been removed (not available on modern keyboards)
 
 **DESIGN DECISION:** Lazy connection pattern
 **WHY:** Extension activates even if desktop app not running
@@ -360,7 +362,7 @@ if (!response.success) {
 | Status Updates | 3-5 per request | Count VoiceStatus messages |
 
 **DESIGN DECISION:** <5ms IPC latency target
-**WHY:** Real-time UX, user presses F13 and sees immediate response
+**WHY:** Real-time UX, user triggers voice capture and sees immediate response
 
 **Measurement:**
 ```typescript

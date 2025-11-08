@@ -9,10 +9,10 @@
 
 ### Voice Capture
 - ✅ **Desktop App Voice Hotkeys Work Perfectly**
-  - F13 key captures voice via desktop app
+  - Voice capture via desktop app
   - Transcription via OpenAI Whisper works
   - Transcription appears in terminal
-  - **This is the recommended way to use voice**
+  - **Note:** F13 hotkey has been deprecated (not available on modern keyboards)
 
 ### UI & Navigation
 - ✅ Voice Panel opens with 6 tabs
@@ -32,15 +32,13 @@
 
 **Problem:** Clicking the 🎤 Record button in Voice Panel shows "mic access denied"
 
-**Workaround:** **Use F13 hotkey instead** (desktop app voice capture)
-- This works perfectly and is actually faster
-- F13 → speak → transcription appears immediately
+**Workaround:** Use desktop app voice capture or alternative input methods
 
 **Why:** Browser MediaRecorder API requires HTTPS, webviews can't access mic reliably
 
-**Status:** Low priority - F13 desktop hotkey works great
+**Status:** Low priority - desktop app voice capture works well
 
-**Recommended:** Just use F13, ignore the webview Record button
+**Note:** F13 hotkey has been removed (deprecated in favor of modern keyboard shortcuts)
 
 ---
 
@@ -73,8 +71,9 @@
 ## 🎯 Recommended Usage (What Actually Works)
 
 ### For Voice Capture:
-1. ✅ **Use F13 hotkey** (desktop app) - works perfectly
+1. ✅ **Use desktop app voice capture** - works well
 2. ❌ Don't use webview Record button - doesn't work reliably
+3. **Note:** F13 hotkey removed (not available on modern keyboards)
 
 ### For Enhanced Prompts:
 1. ⏳ Manual context for now (Shift+` not working yet)
@@ -90,8 +89,8 @@
 
 | Feature | Status | Recommendation |
 |---------|--------|----------------|
-| **F13 Voice Capture** | ✅ Works great | Use this! |
-| **Webview Record Button** | ❌ Broken | Ignore it, use F13 |
+| **Desktop App Voice Capture** | ✅ Works well | Use this! |
+| **Webview Record Button** | ❌ Broken | Use desktop app instead |
 | **Shift+` Enhance** | ❌ Broken | Manual context for now |
 | **Sprint Tab** | ✅ Works great | Use it! |
 | **Tab Switching** | ✅ Fast | Works perfectly |
@@ -102,13 +101,13 @@
 
 ## 🍎 Mac-Specific Issues (CRITICAL)
 
-### Issue 4: F13 Key Doesn't Exist on Modern Macs
+### Issue 4: F13 Key Removed (Deprecated)
 
-**Problem:** Default voice hotkey is F13, but MacBooks only have F1-F12
+**Status:** **RESOLVED** - F13 hotkey has been removed from the extension
 
-**Impact:** CRITICAL - Voice capture won't work with default hotkey
+**Reason:** F13 key doesn't exist on modern keyboards (Windows/Mac)
 
-**Workaround:** **Change hotkey to Option+V** (⌥V) or **Cmd+Shift+V**
+**Solution:** Use alternative voice capture methods available in the desktop app
 
 **Instructions:** See [MAC_SETUP.md](MAC_SETUP.md) for complete Mac setup
 
@@ -149,27 +148,29 @@
 - **Mac:** ⚠️ **NEEDS MAC-SPECIFIC SETUP** - See [MAC_SETUP.md](MAC_SETUP.md)
 
 **Primary workflow works:**
-1. Press F13 → speak → get transcription ✅
+1. Desktop app voice capture → speak → get transcription ✅
 2. View sprint tasks in Sprint tab ✅
 3. Navigate between tabs ✅
 
 **Things that don't work yet:**
-1. Webview Record button (use F13 instead)
+1. Webview Record button (use desktop app instead)
 2. Shift+` enhance button (manual context for now)
 3. Terminal rename (cosmetic only)
 
-**Recommendation:** Ship v0.13.1 for feedback with clear docs about what works (F13) and what doesn't (webview button, enhance)
+**Note:** F13 hotkey has been removed (not available on modern keyboards)
 
 ---
 
 ## 📞 User Feedback Needed
 
 We need users to test:
-1. **Does F13 voice capture work reliably for you?**
+1. **Does desktop app voice capture work reliably for you?**
 2. **Is Sprint tab useful for tracking tasks?**
 3. **Are the 6 tabs discoverable and intuitive?**
 4. **How important is Shift+` enhance to your workflow?**
 5. **Any other blockers or confusion points?**
+
+**Note:** F13 hotkey has been deprecated and removed
 
 ---
 
