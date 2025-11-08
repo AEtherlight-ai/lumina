@@ -111,7 +111,7 @@ const template = toml.parse(templateContent);
 
 // Template structure:
 // - template.metadata (version, task counts)
-// - template.required.* (13 tasks - always include)
+// - template.required.* (14 tasks - always include)
 // - template.suggested.* (4 tasks - include with skip option)
 // - template.conditional.* (8 tasks - condition-based)
 // - template.retrospective.* (2 tasks - always include)
@@ -205,7 +205,7 @@ const retrospectiveTasks = Object.entries(template.retrospective).map(([key, tas
 
 // Total template tasks to inject
 const allTemplateTasks = [
-  ...requiredTasks,     // 13 tasks
+  ...requiredTasks,     // 14 tasks
   ...suggestedTasks,    // 4 tasks
   ...conditionalTasks,  // 0-8 tasks (condition-dependent)
   ...retrospectiveTasks // 2 tasks
@@ -310,7 +310,8 @@ phase = "quality-assurance"
 agent = "testing-agent"
 # ... full template task definition
 
-# ... all other template tasks (DOC-002, DOC-003, DOC-004, QA-002, QA-003, QA-004, etc.)
+# ... all other template tasks (DOC-002 through DOC-005, QA-002 through QA-004, etc.)
+# NOTE: DOC-005 is a REFACTORING task (context optimization, -500 lines estimated)
 
 [tasks.RETRO-001]
 id = "RETRO-001"
@@ -330,8 +331,8 @@ agent = "documentation-agent"
 
 **After Template Injection:**
 - Feature tasks: 5-10 tasks
-- Template tasks: 19-27 tasks (depending on conditions)
-- Total: 24-37 tasks per sprint
+- Template tasks: 20-28 tasks (depending on conditions)
+- Total: 25-38 tasks per sprint
 - Quality assurance guaranteed
 - Consistent sprint structure
 
@@ -383,15 +384,15 @@ User: "Plan a sprint to release v2.0 with UI redesign"
 - UI-002: Update theme system
 - UI-003: Implement responsive design
 
-**Injected Template Tasks (27 tasks):**
-- REQUIRED (13): DOC-001 to DOC-004, QA-001 to QA-004, AGENT-001 to AGENT-002, INFRA-001 to INFRA-002, CONFIG-001
+**Injected Template Tasks (28 tasks):**
+- REQUIRED (14): DOC-001 to DOC-005, QA-001 to QA-004, AGENT-001 to AGENT-002, INFRA-001 to INFRA-002, CONFIG-001
 - SUGGESTED (4): PERF-001, SEC-001, COMPAT-001, COMPAT-002
 - CONDITIONAL (8):
   - PUB-001 to PUB-005 (publishing detected: "release v2.0")
   - UX-001 to UX-003 (user-facing detected: "UI redesign")
 - RETROSPECTIVE (2): RETRO-001, RETRO-002
 
-**Total: 3 feature + 27 template = 30 tasks**
+**Total: 3 feature + 28 template = 31 tasks**
 
 **Condition Detection:**
 - isPublishing: true ("release" + "v2.0" keywords detected)
