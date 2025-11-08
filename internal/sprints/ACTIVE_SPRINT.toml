@@ -3904,7 +3904,8 @@ id = "SELF-004"
 name = "Integrate inquirer.js for CLI prompts"
 phase = "phase-2-foundation"
 assigned_engineer = "engineer_1"
-status = "pending"
+status = "completed"
+completion_date = "2025-11-07"
 description = "Implement InterviewEngine service with inquirer.js integration for interactive CLI prompts. Support question types: input, list, confirm, checkbox. Load interview templates from .aetherlight/interviews/. Answer validation and conditional questions. 85% test coverage."
 estimated_lines = 350
 estimated_time = "8-10 hours"
@@ -4036,7 +4037,8 @@ id = "SELF-005"
 name = "Phase 2 integration tests"
 phase = "phase-2-foundation"
 assigned_engineer = "engineer_1"
-status = "pending"
+status = "completed"
+completion_date = "2025-11-07"
 description = "Create comprehensive integration tests for Phase 2 Foundation: VariableResolver + ProjectConfigGenerator + Schema validation + InterviewEngine. Test full workflow: detection → interview → config generation → variable resolution. 90% coverage."
 estimated_lines = 500
 estimated_time = "4-6 hours"
@@ -6930,10 +6932,39 @@ validation_criteria = [
 [tasks.UX-011]
 id = "UX-011"
 name = "Make text area resizable with size persistence"
-status = "pending"
+status = "obsolete"
 phase = "phase-0b-ux-polish"
 agent = "ui-agent"
 assigned_engineer = "engineer_1"
+obsolete_reason = """
+TASK ALREADY COMPLETE - Implemented in UX-006
+
+Step 1.5 Currency Verification (2025-11-08):
+
+All deliverables ALREADY IMPLEMENTED in voicePanel.ts (UX-006):
+
+✅ CSS resize handle (line 1997):
+   - resize: vertical
+
+✅ Min/max constraints (lines 1988-1989):
+   - min-height: 60px
+   - max-height: 400px
+
+✅ Height persistence (lines 3328, 659-666):
+   - workspaceState.get/update('textareaHeight')
+   - Default: 60px
+
+✅ ResizeObserver (lines 3396-3409):
+   - Monitors textarea resize events
+   - Debounced saves (500ms)
+   - postMessage('saveTextareaHeight')
+
+✅ Backend handler (lines 659-666):
+   - case 'saveTextareaHeight'
+   - Saves to workspaceState
+
+CONCLUSION: All 4 deliverables already working. No action needed.
+"""
 why = """
 Text area has fixed height (60px default, max 120px auto-resize).\r
 Users working with longer prompts need more vertical space.\r
@@ -6981,7 +7012,8 @@ validation_criteria = [
 [tasks.UX-012]
 id = "UX-012"
 name = "Auto-expand text area for pasted/modal content, then restore user size"
-status = "pending"
+status = "completed"
+completed_date = "2025-11-08"
 phase = "phase-0b-ux-polish"
 agent = "ui-agent"
 assigned_engineer = "engineer_1"
