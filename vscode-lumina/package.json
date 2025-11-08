@@ -160,6 +160,26 @@
       {
         "command": "aetherlight.discoverCapabilities",
         "title": "ÆtherLight: Discover Capabilities"
+      },
+      {
+        "command": "aetherlight.startGettingStarted",
+        "title": "ÆtherLight: Getting Started"
+      },
+      {
+        "command": "aetherlight.confirmBackup",
+        "title": "ÆtherLight: I've Backed Up My Project"
+      },
+      {
+        "command": "aetherlight.analyzeProject",
+        "title": "ÆtherLight: Analyze My Project"
+      },
+      {
+        "command": "aetherlight.init",
+        "title": "ÆtherLight: Initialize Self-Configuration"
+      },
+      {
+        "command": "aetherlight.openConfig",
+        "title": "ÆtherLight: Open Project Configuration"
       }
     ],
     "keybindings": [
@@ -576,7 +596,68 @@
           "scope": "window"
         }
       }
-    }
+    },
+    "walkthroughs": [
+      {
+        "id": "aetherlight.setup",
+        "title": "Get Started with ÆtherLight",
+        "description": "Let ÆtherLight analyze your project and configure it intelligently using the self-configuration system",
+        "steps": [
+          {
+            "id": "welcome",
+            "title": "Welcome & Safety First",
+            "description": "Before we start, let's make sure your work is safe.\n\n[I've Backed Up My Project](command:aetherlight.confirmBackup)",
+            "media": {
+              "markdown": "walkthroughs/welcome.md"
+            },
+            "completionEvents": [
+              "onCommand:aetherlight.confirmBackup"
+            ]
+          },
+          {
+            "id": "analyze",
+            "title": "Analyze Your Project",
+            "description": "ÆtherLight will detect your language, tools, and workflows automatically.\n\n[Analyze My Project](command:aetherlight.analyzeProject)",
+            "media": {
+              "markdown": "walkthroughs/analyze.md"
+            },
+            "completionEvents": [
+              "onCommand:aetherlight.analyzeProject"
+            ]
+          },
+          {
+            "id": "configure",
+            "title": "Fill In The Gaps",
+            "description": "Some details couldn't be auto-detected. Let's configure them interactively.\n\n[Start Configuration](command:aetherlight.init)",
+            "media": {
+              "markdown": "walkthroughs/configure.md"
+            },
+            "completionEvents": [
+              "onCommand:aetherlight.init"
+            ]
+          },
+          {
+            "id": "review",
+            "title": "Review Your Configuration",
+            "description": "Your configuration has been generated. Let's review it.\n\n[Open Configuration](command:aetherlight.openConfig)",
+            "media": {
+              "markdown": "walkthroughs/review.md"
+            },
+            "completionEvents": [
+              "onCommand:aetherlight.openConfig"
+            ]
+          },
+          {
+            "id": "sprint",
+            "title": "Ready to Sprint",
+            "description": "You're all set! Now you can create sprints and start tracking work.\n\n[Learn About Sprints](https://docs.aetherlight.dev/sprints)",
+            "media": {
+              "markdown": "walkthroughs/sprint.md"
+            }
+          }
+        ]
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "npm run build:all",
