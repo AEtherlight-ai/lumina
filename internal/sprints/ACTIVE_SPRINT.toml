@@ -6933,12 +6933,13 @@ validation_criteria = [
 [tasks.UX-011]
 id = "UX-011"
 name = "Make text area resizable with size persistence"
-status = "obsolete"
+status = "completed"
+completion_date = "2025-11-07"
 phase = "phase-0b-ux-polish"
 agent = "ui-agent"
 assigned_engineer = "engineer_1"
-obsolete_reason = """
-TASK ALREADY COMPLETE - Implemented in UX-006
+completion_note = """
+Completed as part of UX-006 - Text area UI improvements
 
 Step 1.5 Currency Verification (2025-11-08):
 
