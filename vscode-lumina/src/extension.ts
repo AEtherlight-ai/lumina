@@ -494,6 +494,24 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	context.subscriptions.push(openVoicePanelCommand);
 
 	/**
+	 * UX-013: Focus Voice Panel textarea (Ctrl+` hotkey)
+	 * WHY: Quick return to Voice Panel input after sending to terminal
+	 *
+	 * REASONING CHAIN:
+	 * 1. User sends command to terminal → Focus moves to terminal
+	 * 2. User presses Ctrl+` → Command triggers
+	 * 3. Focus returns to Voice Panel textarea
+	 * 4. User can immediately continue recording/typing
+	 * 5. Result: Fast workflow without manual clicking ✅
+	 *
+	 * PATTERN: Pattern-KEYBINDING-001 (Focus Management)
+	 */
+	const focusVoiceTextAreaCommand = vscode.commands.registerCommand('aetherlight.focusVoiceTextArea', async () => {
+		voiceViewProvider.focusTextArea();
+	});
+	context.subscriptions.push(focusVoiceTextAreaCommand);
+
+	/**
 	 * DESIGN DECISION: Register Capture Voice Global command (Shift+` hotkey)
 	 * WHY: Record and type transcription at current cursor position (universal voice typing)
 	 *

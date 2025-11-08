@@ -118,6 +118,10 @@
         "title": "ÆtherLight: Open Voice Panel"
       },
       {
+        "command": "aetherlight.focusVoiceTextArea",
+        "title": "ÆtherLight: Focus Voice Text Area"
+      },
+      {
         "command": "lumina.showEventDetails",
         "title": "Lumina: Show Event Details"
       },
@@ -156,6 +160,10 @@
       {
         "command": "aetherlight.analyzeAndGenerateSprints",
         "title": "ÆtherLight: Analyze Workspace and Generate Sprints"
+      },
+      {
+        "command": "aetherlight.discoverCapabilities",
+        "title": "ÆtherLight: Discover Capabilities"
       }
     ],
     "keybindings": [
@@ -174,6 +182,11 @@
         "command": "aetherlight.captureVoiceGlobal",
         "key": "shift+`",
         "mac": "shift+`"
+      },
+      {
+        "command": "aetherlight.focusVoiceTextArea",
+        "key": "ctrl+`",
+        "mac": "cmd+`"
       },
       {
         "command": "lumina.captureVoice",
@@ -605,11 +618,14 @@
     "@types/jest": "^30.0.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "^20.10.0",
+    "@types/sinon": "^17.0.4",
     "@types/uuid": "^10.0.0",
     "@types/vscode": "^1.99.0",
     "@types/ws": "^8.5.9",
     "@vscode/test-electron": "^2.3.8",
     "@vscode/vsce": "^2.22.0",
+    "ajv": "^8.17.1",
+    "sinon": "^21.0.0",
     "typescript": "^5.3.0"
   },
   "bundleDependencies": [

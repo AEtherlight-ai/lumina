@@ -518,6 +518,27 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
         }
     }
 
+    /**
+     * UX-013: Public method to focus the Voice Panel textarea
+     * WHY: Keyboard shortcut (Ctrl+`) needs programmatic focus control
+     *
+     * REASONING CHAIN:
+     * 1. User presses Ctrl+` (from terminal or anywhere)
+     * 2. Extension command calls this method
+     * 3. Post 'focusTranscriptionBox' message to webview
+     * 4. Webview handler (line 3577) focuses the textarea
+     * 5. Result: Quick return to Voice Panel input without mouse click
+     *
+     * PATTERN: Pattern-KEYBINDING-001 (Command-to-Webview Focus)
+     */
+    public focusTextArea(): void {
+        if (this._view) {
+            this._view.webview.postMessage({
+                type: 'focusTranscriptionBox'
+            });
+        }
+    }
+
     private async _handleMessage(message: any, webview: vscode.Webview) {
         switch (message.type) {
             case 'selectTask':
@@ -663,6 +684,21 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                  * PATTERN: Store state only (no UI refresh to avoid losing textarea content)
                  */
                 await this._context.workspaceState.update('textareaHeight', message.height);
+                break;
+
+            case 'saveUserPreferredHeight':
+                /**
+                 * UX-012: Save user's preferred textarea height for auto-expand/restore
+                 * WHY: Dual height tracking - separate user's manual resize from auto-expansion
+                 * REASONING CHAIN:
+                 * 1. userPreferredHeight = User's manual resize size
+                 * 2. textareaHeight = Current height (may be auto-expanded)
+                 * 3. After Send → Restore to userPreferredHeight
+                 * 4. Manual resize during auto-expansion → Update userPreferredHeight
+                 *
+                 * PATTERN: Pattern-STATE-001 (Dual state tracking)
+                 */
+                await this._context.workspaceState.update('userPreferredTextareaHeight', message.height);
                 break;
 
             case 'saveTerminalSelection':
@@ -3326,6 +3362,8 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
     private getVoiceTabScripts(): string {
         // UX-006: Get saved textarea height from workspace state
         const savedHeight = this._context.workspaceState.get<number>('textareaHeight', 60);
+        // UX-012: Get user's preferred height (manual resize size) from workspace state
+        const userPreferredHeight = this._context.workspaceState.get<number>('userPreferredTextareaHeight', savedHeight);
         // UX-009: Get saved terminal selection from workspace state
         const savedTerminalName = this._context.workspaceState.get<string>('selectedTerminalName', '');
 
@@ -3343,31 +3381,56 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             // Auto-focus text area when Voice tab shows
             const transcriptionText = document.getElementById('transcriptionText');
             if (transcriptionText) {
+                /**
+                 * UX-010: Restore saved textarea content from localStorage
+                 * DESIGN DECISION: Content persists across tab switches and panel reopens
+                 * WHY: Prevents user data loss, improves UX for work-in-progress prompts
+                 *
+                 * REASONING CHAIN:
+                 * 1. Restore saved content from localStorage on panel initialization
+                 * 2. Content only clears after explicit actions (Send, Clear, or manual delete)
+                 * 3. Content persists when user switches tabs or closes/reopens panel
+                 * 4. Result: No data loss, better user experience
+                 *
+                 * PATTERN: Pattern-STATE-001 (Client-side state persistence)
+                 */
+                const savedContent = localStorage.getItem('aetherlight-voicepanel-content');
+                if (savedContent) {
+                    transcriptionText.value = savedContent;
+                }
+
                 transcriptionText.focus();
             }
 
             /**
-             * UX-006: Restore saved textarea height and enable manual resize persistence
-             * DESIGN DECISION: Manual resize with persistence replaces auto-resize
-             * WHY: User control over textarea size, preserves preference across reloads
+             * UX-006 + UX-012: Dual height tracking with auto-expansion
+             * DESIGN DECISION: Track both user's preferred height and current height
+             * WHY: Auto-expand for large content, restore to user's preferred size after Send
              *
              * REASONING CHAIN:
-             * 1. Restore saved height from workspace state (min 60px, max 400px)
-             * 2. User can manually resize via drag handle (CSS: resize: vertical)
-             * 3. ResizeObserver detects size changes and saves to workspace state
-             * 4. Debounce saves to avoid excessive state updates
+             * 1. userPreferredHeight: User's manual resize size (persisted)
+             * 2. currentHeight: Actual textarea height (may be auto-expanded)
+             * 3. isAutoExpanded: Flag indicating temporary auto-expansion
+             * 4. Paste/modal insertion → Auto-expand to content height (max 400px)
+             * 5. Send → Restore to userPreferredHeight
+             * 6. Manual resize during auto-expansion → Update userPreferredHeight
+             *
+             * PATTERN: Pattern-STATE-001 (Dual state tracking)
              */
             const savedHeight = ${savedHeight};
+            let userPreferredHeight = ${userPreferredHeight};
+            let isAutoExpanded = false;
+
             if (transcriptionText) {
                 // Restore saved height (enforce min/max constraints)
                 const constrainedHeight = Math.max(60, Math.min(400, savedHeight));
                 transcriptionText.style.height = constrainedHeight + 'px';
 
-                // Debounced save function to avoid excessive state updates
-                let saveTimeout = null;
+                // Debounced save functions to avoid excessive state updates
+                let saveHeightTimeout = null;
                 function saveTextareaHeight(height) {
-                    clearTimeout(saveTimeout);
-                    saveTimeout = setTimeout(() => {
+                    clearTimeout(saveHeightTimeout);
+                    saveHeightTimeout = setTimeout(() => {
                         vscode.postMessage({
                             type: 'saveTextareaHeight',
                             height: Math.max(60, Math.min(400, height))
@@ -3375,19 +3438,75 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                     }, 500); // Save 500ms after user stops resizing
                 }
 
+                let savePreferredTimeout = null;
+                function saveUserPreferredHeight(height) {
+                    clearTimeout(savePreferredTimeout);
+                    savePreferredTimeout = setTimeout(() => {
+                        vscode.postMessage({
+                            type: 'saveUserPreferredHeight',
+                            height: Math.max(60, Math.min(400, height))
+                        });
+                    }, 500);
+                }
+
+                // Helper function to auto-expand textarea to fit content
+                // UX-012: Exposed globally for modal content insertion
+                window.autoExpandTextareaToContent = function() {
+                    const scrollHeight = transcriptionText.scrollHeight;
+                    if (scrollHeight > transcriptionText.clientHeight) {
+                        const targetHeight = Math.min(400, scrollHeight + 16); // +16px padding
+                        transcriptionText.style.height = targetHeight + 'px';
+                        isAutoExpanded = true;
+                    }
+                };
+
+                // Alias for internal use
+                const autoExpandToContent = window.autoExpandTextareaToContent;
+
                 // Observe textarea resize events
+                let lastHeight = constrainedHeight;
                 const resizeObserver = new ResizeObserver((entries) => {
                     for (const entry of entries) {
                         if (entry.target === transcriptionText) {
                             const newHeight = entry.contentRect.height;
-                            // Only save if height actually changed
-                            if (Math.abs(newHeight - constrainedHeight) > 1) {
+
+                            // Only process if height actually changed
+                            if (Math.abs(newHeight - lastHeight) > 1) {
+                                // Save current height to workspaceState
                                 saveTextareaHeight(newHeight);
+
+                                // If auto-expanded and user manually resizes, update preferred height
+                                if (isAutoExpanded) {
+                                    userPreferredHeight = newHeight;
+                                    saveUserPreferredHeight(newHeight);
+                                    isAutoExpanded = false; // Clear flag - user took control
+                                } else {
+                                    // Normal manual resize - update preferred height
+                                    userPreferredHeight = newHeight;
+                                    saveUserPreferredHeight(newHeight);
+                                }
+
+                                lastHeight = newHeight;
                             }
                         }
                     }
                 });
                 resizeObserver.observe(transcriptionText);
+
+                // UX-012: Auto-expand on paste events
+                transcriptionText.addEventListener('paste', () => {
+                    // Wait for paste to complete, then auto-expand
+                    setTimeout(() => {
+                        autoExpandToContent();
+                    }, 10);
+                });
+
+                // UX-012: Auto-expand on input if content exceeds current height
+                transcriptionText.addEventListener('input', () => {
+                    if (transcriptionText.scrollHeight > transcriptionText.clientHeight + 20) {
+                        autoExpandToContent();
+                    }
+                });
             }
 
             window.refreshTerminals = function() {
@@ -3700,6 +3819,15 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
                 // Clear input box after sending
                 document.getElementById('transcriptionText').value = '';
+                // UX-010: Clear saved content from localStorage after sending
+                localStorage.removeItem('aetherlight-voicepanel-content');
+
+                // UX-012: Restore user's preferred height after Send
+                if (transcriptionText && isAutoExpanded) {
+                    transcriptionText.style.height = userPreferredHeight + 'px';
+                    isAutoExpanded = false;
+                }
+
                 updateSendButton();
 
                 showStatus('📤 Sent to ' + selectedTerminal + ' (review before Enter)', 'info');
@@ -3728,6 +3856,15 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
                 // Clear input box after sending
                 document.getElementById('transcriptionText').value = '';
+                // UX-010: Clear saved content from localStorage after sending
+                localStorage.removeItem('aetherlight-voicepanel-content');
+
+                // UX-012: Restore user's preferred height after Send
+                if (transcriptionText && isAutoExpanded) {
+                    transcriptionText.style.height = userPreferredHeight + 'px';
+                    isAutoExpanded = false;
+                }
+
                 updateSendButton();
 
                 showStatus('📤 Sent to ' + selectedTerminal + ' and executed ✓', 'info');
@@ -3735,28 +3872,69 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
             window.clearText = function() {
                 document.getElementById('transcriptionText').value = '';
+                // UX-010: Clear saved content from localStorage when user clicks Clear
+                localStorage.removeItem('aetherlight-voicepanel-content');
                 updateSendButton();
             };
 
-            // UX-007: Support Ctrl+Enter (send only) and Ctrl+Shift+Enter (send + execute)
+            /**
+             * UX-014: Global Ctrl+Enter keyboard shortcuts
+             * DESIGN DECISION: Document-level listener instead of textarea-only
+             * WHY: Allow keyboard shortcuts to work anywhere in Voice panel
+             *
+             * REASONING CHAIN:
+             * 1. User focuses terminal list, Sprint section, or any element
+             * 2. User presses Ctrl+Enter → Should still send to terminal
+             * 3. Document-level listener catches all keyboard events
+             * 4. No need to click textarea first → Faster workflow
+             * 5. Result: Keyboard shortcuts work globally ✅
+             *
+             * PATTERN: Pattern-KEYBOARD-001 (Global Keyboard Shortcuts)
+             */
+            document.addEventListener('keydown', (e) => {
+                // UX-007 + UX-014: Support Ctrl+Enter (send only) and Ctrl+Shift+Enter (send + execute)
+                if (e.ctrlKey && e.key === 'Enter') {
+                    e.preventDefault(); // Prevent default Enter behavior
+
+                    if (e.shiftKey) {
+                        // Ctrl+Shift+Enter: Send to terminal AND execute
+                        window.sendToTerminalAndExecute();
+                    } else {
+                        // Ctrl+Enter: Send to terminal only (allows editing)
+                        window.sendToTerminal();
+                    }
+                }
+            });
+
+            // Textarea-specific listeners (still needed for input/blur)
             const textArea = document.getElementById('transcriptionText');
             if (textArea) {
-                textArea.addEventListener('keydown', (e) => {
-                    if (e.ctrlKey && e.key === 'Enter') {
-                        e.preventDefault(); // Prevent default Enter behavior
-
-                        if (e.shiftKey) {
-                            // Ctrl+Shift+Enter: Send to terminal AND execute
-                            window.sendToTerminalAndExecute();
-                        } else {
-                            // Ctrl+Enter: Send to terminal only (allows editing)
-                            window.sendToTerminal();
-                        }
-                    }
-                });
-
                 // Update send button when text changes
                 textArea.addEventListener('input', updateSendButton);
+
+                /**
+                 * UX-010: Save textarea content to localStorage on every change (debounced)
+                 * DESIGN DECISION: Debounced writes to avoid excessive localStorage operations
+                 * WHY: Balance between data safety and performance
+                 *
+                 * REASONING CHAIN:
+                 * 1. User types → Input event fires
+                 * 2. Debounce for 500ms (wait for typing to pause)
+                 * 3. Save to localStorage after pause
+                 * 4. Also save on blur (user clicks away) as fallback
+                 * 5. Result: Content saved efficiently without performance impact
+                 */
+                let saveContentTimeout = null;
+                function saveTextareaContent() {
+                    const content = textArea.value;
+                    clearTimeout(saveContentTimeout);
+                    saveContentTimeout = setTimeout(() => {
+                        localStorage.setItem('aetherlight-voicepanel-content', content);
+                    }, 500); // Save 500ms after user stops typing
+                }
+
+                textArea.addEventListener('input', saveTextareaContent);
+                textArea.addEventListener('blur', saveTextareaContent); // Save immediately on blur
             }
 
             function updateSendButton() {
