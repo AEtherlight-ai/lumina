@@ -12,6 +12,8 @@ import { TaskStarter } from '../services/TaskStarter';
 import { TaskDependencyValidator } from '../services/TaskDependencyValidator';
 import { PromptEnhancer } from '../services/PromptEnhancer';
 import { TaskQuestionModal } from '../webview/TaskQuestionModal'; // PROTECT-000D: Q&A modal for gap resolution
+import { TemplateTaskBuilder } from '../services/TemplateTaskBuilder'; // PROTECT-000F: Template task construction
+import { TaskPromptExporter } from '../services/TaskPromptExporter'; // PROTECT-000F: Template enhancement
 
 /**
  * @protected - Partial protection for passing sections only
@@ -56,6 +58,8 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
     private taskStarter: TaskStarter; // REFACTOR-000-UI: Task starter with dependency validation
     private taskValidator: TaskDependencyValidator; // REFACTOR-000-UI: Dependency validator
     private promptEnhancer: PromptEnhancer; // REFACTOR-001: Prompt enhancement with patterns
+    private templateTaskBuilder: TemplateTaskBuilder; // PROTECT-000F: Template task construction
+    private taskPromptExporter: TaskPromptExporter; // PROTECT-000F: MVP-003 template enhancement
     private sprintTasks: SprintTask[] = [];
     private selectedTaskId: string | null = null;
     private selectedEngineerId: string = 'all'; // 'all' or specific engineer ID
@@ -86,6 +90,15 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
          * REASONING: Add patterns, context, and SOPs to user's natural language input
          */
         this.promptEnhancer = new PromptEnhancer(_context);
+
+        /**
+         * PROTECT-000F: Initialize TemplateTaskBuilder and TaskPromptExporter
+         * REASONING: Enable MVP-003 intelligence for all enhancement buttons
+         * WHY: Code Analyzer, Sprint Planner, Bug Report, Feature Request, General Enhance all get gap detection + question modals
+         */
+        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
+        this.templateTaskBuilder = new TemplateTaskBuilder(workspaceRoot);
+        this.taskPromptExporter = new TaskPromptExporter();
 
         /**
          * B-003: Initialize AutoTerminalSelector for intelligent terminal selection
@@ -652,6 +665,15 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 await this._context.workspaceState.update('textareaHeight', message.height);
                 break;
 
+            case 'saveTerminalSelection':
+                /**
+                 * UX-009: Save terminal selection for persistence
+                 * WHY: User selects terminal, preserve selection across panel reopens/refreshes
+                 * PATTERN: Store state only (no UI refresh needed)
+                 */
+                await this._context.workspaceState.update('selectedTerminalName', message.terminalName);
+                break;
+
             /**
              * PROTECT-000: Start Next Task with AI-enhanced prompt
              * WHY: Generate comprehensive task prompt with current project state
@@ -956,15 +978,21 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
             case 'enhanceText':
                 /**
-                 * REFACTOR-001: Enhance user's natural language prompt with patterns and context
-                 * WHY: Help users write better prompts by adding workspace context, patterns, SOPs
-                 * REASONING: PromptEnhancer analyzes workspace, injects relevant patterns/context
+                 * PROTECT-000F: General Enhancement with MVP-003 Intelligence
+                 * WHY: Enhance user's natural language prompt using MVP-003 system
+                 * PATTERN: User prompt → TemplateTaskBuilder → TaskPromptExporter.generateEnhancedPromptFromTemplate() → Enhanced prompt
+                 * UPGRADE: Was basic PromptEnhancer → Now full MVP-003 (gap detection, pattern injection, context analysis)
                  */
                 try {
-                    const enhanced = await this.promptEnhancer.enhancePrompt(message.text, 'general');
+                    // Build template task using TemplateTaskBuilder
+                    const generalEnhanceTemplate = this.templateTaskBuilder.buildGeneralEnhanceTemplate(message.text);
+
+                    // Generate enhanced prompt using MVP-003 system
+                    const enhancedPrompt = await this.taskPromptExporter.generateEnhancedPromptFromTemplate(generalEnhanceTemplate);
+
                     webview.postMessage({
                         type: 'enhancedText',
-                        text: enhanced.prompt
+                        text: enhancedPrompt
                     });
                 } catch (error) {
                     console.error('[ÆtherLight] Prompt enhancement failed:', error);
@@ -978,34 +1006,34 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
             case 'enhanceBugReport':
                 /**
-                 * UI-006 REFIX: Enhance bug report form data → Main text area
-                 * WHY: Structured form → detailed prompt → skill enhancement → main text area for review
-                 * PATTERN: Form data → Construct prompt → Enhance with skill → Populate text area
+                 * PROTECT-000F: Bug Report Enhancement with MVP-003 Intelligence
+                 * WHY: Generate structured bug report prompt using MVP-003 system
+                 * PATTERN: Form data → TemplateTaskBuilder → TaskPromptExporter.generateEnhancedPromptFromTemplate() → Enhanced prompt
+                 * UPGRADE: Was basic PromptEnhancer → Now full MVP-003 (gap detection, TDD workflow, root cause analysis)
                  */
                 try {
                     const bugData = message.data;
 
-                    // Construct detailed prompt from form data
-                    let bugPrompt = `Report Bug: ${bugData.title}\n\n`;
-                    bugPrompt += `Severity: ${bugData.severity.toUpperCase()}\n`;
-                    if (bugData.component) {
-                        bugPrompt += `Component: ${bugData.component}\n`;
-                    }
-                    bugPrompt += `\nDescription:\n${bugData.description}\n`;
-                    if (bugData.context) {
-                        bugPrompt += `\nAdditional Context:\n${bugData.context}\n`;
-                    }
+                    // Build template task using TemplateTaskBuilder
+                    const bugReportTemplate = this.templateTaskBuilder.buildBugReportTemplate({
+                        title: bugData.title,
+                        severity: bugData.severity,
+                        stepsToReproduce: bugData.description || '',
+                        expectedBehavior: '',
+                        actualBehavior: bugData.description || '',
+                        additionalContext: bugData.context || ''
+                    });
 
-                    // Enhance with skill detector (will auto-detect bug-report skill from prompt)
-                    const enhanced = await this.promptEnhancer.enhancePrompt(bugPrompt, 'general');
+                    // Generate enhanced prompt using MVP-003 system
+                    const enhancedPrompt = await this.taskPromptExporter.generateEnhancedPromptFromTemplate(bugReportTemplate);
 
                     // Send to webview to populate main text area
                     webview.postMessage({
                         type: 'populateTextArea',
-                        text: enhanced.prompt
+                        text: enhancedPrompt
                     });
 
-                    vscode.window.showInformationMessage('✨ Bug report enhanced - review in text area and click Send');
+                    vscode.window.showInformationMessage('✨ Bug report enhanced (MVP-003) - review in text area and click Send');
                 } catch (error) {
                     console.error('[ÆtherLight] Bug report enhancement failed:', error);
                     vscode.window.showErrorMessage(`Failed to enhance bug report: ${(error as Error).message}`);
@@ -1014,37 +1042,35 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
             case 'enhanceFeatureRequest':
                 /**
-                 * UI-006 REFIX: Enhance feature request form data → Main text area
-                 * WHY: Structured form → detailed prompt → skill enhancement → main text area for review
-                 * PATTERN: Form data → Construct prompt → Enhance with skill → Populate text area
+                 * PROTECT-000F: Feature Request Enhancement with MVP-003 Intelligence
+                 * WHY: Generate structured feature request prompt using MVP-003 system
+                 * PATTERN: Form data → TemplateTaskBuilder → TaskPromptExporter.generateEnhancedPromptFromTemplate() → Enhanced prompt
+                 * UPGRADE: Was basic PromptEnhancer → Now full MVP-003 (gap detection, TDD workflow, use case analysis)
                  */
                 try {
                     const featureData = message.data;
 
-                    // Construct detailed prompt from form data
-                    let featurePrompt = `Feature Request: ${featureData.title}\n\n`;
-                    featurePrompt += `Priority: ${featureData.priority.toUpperCase()}\n`;
-                    if (featureData.category) {
-                        featurePrompt += `Category: ${featureData.category}\n`;
-                    }
-                    featurePrompt += `\nProblem / Use Case:\n${featureData.useCase}\n`;
-                    if (featureData.solution) {
-                        featurePrompt += `\nProposed Solution:\n${featureData.solution}\n`;
-                    }
-                    if (featureData.context) {
-                        featurePrompt += `\nAdditional Context:\n${featureData.context}\n`;
-                    }
+                    // Build template task using TemplateTaskBuilder
+                    const featureRequestTemplate = this.templateTaskBuilder.buildFeatureRequestTemplate({
+                        title: featureData.title,
+                        priority: featureData.priority,
+                        category: featureData.category || '',
+                        useCase: featureData.useCase || '',
+                        proposedSolution: featureData.proposedSolution || featureData.solution || '',
+                        alternativeApproaches: featureData.alternativeApproaches || '',
+                        additionalContext: featureData.additionalContext || featureData.context || ''
+                    });
 
-                    // Enhance with skill detector (will auto-detect feature-request skill from prompt)
-                    const enhanced = await this.promptEnhancer.enhancePrompt(featurePrompt, 'general');
+                    // Generate enhanced prompt using MVP-003 system
+                    const enhancedPrompt = await this.taskPromptExporter.generateEnhancedPromptFromTemplate(featureRequestTemplate);
 
                     // Send to webview to populate main text area
                     webview.postMessage({
                         type: 'populateTextArea',
-                        text: enhanced.prompt
+                        text: enhancedPrompt
                     });
 
-                    vscode.window.showInformationMessage('✨ Feature request enhanced - review in text area and click Send');
+                    vscode.window.showInformationMessage('✨ Feature request enhanced (MVP-003) - review in text area and click Send');
                 } catch (error) {
                     console.error('[ÆtherLight] Feature request enhancement failed:', error);
                     vscode.window.showErrorMessage(`Failed to enhance feature request: ${(error as Error).message}`);
@@ -1053,24 +1079,29 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
             case 'analyzeCodeEnhance':
                 /**
-                 * UX-001: Code Analyzer Enhancement Pattern
-                 * WHY: Generate comprehensive workspace analysis prompt for user review
-                 * PATTERN: Extract workspace context → Enhance with PromptEnhancer → Populate text area
+                 * PROTECT-000F: Code Analyzer Enhancement with MVP-003 Intelligence
+                 * WHY: Generate comprehensive workspace analysis prompt using MVP-003 system
+                 * PATTERN: TemplateTaskBuilder → TaskPromptExporter.generateEnhancedPromptFromTemplate() → Gap detection + Q&A → Enhanced prompt
+                 * UPGRADE: Was basic PromptEnhancer → Now full MVP-003 (gap detection, questions, project state)
                  */
                 try {
-                    // Construct base prompt for code analysis
-                    const analyzePrompt = 'Analyze the current workspace structure, identify key components, patterns, and provide recommendations for improvements or next steps.';
+                    // Detect languages and frameworks from workspace (placeholder - can be enhanced with DiscoveryService)
+                    const languages = ['TypeScript']; // TODO: Use DiscoveryService to detect languages
+                    const frameworks = ['VS Code']; // TODO: Use DiscoveryService to detect frameworks
 
-                    // Enhance with PromptEnhancer using code-analyzer mode
-                    const enhanced = await this.promptEnhancer.enhancePrompt(analyzePrompt, 'code-analyzer');
+                    // Build template task using TemplateTaskBuilder
+                    const codeAnalyzerTemplate = this.templateTaskBuilder.buildCodeAnalyzerTemplate(languages, frameworks);
 
-                    // Send to webview to populate main text area (UNIVERSAL PATTERN)
+                    // Generate enhanced prompt using MVP-003 system
+                    const enhancedPrompt = await this.taskPromptExporter.generateEnhancedPromptFromTemplate(codeAnalyzerTemplate);
+
+                    // Send to webview to populate main text area
                     webview.postMessage({
                         type: 'populateTextArea',
-                        text: enhanced.prompt
+                        text: enhancedPrompt
                     });
 
-                    vscode.window.showInformationMessage('✨ Code analysis prompt enhanced - review in text area and click Send');
+                    vscode.window.showInformationMessage('✨ Code analysis prompt enhanced (MVP-003) - review in text area and click Send');
                 } catch (error) {
                     console.error('[ÆtherLight] Code analyzer enhancement failed:', error);
                     vscode.window.showErrorMessage(`Failed to enhance code analyzer: ${(error as Error).message}`);
@@ -1079,24 +1110,29 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
             case 'sprintPlannerEnhance':
                 /**
-                 * UX-001: Sprint Planner Enhancement Pattern
-                 * WHY: Generate comprehensive sprint planning prompt for user review
-                 * PATTERN: Extract project context → Enhance with PromptEnhancer → Populate text area
+                 * PROTECT-000F: Sprint Planner Enhancement with MVP-003 Intelligence
+                 * WHY: Generate comprehensive sprint planning prompt using MVP-003 system
+                 * PATTERN: TemplateTaskBuilder → TaskPromptExporter.generateEnhancedPromptFromTemplate() → Gap detection + Q&A → Enhanced prompt
+                 * UPGRADE: Was basic PromptEnhancer → Now full MVP-003 (27 normalized tasks, gap detection, Pattern-SPRINT-PLAN-001)
                  */
                 try {
-                    // Construct base prompt for sprint planning
-                    const sprintPrompt = 'Create a new sprint plan for the current project. Analyze requirements, break down into phases and tasks, estimate time and effort.';
+                    // Detect languages and frameworks from workspace
+                    const languages = ['TypeScript']; // TODO: Use DiscoveryService
+                    const frameworks = ['VS Code']; // TODO: Use DiscoveryService
 
-                    // Enhance with PromptEnhancer using sprint-planner mode
-                    const enhanced = await this.promptEnhancer.enhancePrompt(sprintPrompt, 'sprint-planner');
+                    // Build template task using TemplateTaskBuilder
+                    const sprintPlannerTemplate = this.templateTaskBuilder.buildSprintPlannerTemplate(languages, frameworks);
 
-                    // Send to webview to populate main text area (UNIVERSAL PATTERN)
+                    // Generate enhanced prompt using MVP-003 system
+                    const enhancedPrompt = await this.taskPromptExporter.generateEnhancedPromptFromTemplate(sprintPlannerTemplate);
+
+                    // Send to webview to populate main text area
                     webview.postMessage({
                         type: 'populateTextArea',
-                        text: enhanced.prompt
+                        text: enhancedPrompt
                     });
 
-                    vscode.window.showInformationMessage('✨ Sprint planning prompt enhanced - review in text area and click Send');
+                    vscode.window.showInformationMessage('✨ Sprint planning prompt enhanced (MVP-003) - review in text area and click Send');
                 } catch (error) {
                     console.error('[ÆtherLight] Sprint planner enhancement failed:', error);
                     vscode.window.showErrorMessage(`Failed to enhance sprint planner: ${(error as Error).message}`);
@@ -3290,13 +3326,16 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
     private getVoiceTabScripts(): string {
         // UX-006: Get saved textarea height from workspace state
         const savedHeight = this._context.workspaceState.get<number>('textareaHeight', 60);
+        // UX-009: Get saved terminal selection from workspace state
+        const savedTerminalName = this._context.workspaceState.get<string>('selectedTerminalName', '');
 
         return `
             // Recording state (declared once at top)
             let mediaRecorder = null;
             let audioChunks = [];
             let isRecording = false;
-            let selectedTerminal = null;
+            // UX-009: Initialize with saved terminal selection
+            let selectedTerminal = ${JSON.stringify(savedTerminalName)};
 
             // Request terminal list on Voice tab activation
             vscode.postMessage({ type: 'getTerminals' });
@@ -3396,7 +3435,7 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
                     mediaRecorder.onstop = async () => {
                         isRecording = false;
-                        document.getElementById('recordBtn').textContent = '🎤 Record';
+                        // UI-POLISH-001: Record button removed (backtick key is primary method)
                         showStatus('🎵 Processing audio...', 'info');
 
                         // Create audio blob
@@ -3422,8 +3461,8 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                     // Start recording
                     mediaRecorder.start();
                     isRecording = true;
-                    document.getElementById('recordBtn').textContent = '⏹️ Stop';
-                    showStatus('🎤 Recording... Click Stop when done!', 'info');
+                    // UI-POLISH-001: Record button removed (backtick key is primary method)
+                    showStatus('🎤 Recording... Press backtick again to stop!', 'info');
 
                 } catch (error) {
                     showStatus('❌ Mic access denied: ' + error.message, 'error');
@@ -3619,6 +3658,12 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
             function selectTerminal(terminalName) {
                 selectedTerminal = terminalName;
+
+                // UX-009: Save terminal selection for persistence
+                vscode.postMessage({
+                    type: 'saveTerminalSelection',
+                    terminalName: terminalName
+                });
 
                 // Update UI
                 document.querySelectorAll('.terminal-item').forEach(item => {
@@ -4331,9 +4376,6 @@ function getVoicePanelBodyContent(): string {
             <button id="sprintPlannerBtn" class="toolbar-btn" onclick="openSprintPlanner()" title="Sprint Planner">
                 📋
             </button>
-            <button id="recordBtn" class="toolbar-btn" onclick="toggleRecording()" title="Record Voice (Press backtick key)">
-                🎤
-            </button>
             <button id="enhanceBtn" class="toolbar-btn" onclick="enhanceText()" disabled title="Enhance with Patterns">
                 ✨
             </button>
@@ -4370,7 +4412,7 @@ function getVoicePanelBodyContent(): string {
     <div class="transcription-editor">
         <textarea
             id="transcriptionText"
-            placeholder="Press \` (backtick) to record, or type directly..."
+            placeholder="Press \` (backtick, left of 1 key) to record voice&#10;Or type directly&#10;Hit 'Enhance' to enrich your prompt&#10;Use Ctrl+Enter to send to terminal&#10;Multiple terminals highlighted? They share a name - right-click to rename for unique targeting"
         ></textarea>
     </div>
 
