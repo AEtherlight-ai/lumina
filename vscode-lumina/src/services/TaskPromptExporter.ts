@@ -343,6 +343,118 @@ ${this.formatRelatedTasks(task.dependencies, state.completedTasks)}
         return prompt;
     }
 
+    /**
+     * PROTECT-000F: Generate enhanced prompt from template task object
+     *
+     * Extends MVP-003 system to support template-based enhancements.
+     * Accepts task object instead of TOML ID, enabling enhancement buttons
+     * to use same intelligence system (TaskAnalyzer + Q&A + variables).
+     *
+     * @param templateTask - Template task object (not TOML ID)
+     * @returns Enhanced prompt or questions JSON if gaps detected
+     */
+    public async generateEnhancedPromptFromTemplate(templateTask: any): Promise<string> {
+        // Validate template task structure
+        if (!templateTask || !templateTask.id || !templateTask.name || !templateTask.description) {
+            throw new Error('Invalid template task: missing required fields (id, name, description)');
+        }
+
+        // PROTECT-000A: Analyze template task for gaps using TaskAnalyzer
+        // Note: Template tasks don't have project state tracking (temporal drift)
+        // so we use empty state for analysis
+        const completedTasks: Array<{id: string, name: string, status: string}> = [];
+        const analysisResult = await this.analyzer.analyzeTask(templateTask, completedTasks);
+
+        // If gaps found, return questions instead of prompt
+        if (analysisResult.status === 'needs_clarification') {
+            return this.formatGapsAndQuestions(analysisResult, templateTask.id);
+        }
+
+        // Generate enhanced prompt for template task
+        const now = new Date();
+        const prompt = `# 📋 AI-Enhanced Prompt for ${templateTask.id}
+**Generated:** ${now.toISOString().split('T')[0]}
+**Type:** Template-based Enhancement (PROTECT-000F)
+
+---
+
+## 📋 Task Metadata
+
+${this.formatTaskMetadata(templateTask)}
+
+---
+
+## 🎯 What to Do (Description)
+
+${templateTask.description || 'No description provided'}
+
+---
+
+## 🔍 Template Variables
+
+${this.formatTemplateVariables(templateTask.variables)}
+
+---
+
+## 🔍 Why This Matters (Rationale)
+
+${templateTask.why || 'Enhancement requested by user via button interaction'}
+
+---
+
+## 📚 Context (Background Knowledge)
+
+${templateTask.context || 'Template-based task - context provided by button handler'}
+
+---
+
+## 🗺️ Step-by-Step Approach (Reasoning Chain)
+
+${this.formatReasoningChain(templateTask.reasoning_chain)}
+
+---
+
+## ✅ How to Verify Success (Validation Criteria)
+
+${this.formatValidationCriteria(templateTask.validation_criteria)}
+
+---
+
+## 📁 Files to Modify
+
+${this.formatFilesList(templateTask.files_to_modify)}
+
+---
+
+## 📦 Deliverables (Concrete Outputs)
+
+${this.formatDeliverables(templateTask.deliverables)}
+
+---
+
+## ⚡ Performance Target
+
+${templateTask.performance_target || 'No specific target'}
+
+---
+
+## 📋 Patterns to Follow
+
+${this.formatPatterns(templateTask.patterns)}
+
+---
+
+## 🎯 Success Impact (What's Achieved)
+
+${templateTask.success_impact || 'Enhancement improves user workflow and code quality'}
+
+---
+
+--- END PROMPT ---`;
+
+        return prompt;
+    }
+
     // Helper methods for formatting sections
     private formatTaskMetadata(task: any): string {
         return `- **ID:** ${task.id}
@@ -378,6 +490,31 @@ ${this.formatRelatedTasks(task.dependencies, state.completedTasks)}
     private formatPatterns(patterns: string[] | undefined): string {
         if (!patterns || patterns.length === 0) return 'No patterns specified';
         return patterns.map(p => `- **${p}**`).join('\n');
+    }
+
+    /**
+     * PROTECT-000F: Format template variables for enhanced prompt
+     * Converts variables object to readable markdown list
+     */
+    private formatTemplateVariables(variables: Record<string, any> | undefined): string {
+        if (!variables || Object.keys(variables).length === 0) {
+            return 'No template variables provided';
+        }
+
+        return Object.entries(variables)
+            .map(([key, value]) => {
+                // Format arrays nicely
+                if (Array.isArray(value)) {
+                    return `- **${key}**: ${value.join(', ')}`;
+                }
+                // Format objects with indentation
+                if (typeof value === 'object' && value !== null) {
+                    return `- **${key}**: ${JSON.stringify(value, null, 2)}`;
+                }
+                // Simple values
+                return `- **${key}**: ${value}`;
+            })
+            .join('\n');
     }
 
     private formatTDDRequirements(task: any): string {

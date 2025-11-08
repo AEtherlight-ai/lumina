@@ -89,6 +89,7 @@ export interface WorkflowContext {
 	// Sprint workflow
 	workspaceAnalyzed?: boolean;
 	skillsAvailable?: boolean;
+	sprintToml?: string;  // Path to sprint TOML file (defaults to ACTIVE_SPRINT.toml)
 
 	// Publish workflow
 	testsPassing?: boolean;
@@ -573,6 +574,290 @@ export class WorkflowCheck {
 	}
 
 	/**
+	 * Check Template Compliance - TEMPLATE-004
+	 *
+	 * DESIGN DECISION: Runtime enforcement of template task completion
+	 * WHY: Pattern-SPRINT-TEMPLATE-001 - Prevent quality tasks being forgotten
+	 *
+	 * REASONING CHAIN:
+	 * 1. Load SPRINT_TEMPLATE.toml to get required task IDs
+	 * 2. Load current sprint TOML to check task statuses
+	 * 3. Verify all REQUIRED tasks (13) status === 'completed'
+	 * 4. Warn if SUGGESTED tasks (4) incomplete (non-blocking)
+	 * 5. Verify RETROSPECTIVE tasks (2) completed
+	 * 6. For publishing sprints: Verify CONDITIONAL PUB-* tasks (5) completed
+	 * 7. Adjust confidence score based on compliance
+	 * 8. Return gaps array with actionable error messages
+	 *
+	 * Historical bugs prevented by this check:
+	 * - v0.13.28-29: Version mismatch (2 hours debugging)
+	 * - v0.15.31-32: Runtime npm dependency (2 hours debugging)
+	 * - Total saved: 15+ hours per sprint with forgotten CHANGELOG, tests, audits
+	 *
+	 * @param context - Workflow context with sprint metadata
+	 * @param prerequisites - Prerequisites array to populate
+	 * @param gaps - Gaps array to populate
+	 * @returns confidence adjustment (+0.10 bonus or -0.10 to 0.0 penalty)
+	 */
+	private async checkTemplateCompliance(
+		context: WorkflowContext,
+		prerequisites: PrerequisiteStatus[],
+		gaps: string[]
+	): Promise<number> {
+		const startTime = this.logger.startOperation('WorkflowCheck.checkTemplateCompliance', { context });
+
+		try {
+			// Load SPRINT_TEMPLATE.toml to get required task IDs
+			const templatePath = path.join(process.cwd(), 'internal', 'sprints', 'SPRINT_TEMPLATE.toml');
+
+			let templateContent: string;
+			try {
+				templateContent = await fsPromises.readFile(templatePath, 'utf-8');
+			} catch (error) {
+				// Template file missing - log warning but don't block
+				this.logger.warn(`SPRINT_TEMPLATE.toml not found at ${templatePath}`);
+				prerequisites.push({
+					name: 'Template compliance',
+					status: '⚠️',
+					details: 'SPRINT_TEMPLATE.toml not found - cannot validate template compliance',
+					remediation: 'Create SPRINT_TEMPLATE.toml with required template tasks',
+					impact: 'suboptimal'
+				});
+				return 0.0; // No adjustment
+			}
+
+			// Parse template TOML
+			const toml = await import('@iarna/toml');
+			const template = toml.parse(templateContent) as any;
+
+			// Extract task IDs from template
+			const REQUIRED_TASKS = this.extractTemplateTaskIds(template, 'template.required');
+			const SUGGESTED_TASKS = this.extractTemplateTaskIds(template, 'template.suggested');
+			const RETROSPECTIVE_TASKS = this.extractTemplateTaskIds(template, 'template.retrospective');
+			const PUBLISHING_TASKS = this.extractTemplateTaskIds(template, 'template.conditional');
+
+			// Load current sprint TOML to check task statuses
+			const sprintPath = context.sprintToml || path.join(process.cwd(), 'internal', 'sprints', 'ACTIVE_SPRINT.toml');
+
+			let sprintContent: string;
+			try {
+				sprintContent = await fsPromises.readFile(sprintPath, 'utf-8');
+			} catch (error) {
+				// Sprint file missing - log warning but don't block
+				this.logger.warn(`Sprint file not found at ${sprintPath}`);
+				prerequisites.push({
+					name: 'Template compliance',
+					status: '⚠️',
+					details: 'Sprint file not found - cannot validate template compliance',
+					remediation: 'Ensure ACTIVE_SPRINT.toml exists',
+					impact: 'suboptimal'
+				});
+				return 0.0; // No adjustment
+			}
+
+			const sprint = toml.parse(sprintContent) as any;
+			const sprintName = sprint.meta?.sprint_name || '';
+
+			// Check if publishing sprint
+			const isPublishing = this.detectPublishingCondition(sprintName);
+
+			// Track missing tasks
+			const missingRequired: string[] = [];
+			const missingSuggested: string[] = [];
+			const missingRetrospective: string[] = [];
+			const missingPublishing: string[] = [];
+
+			// Check REQUIRED tasks
+			for (const taskId of REQUIRED_TASKS) {
+				const task = sprint.tasks?.[taskId];
+				if (!task || task.status !== 'completed') {
+					missingRequired.push(taskId);
+				}
+			}
+
+			// Check SUGGESTED tasks
+			for (const taskId of SUGGESTED_TASKS) {
+				const task = sprint.tasks?.[taskId];
+				if (!task || task.status !== 'completed') {
+					missingSuggested.push(taskId);
+				}
+			}
+
+			// Check RETROSPECTIVE tasks
+			for (const taskId of RETROSPECTIVE_TASKS) {
+				const task = sprint.tasks?.[taskId];
+				if (!task || task.status !== 'completed') {
+					missingRetrospective.push(taskId);
+				}
+			}
+
+			// Check PUBLISHING tasks (only if publishing sprint)
+			if (isPublishing) {
+				const pubTasks = PUBLISHING_TASKS.filter(id => id.startsWith('PUB-'));
+				for (const taskId of pubTasks) {
+					const task = sprint.tasks?.[taskId];
+					if (!task || task.status !== 'completed') {
+						missingPublishing.push(taskId);
+					}
+				}
+			}
+
+			// Determine compliance status and confidence adjustment
+			let confidenceAdjustment = 0.0;
+			let status: '✅' | '❌' | '⚠️' = '✅';
+			let impact: 'blocking' | 'degraded' | 'suboptimal' = 'suboptimal';
+			const details: string[] = [];
+			let remediation: string | null = null;
+
+			// BLOCKING: Missing required tasks
+			if (missingRequired.length > 0) {
+				status = '❌';
+				impact = 'blocking';
+				confidenceAdjustment = -0.85; // Critical failure (0.85 - 0.85 = 0.0)
+				details.push(`Missing ${missingRequired.length} required task(s): ${missingRequired.slice(0, 3).join(', ')}${missingRequired.length > 3 ? ` and ${missingRequired.length - 3} more` : ''}`);
+				remediation = `Cannot start new sprint: Complete required template tasks (${missingRequired.join(', ')})`;
+
+				for (const taskId of missingRequired.slice(0, 3)) {
+					gaps.push(`Required task ${taskId} incomplete`);
+				}
+			}
+
+			// BLOCKING: Missing retrospective tasks
+			if (missingRetrospective.length > 0) {
+				status = '❌';
+				impact = 'blocking';
+				confidenceAdjustment = Math.min(confidenceAdjustment, -0.85); // Critical failure
+				details.push(`Missing ${missingRetrospective.length} retrospective task(s): ${missingRetrospective.join(', ')}`);
+				remediation = `Cannot start new sprint: Complete retrospective tasks (${missingRetrospective.join(', ')})`;
+
+				for (const taskId of missingRetrospective) {
+					gaps.push(`Retrospective task ${taskId} incomplete`);
+				}
+			}
+
+			// BLOCKING: Missing publishing tasks (if publishing sprint)
+			if (isPublishing && missingPublishing.length > 0) {
+				status = '❌';
+				impact = 'blocking';
+				confidenceAdjustment = Math.min(confidenceAdjustment, -0.85); // Critical failure
+				details.push(`Publishing sprint missing ${missingPublishing.length} conditional task(s): ${missingPublishing.join(', ')}`);
+				remediation = `Publishing sprint requires: ${missingPublishing.join(', ')} (prevents version mismatch, npm dep bugs)`;
+
+				for (const taskId of missingPublishing) {
+					gaps.push(`Publishing task ${taskId} incomplete`);
+				}
+			}
+
+			// WARNING: Missing suggested tasks (non-blocking)
+			if (missingSuggested.length > 0 && status === '✅') {
+				status = '⚠️';
+				impact = 'suboptimal';
+				confidenceAdjustment = -0.10; // Warning penalty
+				details.push(`${missingSuggested.length} suggested task(s) incomplete: ${missingSuggested.join(', ')}`);
+				remediation = 'Consider completing suggested tasks for higher quality (PERF-*, SEC-*, COMPAT-*)';
+
+				for (const taskId of missingSuggested) {
+					gaps.push(`Suggested task ${taskId} incomplete`);
+				}
+			}
+
+			// BONUS: All template tasks complete
+			if (missingRequired.length === 0 &&
+			    missingRetrospective.length === 0 &&
+			    (!isPublishing || missingPublishing.length === 0) &&
+			    missingSuggested.length === 0) {
+				status = '✅';
+				impact = 'suboptimal';
+				confidenceAdjustment = 0.10; // Bonus for completeness
+				details.push('All template tasks complete (13 required, 4 suggested, 2 retrospective)');
+				remediation = null;
+			}
+
+			// Build details message
+			let detailsMessage = details.join('\n');
+			if (details.length === 0) {
+				detailsMessage = 'Template compliance validated';
+			}
+
+			// Add prerequisite
+			prerequisites.push({
+				name: 'Template compliance',
+				status,
+				details: detailsMessage,
+				remediation,
+				impact
+			});
+
+			this.logger.endOperation('WorkflowCheck.checkTemplateCompliance', startTime, {
+				missingRequired: missingRequired.length,
+				missingSuggested: missingSuggested.length,
+				missingRetrospective: missingRetrospective.length,
+				missingPublishing: missingPublishing.length,
+				confidenceAdjustment
+			});
+
+			return confidenceAdjustment;
+		} catch (error) {
+			this.logger.failOperation('WorkflowCheck.checkTemplateCompliance', startTime, error);
+
+			// Graceful degradation - warn but don't block
+			prerequisites.push({
+				name: 'Template compliance',
+				status: '⚠️',
+				details: `Template compliance check failed: ${(error as Error).message}`,
+				remediation: 'Manually verify template tasks complete',
+				impact: 'degraded'
+			});
+
+			return 0.0; // No adjustment on error
+		}
+	}
+
+	/**
+	 * Extract template task IDs from template TOML section
+	 *
+	 * @param template - Parsed template TOML
+	 * @param sectionPath - Dot-notation path to section (e.g., 'template.required')
+	 * @returns Array of task IDs
+	 */
+	private extractTemplateTaskIds(template: any, sectionPath: string): string[] {
+		try {
+			// Navigate to section using dot notation
+			const parts = sectionPath.split('.');
+			let section = template;
+			for (const part of parts) {
+				section = section[part];
+				if (!section) {
+					return [];
+				}
+			}
+
+			// Extract task IDs (keys of section)
+			return Object.keys(section);
+		} catch (error) {
+			this.logger.warn(`Failed to extract task IDs from ${sectionPath}: ${(error as Error).message}`);
+			return [];
+		}
+	}
+
+	/**
+	 * Detect if sprint is publishing sprint
+	 *
+	 * @param sprintName - Sprint name to check
+	 * @returns true if publishing sprint
+	 */
+	private detectPublishingCondition(sprintName: string): boolean {
+		const nameLower = sprintName.toLowerCase();
+		return (
+			nameLower.includes('publish') ||
+			nameLower.includes('release') ||
+			nameLower.includes('version bump') ||
+			nameLower.includes('deploy') ||
+			/v\d+\.\d+/.test(nameLower) // Matches v1.0, v2.0, etc.
+		);
+	}
+
+	/**
 	 * Check if pattern file exists
 	 */
 	private async checkPatternExists(patternName: string): Promise<boolean> {
@@ -643,9 +928,10 @@ export class WorkflowCheck {
 				break;
 
 			case 'sprint':
-				await this.checkSprintWorkflow(context, prerequisites, gaps);
-				confidence = 0.85;  // Sprint planning is straightforward
-				criticalJunction = false;
+				const confidenceAdjustment = await this.checkSprintWorkflow(context, prerequisites, gaps);
+				confidence = 0.85 + confidenceAdjustment;  // Base confidence + template compliance adjustment
+				confidence = Math.max(0.0, Math.min(1.0, confidence));  // Clamp to [0.0, 1.0]
+				criticalJunction = confidence < 0.80 || gaps.length > 0;  // Low confidence or gaps = critical
 				break;
 
 			case 'publish':
@@ -787,7 +1073,7 @@ export class WorkflowCheck {
 		context: WorkflowContext,
 		prerequisites: PrerequisiteStatus[],
 		gaps: string[]
-	): Promise<void> {
+	): Promise<number> {
 		// Prerequisite 1: Workspace analyzed
 		if (context.workspaceAnalyzed) {
 			prerequisites.push({
@@ -830,6 +1116,12 @@ export class WorkflowCheck {
 			});
 			gaps.push('Skills unavailable');
 		}
+
+		// Prerequisite 4: Template compliance (TEMPLATE-004)
+		// Check that all required template tasks are completed before starting new sprint
+		const confidenceAdjustment = await this.checkTemplateCompliance(context, prerequisites, gaps);
+
+		return confidenceAdjustment;
 	}
 
 	/**

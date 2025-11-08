@@ -51,6 +51,7 @@ import { RealtimeSyncManager } from './realtime_sync';
 // TEMPORARILY DISABLED FOR v0.13.1-beta - Phase 4 code has incomplete NAPI bindings
 // import { SprintLoader } from './commands/SprintLoader';
 import { registerAnalyzeWorkspaceCommands } from './commands/analyzeWorkspace';
+import { registerDiscoverCapabilitiesCommand } from './commands/discoverCapabilities';
 import * as fs from 'fs';
 
 /**
@@ -691,6 +692,23 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	 * RELATED: @aetherlight/analyzer package (packages/aetherlight-analyzer)
 	 */
 	registerAnalyzeWorkspaceCommands(context);
+
+	/**
+	 * DESIGN DECISION: Register discover capabilities command
+	 * WHY: Allow users to manually refresh discovered capabilities
+	 *
+	 * REASONING CHAIN:
+	 * 1. User adds new skills/agents/patterns to workspace
+	 * 2. Run command: "ÆtherLight: Discover Capabilities"
+	 * 3. DiscoveryService scans .claude/skills/, internal/agents/, docs/patterns/
+	 * 4. Updates config.json v2.0 with discovered data
+	 * 5. Shows notification: "Found X skills, Y agents, Z patterns"
+	 * 6. Result: Config stays in sync with workspace capabilities
+	 *
+	 * PATTERN: Pattern-DISCOVERY-001 (Capability Discovery)
+	 * RELATED: DiscoveryService.ts (SELF-005A), config.json v2.0 (SELF-003B)
+	 */
+	registerDiscoverCapabilitiesCommand(context);
 
 	console.log('Lumina extension activated successfully');
 }

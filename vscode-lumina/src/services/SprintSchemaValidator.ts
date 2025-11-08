@@ -25,6 +25,7 @@ export interface ValidationResult {
     valid: boolean;
     error?: string;
     suggestions?: string[];
+    warnings?: string[];  // Non-fatal warnings (e.g., skipped SUGGESTED tasks)
     line?: number;  // Line number where error occurred (if available)
 }
 
@@ -105,7 +106,17 @@ export class SprintSchemaValidator {
                 return duplicatesCheck;
             }
 
-            return { valid: true };
+            // Rule 6: Validate template task compliance (Pattern-SPRINT-TEMPLATE-001)
+            const templateCheck = this.validateTemplateCompliance(data);
+            if (!templateCheck.valid) {
+                return templateCheck;
+            }
+
+            // Return success with any warnings from template validation
+            return {
+                valid: true,
+                warnings: templateCheck.warnings
+            };
 
         } catch (error) {
             // TOML parse error
@@ -312,6 +323,213 @@ export class SprintSchemaValidator {
     }
 
     /**
+     * Rule 6: Validate template task compliance (Pattern-SPRINT-TEMPLATE-001)
+     *
+     * DESIGN DECISION: Enforce template tasks at validation time
+     * WHY: Prevent skipping required quality tasks that prevent production bugs
+     *
+     * REASONING CHAIN:
+     * 1. Every sprint should include normalized template tasks
+     * 2. REQUIRED tasks (13): DOC-*, QA-*, AGENT-*, INFRA-*, CONFIG-*
+     * 3. SUGGESTED tasks (4): PERF-*, SEC-*, COMPAT-* (can skip with justification)
+     * 4. CONDITIONAL tasks (0-8): PUB-* (if publishing), UX-* (if user-facing)
+     * 5. RETROSPECTIVE tasks (2): RETRO-001, RETRO-002
+     * 6. Fail fast if required tasks missing
+     * 7. Warn if suggested tasks skipped without justification
+     *
+     * PATTERN: Pattern-SPRINT-TEMPLATE-001 (Sprint Template System)
+     */
+    private validateTemplateCompliance(data: SprintData): ValidationResult {
+        const warnings: string[] = [];
+
+        // Required template task IDs (must be present in every sprint)
+        const REQUIRED_TASKS = [
+            'DOC-001',  // Update CHANGELOG.md
+            'DOC-002',  // Update README.md
+            'DOC-003',  // Extract reusable patterns
+            'DOC-004',  // Update CLAUDE.md
+            'QA-001',   // Run ripple analysis
+            'QA-002',   // Verify test coverage
+            'QA-003',   // Run dependency audit
+            'QA-004',   // Validate TypeScript compilation
+            'AGENT-001', // Update agent context files
+            'AGENT-002', // Update KNOWN_ISSUES.md
+            'INFRA-001', // Verify git hooks
+            'INFRA-002', // Run sprint schema validation
+            'CONFIG-001' // Validate settings schema
+        ];
+
+        // Retrospective tasks (must be present in every sprint)
+        const RETROSPECTIVE_TASKS = [
+            'RETRO-001',  // Sprint retrospective
+            'RETRO-002'   // Extract patterns from learnings
+        ];
+
+        // Suggested tasks (can skip with justification)
+        const SUGGESTED_TASKS = [
+            'PERF-001',   // Performance regression testing
+            'SEC-001',    // Security vulnerability scan
+            'COMPAT-001', // Cross-platform testing
+            'COMPAT-002'  // Backwards compatibility check
+        ];
+
+        // Conditional tasks - Publishing (only if sprint is a release)
+        const PUBLISHING_TASKS = [
+            'PUB-001',  // Pre-publish validation
+            'PUB-002',  // Build and verify .vsix package
+            'PUB-003',  // Verify no runtime npm dependencies
+            'PUB-004',  // Generate release artifacts
+            'PUB-005'   // Post-publish verification
+        ];
+
+        // Conditional tasks - User Experience (only if user-facing changes)
+        const UX_TASKS = [
+            'UX-001',  // Create upgrade documentation
+            'UX-002',  // Update screenshots and demos
+            'UX-003'   // Generate user-facing release notes
+        ];
+
+        // Detect conditions from sprint metadata
+        const sprintName = (data.meta as any)?.sprint_name || '';
+        const isPublishing = this.detectPublishingCondition(sprintName, data);
+        const isUserFacing = this.detectUserFacingCondition(sprintName, data);
+
+        // Check required tasks
+        for (const taskId of REQUIRED_TASKS) {
+            if (!data.tasks[taskId]) {
+                return {
+                    valid: false,
+                    error: `Missing required template task: ${taskId}`,
+                    suggestions: [
+                        'Template tasks ensure consistent sprint quality',
+                        'Add missing task from SPRINT_TEMPLATE.toml',
+                        `REQUIRED tasks cannot be skipped (historical bugs prevented)`,
+                        'Run: Use sprint-plan skill to auto-inject template tasks'
+                    ]
+                };
+            }
+        }
+
+        // Check retrospective tasks
+        for (const taskId of RETROSPECTIVE_TASKS) {
+            if (!data.tasks[taskId]) {
+                return {
+                    valid: false,
+                    error: `Missing retrospective task: ${taskId}`,
+                    suggestions: [
+                        'Retrospective tasks are required for every sprint',
+                        'Add missing task from SPRINT_TEMPLATE.toml',
+                        'RETRO-001: Sprint retrospective (captures learnings)',
+                        'RETRO-002: Extract patterns from learnings'
+                    ]
+                };
+            }
+        }
+
+        // Check conditional publishing tasks (if publishing sprint)
+        if (isPublishing) {
+            for (const taskId of PUBLISHING_TASKS) {
+                if (!data.tasks[taskId]) {
+                    return {
+                        valid: false,
+                        error: `Publishing sprint missing conditional task: ${taskId}`,
+                        suggestions: [
+                            'Sprint name indicates publishing/release',
+                            'Publishing sprints require PUB-* tasks (historical bug prevention)',
+                            'Add missing publishing tasks from SPRINT_TEMPLATE.toml',
+                            'These tasks prevent version mismatch, broken releases, npm dep bugs'
+                        ]
+                    };
+                }
+            }
+        }
+
+        // Check conditional UX tasks (if user-facing changes)
+        if (isUserFacing) {
+            for (const taskId of UX_TASKS) {
+                if (!data.tasks[taskId]) {
+                    // UX tasks are softer requirement - warn but don't fail
+                    warnings.push(`User-facing sprint should include UX task: ${taskId}`);
+                }
+            }
+        }
+
+        // Check suggested tasks (warnings only)
+        const justifications = this.getSuggestedTaskJustifications(data);
+        for (const taskId of SUGGESTED_TASKS) {
+            if (!data.tasks[taskId]) {
+                const hasJustification = justifications.some(j => j.includes(taskId));
+                if (!hasJustification) {
+                    warnings.push(
+                        `SUGGESTED task ${taskId} skipped without justification. ` +
+                        `Add justification to [metadata.template_justifications].skipped_suggested`
+                    );
+                }
+            }
+        }
+
+        return {
+            valid: true,
+            warnings: warnings.length > 0 ? warnings : undefined
+        };
+    }
+
+    /**
+     * Detect if sprint is a publishing/release sprint
+     */
+    private detectPublishingCondition(sprintName: string, data: SprintData): boolean {
+        const text = sprintName.toLowerCase();
+        return (
+            text.includes('publish') ||
+            text.includes('release') ||
+            text.includes('version bump') ||
+            text.includes('deploy') ||
+            /v\d+\.\d+/.test(text)  // Matches v1.0, v2.0, etc.
+        );
+    }
+
+    /**
+     * Detect if sprint has user-facing changes
+     */
+    private detectUserFacingCondition(sprintName: string, data: SprintData): boolean {
+        const text = sprintName.toLowerCase();
+        const hasUiKeywords = (
+            text.includes('ui') ||
+            text.includes('ux') ||
+            text.includes('user experience') ||
+            text.includes('interface') ||
+            text.includes('component')
+        );
+
+        // Also check if sprint has UI-* or UX-* prefix tasks (indicates UI work)
+        const hasUiTasks = Object.keys(data.tasks).some(taskId =>
+            taskId.startsWith('UI-') || taskId.startsWith('UX-')
+        );
+
+        return hasUiKeywords || hasUiTasks;
+    }
+
+    /**
+     * Extract justifications for skipped suggested tasks
+     */
+    private getSuggestedTaskJustifications(data: SprintData): string[] {
+        try {
+            const metadata = (data as any).metadata;
+            if (!metadata) return [];
+
+            const justifications = metadata.template_justifications;
+            if (!justifications) return [];
+
+            const skipped = justifications.skipped_suggested;
+            if (!skipped || !Array.isArray(skipped)) return [];
+
+            return skipped;
+        } catch (error) {
+            return [];
+        }
+    }
+
+    /**
      * Validate file on disk (convenience method)
      *
      * @param filePath - Path to sprint TOML file
@@ -336,8 +554,16 @@ export class SprintSchemaValidator {
  * Format validation result as user-friendly error message
  */
 export function formatValidationError(result: ValidationResult): string {
-    if (result.valid) {
+    if (result.valid && (!result.warnings || result.warnings.length === 0)) {
         return '✅ Sprint TOML validation passed';
+    }
+
+    if (result.valid && result.warnings && result.warnings.length > 0) {
+        let message = '⚠️  Sprint TOML validation passed with warnings:\n\n';
+        for (const warning of result.warnings) {
+            message += `  ⚠ ${warning}\n`;
+        }
+        return message;
     }
 
     let message = `❌ Sprint TOML validation failed:\n\n${result.error}`;
