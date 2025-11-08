@@ -12,6 +12,7 @@
 
 
 
+
 ## PROBLEM
 
 NAPI-RS compilation error when using `#[napi(object)]` on structs that need constructor instantiation:

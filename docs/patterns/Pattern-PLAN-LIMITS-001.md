@@ -10,6 +10,7 @@
 ---
 
 
+
 ## Context
 
 SaaS applications have multiple subscription plans (Free, Pro, Enterprise) with different feature limits. Hardcoding limits in code causes:

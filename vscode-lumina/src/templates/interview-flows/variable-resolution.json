@@ -1,0 +1,5 @@
+{
+  "name": "variable-resolution",
+  "description": "Dynamic interview for resolving missing template variables. Questions are generated at runtime based on detected missing variables.",
+  "questions": []
+}

@@ -12,6 +12,7 @@
 
 
 
+
 ## Design Decision
 
 Use **domain expert systems with 5-level breadcrumb navigation** (not anthropomorphic personas) to enable autonomous problem-solving with hierarchical knowledge search.

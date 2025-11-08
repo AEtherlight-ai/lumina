@@ -10,6 +10,7 @@
 ---
 
 
+
 ## Context
 
 Modern SaaS applications often use external authentication providers (Clerk, Auth0, Firebase Auth) for user management while maintaining internal databases (Supabase, PostgreSQL) for application-specific data. This creates a dual-system architecture where:

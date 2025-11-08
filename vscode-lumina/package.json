@@ -54,10 +54,6 @@
         "title": "Lumina: Capture Voice (Simple)"
       },
       {
-        "command": "aetherlight.captureVoiceGlobal",
-        "title": "ÆtherLight: Capture Voice Global (Type at Cursor)"
-      },
-      {
         "command": "lumina.focusAgentTerminal",
         "title": "Lumina: Focus Agent Terminal"
       },
@@ -171,11 +167,6 @@
         "command": "aetherlight.openVoicePanel",
         "key": "`",
         "mac": "`"
-      },
-      {
-        "command": "aetherlight.captureVoiceGlobal",
-        "key": "shift+`",
-        "mac": "shift+`"
       },
       {
         "command": "aetherlight.focusVoiceTextArea",

@@ -10,6 +10,7 @@
 ---
 
 
+
 ## Context
 
 AWS Lambda functions often start as monoliths (single large function) and evolve through three architectural stages:

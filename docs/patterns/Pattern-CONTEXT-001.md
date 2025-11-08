@@ -12,6 +12,7 @@
 
 
 
+
 ## Problem
 
 Documentation scattered across repository without clear hierarchy. Phase-specific data mixed with global project memory. Agents unclear where to create/find documentation. Users confused by flat structure.

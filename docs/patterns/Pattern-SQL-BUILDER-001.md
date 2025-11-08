@@ -10,6 +10,7 @@
 ---
 
 
+
 ## Context
 
 Applications that generate SQL queries dynamically (user-defined filters, custom reports, analytics dashboards) face a critical security risk: **SQL injection**. Without proper escaping, user input becomes executable SQL.

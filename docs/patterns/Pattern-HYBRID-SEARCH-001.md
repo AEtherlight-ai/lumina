@@ -11,6 +11,7 @@
 ---
 
 
+
 ## Context
 
 When building search systems for professional domains (legal, medical, technical documentation), users need:

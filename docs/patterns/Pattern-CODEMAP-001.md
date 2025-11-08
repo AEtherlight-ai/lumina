@@ -11,6 +11,7 @@
 ---
 
 
+
 ## Design Decision
 
 Auto-generate dependency graphs from source code using tree-sitter AST parsing, with git hook integration for automatic synchronization.

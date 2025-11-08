@@ -17,8 +17,12 @@
  */
 
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as toml from '@iarna/toml';
 import { WorkflowController, WorkflowState, WorkflowSnapshot } from '../workflow';
 import { SprintPlan } from '../sprint_parser/types';
+import { SprintTask, TaskStatus } from '../commands/SprintLoader';
 
 /**
  * Progress webview provider
@@ -33,6 +37,7 @@ export class ProgressWebviewProvider implements vscode.TreeDataProvider<Progress
     private workflow: WorkflowController | null = null;
     private sprint: SprintPlan | null = null;
     private snapshot: WorkflowSnapshot | null = null;
+    private taskStatusMap: Map<string, TaskStatus> = new Map();
 
     constructor() {
         // Register tree view
@@ -80,7 +85,49 @@ export class ProgressWebviewProvider implements vscode.TreeDataProvider<Progress
         if (this.workflow) {
             this.snapshot = this.workflow.getSnapshot();
         }
+        // Reload task statuses from TOML file
+        this.loadTaskStatuses();
         this._onDidChangeTreeData.fire();
+    }
+
+    /**
+     * Load task statuses from sprint TOML file
+     *
+     * DESIGN DECISION: Direct TOML parsing for real-time status
+     * WHY: Webview needs to show current task statuses from file
+     */
+    private loadTaskStatuses(): void {
+        try {
+            // Find workspace root
+            const workspaceRoot = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
+            if (!workspaceRoot) {
+                return;
+            }
+
+            // Find sprint file
+            const sprintPath = path.join(workspaceRoot, 'internal', 'sprints', 'ACTIVE_SPRINT.toml');
+            if (!fs.existsSync(sprintPath)) {
+                return;
+            }
+
+            // Parse TOML
+            const tomlContent = fs.readFileSync(sprintPath, 'utf-8');
+            const parsed = toml.parse(tomlContent) as any;
+
+            // Extract task statuses
+            this.taskStatusMap.clear();
+            if (parsed.tasks) {
+                for (const taskId in parsed.tasks) {
+                    const task = parsed.tasks[taskId];
+                    if (task.status) {
+                        this.taskStatusMap.set(taskId, task.status as TaskStatus);
+                    }
+                }
+            }
+        } catch (error) {
+            // Silently ignore errors - task statuses are optional
+            console.log('[ÆtherLight] Failed to load task statuses:', error);
+        }
     }
 
     /**
@@ -223,12 +270,24 @@ export class ProgressWebviewProvider implements vscode.TreeDataProvider<Progress
     }
 
     /**
-     * Get task status
+     * Get task status from loaded sprint TOML file
      *
-     * TODO: Implement actual task status tracking (requires scheduler integration)
+     * DESIGN DECISION: Look up status from taskStatusMap
+     * WHY: Shows real-time task statuses from sprint file
      */
     private getTaskStatus(taskId: string): 'pending' | 'running' | 'complete' | 'failed' {
-        // Placeholder: return pending for all tasks
+        const status = this.taskStatusMap.get(taskId);
+
+        // Map TaskStatus to webview status format
+        if (status === 'in_progress') {
+            return 'running';
+        } else if (status === 'completed') {
+            return 'complete';
+        } else if (status === 'pending') {
+            return 'pending';
+        }
+
+        // Default to pending if not found
         return 'pending';
     }
 

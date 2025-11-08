@@ -27,5 +27,8 @@
             "statusBarBorder": "#2b2b2b",
             "statusBarNoFolderBackground": "#1f1f1f"
         }
+    },
+    "windowsState": {
+        "openedWindows": []
     }
 }

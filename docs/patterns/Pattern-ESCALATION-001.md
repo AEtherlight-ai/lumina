@@ -12,6 +12,7 @@
 
 
 
+
 ## Design Decision
 
 5-level hierarchical search with confidence-based escalation: Local → Long-term → House → Mentor → Ether.

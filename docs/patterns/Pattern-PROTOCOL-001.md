@@ -12,6 +12,7 @@
 
 
 
+
 ## Design Decision
 
 Structured message protocol for cross-agent communication with unique IDs, timeouts, retry logic, and exponential backoff.

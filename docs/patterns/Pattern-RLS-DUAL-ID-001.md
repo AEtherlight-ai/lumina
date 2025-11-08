@@ -10,6 +10,7 @@
 ---
 
 
+
 ## Context
 
 Supabase Row Level Security (RLS) uses `auth.uid()` to identify users. When using external auth providers (Clerk, Auth0), you have TWO user IDs:

@@ -22,7 +22,13 @@
       "Bash(git tag:*)",
       "Bash(npm view:*)",
       "Bash(gh release view:*)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run package:*)",
+      "Bash(git push:*)",
+      "Bash(gh release create:*)",
+      "Bash(sed:*)",
+      "Bash(python:*)"
     ],
     "deny": [],
     "ask": []

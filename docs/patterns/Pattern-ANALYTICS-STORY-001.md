@@ -10,6 +10,7 @@
 ---
 
 
+
 ## Context
 
 Traditional analytics track individual events (`button_clicked`, `page_viewed`). This makes it hard to understand **user journeys** (sequences of events).

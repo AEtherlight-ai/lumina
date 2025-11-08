@@ -12,6 +12,7 @@
 
 
 
+
 ## Design Decision
 
 Use **neural network mesh routing** via MCP servers instead of hierarchical tiers (local → team → global).

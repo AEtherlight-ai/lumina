@@ -1,6 +1,6 @@
 {
   "$schema": "https://aetherlight.dev/schema/config.json",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "project": {
     "name": "ÆtherLight",
     "type": "vscode-extension",
@@ -55,35 +55,690 @@
       "aetherlight-node"
     ],
     "forbidden": {
-      "native": ["node-gyp", "napi", "bindings", ".node", "robotjs", "@nut-tree-fork"],
-      "runtime": ["glob", "lodash", "moment", "axios", "chalk", "colors"]
+      "native": [
+        "node-gyp",
+        "napi",
+        "bindings",
+        ".node",
+        "robotjs",
+        "@nut-tree-fork"
+      ],
+      "runtime": [
+        "glob",
+        "lodash",
+        "moment",
+        "axios",
+        "chalk",
+        "colors"
+      ]
     }
   },
   "agents": {
     "infrastructure-agent": {
       "coverage": 90,
-      "patterns": ["Pattern-CODE-001", "Pattern-TDD-001"]
+      "patterns": [
+        "Pattern-CODE-001",
+        "Pattern-TDD-001"
+      ]
     },
     "api-agent": {
       "coverage": 85,
-      "patterns": ["Pattern-API-001", "Pattern-TDD-001"]
+      "patterns": [
+        "Pattern-API-001",
+        "Pattern-TDD-001"
+      ]
     },
     "ui-agent": {
       "coverage": 70,
-      "patterns": ["Pattern-UI-001"]
+      "patterns": [
+        "Pattern-UI-001"
+      ]
     },
     "documentation-agent": {
       "coverage": 0,
-      "patterns": ["Pattern-DOCS-001"]
+      "patterns": [
+        "Pattern-DOCS-001"
+      ]
     },
     "testing-agent": {
       "coverage": 95,
-      "patterns": ["Pattern-TDD-001"]
+      "patterns": [
+        "Pattern-TDD-001"
+      ]
     }
   },
   "performance": {
     "initTime": "5s",
     "activationTime": "200ms",
     "analysisTime": "2s"
+  },
+  "skills": [],
+  "discoveredAgents": {
+    "api-agent": {
+      "type": "API",
+      "version": "1.0",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\internal\\agents\\api-agent-context.md",
+      "description": "API Agent Context"
+    },
+    "commit-agent": {
+      "type": "Commit",
+      "version": "1.0",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\internal\\agents\\commit-agent-context.md",
+      "description": "Commit Agent Context"
+    },
+    "database-agent": {
+      "type": "Database",
+      "version": "1.0",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\internal\\agents\\database-agent-context.md",
+      "description": "Database Agent Context"
+    },
+    "docs-agent": {
+      "type": "docs",
+      "version": "1.0",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\internal\\agents\\docs-agent-context.md",
+      "description": "Docs Agent Context"
+    },
+    "documentation-agent": {
+      "type": "Unknown",
+      "version": "1.0",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\internal\\agents\\documentation-agent-context.md",
+      "description": "Documentation Agent Context"
+    },
+    "infrastructure-agent": {
+      "type": "Infrastructure",
+      "version": "2.0",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\internal\\agents\\infrastructure-agent-context.md",
+      "description": "Infrastructure Agent Context"
+    },
+    "planning-agent": {
+      "type": "planning",
+      "version": "1.0",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\internal\\agents\\planning-agent-context.md",
+      "description": "Planning Agent Context"
+    },
+    "project-manager": {
+      "type": "Orchestration Agent (coordinates all other agents)",
+      "version": "1.0",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\internal\\agents\\project-manager-context.md",
+      "description": "Project Manager Agent Context"
+    },
+    "review-agent": {
+      "type": "Review",
+      "version": "1.0",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\internal\\agents\\review-agent-context.md",
+      "description": "Review Agent Context"
+    },
+    "test-agent-complete-1762065705556": {
+      "type": "API",
+      "version": "1.0",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\internal\\agents\\test-agent-complete-1762065705556-context.md",
+      "description": "test-agent-complete-1762065705556 Context"
+    },
+    "test-agent": {
+      "type": "Test",
+      "version": "1.0",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\internal\\agents\\test-agent-context.md",
+      "description": "Test Agent Context"
+    },
+    "ui-agent": {
+      "type": "UI",
+      "version": "1.0",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\internal\\agents\\ui-agent-context.md",
+      "description": "UI Agent Context"
+    }
+  },
+  "discoveredPatterns": [
+    {
+      "id": "Pattern-AGENT-ROUTING-001",
+      "category": "Agent Coordination",
+      "purpose": "Zero-Task Routing Protocol",
+      "status": "Production-Validated",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-AGENT-ROUTING-001.md"
+    },
+    {
+      "id": "Pattern-ANALYTICS-STORY-001",
+      "category": "Analytics",
+      "purpose": "Story-Based Analytics Tracking with PostHog",
+      "status": "Production-Validated",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-ANALYTICS-STORY-001.md"
+    },
+    {
+      "id": "Pattern-API-CLIENT-001",
+      "category": "API Architecture",
+      "purpose": "Centralized API Client with Token Injection",
+      "status": "Production-Validated",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-API-CLIENT-001.md"
+    },
+    {
+      "id": "Pattern-AUDIT-LOGGING-001",
+      "category": "Security/Compliance Patterns",
+      "purpose": "Audit Logging for Document Folder Events (Compliance Pattern)",
+      "status": "Production-Validated",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-AUDIT-LOGGING-001.md"
+    },
+    {
+      "id": "Pattern-AUTH-DUAL-SYNC-001",
+      "category": "Authentication & Authorization",
+      "purpose": "Dual-System Authentication Sync with Retry Logic",
+      "status": "Production-Validated",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-AUTH-DUAL-SYNC-001.md"
+    },
+    {
+      "id": "Pattern-BUSINESS-001",
+      "category": "Business Model / Economics",
+      "purpose": "Zero-Marginal-Cost Network Effects",
+      "status": "Active",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-BUSINESS-001.md"
+    },
+    {
+      "id": "Pattern-CLI-001",
+      "category": "Execution Methodology",
+      "purpose": "OpenTelemetry Execution Tracking",
+      "status": "Active - Supersedes Pattern-TRACKING-002",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-CLI-001.md"
+    },
+    {
+      "id": "Pattern-CODE-001",
+      "category": "Workflow Protocol",
+      "purpose": "Code Development Protocol",
+      "status": "Active",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-CODE-001.md"
+    },
+    {
+      "id": "Pattern-CODEMAP-001",
+      "category": "Uncategorized",
+      "purpose": "Dependency Graph Generation",
+      "status": "Implemented (AI-001) | **SOURCE:** PHASE_3.6_AGENT_INFRASTRUCTURE.md",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-CODEMAP-001.md"
+    },
+    {
+      "id": "Pattern-COMM-001-Universal-Communication",
+      "category": "Communication",
+      "purpose": "Universal Communication Protocol",
+      "status": "Production-Validated",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-COMM-001-Universal-Communication.md"
+    },
+    {
+      "id": "Pattern-CONTEXT-001",
+      "category": "Information Architecture",
+      "purpose": "Hierarchical Context Organization",
+      "status": "Active",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-CONTEXT-001.md"
+    },
+    {
+      "id": "Pattern-CONTEXT-002",
+      "category": "Information Architecture + Change Management",
+      "purpose": "Content-Addressable Context System",
+      "status": "Design (not yet implemented)",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-CONTEXT-002.md"
+    },
+    {
+      "id": "Pattern-DHT-001",
+      "category": "Uncategorized",
+      "purpose": "Content-Addressed Pattern Storage with Kademlia DHT",
+      "status": "Architecture Design",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-DHT-001.md"
+    },
+    {
+      "id": "Pattern-DOCUMENTATION-001",
+      "category": "Meta-Learning + Documentation Management",
+      "purpose": "Documentation Feedback Loop + Standards",
+      "status": "Active (Core ÆtherLight Pattern)",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-DOCUMENTATION-001.md"
+    },
+    {
+      "id": "Pattern-DOMAIN-001",
+      "category": "Domain Expertise, Hierarchical Search",
+      "purpose": "Domain Agent Trait with Breadcrumb Escalation",
+      "status": "Implementation (Phase 3.5 Sprint 1)",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-DOMAIN-001.md"
+    },
+    {
+      "id": "Pattern-DOMAIN-002",
+      "category": "Data Structure, Semantic Search",
+      "purpose": "Domain Pattern Library Structure",
+      "status": "Implemented (P3.5-002)",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-DOMAIN-002.md"
+    },
+    {
+      "id": "Pattern-DOMAIN-003",
+      "category": "Domain Agent, Systems Engineering",
+      "purpose": "Infrastructure Agent Implementation",
+      "status": "Implemented (P3.5-005)",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-DOMAIN-003.md"
+    },
+    {
+      "id": "Pattern-DOMAIN-004",
+      "category": "Domain Agent, Software Quality",
+      "purpose": "Quality Agent Implementation",
+      "status": "Implemented (P3.5-006)",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-DOMAIN-004.md"
+    },
+    {
+      "id": "Pattern-DOMAIN-005",
+      "category": "Uncategorized",
+      "purpose": "Scalability Agent Implementation",
+      "status": "Implemented (P3.5-009) | **PARENT:** Pattern-DOMAIN-001",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-DOMAIN-005.md"
+    },
+    {
+      "id": "Pattern-DOMAIN-006",
+      "category": "Uncategorized",
+      "purpose": "Knowledge Agent Implementation",
+      "status": "Implemented (P3.5-010) | **PARENT:** Pattern-DOMAIN-001",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-DOMAIN-006.md"
+    },
+    {
+      "id": "Pattern-DOMAIN-007",
+      "category": "Uncategorized",
+      "purpose": "Innovation Agent Implementation",
+      "status": "Implemented (P3.5-011) | **PARENT:** Pattern-DOMAIN-001",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-DOMAIN-007.md"
+    },
+    {
+      "id": "Pattern-DOMAIN-008",
+      "category": "Uncategorized",
+      "purpose": "Deployment Agent Implementation",
+      "status": "Implemented (P3.5-012) | **PARENT:** Pattern-DOMAIN-001",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-DOMAIN-008.md"
+    },
+    {
+      "id": "Pattern-DOMAIN-009",
+      "category": "Uncategorized",
+      "purpose": "Ethics Agent Implementation",
+      "status": "Implemented (P3.5-012) | **PARENT:** Pattern-DOMAIN-001",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-DOMAIN-009.md"
+    },
+    {
+      "id": "Pattern-DRIZZLE-ZOD-001",
+      "category": "Database Patterns",
+      "purpose": "Drizzle ORM Type-Safe Schema with Zod Validation",
+      "status": "Production-Validated",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-DRIZZLE-ZOD-001.md"
+    },
+    {
+      "id": "Pattern-EMBEDDING-001",
+      "category": "Vector/Embedding Patterns",
+      "purpose": "Chunked Embedding Generation with Query Caching",
+      "status": "Production-Validated",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-EMBEDDING-001.md"
+    },
+    {
+      "id": "Pattern-ENHANCEMENT-001",
+      "category": "AI Prompt Engineering + Context Injection",
+      "purpose": "Context-Aware Prompt Enhancement",
+      "status": "Active (Implemented in v0.15.0+)",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-ENHANCEMENT-001.md"
+    },
+    {
+      "id": "Pattern-ERROR-CODES-001",
+      "category": "Error Handling",
+      "purpose": "Structured Error Handling with Error Codes",
+      "status": "Production-Validated",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-ERROR-CODES-001.md"
+    },
+    {
+      "id": "Pattern-ESCALATION-001",
+      "category": "Algorithm, Performance Optimization",
+      "purpose": "Breadcrumb Escalation Strategy",
+      "status": "Implemented (P3.5-001 through P3.5-012)",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-ESCALATION-001.md"
+    },
+    {
+      "id": "Pattern-FAILURE-002",
+      "category": "Uncategorized",
+      "purpose": "Execution Tracking Hallucination",
+      "status": "Documented, solution proposed",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-FAILURE-002.md"
+    },
+    {
+      "id": "Pattern-FAILURE-003",
+      "category": "Anti-Pattern / Failure Mode",
+      "purpose": "Process Compliance Failure",
+      "status": "Documented, corrective actions defined",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-FAILURE-003.md"
+    },
+    {
+      "id": "Pattern-FAILURE-004",
+      "category": "Process Compliance",
+      "purpose": "Documentation Completion Failure",
+      "status": "Active Anti-Pattern (failure mode to avoid)",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-FAILURE-004.md"
+    },
+    {
+      "id": "Pattern-FAILURE-006",
+      "category": "Anti-Pattern",
+      "purpose": "Self-Fulfilling Negative Prophecy",
+      "status": "Active mitigation",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-FAILURE-006.md"
+    },
+    {
+      "id": "Pattern-FAQ-001",
+      "category": "Uncategorized",
+      "purpose": "Generic Integration FAQ Template",
+      "status": "Active",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-FAQ-001.md"
+    },
+    {
+      "id": "Pattern-FILE-READING-001",
+      "category": "Performance + Token Optimization",
+      "purpose": "Efficient Large File Reading Strategy",
+      "status": "Active",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-FILE-READING-001.md"
+    },
+    {
+      "id": "Pattern-FILTER-CATEGORIZATION-001",
+      "category": "UI/UX Patterns",
+      "purpose": "Keyword-Based Filter Categorization",
+      "status": "Production-Validated",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-FILTER-CATEGORIZATION-001.md"
+    },
+    {
+      "id": "Pattern-GIT-001",
+      "category": "Workflow Protocol",
+      "purpose": "Git Workflow Integration Protocol",
+      "status": "Active",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-GIT-001.md"
+    },
+    {
+      "id": "Pattern-HYBRID-SEARCH-001",
+      "category": "Vector/Embedding Patterns",
+      "purpose": "Hybrid Search (Keyword + Semantic + Tag Matching)",
+      "status": "Production-Validated",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-HYBRID-SEARCH-001.md"
+    },
+    {
+      "id": "Pattern-IAC-AMPLIFY-001",
+      "category": "Infrastructure",
+      "purpose": "AWS Amplify CDK Infrastructure as Code",
+      "status": "Production-Validated",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-IAC-AMPLIFY-001.md"
+    },
+    {
+      "id": "Pattern-IMPROVEMENT-001",
+      "category": "Meta-Pattern (System Improvement)",
+      "purpose": "Gap Detection & Self-Improvement Protocol",
+      "status": "Active",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-IMPROVEMENT-001.md"
+    },
+    {
+      "id": "Pattern-INTEGRATION-001",
+      "category": "Uncategorized",
+      "purpose": "End-to-End Intelligence Layer Testing",
+      "status": "Implemented (P3.5-013) | **SOURCE:** PHASE_3.5_INTELLIGENCE_LAYER.md",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-INTEGRATION-001.md"
+    },
+    {
+      "id": "Pattern-LAMBDA-LAYERED-001",
+      "category": "AWS Architecture",
+      "purpose": "AWS Lambda Layered Architecture",
+      "status": "Production-Validated",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-LAMBDA-LAYERED-001.md"
+    },
+    {
+      "id": "Pattern-LEGAL-SCHEMA-001",
+      "category": "Domain Model Patterns",
+      "purpose": "Comprehensive Legal Case Schema (Domain Model Reference)",
+      "status": "Production-Validated",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-LEGAL-SCHEMA-001.md"
+    },
+    {
+      "id": "Pattern-MCP-001",
+      "category": "MCP Protocol, Neural Routing",
+      "purpose": "Neural Network Routing Architecture",
+      "status": "Architectural Design",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-MCP-001.md"
+    },
+    {
+      "id": "Pattern-MESH-001",
+      "category": "Distributed Systems / Networking",
+      "purpose": "Offline Mesh Networking",
+      "status": "Active",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-MESH-001.md"
+    },
+    {
+      "id": "Pattern-META-001",
+      "category": "Meta-Learning",
+      "purpose": "Documentation Feedback Loop",
+      "status": "Active",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-META-001.md"
+    },
+    {
+      "id": "Pattern-META-002",
+      "category": "Meta-Learning / Process Enforcement",
+      "purpose": "Commit-Level Documentation Impact Analysis",
+      "status": "Active",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-META-002.md"
+    },
+    {
+      "id": "Pattern-NAPI-001",
+      "category": "Uncategorized",
+      "purpose": "NAPI-RS Struct Conversion (Object vs Class)",
+      "status": "Validated (7 compilation errors fixed with this pattern)",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-NAPI-001.md"
+    },
+    {
+      "id": "Pattern-NAPI-002",
+      "category": "Uncategorized",
+      "purpose": "FFI Error Handling Without Orphan Rules",
+      "status": "Validated (used in all FFI method implementations)",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-NAPI-002.md"
+    },
+    {
+      "id": "Pattern-NETWORK-001",
+      "category": "Uncategorized",
+      "purpose": "Agent Network for Cross-Agent Collaboration",
+      "status": "Implemented (P3.5-007) | **SOURCE:** PHASE_3.5_INTELLIGENCE_LAYER.md",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-NETWORK-001.md"
+    },
+    {
+      "id": "Pattern-OCR-PIPELINE-001",
+      "category": "Data Processing Patterns",
+      "purpose": "Multi-Strategy OCR Pipeline with Fallback Chain",
+      "status": "Production-Validated",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-OCR-PIPELINE-001.md"
+    },
+    {
+      "id": "Pattern-PATTERN-001",
+      "category": "Meta-Pattern (Documentation Standard)",
+      "purpose": "Pattern Document Structure (Neural Network Foundation)",
+      "status": "Active",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-PATTERN-001.md"
+    },
+    {
+      "id": "Pattern-PERFORMANCE-AGGREGATION-001",
+      "category": "Performance Optimization Patterns",
+      "purpose": "Pre-Aggregated Tag/Folder Count Materialized Views",
+      "status": "Production-Validated",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-PERFORMANCE-AGGREGATION-001.md"
+    },
+    {
+      "id": "Pattern-PGVECTOR-001",
+      "category": "Database Patterns",
+      "purpose": "pgvector Integration with Custom Drizzle Type",
+      "status": "Production-Validated",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-PGVECTOR-001.md"
+    },
+    {
+      "id": "Pattern-PLAN-LIMITS-001",
+      "category": "Feature Management",
+      "purpose": "Database-Driven Feature Flags with JSONB",
+      "status": "Production-Validated",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-PLAN-LIMITS-001.md"
+    },
+    {
+      "id": "Pattern-PROGRESSIVE-ANALYSIS-001",
+      "category": "AI/ML Patterns",
+      "purpose": "Progressive Document Analysis with Claude Extended Thinking",
+      "status": "Production-Validated",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-PROGRESSIVE-ANALYSIS-001.md"
+    },
+    {
+      "id": "Pattern-PROTOCOL-001",
+      "category": "Communication Protocol, Reliability Engineering",
+      "purpose": "Cross-Agent Communication Protocol",
+      "status": "Implemented (P3.5-008)",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-PROTOCOL-001.md"
+    },
+    {
+      "id": "Pattern-REACT-WIZARD-001",
+      "category": "React UI Patterns",
+      "purpose": "React Wizard with Debounced Filtering",
+      "status": "Production-Validated",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-REACT-WIZARD-001.md"
+    },
+    {
+      "id": "Pattern-RLS-DUAL-ID-001",
+      "category": "Database Security",
+      "purpose": "Supabase RLS with Dual ID Mapping",
+      "status": "Production-Validated",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-RLS-DUAL-ID-001.md"
+    },
+    {
+      "id": "Pattern-ROUTING-001",
+      "category": "Uncategorized",
+      "purpose": "Domain Routing Table",
+      "status": "Implemented (P3.5-004) | **SOURCE:** PHASE_3.5_INTELLIGENCE_LAYER.md",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-ROUTING-001.md"
+    },
+    {
+      "id": "Pattern-RUST-008",
+      "category": "Uncategorized",
+      "purpose": "Rust 2021 Edition Benchmark Configuration",
+      "status": "Skeleton created (full implementation pending P1-012)",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-RUST-008.md"
+    },
+    {
+      "id": "Pattern-SERVICE-LAYER-001",
+      "category": "React Architecture",
+      "purpose": "Service Layer Field Classification",
+      "status": "Production-Validated",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-SERVICE-LAYER-001.md"
+    },
+    {
+      "id": "Pattern-SMART-COLLECTIONS-001",
+      "category": "AI/ML Patterns",
+      "purpose": "Smart Collections with Embedding-Based Document Clustering",
+      "status": "Production-Validated",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-SMART-COLLECTIONS-001.md"
+    },
+    {
+      "id": "Pattern-SPRINT-001",
+      "category": "Project Management + Autonomous Execution",
+      "purpose": "Sprint System with TOML Source of Truth",
+      "status": "Active (Implemented in v0.15.0+)",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-SPRINT-001.md"
+    },
+    {
+      "id": "Pattern-SPRINT-PLAN-001",
+      "category": "Workflow Protocol",
+      "purpose": "Sprint Planning Protocol",
+      "status": "Active",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-SPRINT-PLAN-001.md"
+    },
+    {
+      "id": "Pattern-SQL-BUILDER-001",
+      "category": "Database Security",
+      "purpose": "Snowflake Query Builder with SQL Injection Prevention",
+      "status": "Production-Validated",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-SQL-BUILDER-001.md"
+    },
+    {
+      "id": "Pattern-STORAGE-001",
+      "category": "Distributed Systems / Storage",
+      "purpose": "Multi-Layer Distributed Storage",
+      "status": "Active",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-STORAGE-001.md"
+    },
+    {
+      "id": "Pattern-TASK-ANALYSIS-001",
+      "category": "Workflow Protocol",
+      "purpose": "Pre-Task Analysis Protocol",
+      "status": "Active",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-TASK-ANALYSIS-001.md"
+    },
+    {
+      "id": "Pattern-TERMINAL-001",
+      "category": "UI/UX + VS Code Integration + Voice Workflows",
+      "purpose": "Intelligent Terminal Management for Voice Workflows",
+      "status": "Active (Implemented in v0.15.0+)",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-TERMINAL-001.md"
+    },
+    {
+      "id": "Pattern-TESTING-001",
+      "category": "Quality Assurance + Testing",
+      "purpose": "Manual Testing Methodology for VS Code Extensions",
+      "status": "Active (Required for v0.15.4+)",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-TESTING-001.md"
+    },
+    {
+      "id": "Pattern-TRACKING-001",
+      "category": "Execution Methodology",
+      "purpose": "Comprehensive Execution Tracking",
+      "status": "Active",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-TRACKING-001.md"
+    },
+    {
+      "id": "Pattern-TRACKING-002",
+      "category": "Execution Methodology",
+      "purpose": "Real-Time Execution Logging",
+      "status": "Active (required for P1-009 onwards)",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-TRACKING-002.md"
+    },
+    {
+      "id": "Pattern-TRUST-001",
+      "category": "Uncategorized",
+      "purpose": "Circle of Trust Key Sharing with Shamir Secret Sharing",
+      "status": "Architecture Design",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-TRUST-001.md"
+    },
+    {
+      "id": "Pattern-UI-006",
+      "category": "UI Architecture + VS Code Extension",
+      "purpose": "Tabbed Multi-Feature Sidebar with WebView",
+      "status": "Active (Implemented in v0.15.0+)",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-UI-006.md"
+    },
+    {
+      "id": "Pattern-UNCERTAINTY-002",
+      "category": "Uncategorized",
+      "purpose": "Confidence Calibration System",
+      "status": "Implemented (AI-008)",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-UNCERTAINTY-002.md"
+    },
+    {
+      "id": "Pattern-VERIFICATION-001",
+      "category": "AI Safety / Hallucination Detection",
+      "purpose": "Real-Time Agent Claim Verification",
+      "status": "Active",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-VERIFICATION-001.md"
+    },
+    {
+      "id": "Pattern-VERSION-001",
+      "category": "Development Process",
+      "purpose": "Production-Sprint-Feature-Enhancement Versioning",
+      "status": "Production-Validated (in use as of 2025-10-19)",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-VERSION-001.md"
+    },
+    {
+      "id": "Pattern-VOICE-001",
+      "category": "Audio Processing + IPC + Desktop Integration",
+      "purpose": "Voice Capture and Transcription via Desktop App",
+      "status": "Active (Implemented in v0.9.0+)",
+      "path": "C:\\Users\\Brett\\Dropbox\\Ferret9 Global\\lumina-clean\\docs\\patterns\\Pattern-VOICE-001.md"
+    }
+  ],
+  "workspace": {
+    "root": "C:\\Users\\Brett",
+    "gitBranch": "master",
+    "lastAnalysis": "2025-11-08T00:52:47.181Z"
+  },
+  "discovery": {
+    "version": "2.0.0",
+    "lastScan": "2025-11-08T00:52:47.182Z",
+    "capabilitiesHash": "be86756aa65783bdc912b411a8855bccfb12e6088dbeda2fe34ac27f0af558cf",
+    "skillsCount": 0,
+    "agentsCount": 12,
+    "patternsCount": 77
   }
 }

@@ -10,6 +10,7 @@
 ---
 
 
+
 ## Context
 
 Generic error messages ("Error occurred") don't help users or developers debug issues. Structured errors with codes enable:

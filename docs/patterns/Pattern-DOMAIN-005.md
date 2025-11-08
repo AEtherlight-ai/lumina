@@ -11,6 +11,7 @@
 ---
 
 
+
 ## Design Decision
 
 Scalability domain agent specializing in performance optimization, distributed systems, caching, and high-traffic architectures.

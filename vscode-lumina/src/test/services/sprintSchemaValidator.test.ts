@@ -494,4 +494,296 @@ dependencies = ["PROTO-001"]
             assert.strictEqual(result.valid, true);
         });
     });
+
+    suite('Rule 6: Template Task Compliance (Pattern-SPRINT-TEMPLATE-001)', () => {
+        test('should pass when all required template tasks present', () => {
+            const toml = `
+[meta]
+sprint_name = "Test Feature Sprint"
+
+[tasks.FEAT-001]
+id = "FEAT-001"
+name = "Build feature"
+status = "pending"
+phase = "development"
+agent = "infrastructure-agent"
+
+# REQUIRED tasks (13)
+[tasks.DOC-001]
+id = "DOC-001"
+name = "Update CHANGELOG.md"
+status = "pending"
+phase = "documentation"
+agent = "documentation-agent"
+
+[tasks.DOC-002]
+id = "DOC-002"
+name = "Update README.md"
+status = "pending"
+phase = "documentation"
+agent = "documentation-agent"
+
+[tasks.DOC-003]
+id = "DOC-003"
+name = "Extract reusable patterns"
+status = "pending"
+phase = "documentation"
+agent = "documentation-agent"
+
+[tasks.DOC-004]
+id = "DOC-004"
+name = "Update CLAUDE.md"
+status = "pending"
+phase = "documentation"
+agent = "documentation-agent"
+
+[tasks.QA-001]
+id = "QA-001"
+name = "Run ripple analysis"
+status = "pending"
+phase = "quality-assurance"
+agent = "testing-agent"
+
+[tasks.QA-002]
+id = "QA-002"
+name = "Verify test coverage"
+status = "pending"
+phase = "quality-assurance"
+agent = "testing-agent"
+
+[tasks.QA-003]
+id = "QA-003"
+name = "Run dependency audit"
+status = "pending"
+phase = "quality-assurance"
+agent = "infrastructure-agent"
+
+[tasks.QA-004]
+id = "QA-004"
+name = "Validate TypeScript compilation"
+status = "pending"
+phase = "quality-assurance"
+agent = "infrastructure-agent"
+
+[tasks.AGENT-001]
+id = "AGENT-001"
+name = "Update agent context files"
+status = "pending"
+phase = "agent-sync"
+agent = "documentation-agent"
+
+[tasks.AGENT-002]
+id = "AGENT-002"
+name = "Update KNOWN_ISSUES.md"
+status = "pending"
+phase = "agent-sync"
+agent = "documentation-agent"
+
+[tasks.INFRA-001]
+id = "INFRA-001"
+name = "Verify git hooks"
+status = "pending"
+phase = "infrastructure"
+agent = "infrastructure-agent"
+
+[tasks.INFRA-002]
+id = "INFRA-002"
+name = "Run sprint schema validation"
+status = "pending"
+phase = "infrastructure"
+agent = "infrastructure-agent"
+
+[tasks.CONFIG-001]
+id = "CONFIG-001"
+name = "Validate settings schema"
+status = "pending"
+phase = "infrastructure"
+agent = "infrastructure-agent"
+
+# RETROSPECTIVE tasks (2)
+[tasks.RETRO-001]
+id = "RETRO-001"
+name = "Sprint retrospective"
+status = "pending"
+phase = "retrospective"
+agent = "documentation-agent"
+
+[tasks.RETRO-002]
+id = "RETRO-002"
+name = "Extract patterns from learnings"
+status = "pending"
+phase = "retrospective"
+agent = "documentation-agent"
+`;
+            const result = validator.validate(toml);
+            assert.strictEqual(result.valid, true);
+        });
+
+        test('should fail when required template task missing (DOC-001)', () => {
+            const toml = `
+[meta]
+sprint_name = "Test Sprint"
+
+[tasks.FEAT-001]
+id = "FEAT-001"
+name = "Build feature"
+status = "pending"
+phase = "development"
+agent = "infrastructure-agent"
+
+# Missing DOC-001 (required task)
+`;
+            const result = validator.validate(toml);
+            assert.strictEqual(result.valid, false);
+            assert.ok(result.error?.includes('DOC-001'));
+            assert.ok(result.error?.includes('required template task'));
+            assert.ok(result.suggestions && result.suggestions.length > 0);
+        });
+
+        test('should pass when publishing sprint has conditional publishing tasks', () => {
+            const toml = `
+[meta]
+sprint_name = "Release v1.0"
+
+[tasks.FEAT-001]
+id = "FEAT-001"
+name = "Build feature"
+status = "pending"
+phase = "development"
+agent = "infrastructure-agent"
+
+# All required tasks (shortened for test)
+[tasks.DOC-001]
+id = "DOC-001"
+name = "Update CHANGELOG.md"
+status = "pending"
+phase = "documentation"
+agent = "documentation-agent"
+
+# ... (other required tasks DOC-002 through CONFIG-001)
+
+# CONDITIONAL publishing tasks (required for release sprint)
+[tasks.PUB-001]
+id = "PUB-001"
+name = "Run pre-publish validation"
+status = "pending"
+phase = "publishing"
+agent = "infrastructure-agent"
+
+[tasks.PUB-002]
+id = "PUB-002"
+name = "Build and verify .vsix package"
+status = "pending"
+phase = "publishing"
+agent = "infrastructure-agent"
+
+[tasks.PUB-003]
+id = "PUB-003"
+name = "Verify no runtime npm dependencies"
+status = "pending"
+phase = "publishing"
+agent = "infrastructure-agent"
+
+[tasks.PUB-004]
+id = "PUB-004"
+name = "Generate release artifacts"
+status = "pending"
+phase = "publishing"
+agent = "documentation-agent"
+
+[tasks.PUB-005]
+id = "PUB-005"
+name = "Post-publish verification"
+status = "pending"
+phase = "publishing"
+agent = "infrastructure-agent"
+
+# RETROSPECTIVE tasks
+[tasks.RETRO-001]
+id = "RETRO-001"
+name = "Sprint retrospective"
+status = "pending"
+phase = "retrospective"
+agent = "documentation-agent"
+
+[tasks.RETRO-002]
+id = "RETRO-002"
+name = "Extract patterns from learnings"
+status = "pending"
+phase = "retrospective"
+agent = "documentation-agent"
+`;
+            const result = validator.validate(toml);
+            assert.strictEqual(result.valid, true);
+        });
+
+        test('should fail when publishing sprint missing conditional publishing task (PUB-001)', () => {
+            const toml = `
+[meta]
+sprint_name = "Release v2.0"
+
+[tasks.FEAT-001]
+id = "FEAT-001"
+name = "Build feature"
+status = "pending"
+phase = "development"
+agent = "infrastructure-agent"
+
+# All required tasks present but missing PUB-* tasks
+# (sprint name contains "release" → publishing tasks required)
+`;
+            const result = validator.validate(toml);
+            assert.strictEqual(result.valid, false);
+            assert.ok(result.error?.includes('PUB-001') || result.error?.includes('publishing'));
+            assert.ok(result.error?.includes('conditional'));
+            assert.ok(result.suggestions && result.suggestions.length > 0);
+        });
+
+        test('should pass when sprint skips suggested task WITH justification', () => {
+            const toml = `
+[meta]
+sprint_name = "Test Sprint"
+
+[metadata.template_justifications]
+skipped_suggested = [
+    "PERF-001: No performance-critical changes this sprint",
+    "SEC-001: Internal-only changes, no security risk"
+]
+
+[tasks.FEAT-001]
+id = "FEAT-001"
+name = "Build feature"
+status = "pending"
+phase = "development"
+agent = "infrastructure-agent"
+
+# All required tasks present (DOC-001 through CONFIG-001, RETRO-001, RETRO-002)
+# SUGGESTED tasks PERF-001 and SEC-001 skipped but justified
+`;
+            const result = validator.validate(toml);
+            // Should pass or return warnings (not errors)
+            assert.ok(result.valid === true || (result.warnings && result.warnings.length > 0));
+        });
+
+        test('should warn when sprint skips suggested task WITHOUT justification', () => {
+            const toml = `
+[meta]
+sprint_name = "Test Sprint"
+
+[tasks.FEAT-001]
+id = "FEAT-001"
+name = "Build feature"
+status = "pending"
+phase = "development"
+agent = "infrastructure-agent"
+
+# All required tasks present
+# SUGGESTED task PERF-001 missing and no justification provided
+`;
+            const result = validator.validate(toml);
+            // Should return warnings (not fail completely)
+            assert.ok(result.warnings && result.warnings.length > 0);
+            assert.ok(result.warnings.some(w => w.includes('PERF-001') || w.includes('suggested')));
+        });
+    });
 });

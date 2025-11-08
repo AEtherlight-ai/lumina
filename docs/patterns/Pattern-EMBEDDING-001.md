@@ -12,6 +12,7 @@
 
 
 
+
 ## Context
 
 When building semantic search systems for large documents (legal briefs, medical records, research papers), single-document embeddings are insufficient. Documents exceed embedding model token limits, and precision suffers when entire documents are collapsed into single vectors.

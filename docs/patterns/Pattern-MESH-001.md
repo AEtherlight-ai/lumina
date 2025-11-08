@@ -12,6 +12,7 @@
 
 
 
+
 ## Context
 
 Users need to sync encrypted data across their devices without requiring internet connectivity, especially in scenarios where:

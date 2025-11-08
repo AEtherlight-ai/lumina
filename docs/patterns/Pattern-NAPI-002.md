@@ -12,6 +12,7 @@
 
 
 
+
 ## PROBLEM
 
 Cannot implement `From<CoreError> for napi::Error` because both types are from external crates, violating Rust's **orphan rule**:

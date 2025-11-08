@@ -12,6 +12,7 @@
 
 
 
+
 ## Problem
 
 **Meta-analysis documents (audits, reality checks) can cause AI agents to believe code is broken when it's actually functional.**

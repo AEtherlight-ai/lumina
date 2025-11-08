@@ -1048,4 +1048,257 @@ suite('WorkflowCheck Service Test Suite', () => {
 		assert.ok(reusabilityPrereq, 'Docs workflow should always assess reusability');
 		assert.strictEqual(reusabilityPrereq.status, '✅', 'Reusability should be assessed');
 	});
+
+	/**
+	 * ================================================================
+	 * TEMPLATE-004: TEMPLATE COMPLIANCE ENFORCEMENT TESTS (TDD RED PHASE)
+	 * ================================================================
+	 *
+	 * DESIGN DECISION: Test template compliance logic BEFORE implementation
+	 * WHY: Pattern-TDD-001 (Test-Driven Development Ratchet)
+	 * TASK: TEMPLATE-004 - Runtime validation in WorkflowCheck
+	 *
+	 * Template compliance scenarios:
+	 * 1. Required tasks completed (13) - Blocking if incomplete
+	 * 2. Suggested tasks warned (4) - Warning if incomplete
+	 * 3. Retrospective tasks completed (2) - Blocking if incomplete
+	 * 4. Publishing conditional tasks (5) - Blocking if publishing sprint
+	 * 5. Clear error messages with actionable guidance
+	 */
+
+	/**
+	 * TEST 31: checkTemplateCompliance() - All required tasks complete
+	 *
+	 * DESIGN DECISION: Sprint workflow should check template task completion
+	 * WHY: Pattern-SPRINT-TEMPLATE-001 - Ensure quality tasks not forgotten
+	 *
+	 * Scenario:
+	 * - Sprint has all 13 REQUIRED tasks completed
+	 * - Sprint has 2 RETROSPECTIVE tasks completed
+	 * - Template compliance passes
+	 * - Confidence bonus +0.10 applied
+	 */
+	test('checkTemplateCompliance() should pass when all required tasks complete', async () => {
+		// This test will verify template compliance in GREEN phase
+		// For now, we document the expected behavior
+
+		const context = {
+			// Sprint workflow context - will be extended with template checking
+			workspaceAnalyzed: true,
+			gitClean: true,
+			skillsAvailable: true,
+			// Template compliance context (to be added in GREEN phase)
+			sprintToml: 'internal/sprints/ACTIVE_SPRINT.toml',
+			requiredTasksComplete: true,
+			retrospectiveTasksComplete: true
+		};
+
+		// Act
+		const result = await workflowCheck.checkWorkflow('sprint', context);
+
+		// Assert: Should pass with bonus confidence
+		// (Implementation detail - exact confidence calculation TBD in GREEN phase)
+		assert.ok(result.confidence >= 0.85, 'Should have high confidence when template tasks complete');
+
+		// Should NOT have blocking gaps related to template tasks
+		const templateGap = result.gaps.find(g =>
+			g.includes('DOC-001') ||
+			g.includes('QA-001') ||
+			g.includes('RETRO-001')
+		);
+		assert.ok(!templateGap, 'Should not have template task gaps when all complete');
+	});
+
+	/**
+	 * TEST 32: checkTemplateCompliance() - Missing required task blocks sprint
+	 *
+	 * DESIGN DECISION: Required tasks incomplete = cannot start new sprint
+	 * WHY: Historical bugs prevented by required tasks (15+ hours saved)
+	 *
+	 * Scenario:
+	 * - Sprint missing DOC-001 (Update CHANGELOG)
+	 * - Template compliance fails
+	 * - Error: "Cannot start new sprint: Required task DOC-001 incomplete"
+	 * - Confidence = 0.0 (CRITICAL)
+	 */
+	test('checkTemplateCompliance() should block sprint when required task incomplete', async () => {
+		const context = {
+			workspaceAnalyzed: true,
+			gitClean: true,
+			skillsAvailable: true,
+			sprintToml: 'internal/sprints/ACTIVE_SPRINT.toml',
+			requiredTasksComplete: false, // DOC-001 incomplete
+			missingRequiredTasks: ['DOC-001']
+		};
+
+		// Act
+		const result = await workflowCheck.checkWorkflow('sprint', context);
+
+		// Assert: Should block with critical gaps
+		assert.ok(
+			result.gaps.some(g => g.includes('DOC-001') || g.includes('Required task')),
+			'Should have gap for missing required task'
+		);
+
+		// Assert: Confidence should be critically low
+		assert.ok(result.confidence <= 0.1, 'Missing required task should result in very low confidence');
+
+		// Assert: Should have clear error message
+		const prerequisite = result.prerequisites.find(p =>
+			p.name.includes('template') || p.name.includes('Template')
+		);
+		if (prerequisite) {
+			assert.ok(
+				prerequisite.remediation && prerequisite.remediation.includes('Complete required'),
+				'Should provide remediation guidance'
+			);
+		}
+	});
+
+	/**
+	 * TEST 33: checkTemplateCompliance() - Missing suggested task warns (non-blocking)
+	 *
+	 * DESIGN DECISION: Suggested tasks incomplete = warning only, not blocking
+	 * WHY: Balance between quality enforcement and flexibility
+	 *
+	 * Scenario:
+	 * - Sprint has all REQUIRED tasks complete
+	 * - Sprint missing PERF-001 (suggested task)
+	 * - Template compliance passes with warning
+	 * - Warning: "Suggested task PERF-001 incomplete"
+	 * - Confidence -= 0.10 (WARNING penalty)
+	 */
+	test('checkTemplateCompliance() should warn when suggested task incomplete', async () => {
+		const context = {
+			workspaceAnalyzed: true,
+			gitClean: true,
+			skillsAvailable: true,
+			sprintToml: 'internal/sprints/ACTIVE_SPRINT.toml',
+			requiredTasksComplete: true,
+			retrospectiveTasksComplete: true,
+			suggestedTasksComplete: false, // PERF-001 incomplete
+			missingSuggestedTasks: ['PERF-001']
+		};
+
+		// Act
+		const result = await workflowCheck.checkWorkflow('sprint', context);
+
+		// Assert: Should not block (confidence still reasonable)
+		assert.ok(result.confidence >= 0.70, 'Missing suggested task should not critically impact confidence');
+
+		// Assert: Should have warning gap (not blocking)
+		const warningGap = result.gaps.find(g =>
+			g.includes('PERF-001') || g.includes('Suggested')
+		);
+		assert.ok(warningGap, 'Should have warning for missing suggested task');
+
+		// Assert: Should not be critical junction (non-blocking)
+		// (This may vary by implementation - suggested tasks don't block sprint)
+	});
+
+	/**
+	 * TEST 34: checkTemplateCompliance() - Missing retrospective task blocks sprint
+	 *
+	 * DESIGN DECISION: Retrospective tasks incomplete = cannot start new sprint
+	 * WHY: Pattern-SELF-IMPROVEMENT-001 - Retrospectives drive continuous improvement
+	 *
+	 * Scenario:
+	 * - Sprint has all REQUIRED tasks complete
+	 * - Sprint missing RETRO-001 (retrospective task)
+	 * - Template compliance fails
+	 * - Error: "Cannot start new sprint: Retrospective task RETRO-001 incomplete"
+	 * - Confidence = 0.0 (CRITICAL)
+	 */
+	test('checkTemplateCompliance() should block sprint when retrospective task incomplete', async () => {
+		const context = {
+			workspaceAnalyzed: true,
+			gitClean: true,
+			skillsAvailable: true,
+			sprintToml: 'internal/sprints/ACTIVE_SPRINT.toml',
+			requiredTasksComplete: true,
+			retrospectiveTasksComplete: false, // RETRO-001 incomplete
+			missingRetrospectiveTasks: ['RETRO-001']
+		};
+
+		// Act
+		const result = await workflowCheck.checkWorkflow('sprint', context);
+
+		// Assert: Should block with critical gaps
+		assert.ok(
+			result.gaps.some(g => g.includes('RETRO-001') || g.includes('Retrospective')),
+			'Should have gap for missing retrospective task'
+		);
+
+		// Assert: Confidence should be critically low
+		assert.ok(result.confidence <= 0.1, 'Missing retrospective task should result in very low confidence');
+
+		// Assert: Should have clear error message
+		const prerequisite = result.prerequisites.find(p =>
+			p.name.includes('template') || p.name.includes('Template') || p.name.includes('Retrospective')
+		);
+		if (prerequisite) {
+			assert.ok(
+				prerequisite.details && (
+					prerequisite.details.includes('RETRO-001') ||
+					prerequisite.details.includes('retrospective')
+				),
+				'Should mention missing retrospective task'
+			);
+		}
+	});
+
+	/**
+	 * TEST 35: checkTemplateCompliance() - Publishing sprint validates conditional tasks
+	 *
+	 * DESIGN DECISION: Publishing sprint requires PUB-* tasks complete
+	 * WHY: Historical bugs (v0.13.28-29) - version mismatch, npm dependency issues
+	 *
+	 * Scenario:
+	 * - Sprint is publishing sprint (sprint_name contains "release" or "v1.0")
+	 * - Sprint has all REQUIRED tasks complete
+	 * - Sprint missing PUB-001 (conditional publishing task)
+	 * - Template compliance fails
+	 * - Error: "Publishing sprint missing conditional task: PUB-001"
+	 * - Confidence = 0.0 (CRITICAL)
+	 */
+	test('checkTemplateCompliance() should block publishing sprint when PUB-* tasks incomplete', async () => {
+		const context = {
+			workspaceAnalyzed: true,
+			gitClean: true,
+			skillsAvailable: true,
+			sprintToml: 'internal/sprints/ACTIVE_SPRINT.toml',
+			sprintName: 'Release v1.0',  // Publishing sprint
+			requiredTasksComplete: true,
+			retrospectiveTasksComplete: true,
+			publishingTasksComplete: false, // PUB-001 incomplete
+			missingPublishingTasks: ['PUB-001']
+		};
+
+		// Act
+		const result = await workflowCheck.checkWorkflow('sprint', context);
+
+		// Assert: Should block with critical gaps
+		assert.ok(
+			result.gaps.some(g =>
+				g.includes('PUB-001') ||
+				g.includes('Publishing') ||
+				g.includes('conditional')
+			),
+			'Should have gap for missing publishing task'
+		);
+
+		// Assert: Confidence should be critically low
+		assert.ok(result.confidence <= 0.1, 'Missing publishing task should result in very low confidence');
+
+		// Assert: Should have clear error message explaining why publishing tasks matter
+		const prerequisite = result.prerequisites.find(p =>
+			p.name.includes('template') || p.name.includes('Template') || p.name.includes('Publishing')
+		);
+		if (prerequisite) {
+			assert.ok(
+				prerequisite.details && prerequisite.details.includes('publish'),
+				'Should explain publishing requirement'
+			);
+		}
+	});
 });

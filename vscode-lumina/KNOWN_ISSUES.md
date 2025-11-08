@@ -42,17 +42,13 @@
 
 ---
 
-### Issue 2: Enhance Button Doesn't Work (Shift+`)
+### Issue 2: Shift+` Global Voice Typing (Deprecated)
 
-**Problem:** Pressing Shift+` (tilde) does nothing - no enhanced prompt appears
+**Status:** **RESOLVED** - Shift+` hotkey has been removed from the extension
 
-**Impact:** Moderate - can't auto-enhance typed prompts with project context
+**Reason:** Conflicted with backtick-only approach, caused user confusion
 
-**Workaround:** Manually add context to your prompts for now
-
-**Status:** BUG-007 - Under investigation
-
-**Expected Fix:** v0.13.2 or v0.14.0
+**Solution:** Use alternative voice capture methods (desktop app or Voice Panel)
 
 ---
 
@@ -76,8 +72,9 @@
 3. **Note:** F13 hotkey removed (not available on modern keyboards)
 
 ### For Enhanced Prompts:
-1. ⏳ Manual context for now (Shift+` not working yet)
+1. ⏳ Manual context for now (Shift+` has been removed)
 2. ✅ Sprint tab shows all tasks clearly
+3. **Note:** Shift+` hotkey deprecated (conflicted with backtick-only approach)
 
 ### For Terminal Management:
 1. ✅ Terminal list in Voice Panel shows all terminals
@@ -91,7 +88,7 @@
 |---------|--------|----------------|
 | **Desktop App Voice Capture** | ✅ Works well | Use this! |
 | **Webview Record Button** | ❌ Broken | Use desktop app instead |
-| **Shift+` Enhance** | ❌ Broken | Manual context for now |
+| **Shift+` Enhance** | ❌ Deprecated | Removed (use manual context) |
 | **Sprint Tab** | ✅ Works great | Use it! |
 | **Tab Switching** | ✅ Fast | Works perfectly |
 | **Desktop App Connection** | ✅ Reliable | Auto-connects |
@@ -154,8 +151,10 @@
 
 **Things that don't work yet:**
 1. Webview Record button (use desktop app instead)
-2. Shift+` enhance button (manual context for now)
-3. Terminal rename (cosmetic only)
+2. Terminal rename (cosmetic only)
+
+**Deprecated:**
+- Shift+` enhance button has been removed (conflicted with backtick-only approach)
 
 **Note:** F13 hotkey has been removed (not available on modern keyboards)
 
@@ -167,10 +166,9 @@ We need users to test:
 1. **Does desktop app voice capture work reliably for you?**
 2. **Is Sprint tab useful for tracking tasks?**
 3. **Are the 6 tabs discoverable and intuitive?**
-4. **How important is Shift+` enhance to your workflow?**
-5. **Any other blockers or confusion points?**
+4. **Any other blockers or confusion points?**
 
-**Note:** F13 hotkey has been deprecated and removed
+**Note:** F13 and Shift+` hotkeys have been deprecated and removed
 
 ---
 

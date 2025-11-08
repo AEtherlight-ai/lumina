@@ -1,0 +1,45 @@
+{
+  "name": "project-initialization",
+  "description": "Interactive interview for project initialization (4-5 questions with conditional logic)",
+  "questions": [
+    {
+      "name": "LANGUAGE",
+      "type": "list",
+      "message": "Which programming language does your project use?",
+      "choices": ["typescript", "javascript", "rust", "python", "go", "java"],
+      "when": "!answers.LANGUAGE || answers._detection?.language?.confidence < 0.8",
+      "default": "typescript"
+    },
+    {
+      "name": "PACKAGE_MANAGER",
+      "type": "list",
+      "message": "Which package manager does your project use?",
+      "choices": ["npm", "yarn", "pnpm", "cargo", "pip", "go mod"],
+      "when": "!answers.PACKAGE_MANAGER || answers._detection?.packageManager?.confidence < 0.8",
+      "default": "npm"
+    },
+    {
+      "name": "TEST_FRAMEWORK",
+      "type": "list",
+      "message": "Which test framework does your project use?",
+      "choices": ["jest", "mocha", "vitest", "pytest", "cargo-test", "go test", "none"],
+      "when": "!answers.TEST_FRAMEWORK || answers._detection?.testFramework?.confidence < 0.8",
+      "default": "jest"
+    },
+    {
+      "name": "BUILD_COMMAND",
+      "type": "input",
+      "message": "What command builds your project?",
+      "when": "!answers.BUILD_COMMAND || answers._detection?.buildCommand?.confidence < 0.8",
+      "default": "npm run build",
+      "validate": "value && value.length > 0"
+    },
+    {
+      "name": "DEPLOY_TARGET",
+      "type": "list",
+      "message": "Where will you deploy this project?",
+      "choices": ["aws", "azure", "gcp", "heroku", "vercel", "netlify", "docker", "local", "other"],
+      "default": "local"
+    }
+  ]
+}

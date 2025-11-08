@@ -10,6 +10,7 @@
 ---
 
 
+
 ## Context
 
 Modern web applications make dozens of API calls to backend services. Without centralization, developers face:

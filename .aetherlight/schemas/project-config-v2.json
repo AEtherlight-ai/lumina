@@ -1,0 +1,546 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://aetherlight.dev/schemas/project-config-v2.json",
+  "title": "ÆtherLight Project Configuration (v2.0)",
+  "description": "Configuration schema for ÆtherLight projects with discovery fields for self-aware system. Extends v1.0 with dynamic capability discovery (skills, agents, patterns). DESIGN DECISION: Add discovery fields for dynamic system awareness. WHY: Enhancement buttons need to discover available capabilities, not hard-code them. System self-aware = future-proof when skills/agents/patterns added.",
+  "type": "object",
+  "required": [
+    "version",
+    "project",
+    "structure",
+    "testing",
+    "workflows",
+    "git"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "JSON Schema URL for IDE autocomplete and validation"
+    },
+    "version": {
+      "type": "string",
+      "description": "Config schema version. Use '1.0.0' for v1 schema or '2.x.x' for v2 schema with discovery fields.",
+      "pattern": "^(1|2)\\.\\d+\\.\\d+$",
+      "examples": ["1.0.0", "2.0.0", "2.1.0"]
+    },
+    "project": {
+      "type": "object",
+      "description": "Project identification and metadata",
+      "required": ["name", "type", "description"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Project name (from package.json or directory name)",
+          "minLength": 1
+        },
+        "type": {
+          "type": "string",
+          "description": "Project type (auto-detected from package.json or structure)",
+          "enum": [
+            "vscode-extension",
+            "web-app",
+            "cli-tool",
+            "library",
+            "mobile-app",
+            "desktop-app",
+            "api-server",
+            "microservice"
+          ]
+        },
+        "description": {
+          "type": "string",
+          "description": "Short project description",
+          "minLength": 1
+        },
+        "language": {
+          "type": "string",
+          "description": "Primary programming language",
+          "enum": ["typescript", "javascript", "rust", "python", "go", "java", "csharp", "cpp", "ruby", "php"]
+        }
+      }
+    },
+    "structure": {
+      "type": "object",
+      "description": "Directory structure for sprints, patterns, source, tests, and docs",
+      "required": ["sprintDir", "activeSprint", "patternsDir", "testsDir", "sourceDir"],
+      "properties": {
+        "sprintDir": {
+          "type": "string",
+          "description": "Sprint TOML files directory (relative path from workspace root)",
+          "default": "internal/sprints"
+        },
+        "activeSprint": {
+          "type": "string",
+          "description": "Active sprint filename",
+          "default": "ACTIVE_SPRINT.toml"
+        },
+        "patternsDir": {
+          "type": "string",
+          "description": "Pattern library directory (relative path)",
+          "default": "docs/patterns"
+        },
+        "testsDir": {
+          "type": "string",
+          "description": "Test files directory (relative path)",
+          "default": "test"
+        },
+        "sourceDir": {
+          "type": "string",
+          "description": "Source code directory (relative path)",
+          "default": "src"
+        },
+        "docsDir": {
+          "type": "string",
+          "description": "Documentation directory (relative path)",
+          "default": "docs"
+        },
+        "skillsDir": {
+          "type": "string",
+          "description": "Skills directory (relative path). Added in v2.0 for discovery.",
+          "default": ".claude/skills"
+        },
+        "agentsDir": {
+          "type": "string",
+          "description": "Agents directory (relative path). Added in v2.0 for discovery.",
+          "default": "internal/agents"
+        }
+      }
+    },
+    "testing": {
+      "type": "object",
+      "description": "Test framework, runner command, and coverage targets",
+      "required": ["framework", "runner", "coverage"],
+      "properties": {
+        "framework": {
+          "type": "string",
+          "description": "Testing framework (auto-detected from devDependencies)",
+          "enum": ["mocha", "jest", "vitest", "pytest", "cargo-test", "go-test", "junit", "unknown"]
+        },
+        "runner": {
+          "type": "string",
+          "description": "Command to run tests",
+          "examples": ["npm test", "pytest", "cargo test", "go test ./..."]
+        },
+        "coverage": {
+          "type": "object",
+          "description": "Coverage targets by code type (Pattern-TDD-001)",
+          "required": ["infrastructure", "api", "ui"],
+          "properties": {
+            "infrastructure": {
+              "type": "number",
+              "description": "Infrastructure code coverage target (%)",
+              "minimum": 0,
+              "maximum": 100,
+              "default": 90
+            },
+            "api": {
+              "type": "number",
+              "description": "API code coverage target (%)",
+              "minimum": 0,
+              "maximum": 100,
+              "default": 85
+            },
+            "ui": {
+              "type": "number",
+              "description": "UI code coverage target (%)",
+              "minimum": 0,
+              "maximum": 100,
+              "default": 70
+            }
+          }
+        },
+        "manualTestingRequired": {
+          "type": "boolean",
+          "description": "Whether manual testing is required (e.g., VS Code extensions, web apps)"
+        },
+        "reason": {
+          "type": "string",
+          "description": "Reason for manual testing requirement"
+        }
+      }
+    },
+    "workflows": {
+      "type": "object",
+      "description": "Pattern requirements and pre-flight checklist settings",
+      "required": ["preFlightChecklistPath", "preFlightSections", "patternsDir", "requiredPatterns"],
+      "properties": {
+        "preFlightChecklistPath": {
+          "type": "string",
+          "description": "Pre-flight checklist file path (relative)",
+          "default": ".claude/CLAUDE.md"
+        },
+        "preFlightSections": {
+          "type": "array",
+          "description": "Checklist sections to enforce (markdown heading text)",
+          "items": {
+            "type": "string"
+          },
+          "examples": [
+            ["Before Modifying ACTIVE_SPRINT.toml", "Before Adding Dependencies to package.json"]
+          ]
+        },
+        "patternsDir": {
+          "type": "string",
+          "description": "Pattern library directory (relative path)",
+          "default": "docs/patterns"
+        },
+        "requiredPatterns": {
+          "type": "array",
+          "description": "Required workflow patterns (must exist in patternsDir)",
+          "items": {
+            "type": "string",
+            "pattern": "^Pattern-[A-Z]+-[0-9]{3}$"
+          },
+          "examples": [
+            ["Pattern-TASK-ANALYSIS-001", "Pattern-CODE-001", "Pattern-TDD-001"]
+          ]
+        }
+      }
+    },
+    "git": {
+      "type": "object",
+      "description": "Git workflow settings",
+      "required": ["mainBranch", "commitMessageFormat", "preCommitHooks"],
+      "properties": {
+        "mainBranch": {
+          "type": "string",
+          "description": "Main branch name (used for PRs and merges)",
+          "default": "main",
+          "examples": ["main", "master", "trunk"]
+        },
+        "commitMessageFormat": {
+          "type": "string",
+          "description": "Commit message format convention",
+          "enum": ["conventional", "freeform"],
+          "default": "conventional"
+        },
+        "preCommitHooks": {
+          "type": "boolean",
+          "description": "Enable pre-commit validation hooks",
+          "default": true
+        }
+      }
+    },
+    "dependencies": {
+      "type": "object",
+      "description": "Dependency whitelist and forbidden lists (VS Code extensions only). Pattern-PUBLISH-003.",
+      "properties": {
+        "whitelist": {
+          "type": "array",
+          "description": "Allowed runtime dependencies",
+          "items": {
+            "type": "string"
+          },
+          "examples": [
+            ["@iarna/toml", "form-data", "node-fetch", "ws"]
+          ]
+        },
+        "forbidden": {
+          "type": "object",
+          "description": "Forbidden dependency categories",
+          "properties": {
+            "native": {
+              "type": "array",
+              "description": "Forbidden native dependencies (cause activation failures)",
+              "items": {
+                "type": "string"
+              },
+              "examples": [
+                ["node-gyp", "napi", "bindings", ".node", "robotjs"]
+              ]
+            },
+            "runtime": {
+              "type": "array",
+              "description": "Forbidden runtime npm dependencies (use Node.js built-ins instead)",
+              "items": {
+                "type": "string"
+              },
+              "examples": [
+                ["glob", "lodash", "moment", "axios", "chalk", "colors"]
+              ]
+            }
+          }
+        }
+      }
+    },
+    "agents": {
+      "type": "object",
+      "description": "Agent-specific coverage targets and required patterns",
+      "patternProperties": {
+        "^[a-z-]+$": {
+          "type": "object",
+          "properties": {
+            "coverage": {
+              "type": "number",
+              "description": "Coverage target for this agent (%)",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "patterns": {
+              "type": "array",
+              "description": "Required patterns for this agent",
+              "items": {
+                "type": "string",
+                "pattern": "^Pattern-[A-Z]+-[0-9]{3}$"
+              }
+            }
+          }
+        }
+      },
+      "examples": [
+        {
+          "infrastructure-agent": {
+            "coverage": 90,
+            "patterns": ["Pattern-CODE-001", "Pattern-TDD-001"]
+          },
+          "api-agent": {
+            "coverage": 85,
+            "patterns": ["Pattern-API-001", "Pattern-TDD-001"]
+          }
+        }
+      ]
+    },
+    "performance": {
+      "type": "object",
+      "description": "Performance targets for extension/app",
+      "properties": {
+        "initTime": {
+          "type": "string",
+          "description": "Maximum initialization time (e.g., '5s')",
+          "pattern": "^\\d+[smh]$"
+        },
+        "activationTime": {
+          "type": "string",
+          "description": "Maximum activation time (VS Code extensions, e.g., '200ms')",
+          "pattern": "^\\d+(ms|s)$"
+        },
+        "analysisTime": {
+          "type": "string",
+          "description": "Maximum workspace analysis time (e.g., '2s')",
+          "pattern": "^\\d+[smh]$"
+        }
+      }
+    },
+    "skills": {
+      "type": "array",
+      "description": "**NEW in v2.0:** Discovered skills from .claude/skills/ directory. Auto-populated by discovery scan. This enables enhancement buttons to dynamically present available skills instead of hard-coding them.",
+      "items": {
+        "type": "object",
+        "required": ["id", "intent", "description", "path"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Skill ID (filename without extension)",
+            "examples": ["publish", "sprint-plan", "protect"]
+          },
+          "intent": {
+            "type": "string",
+            "description": "What user wants to accomplish (from skill metadata)",
+            "examples": [
+              "Publish a new release to npm and GitHub",
+              "Create a new sprint plan with Git workflow",
+              "Annotate code with protection levels"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "description": "Skill description (from skill metadata)",
+            "minLength": 10
+          },
+          "path": {
+            "type": "string",
+            "description": "Relative path to skill file",
+            "examples": [".claude/skills/publish.md", ".claude/skills/sprint-plan.md"]
+          },
+          "project_type": {
+            "type": "string",
+            "description": "Project type filter (if skill only applies to specific project types)",
+            "enum": ["vscode-extension", "web-app", "cli-tool", "library", "all"]
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether skill is enabled for this project",
+            "default": true
+          }
+        }
+      }
+    },
+    "discoveredAgents": {
+      "type": "object",
+      "description": "**NEW in v2.0:** Discovered agents from internal/agents/ directory. Auto-populated by discovery scan. Maps agent ID to metadata. This enables MVP template system to know which agents are available.",
+      "patternProperties": {
+        "^[a-z-]+$": {
+          "type": "object",
+          "required": ["id", "name", "expertise", "description", "path"],
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "Agent ID (filename without extension)",
+              "pattern": "^[a-z-]+$",
+              "examples": ["infrastructure-agent", "api-agent", "ui-agent"]
+            },
+            "name": {
+              "type": "string",
+              "description": "Human-readable agent name",
+              "examples": ["Infrastructure Agent", "API Agent", "UI Agent"]
+            },
+            "expertise": {
+              "type": "array",
+              "description": "Agent expertise areas (from agent context file)",
+              "items": {
+                "type": "string"
+              },
+              "examples": [
+                ["services", "utilities", "infrastructure", "core logic"],
+                ["REST APIs", "GraphQL", "endpoints", "middleware"]
+              ]
+            },
+            "description": {
+              "type": "string",
+              "description": "Agent description (from context file)",
+              "minLength": 10
+            },
+            "path": {
+              "type": "string",
+              "description": "Relative path to agent context file",
+              "examples": ["internal/agents/infrastructure-agent.md"]
+            },
+            "coverage_target": {
+              "type": "number",
+              "description": "Test coverage target for this agent (%)",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "patterns": {
+              "type": "array",
+              "description": "Required patterns for this agent",
+              "items": {
+                "type": "string",
+                "pattern": "^Pattern-[A-Z]+-[0-9]{3}$"
+              }
+            }
+          }
+        }
+      }
+    },
+    "discoveredPatterns": {
+      "type": "array",
+      "description": "**NEW in v2.0:** Discovered patterns from docs/patterns/ directory. Auto-populated by discovery scan. This enables system to report 'I have 77 patterns' and Enhancement buttons to list available patterns.",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "category", "purpose", "path"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Pattern ID",
+            "pattern": "^Pattern-[A-Z]+-[0-9]{3}$",
+            "examples": ["Pattern-CODE-001", "Pattern-TDD-001", "Pattern-PUBLISH-001"]
+          },
+          "name": {
+            "type": "string",
+            "description": "Human-readable pattern name",
+            "examples": [
+              "Code Development Workflow",
+              "Test-Driven Development",
+              "Automated Release Pipeline"
+            ]
+          },
+          "category": {
+            "type": "string",
+            "description": "Pattern category (extracted from ID prefix)",
+            "examples": ["CODE", "TDD", "PUBLISH", "GIT", "TASK-ANALYSIS"]
+          },
+          "purpose": {
+            "type": "string",
+            "description": "Pattern purpose (first line of pattern file)",
+            "minLength": 10
+          },
+          "path": {
+            "type": "string",
+            "description": "Relative path to pattern file",
+            "examples": ["docs/patterns/Pattern-CODE-001.md"]
+          },
+          "required": {
+            "type": "boolean",
+            "description": "Whether this pattern is required by workflows.requiredPatterns",
+            "default": false
+          }
+        }
+      }
+    },
+    "workspace": {
+      "type": "object",
+      "description": "**NEW in v2.0:** Workspace metadata for context awareness. Auto-populated during workspace analysis.",
+      "required": ["root", "gitBranch", "lastAnalysis"],
+      "properties": {
+        "root": {
+          "type": "string",
+          "description": "Absolute path to workspace root",
+          "examples": ["C:\\Users\\User\\Projects\\my-project", "/home/user/projects/my-project"]
+        },
+        "gitBranch": {
+          "type": "string",
+          "description": "Current Git branch",
+          "examples": ["main", "master", "feature/new-feature"]
+        },
+        "gitStatus": {
+          "type": "string",
+          "description": "Git status summary (clean, modified, ahead, behind)",
+          "enum": ["clean", "modified", "ahead", "behind", "diverged", "unknown"]
+        },
+        "lastAnalysis": {
+          "type": "string",
+          "description": "ISO 8601 timestamp of last workspace analysis",
+          "format": "date-time"
+        },
+        "analysisVersion": {
+          "type": "string",
+          "description": "Version of ÆtherLight that performed last analysis",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        }
+      }
+    },
+    "discovery": {
+      "type": "object",
+      "description": "**NEW in v2.0:** Discovery metadata for tracking scans and capability changes. Used to detect when skills/agents/patterns added/removed.",
+      "required": ["version", "lastScan", "capabilitiesHash"],
+      "properties": {
+        "version": {
+          "type": "string",
+          "description": "Discovery system version",
+          "const": "2.0.0"
+        },
+        "lastScan": {
+          "type": "string",
+          "description": "ISO 8601 timestamp of last discovery scan",
+          "format": "date-time"
+        },
+        "capabilitiesHash": {
+          "type": "string",
+          "description": "SHA-256 hash of discovered capabilities (skills + agents + patterns). Used to detect changes.",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "skillsCount": {
+          "type": "integer",
+          "description": "Number of discovered skills",
+          "minimum": 0
+        },
+        "agentsCount": {
+          "type": "integer",
+          "description": "Number of discovered agents",
+          "minimum": 0
+        },
+        "patternsCount": {
+          "type": "integer",
+          "description": "Number of discovered patterns",
+          "minimum": 0
+        },
+        "scanDuration": {
+          "type": "number",
+          "description": "Discovery scan duration in milliseconds",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

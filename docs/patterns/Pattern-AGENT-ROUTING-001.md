@@ -11,6 +11,7 @@
 ---
 
 
+
 ## Context
 
 When building multi-agent systems, a central routing agent decides which specialized agent handles each request. Without strict enforcement, routing agents sometimes execute tasks directly instead of delegating, causing:

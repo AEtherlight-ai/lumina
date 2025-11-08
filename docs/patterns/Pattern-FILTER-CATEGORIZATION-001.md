@@ -10,6 +10,7 @@
 ---
 
 
+
 ## Context
 
 Complex filter interfaces (e.g., customer segmentation, product search, data analytics) often have 50+ filter options. Users struggle to find the right filter without organization.

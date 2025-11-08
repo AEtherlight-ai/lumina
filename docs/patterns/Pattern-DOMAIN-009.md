@@ -11,6 +11,7 @@
 ---
 
 
+
 ## Design Decision
 
 Ethics domain agent specializing in bias detection, privacy compliance, accessibility, ethical AI frameworks, and explainability.

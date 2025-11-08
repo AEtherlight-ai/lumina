@@ -1,0 +1,89 @@
+{
+  "$schema": "https://aetherlight.dev/schema/config.json",
+  "version": "1.0.0",
+  "project": {
+    "name": "ÆtherLight",
+    "type": "vscode-extension",
+    "description": "Voice-to-intelligence platform for developers"
+  },
+  "structure": {
+    "sprintDir": "internal/sprints",
+    "activeSprint": "ACTIVE_SPRINT.toml",
+    "patternsDir": "docs/patterns",
+    "testsDir": "vscode-lumina/test",
+    "sourceDir": "vscode-lumina/src"
+  },
+  "testing": {
+    "framework": "mocha",
+    "runner": "npm test",
+    "coverage": {
+      "infrastructure": 90,
+      "api": 85,
+      "ui": 70
+    },
+    "manualTestingRequired": true,
+    "reason": "VS Code extensions require manual testing after publish"
+  },
+  "workflows": {
+    "preFlightChecklistPath": ".claude/CLAUDE.md",
+    "preFlightSections": [
+      "Before Modifying ACTIVE_SPRINT.toml",
+      "Before Adding Dependencies to package.json",
+      "Before Using Edit/Write Tools"
+    ],
+    "patternsDir": "docs/patterns",
+    "requiredPatterns": [
+      "Pattern-TASK-ANALYSIS-001",
+      "Pattern-CODE-001",
+      "Pattern-TDD-001",
+      "Pattern-TRACKING-001"
+    ]
+  },
+  "git": {
+    "mainBranch": "master",
+    "commitMessageFormat": "conventional",
+    "preCommitHooks": true
+  },
+  "dependencies": {
+    "whitelist": [
+      "@iarna/toml",
+      "form-data",
+      "node-fetch",
+      "ws",
+      "aetherlight-analyzer",
+      "aetherlight-sdk",
+      "aetherlight-node"
+    ],
+    "forbidden": {
+      "native": ["node-gyp", "napi", "bindings", ".node", "robotjs", "@nut-tree-fork"],
+      "runtime": ["glob", "lodash", "moment", "axios", "chalk", "colors"]
+    }
+  },
+  "agents": {
+    "infrastructure-agent": {
+      "coverage": 90,
+      "patterns": ["Pattern-CODE-001", "Pattern-TDD-001"]
+    },
+    "api-agent": {
+      "coverage": 85,
+      "patterns": ["Pattern-API-001", "Pattern-TDD-001"]
+    },
+    "ui-agent": {
+      "coverage": 70,
+      "patterns": ["Pattern-UI-001"]
+    },
+    "documentation-agent": {
+      "coverage": 0,
+      "patterns": ["Pattern-DOCS-001"]
+    },
+    "testing-agent": {
+      "coverage": 95,
+      "patterns": ["Pattern-TDD-001"]
+    }
+  },
+  "performance": {
+    "initTime": "5s",
+    "activationTime": "200ms",
+    "analysisTime": "2s"
+  }
+}

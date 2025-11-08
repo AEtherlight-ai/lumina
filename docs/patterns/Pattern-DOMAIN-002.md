@@ -12,6 +12,7 @@
 
 
 
+
 ## Design Decision
 
 Domain-specific pattern storage with JSON persistence and vector search indexing.

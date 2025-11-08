@@ -12,6 +12,7 @@
 
 
 
+
 ## Context
 
 Users need distributed, encrypted, redundant storage that works offline, survives catastrophes, and maintains zero-knowledge privacy guarantees.

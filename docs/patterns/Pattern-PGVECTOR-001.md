@@ -12,6 +12,7 @@
 
 
 
+
 ## Context
 
 When building applications with vector embeddings (semantic search, recommendations, similarity matching), you need:

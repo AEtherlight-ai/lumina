@@ -31,7 +31,7 @@ aetherlight
 
 **Cost:** ~$0.006 per minute of voice recording
 
-**Optional:** Skip this if you only want to use Shift+` for text enhancement without voice
+**Note:** Shift+` hotkey has been deprecated and removed
 
 ---
 
@@ -70,7 +70,7 @@ aetherlight
 
 ---
 
-### Option B: Type + Enhance (Shift+` or manual entry)
+### Option B: Type + Enhance (manual entry)
 
 **IMPORTANT: Click OUTSIDE the terminal first (in editor, sidebar, etc.)**
 
@@ -129,7 +129,7 @@ Claude: Implements OAuth2 correctly first try ✅
 
 ### ⚠️ Hotkeys ONLY Work Outside Terminal
 
-**Backtick (`) and Shift+` will NOT work if you're clicked inside the ÆtherLight terminal.**
+**Backtick (`) will NOT work if you're clicked inside the ÆtherLight terminal.**
 
 **Why:** Terminal captures keystrokes directly, preventing VS Code from seeing the hotkey.
 
@@ -141,28 +141,28 @@ Claude: Implements OAuth2 correctly first try ✅
 
 **What happens if you forget:**
 - Backtick (`) in terminal = Types backtick character
-- Shift+` in terminal = Types tilde (~) character
 
 **Correct workflow:**
 ```
 1. Click in editor (outside terminal)    ← CRITICAL STEP
-2. Press ` (voice) or Shift+` (enhance) hotkey
+2. Press ` (backtick) hotkey
 3. Hotkey triggers correctly
 4. Enhanced text automatically sent to terminal
 ```
 
+**Note:** Shift+` hotkey has been deprecated and removed
+
 ---
 
-## Troubleshooting (3 Common Issues)
+## Troubleshooting (2 Common Issues)
 
 ### Issue 1: "Backtick just types ` in the terminal"
 **Fix:** Click OUTSIDE the terminal (in editor) before pressing `
 
-### Issue 2: "Shift+backtick just types ~ in the terminal"
-**Fix:** Click OUTSIDE the terminal (in editor) before pressing Shift+`
-
-### Issue 3: "Voice capture says 'OpenAI API key not configured'"
+### Issue 2: "Voice capture says 'OpenAI API key not configured'"
 **Fix:** Add your OpenAI API key in Settings (see Step 2 above)
+
+**Note:** Shift+backtick has been deprecated and removed
 
 ---
 
@@ -171,14 +171,13 @@ Claude: Implements OAuth2 correctly first try ✅
 | Hotkey | Where to Click | What It Does |
 |--------|---------------|--------------|
 | **` (backtick)** | Outside terminal (in editor) | Record voice with live transcription via OpenAI |
-| **Shift+`** | Outside terminal (in editor) | Enhance typed text with project context |
+| **Shift+`** | ❌ Deprecated | Removed (conflicted with backtick-only approach) |
 
 ---
 
 ## Current Features
 
 - ✅ Voice capture with live transcription via OpenAI Whisper API (backtick)
-- ✅ Command enhancement with project context (Shift+backtick)
 - ✅ Framework detection (React, Express, Next.js, etc.)
 - ✅ Chain of Thought documentation standards
 - ✅ ÆtherLight Claude terminal wrapper

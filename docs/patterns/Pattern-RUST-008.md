@@ -12,6 +12,7 @@
 
 
 
+
 ## PROBLEM
 
 Cargo error when adding Criterion benchmarks to Rust 2021 edition project:

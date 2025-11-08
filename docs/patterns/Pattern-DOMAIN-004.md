@@ -12,6 +12,7 @@
 
 
 
+
 ## Design Decision
 
 Quality domain agent specializing in testing strategies, bug pattern detection, code review, and QA processes.

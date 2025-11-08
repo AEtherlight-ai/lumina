@@ -12,6 +12,7 @@
 
 
 
+
 ## Context
 
 Traditional SaaS businesses face escalating infrastructure costs as they scale:

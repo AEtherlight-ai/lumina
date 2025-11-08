@@ -11,6 +11,7 @@
 ---
 
 
+
 ## Context
 
 When processing legal documents (briefs, discovery, medical records), you encounter:

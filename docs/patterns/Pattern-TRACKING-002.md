@@ -13,6 +13,7 @@
 
 
 
+
 ```rust
 /**
  * DESIGN DECISION: Capture execution metrics in real-time using system timestamps and file logging

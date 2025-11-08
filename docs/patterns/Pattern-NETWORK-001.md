@@ -11,6 +11,7 @@
 ---
 
 
+
 ## Design Decision
 
 Centralized agent network enabling cross-agent queries and multi-domain problem solving via Mentor layer.

@@ -10,6 +10,7 @@
 ---
 
 
+
 ## Context
 
 Manual AWS infrastructure setup (Lambda, API Gateway, DynamoDB, S3) via console is:
