@@ -1,13 +1,20 @@
 # ÆtherLight Pattern Library Index
 
-**VERSION:** 1.0 (Extracted from CLAUDE.md v5.0)
-**LAST UPDATED:** 2025-10-16
-**TOTAL PATTERNS:** 60+
+**VERSION:** 1.1 (Sprint 3 Update - v0.17.0)
+**LAST UPDATED:** 2025-11-08
+**TOTAL PATTERNS:** 76+
 **PATTERN:** Pattern-CONTEXT-002 (Hierarchical Context Loading)
 
 ---
 
 ## Pattern Categories
+
+### Development Process Patterns (Sprint 3 - v0.17.0)
+- **Pattern-CODE-001:** Code Development Workflow (8-step pre-code workflow with TDD enforcement)
+- **Pattern-GIT-001:** Git Workflow Integration (pre-task git status check, workflow announcement)
+- **Pattern-IMPROVEMENT-001:** Gap Detection & Self-Improvement (identifies missing patterns/skills/agents)
+- **Pattern-SPRINT-PLAN-001:** Sprint Planning Process (12-step workflow with template injection)
+- **Pattern-TASK-ANALYSIS-001:** 8-Step Pre-Task Analysis (task analysis workflow with gap detection)
 
 ### Meta Patterns
 - **Pattern-000:** Meta-Loop Development
