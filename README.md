@@ -81,12 +81,35 @@ Build your own applications with ÆtherLight's voice control and pattern matchin
 ### ✅ What Exists Now (Code + Tests)
 
 **VS Code Extension (78 TypeScript files):**
-- Voice-to-text capture (multiple variants)
-- Sprint management (TOML-based with CREATE & ENHANCE modes)
-- Multi-sprint file support (switch between active/archived sprints)
-- Terminal automation and management
-- Single-panel UI with unified workflow area (Voice + Sprint)
-- Bug Report & Feature Request forms with AI enhancement
+- **Voice-to-text capture** (multiple variants, backtick hotkey)
+- **MVP-003 Prompt System** (v0.17.0) - Intelligent task prompting
+  - Variable-driven task analyzer with gap detection
+  - Interactive Q&A wizard for gathering missing context
+  - "Start Next Task" / "Start This Task" buttons with smart selection
+  - Template-based enhancements (Bug Report, Feature Request, Code Analyzer, Sprint Planner)
+  - 85% test coverage, 15+ integration scenarios
+- **Sprint Template System** (v0.17.0) - 27 normalized tasks auto-injected
+  - REQUIRED tasks (13): Documentation, tests, audits, infrastructure
+  - SUGGESTED tasks (4): Performance, security, compatibility
+  - CONDITIONAL tasks (0-8): Publishing, UX based on sprint type
+  - RETROSPECTIVE tasks (2): Sprint retro, pattern extraction
+  - Prevents forgetting CHANGELOG, tests, retrospectives
+- **Self-Configuration System** (v0.17.0) - Automatic project setup
+  - Phase 2: Variable resolution ({{VAR}} syntax), config generation, schema (50+ variables)
+  - Phase 3: Tech stack detection (TypeScript, Python, Rust, Go, Java + frameworks)
+  - Phase 4: CLI interview flows, template customization, variable resolution wizard
+  - Phase 5: Upgrade command (`aetherlight upgrade`), version tracking, migration, backup/rollback
+  - 85% test coverage across all phases
+- **Protection System** (v0.17.0) - Code stability enforcement
+  - Code protection annotations (@protected, @immutable, @maintainable)
+  - Pre-commit hooks validate no protected code modified
+  - Prevents regressions on working features
+- **Sprint management** (TOML-based with CREATE & ENHANCE modes)
+- **Multi-sprint file support** (switch between active/archived sprints)
+- **Terminal automation and management**
+- **Single-panel UI** with unified workflow area (Voice + Sprint)
+- **UX Polish** (v0.17.0): Task filtering, keyboard navigation, Ctrl+Shift+Enter hotkey, loading spinners
+- **Bug Report & Feature Request forms** with AI enhancement
 - Works in VS Code, Cursor, and compatible editors
 - 24+ registered commands
 
@@ -109,6 +132,12 @@ Build your own applications with ÆtherLight's voice control and pattern matchin
 
 ### 🚧 What Needs Work (Help Wanted!)
 
+**Phase 6: Testing & Polish (Current Focus)**
+- **SELF-022**: End-to-end testing on real projects (TypeScript, Python, Rust codebases)
+- **SELF-023**: Performance optimization (init <5s, detection <2s, config generation <1s)
+- **SELF-024**: Self-Configuration Guide documentation (user guide, config reference, domain creation guide)
+- **SELF-025**: Final validation & release preparation (quality gates, release notes)
+
 **Integration & Stabilization:**
 - Rust core → VS Code extension integration
 - NAPI bindings testing and hardening
@@ -124,12 +153,18 @@ Build your own applications with ÆtherLight's voice control and pattern matchin
 - Confidence scoring validation
 - Embedding generation optimization
 
+**Phase 7: Documentation (Pending Release)**
+- README updates with Sprint 3 features
+- Pattern extraction from Sprint 3
+- Agent context file updates
+- Sprint retrospective
+- Website documentation
+
 **Beta Preparation:**
-- Installation and setup workflow
-- Documentation for contributors
+- Installation and setup workflow polished
 - Example patterns and use cases
-- Performance benchmarking
 - Security audit
+- Release candidate preparation
 
 ---
 
