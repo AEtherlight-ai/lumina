@@ -296,10 +296,21 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for details.
 
 ## Installation (For Contributors)
 
+### Important: This Repository Uses Git Submodules
+
+This repository references the private [website](https://github.com/AEtherlight-ai/website) repo via git submodule for integration documentation. You **MUST** clone with `--recurse-submodules` flag:
+
 ```bash
-# Clone repository
-git clone https://github.com/AEtherlight-ai/lumina.git
+# Clone repository WITH SUBMODULES (REQUIRED)
+git clone --recurse-submodules https://github.com/AEtherlight-ai/lumina.git
 cd lumina
+
+# Verify submodule was cloned
+ls website/.integration/
+# Should show: LUMINA_REPO_ONBOARDING.md, specs/, status/, tasks/
+
+# If you already cloned without --recurse-submodules:
+git submodule update --init --recursive
 
 # Install dependencies
 npm install

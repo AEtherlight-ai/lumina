@@ -38,6 +38,34 @@
 
 **If you answered NO to ANY question, STOP and complete it NOW.**
 
+### Before Adding New Directories:
+
+**STOP. Answer these questions OUT LOUD in your response:**
+
+1. ✅ **Is this private/proprietary code?**
+   - Check for: API keys, commercial logic, customer data, Stripe integration
+   - If YES → MUST use git submodule (Pattern-GIT-002)
+   - NEVER commit private code directly to public repo
+
+2. ✅ **Does this directory belong in the public repo?**
+   - Public repo: VS Code extension, desktop app, public docs
+   - Private repo: Website, API keys, Stripe webhooks, database migrations
+   - If unsure → Ask user before committing
+
+3. ✅ **Is there a .gitignore entry to prevent accidents?**
+   - Verify: `git check-ignore <directory>`
+   - If directory should be submodule → Do NOT add to .gitignore
+   - If directory is private → Add to .gitignore AND use submodule
+
+4. ✅ **Did I check Pattern-GIT-002 for submodule setup?**
+   - See: `docs/patterns/Pattern-GIT-002.md`
+   - Submodule setup: `git submodule add <url> <path>`
+   - Never commit private repo code directly
+
+**Historical incident:** 2025-11-09 - Private website code committed to PUBLIC repo (4 commits, 58 files exposed). Required BFG history purge, force push, 2-hour emergency cleanup. Pattern-GIT-002 created to prevent recurrence.
+
+**If you answered NO to ANY question, STOP and complete it NOW.**
+
 ### Before Adding Dependencies to package.json:
 
 **STOP. Answer these questions OUT LOUD in your response:**
