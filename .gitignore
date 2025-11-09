@@ -46,6 +46,5 @@ target/
 # See Pattern-GIT-002 for submodule architecture
 products/lumina-web/
 
-# Website submodule (for integration docs only - private repo)
-# Contains .integration/ directory with API specs and onboarding docs
-website/
+# NOTE: website/ is a GIT SUBMODULE - DO NOT add to gitignore
+# It contains .integration/ directory with API specs from private repo
