@@ -52,6 +52,8 @@ import { RealtimeSyncManager } from './realtime_sync';
 // import { SprintLoader } from './commands/SprintLoader';
 import { registerAnalyzeWorkspaceCommands } from './commands/analyzeWorkspace';
 import { registerDiscoverCapabilitiesCommand } from './commands/discoverCapabilities';
+import { registerWalkthroughCommands } from './commands/walkthrough';
+import { WalkthroughManager } from './services/WalkthroughManager';
 import * as fs from 'fs';
 
 /**
@@ -727,6 +729,82 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	 * RELATED: DiscoveryService.ts (SELF-005A), config.json v2.0 (SELF-003B)
 	 */
 	registerDiscoverCapabilitiesCommand(context);
+
+	/**
+	 * DESIGN DECISION: Register Getting Started walkthrough (action-oriented onboarding)
+	 * WHY: Users learn by doing - walkthrough actually configures THEIR project
+	 *
+	 * REASONING CHAIN:
+	 * 1. User installs ÆtherLight → Needs to understand capabilities
+	 * 2. Traditional demos are passive → Users don't engage
+	 * 3. Solution: Walkthrough that analyzes and configures their actual project
+	 * 4. Use Phase 3 detection + Phase 4 interview AS the walkthrough
+	 * 5. Result: Users see value immediately, configuration done as side effect
+	 *
+	 * WALKTHROUGH FLOW (5 steps):
+	 * 1. Welcome & Safety → Warn about backup, explain process
+	 * 2. Analyze Project → Run detection on their workspace
+	 * 3. Configure Gaps → Interactive interview for missing config
+	 * 4. Review Config → Show generated .aetherlight/project-config.json
+	 * 5. Ready to Sprint → Explain next steps (sprint creation)
+	 *
+	 * PATTERN: Pattern-ONBOARDING-001 (Action-Oriented Walkthrough)
+	 * RELATED: WalkthroughManager, Phase 3 (Detection), Phase 4 (Init)
+	 */
+	const walkthroughDisposables = registerWalkthroughCommands(context);
+	context.subscriptions.push(...walkthroughDisposables);
+
+	/**
+	 * DESIGN DECISION: Auto-show walkthrough on first run
+	 * WHY: Guide new users immediately, don't make them search for it
+	 *
+	 * REASONING CHAIN:
+	 * 1. Detect first run (no walkthrough progress in global state)
+	 * 2. Show walkthrough automatically after brief delay (1 second)
+	 * 3. User can dismiss or follow along
+	 * 4. Flag set → Never auto-show again (user can manually open via command)
+	 * 5. Result: Immediate onboarding for new users, no annoyance for existing
+	 *
+	 * PATTERN: Pattern-ONBOARDING-001 (First-Run Experience)
+	 */
+	const walkthroughManager = new WalkthroughManager(context);
+	if (walkthroughManager.isFirstRun()) {
+		// Show walkthrough after brief delay (let extension finish activating)
+		setTimeout(async () => {
+			try {
+				await walkthroughManager.showWalkthrough();
+				console.log('✅ Getting Started walkthrough shown (first run)');
+			} catch (error) {
+				console.warn('⚠️ Failed to show walkthrough:', error);
+				// Don't block activation on walkthrough failure
+			}
+		}, 1000);
+	}
+
+	/**
+	 * STEP 9: Register Help & Getting Started menu commands
+	 *
+	 * DESIGN DECISION: Unified help menu for discoverability
+	 * WHY: Centralize access to learning resources, docs, troubleshooting
+	 *
+	 * REASONING CHAIN:
+	 * 1. Problem: Walkthrough only accessible via Command Palette (low discoverability)
+	 * 2. Problem: No central "Help" location for users
+	 * 3. Solution: Toolbar button in Sprint Progress view
+	 * 4. Solution: QuickPick menu with all help resources
+	 * 5. Result: One-click access to walkthrough, docs, settings, about
+	 *
+	 * PATTERN: Pattern-UX-001 (Discoverability)
+	 * RELATED: helpMenu.ts
+	 */
+	const { showHelpMenu, showAbout, openChangelog, resetWalkthrough } = require('./commands/helpMenu');
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('aetherlight.helpMenu', () => showHelpMenu(context)),
+		vscode.commands.registerCommand('aetherlight.showAbout', () => showAbout(context)),
+		vscode.commands.registerCommand('aetherlight.openChangelog', openChangelog),
+		vscode.commands.registerCommand('aetherlight.resetWalkthrough', () => resetWalkthrough(context))
+	);
 
 	console.log('Lumina extension activated successfully');
 }

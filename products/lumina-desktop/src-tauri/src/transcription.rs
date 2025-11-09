@@ -1,20 +1,23 @@
 /**
- * OpenAI Whisper API Transcription + Keyboard Typing Module
+ * Server-Proxied Whisper Transcription + Credit Tracking + Keyboard Typing Module
  *
- * DESIGN DECISION: Desktop app types transcript directly via OS-level keyboard simulation
- * WHY: Works everywhere (any application, not just VS Code), feels natural to user
+ * DESIGN DECISION: Desktop app proxies transcription through server API for credit tracking
+ * WHY: Server manages OpenAI key + tracks usage + enforces credit limits (monetization)
  *
  * REASONING CHAIN:
  * 1. User presses hotkey (Shift+~ or `) while cursor is positioned
- * 2. Desktop app captures audio → sends to OpenAI Whisper API
- * 3. Receives transcript back from API
- * 4. **Types transcript character-by-character at OS level** (wherever cursor is)
- * 5. Works in: VS Code, Cursor, Claude Code, Notepad, browser, ANY app
- * 6. Result: Seamless voice-to-text that works everywhere
+ * 2. Desktop app captures audio → sends to server API with license_key
+ * 3. Server API authenticates device → checks credits → calls OpenAI Whisper API
+ * 4. Server tracks cost + deducts from balance → returns transcript + cost + balance
+ * 5. Desktop app receives transcript → **types character-by-character at OS level**
+ * 6. Works in: VS Code, Cursor, Claude Code, Notepad, browser, ANY app
+ * 7. Result: Seamless voice-to-text with built-in usage tracking
  *
- * PATTERN: Pattern-WHISPER-001 (OpenAI Whisper API) + Pattern-KEYBOARD-001 (OS-Level Typing)
+ * PATTERN: Pattern-MONETIZATION-001 (Server-Side Key Management)
+ * PATTERN: Pattern-WHISPER-001 (OpenAI Whisper API Proxy)
+ * PATTERN: Pattern-KEYBOARD-001 (OS-Level Typing)
  * PERFORMANCE: ~2-5s transcription + ~50ms/char typing (feels natural)
- * RELATED: voice.rs (audio capture), main.rs (hotkey handling)
+ * RELATED: voice.rs (audio capture), main.rs (hotkey handling), /api/desktop/transcribe (server endpoint)
  */
 
 use anyhow::{Context, Result};
@@ -25,10 +28,27 @@ use enigo::Enigo;
 use std::thread;
 use std::time::Duration;
 
-/// OpenAI Whisper API response
+/// Server API transcription response (with credit tracking)
 #[derive(Debug, Deserialize)]
-struct WhisperResponse {
+struct TranscriptionResponse {
     text: String,
+    cost_usd: f64,
+    balance_remaining_usd: f64,
+    duration_seconds: u64,
+    #[serde(default)]
+    message: String,
+}
+
+/// Server API error response (for 402 Insufficient Credits, etc.)
+#[derive(Debug, Deserialize)]
+struct TranscriptionError {
+    error: String,
+    #[serde(default)]
+    balance_usd: f64,
+    #[serde(default)]
+    required_usd: f64,
+    #[serde(default)]
+    message: String,
 }
 
 /**
@@ -84,25 +104,38 @@ fn audio_to_wav(samples: &[f32], sample_rate: u32) -> Result<Vec<u8>> {
 }
 
 /**
- * DESIGN DECISION: Call OpenAI Whisper API with multipart form upload
- * WHY: API requires multipart/form-data with audio file + model parameter
+ * DESIGN DECISION: Proxy Whisper transcription through server API with credit tracking
+ * WHY: Server manages OpenAI key + tracks usage + enforces credit limits (Pattern-MONETIZATION-001)
  *
- * API Endpoint: https://api.openai.com/v1/audio/transcriptions
+ * API Endpoint: {api_url}/api/desktop/transcribe
  * Method: POST
- * Headers: Authorization: Bearer <api_key>
+ * Headers: Authorization: Bearer {license_key}
  * Form Data:
  *   - file: audio.wav (required)
- *   - model: "whisper-1" (required)
+ *   - model: "whisper-1" (optional, defaults to whisper-1)
  *   - language: "en" (optional, improves accuracy)
- *   - response_format: "json" (default)
+ *
+ * Response (200):
+ *   - text: string (transcribed text)
+ *   - cost_usd: number (actual cost for this transcription)
+ *   - balance_remaining_usd: number (user's remaining credit balance)
+ *   - duration_seconds: number (audio duration)
+ *
+ * Error Responses:
+ *   - 401: Invalid or missing license_key
+ *   - 402: Insufficient credits (balance < cost)
+ *   - 403: Device not active
+ *   - 400: Invalid audio file
+ *   - 500: Server error
  */
 pub async fn transcribe_audio(
     audio_samples: &[f32],
     sample_rate: u32,
-    api_key: &str,
+    license_key: &str,
+    api_url: &str,
 ) -> Result<String> {
-    if api_key.is_empty() {
-        anyhow::bail!("OpenAI API key not configured. Please set it in Settings.");
+    if license_key.is_empty() {
+        anyhow::bail!("License key not configured. Please activate device first.");
     }
 
     // Convert audio to WAV format with CORRECT sample rate in header
@@ -130,37 +163,67 @@ pub async fn transcribe_audio(
         .text("model", "whisper-1")
         .text("language", "en"); // Optional: improves accuracy for English
 
-    // Send request to OpenAI API
-    println!("📤 Sending audio to OpenAI Whisper API...");
+    // Build server API endpoint URL
+    let transcription_endpoint = format!("{}/api/desktop/transcribe", api_url);
+
+    // Send request to server API (proxies to OpenAI)
+    println!("📤 Sending audio to server API ({})", transcription_endpoint);
     let client = reqwest::Client::new();
     let response = client
-        .post("https://api.openai.com/v1/audio/transcriptions")
-        .header("Authorization", format!("Bearer {}", api_key))
+        .post(&transcription_endpoint)
+        .header("Authorization", format!("Bearer {}", license_key))
         .multipart(form)
         .send()
         .await
-        .context("Failed to send request to OpenAI API")?;
+        .context("Failed to send request to server API")?;
 
     // Check for API errors
-    if !response.status().is_success() {
-        let status = response.status();
+    let status = response.status();
+
+    if !status.is_success() {
         let error_text = response.text().await.unwrap_or_default();
+
+        // Try to parse structured error response
+        if let Ok(error_response) = serde_json::from_str::<TranscriptionError>(&error_text) {
+            // Handle insufficient credits (402)
+            if status == 402 {
+                anyhow::bail!(
+                    "Insufficient credits: ${:.4} balance, ${:.4} required. {}",
+                    error_response.balance_usd,
+                    error_response.required_usd,
+                    error_response.message
+                );
+            }
+
+            // Handle other structured errors
+            anyhow::bail!(
+                "Server API error ({}): {} - {}",
+                status,
+                error_response.error,
+                error_response.message
+            );
+        }
+
+        // Fallback for unstructured errors
         anyhow::bail!(
-            "OpenAI API error ({}): {}",
+            "Server API error ({}): {}",
             status,
             error_text
         );
     }
 
     // Parse JSON response
-    let whisper_response: WhisperResponse = response
+    let transcription_response: TranscriptionResponse = response
         .json()
         .await
-        .context("Failed to parse OpenAI API response")?;
+        .context("Failed to parse server API response")?;
 
-    println!("✅ Transcription received: {} characters", whisper_response.text.len());
+    println!("✅ Transcription received: {} characters", transcription_response.text.len());
+    println!("💰 Cost: ${:.4}, Balance remaining: ${:.2}",
+             transcription_response.cost_usd,
+             transcription_response.balance_remaining_usd);
 
-    Ok(whisper_response.text)
+    Ok(transcription_response.text)
 }
 
 /**

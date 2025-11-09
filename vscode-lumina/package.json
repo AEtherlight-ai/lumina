@@ -180,6 +180,23 @@
       {
         "command": "aetherlight.openConfig",
         "title": "ÆtherLight: Open Project Configuration"
+      },
+      {
+        "command": "aetherlight.helpMenu",
+        "title": "ÆtherLight: Help & Getting Started",
+        "icon": "$(question)"
+      },
+      {
+        "command": "aetherlight.showAbout",
+        "title": "ÆtherLight: About"
+      },
+      {
+        "command": "aetherlight.openChangelog",
+        "title": "ÆtherLight: Open Changelog"
+      },
+      {
+        "command": "aetherlight.resetWalkthrough",
+        "title": "ÆtherLight: Reset Walkthrough Progress"
       }
     ],
     "keybindings": [
@@ -258,6 +275,15 @@
         "contents": "No sprint currently active.\n[Start Sprint](command:lumina.startSprintPlanning)"
       }
     ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "aetherlight.helpMenu",
+          "when": "view == luminaSprintProgress",
+          "group": "navigation"
+        }
+      ]
+    },
     "configuration": {
       "title": "ÆtherLight Configuration",
       "properties": {

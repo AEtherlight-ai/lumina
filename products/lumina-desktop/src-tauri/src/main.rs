@@ -87,7 +87,8 @@ struct VoiceCaptureResult {
 struct AppSettings {
     recording_hotkey: Option<String>, // User-configurable, None = not set
     paste_hotkey: Option<String>,     // Future: configurable paste hotkey
-    openai_api_key: String,
+    openai_api_key: String,           // Deprecated (BYOK model) - kept for migration
+    license_key: String,              // NEW: Server-managed key authentication
     // Three-tier architecture: Local → Hosted → Global
     global_network_api_endpoint: String,  // ÆtherLight API (Vercel)
     hosted_node_url: Option<String>,      // User's own Supabase/Postgres (optional)
@@ -99,7 +100,8 @@ impl Default for AppSettings {
         Self {
             recording_hotkey: Some("Backquote".to_string()), // Backtick (`) for voice capture
             paste_hotkey: None,     // Future: user-configurable
-            openai_api_key: String::new(), // User must configure via Settings
+            openai_api_key: String::new(), // Deprecated (BYOK model) - kept for migration
+            license_key: String::new(), // NEW: User must configure via Settings or activation
             global_network_api_endpoint: "https://api.aetherlight.ai".to_string(), // ÆtherLight global network
             hosted_node_url: None,  // Optional: user's own cloud backup
             selected_domains: vec![], // User selects in Settings UI
@@ -459,20 +461,28 @@ async fn toggle_recording(
             println!("📊 Audio indicator overlay hidden");
         }
 
-        // Load settings to get OpenAI API key
+        // Load settings to get license key and API URL
         let settings = get_settings().map_err(|e| format!("Failed to load settings: {}", e))?;
 
-        if settings.openai_api_key.is_empty() {
-            println!("⚠️  OpenAI API key not configured. Please set it in Settings.");
-            return Err("OpenAI API key not configured. Please set it in Settings.".to_string());
+        // Check for license key (new monetization model)
+        if settings.license_key.is_empty() {
+            // Fallback: Check for legacy OpenAI API key (BYOK model - migration period)
+            if !settings.openai_api_key.is_empty() {
+                println!("⚠️  BYOK model deprecated. Please activate device to get license key.");
+                return Err("BYOK model deprecated. Please activate device to get license key. Visit dashboard to activate.".to_string());
+            }
+
+            println!("⚠️  License key not configured. Please activate device first.");
+            return Err("License key not configured. Please activate device first. Visit dashboard to activate.".to_string());
         }
 
-        // Transcribe audio via OpenAI Whisper API (async operation - no lock held)
-        println!("🔄 Transcribing audio via OpenAI Whisper API...");
+        // Transcribe audio via server API (proxies to OpenAI with credit tracking)
+        println!("🔄 Transcribing audio via server API...");
         let transcript = transcription::transcribe_audio(
             &audio_samples,
-            sample_rate, // Use native sample rate (will be resampled to 16kHz internally)
-            &settings.openai_api_key,
+            sample_rate, // Use native sample rate
+            &settings.license_key,
+            &settings.global_network_api_endpoint,
         )
         .await
         .map_err(|e| format!("Transcription failed: {}", e))?;
