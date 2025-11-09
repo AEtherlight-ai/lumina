@@ -41,6 +41,11 @@ nul
 crates/*/target/
 target/
 
-# Rust build artifacts
-crates/*/target/
-target/
+# Private website code (NEVER commit directly - use submodule)
+# products/lumina-web/ moved to https://github.com/AEtherlight-ai/website (private repo)
+# See Pattern-GIT-002 for submodule architecture
+products/lumina-web/
+
+# Website submodule (for integration docs only - private repo)
+# Contains .integration/ directory with API specs and onboarding docs
+website/
