@@ -56,12 +56,6 @@ export async function showHelpMenu(context: vscode.ExtensionContext): Promise<vo
         // Build menu items
         const items: HelpMenuItem[] = [
             {
-                label: '$(book) Getting Started Walkthrough',
-                description: 'Interactive guide to configure your project',
-                detail: 'Learn ÆtherLight by configuring your actual project',
-                command: 'aetherlight.startGettingStarted'
-            },
-            {
                 label: '$(file-text) Open Project Configuration',
                 description: '.aetherlight/project-config.json',
                 detail: 'View and edit your project configuration',
@@ -170,7 +164,6 @@ export async function showAbout(context: vscode.ExtensionContext): Promise<void>
             '',
             '## Quick Actions',
             '',
-            '- [Getting Started Walkthrough](command:aetherlight.startGettingStarted)',
             '- [Open Configuration](command:aetherlight.openConfig)',
             '- [Extension Settings](command:workbench.action.openSettings?%5B%22%40ext%3Aaetherlight.aetherlight%22%5D)',
             '',
@@ -253,55 +246,6 @@ export async function openChangelog(): Promise<void> {
         logger.failOperation('command.openChangelog', startTime, error);
         vscode.window.showErrorMessage(
             `Failed to open changelog: ${(error as Error).message}`
-        );
-    }
-}
-
-/**
- * Reset walkthrough progress (for testing or restart)
- *
- * ALGORITHM:
- * 1. Confirm with user
- * 2. Call WalkthroughManager.resetProgress()
- * 3. Show success message
- *
- * @param context - Extension context
- * @returns Promise<void>
- */
-export async function resetWalkthrough(context: vscode.ExtensionContext): Promise<void> {
-    const logger = MiddlewareLogger.getInstance();
-    const startTime = logger.startOperation('command.resetWalkthrough', {});
-
-    try {
-        // Confirm with user
-        const result = await vscode.window.showWarningMessage(
-            'Reset walkthrough progress? This will mark all steps as incomplete.',
-            { modal: true },
-            'Reset Progress',
-            'Cancel'
-        );
-
-        if (result !== 'Reset Progress') {
-            logger.endOperation('command.resetWalkthrough', startTime, {
-                cancelled: true
-            });
-            return;
-        }
-
-        // Reset progress
-        const WalkthroughManager = require('../services/WalkthroughManager').WalkthroughManager;
-        const manager = new WalkthroughManager(context);
-        await manager.resetProgress();
-
-        vscode.window.showInformationMessage(
-            '✅ Walkthrough progress reset. Run "Getting Started" to restart.'
-        );
-
-        logger.endOperation('command.resetWalkthrough', startTime, {});
-    } catch (error) {
-        logger.failOperation('command.resetWalkthrough', startTime, error);
-        vscode.window.showErrorMessage(
-            `Failed to reset walkthrough: ${(error as Error).message}`
         );
     }
 }
