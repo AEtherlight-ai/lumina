@@ -1590,7 +1590,7 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; media-src * blob: data: mediastream:; img-src * blob: data:; font-src * data:; connect-src https://api.openai.com;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; media-src * blob: data: mediastream:; img-src * blob: data:; font-src * data:;">
     <title>ÆtherLight Voice</title>
     <style>
         body {
@@ -4659,47 +4659,25 @@ function getVoicePanelBodyContent(): string {
 // Removed legacy getVoicePanelContent() function - no longer needed with tab-based system
 
 // Helper functions for transcription and enhancement
+/**
+ * DESIGN DECISION: Remove BYOK (Bring Your Own Key) model - Sprint 4
+ * WHY: Monetization requires server-side key management and credit tracking
+ *
+ * REASONING CHAIN:
+ * 1. Old model: Extension → OpenAI (user's API key) → No monetization
+ * 2. New model: Extension → Desktop → Server → OpenAI (Brett's key) → Credit tracking
+ * 3. Desktop app handles transcription via hotkey (Shift+~ or `)
+ * 4. Extension voice panel now deprecated (use desktop app instead)
+ *
+ * PATTERN: Pattern-MONETIZATION-001 (Server-Side Key Management)
+ * RELATED: products/lumina-desktop/src-tauri/src/transcription.rs
+ */
 async function transcribeAudioWithWhisper(audioData: string): Promise<string> {
-    const fetch = require('node-fetch');
-    const FormData = require('form-data');
-
-    // Get OpenAI API key from settings
-    const config = vscode.workspace.getConfiguration('aetherlight');
-    const apiKey = config.get<string>('openaiApiKey') || config.get<string>('openai.apiKey');
-
-    if (!apiKey || apiKey.trim() === '') {
-        throw new Error('OpenAI API key not configured. Please set aetherlight.openaiApiKey in settings.');
-    }
-
-    // Convert base64 to buffer
-    const audioBuffer = Buffer.from(audioData, 'base64');
-
-    // Create form data
-    const formData = new FormData();
-    formData.append('file', audioBuffer, {
-        filename: 'audio.webm',
-        contentType: 'audio/webm'
-    });
-    formData.append('model', 'whisper-1');
-    formData.append('language', 'en');
-
-    // Send to OpenAI Whisper API
-    const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            ...formData.getHeaders()
-        },
-        body: formData
-    });
-
-    if (!response.ok) {
-        const error = await response.text();
-        throw new Error(`Whisper API error: ${response.status} - ${error}`);
-    }
-
-    const result = await response.json();
-    return result.text || '';
+    throw new Error(
+        'Direct OpenAI transcription removed in Sprint 4. ' +
+        'Please use the desktop app hotkey (Shift+~ or `) for voice transcription instead. ' +
+        'This enables credit tracking and monetization.'
+    );
 }
 
 /**

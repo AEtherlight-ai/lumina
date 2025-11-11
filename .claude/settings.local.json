@@ -28,7 +28,11 @@
       "Bash(git push:*)",
       "Bash(gh release create:*)",
       "Bash(sed:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(git submodule:*)",
+      "Bash(cargo check:*)",
+      "Bash(curl:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []

@@ -123,43 +123,15 @@ export async function recordVoiceWithWebview(
 }
 
 /**
- * Transcribe audio buffer using OpenAI Whisper API
+ * Transcribe audio buffer - DEPRECATED
+ *
+ * @deprecated BYOK (Bring Your Own Key) model removed in Sprint 4
+ * Extension now uses desktop app for transcription via server API proxy
+ * See: products/lumina-desktop/src-tauri/src/transcription.rs
+ * See: Pattern-MONETIZATION-001 (Server-Side Key Management)
  */
 async function transcribeAudio(audioBuffer: Buffer): Promise<string> {
-    const config = vscode.workspace.getConfiguration('aetherlight');
-    const apiKey = config.get<string>('openai.apiKey');
-
-    if (!apiKey) {
-        throw new Error('OpenAI API key not configured');
-    }
-
-    // Create form data for Whisper API
-    const FormData = require('form-data');
-    const formData = new FormData();
-    formData.append('file', audioBuffer, {
-        filename: 'audio.webm',
-        contentType: 'audio/webm'
-    });
-    formData.append('model', 'whisper-1');
-
-    // Use node-fetch for API call
-    const fetch = require('node-fetch');
-    const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            ...formData.getHeaders()
-        },
-        body: formData
-    });
-
-    if (!response.ok) {
-        const error = await response.text();
-        throw new Error(`Whisper API error: ${error}`);
-    }
-
-    const result = await response.json();
-    return result.text || '';
+    throw new Error('Direct OpenAI transcription removed. Please use desktop app (Shift+~ hotkey) instead.');
 }
 
 /**

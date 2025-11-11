@@ -2,6 +2,9 @@
   "_comment": "ÆtherLight Configuration - Three-Tier Architecture",
   "_architecture": "Local Node (primary) → Hosted Node (optional backup) → Global Network (pattern sharing)",
 
+  "license_key": "",
+  "_license_note": "Get your license key from https://aetherlight.ai/dashboard/download",
+
   "storage_mb": 200,
   "max_patterns": 200,
 

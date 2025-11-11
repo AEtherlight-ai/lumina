@@ -31,7 +31,7 @@ interface Settings {
   auto_paste: boolean;
   offline_mode: boolean;
   whisper_model: string;
-  openai_api_key: string;
+  license_key: string;
 }
 
 function App() {
@@ -43,7 +43,7 @@ function App() {
     auto_paste: false,
     offline_mode: true,
     whisper_model: 'base.en',
-    openai_api_key: '',
+    license_key: '',
   });
 
   const [activeTab, setActiveTab] = useState<'general' | 'hotkeys' | 'api'>('general');
@@ -632,13 +632,13 @@ function App() {
 
                 <div style={{ marginBottom: '24px' }}>
                   <label style={{ display: 'block', marginBottom: '8px', color: '#374151', fontWeight: 500 }}>
-                    OpenAI API Key (optional)
+                    License Key
                   </label>
                   <input
                     type="password"
-                    value={settings.openai_api_key}
-                    onChange={(e) => setSettings({ ...settings, openai_api_key: e.target.value })}
-                    placeholder="sk-..."
+                    value={settings.license_key}
+                    onChange={(e) => setSettings({ ...settings, license_key: e.target.value })}
+                    placeholder="Enter your license key"
                     style={{
                       width: '100%',
                       padding: '12px',
@@ -648,7 +648,15 @@ function App() {
                     }}
                   />
                   <p style={{ color: '#6b7280', fontSize: '12px', marginTop: '8px' }}>
-                    Used for online transcription with Whisper API (when offline mode is disabled)
+                    Get your license key from{' '}
+                    <a
+                      href="https://aetherlight.ai/dashboard/download"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: '#3b82f6', textDecoration: 'none' }}
+                    >
+                      aetherlight.ai/dashboard/download
+                    </a>
                   </p>
                 </div>
               </div>

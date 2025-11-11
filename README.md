@@ -82,6 +82,16 @@ Build your own applications with ÆtherLight's voice control and pattern matchin
 
 **VS Code Extension (78 TypeScript files):**
 - **Voice-to-text capture** (multiple variants, backtick hotkey)
+- **Key Authorization & Monetization** (v0.17.0) - Server-managed OpenAI keys
+  - Token-based pricing: 375 tokens/minute of transcription
+  - Free tier: 250,000 tokens (~666 minutes one-time)
+  - Pro tier: $29.99/month for 1,000,000 tokens/month (~2,666 minutes)
+  - Token purchase: $24.99 one-time for 1,000,000 tokens (never expires)
+  - Desktop app with token balance display and pre-flight checks
+  - License key activation wizard (Step 3 in InstallationWizard)
+  - Server-driven warning system (80%, 90%, 95% thresholds)
+  - No OpenAI account needed - sign up at https://aetherlight.dev
+  - See [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md) for upgrading from BYOK
 - **MVP-003 Prompt System** (v0.17.0) - Intelligent task prompting
   - Variable-driven task analyzer with gap detection
   - Interactive Q&A wizard for gathering missing context

@@ -2,7 +2,7 @@
   "name": "aetherlight",
   "displayName": "ÆtherLight",
   "description": "Voice-to-intelligence platform for developers. Voice capture, sprint planning with AI, bug/feature forms, pattern matching to prevent AI hallucinations.",
-  "version": "0.16.15",
+  "version": "0.17.0",
   "publisher": "aetherlight",
   "repository": {
     "type": "git",
@@ -324,7 +324,8 @@
         "aetherlight.openaiApiKey": {
           "type": "string",
           "default": "",
-          "description": "OpenAI API key for voice transcription (Whisper API)"
+          "description": "[DEPRECATED Sprint 4] BYOK model removed. Use desktop app hotkey (Shift+~ or `) for voice transcription instead. Server-side key management enables credit tracking.",
+          "deprecationMessage": "Direct OpenAI API access removed. Use desktop app for transcription (Pattern-MONETIZATION-001)."
         },
         "aetherlight.sync.maxReconnectDelayMs": {
           "type": "number",
@@ -383,7 +384,8 @@
         "aetherlight.terminal.voice.autoTranscribe": {
           "type": "boolean",
           "default": true,
-          "description": "Automatically transcribe voice after capture using OpenAI Whisper API"
+          "description": "[DEPRECATED Sprint 4] Use desktop app hotkey (Shift+~ or `) for voice transcription instead.",
+          "deprecationMessage": "Terminal voice capture deprecated. Use desktop app for transcription."
         },
         "aetherlight.terminal.voice.openaiModel": {
           "type": "string",
@@ -391,7 +393,8 @@
             "whisper-1"
           ],
           "default": "whisper-1",
-          "description": "OpenAI Whisper model for transcription (currently only whisper-1 available via API)"
+          "description": "[DEPRECATED Sprint 4] Use desktop app hotkey (Shift+~ or `) for voice transcription instead.",
+          "deprecationMessage": "Direct OpenAI model selection removed. Use desktop app for transcription."
         },
         "aetherlight.terminal.voice.language": {
           "type": "string",
@@ -505,7 +508,8 @@
         "aetherlight.openai.apiKey": {
           "type": "string",
           "default": "",
-          "description": "OpenAI API key for Whisper voice transcription (F4 hotkey). Get your key at https://platform.openai.com/api-keys"
+          "description": "[DEPRECATED Sprint 4] BYOK model removed. Desktop app now uses server API with credit tracking. Sign up at https://aetherlight.dev",
+          "deprecationMessage": "Direct OpenAI API access removed. Use desktop app with server-side transcription (Pattern-MONETIZATION-001)."
         },
         "aetherlight.desktop.whisperModel": {
           "type": "string",
@@ -516,12 +520,14 @@
             "large"
           ],
           "default": "base.en",
-          "description": "Whisper model for voice transcription (base.en is fastest, large is most accurate)"
+          "description": "[DEPRECATED Sprint 4] Model selection removed. Server uses Whisper-1 via OpenAI API.",
+          "deprecationMessage": "Local Whisper.cpp removed. Use server-side transcription instead."
         },
         "aetherlight.desktop.offlineMode": {
           "type": "boolean",
-          "default": true,
-          "description": "Use offline mode (local Whisper.cpp) instead of OpenAI API"
+          "default": false,
+          "description": "[DEPRECATED Sprint 4] Offline mode removed. Desktop app now uses server API with credit tracking.",
+          "deprecationMessage": "Offline mode removed. Use server-side transcription (Pattern-MONETIZATION-001)."
         },
         "aetherlight.desktop.recordingHotkey": {
           "type": "string",

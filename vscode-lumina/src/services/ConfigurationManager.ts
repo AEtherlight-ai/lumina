@@ -347,7 +347,10 @@ export class ConfigurationManager {
 	private getDefaults(): ConfigSchema {
 		return {
 			api: {
-				whisperEndpoint: 'https://api.openai.com/v1/audio/transcriptions',
+				// DESIGN DECISION: Remove direct OpenAI endpoint - Sprint 4
+				// WHY: Transcription now proxied through desktop app → server → OpenAI
+				// PATTERN: Pattern-MONETIZATION-001 (Server-Side Key Management)
+				whisperEndpoint: '', // Deprecated: Use desktop app hotkey (Shift+~ or `) instead
 				timeout: 30000, // 30 seconds
 				maxRetries: 3
 			},

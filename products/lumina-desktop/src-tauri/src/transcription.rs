@@ -22,7 +22,7 @@
 
 use anyhow::{Context, Result};
 use reqwest::multipart;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::io::Write;
 use enigo::Enigo;
 use std::thread;
@@ -37,6 +37,27 @@ struct TranscriptionResponse {
     duration_seconds: u64,
     #[serde(default)]
     message: String,
+}
+
+/// Warning level from server (80%, 90%, 95% thresholds)
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct TokenWarning {
+    pub level: String,        // "medium" | "high" | "critical"
+    pub threshold: u8,        // 80 | 90 | 95
+    pub message: String,      // User-friendly warning message
+    pub percentage_used: u8,  // Actual percentage used
+}
+
+/// Token balance API response
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct TokenBalanceResponse {
+    pub success: bool,
+    pub tokens_balance: u64,
+    pub tokens_used_this_month: u64,
+    pub subscription_tier: String,
+    pub minutes_remaining: u64,
+    #[serde(default)]
+    pub warnings: Vec<TokenWarning>,  // NEW: Server-calculated warnings
 }
 
 /// Server API error response (for 402 Insufficient Credits, etc.)
@@ -104,6 +125,68 @@ fn audio_to_wav(samples: &[f32], sample_rate: u32) -> Result<Vec<u8>> {
 }
 
 /**
+ * DESIGN DECISION: Check token balance before recording
+ * WHY: Prevents starting recording if user has insufficient tokens (< 375 for 1 minute)
+ *
+ * API Endpoint: {api_url}/api/tokens/balance
+ * Method: GET
+ * Headers: Authorization: Bearer {license_key}
+ *
+ * Response (200):
+ *   - success: bool
+ *   - tokens_balance: number (current balance)
+ *   - tokens_used_this_month: number (usage tracking)
+ *   - subscription_tier: string (free, network, pro, enterprise)
+ *   - minutes_remaining: number (calculated: tokens / 375)
+ *
+ * Error Responses:
+ *   - 401: Invalid or missing license_key
+ *   - 403: Device not active
+ *   - 500: Server error
+ */
+pub async fn check_token_balance(
+    license_key: &str,
+    api_url: &str,
+) -> Result<TokenBalanceResponse> {
+    if license_key.is_empty() {
+        anyhow::bail!("License key not configured. Please activate device first.");
+    }
+
+    // Build server API endpoint URL
+    let balance_endpoint = format!("{}/api/tokens/balance", api_url);
+
+    // Send GET request to server API
+    println!("📊 Checking token balance...");
+    let client = reqwest::Client::new();
+    let response = client
+        .get(&balance_endpoint)
+        .header("Authorization", format!("Bearer {}", license_key))
+        .send()
+        .await
+        .context("Failed to send balance request to server API")?;
+
+    // Check for API errors
+    let status = response.status();
+
+    if !status.is_success() {
+        let error_text = response.text().await.unwrap_or_default();
+        anyhow::bail!("Balance check failed ({}): {}", status, error_text);
+    }
+
+    // Parse JSON response
+    let balance_response: TokenBalanceResponse = response
+        .json()
+        .await
+        .context("Failed to parse balance response")?;
+
+    println!("✅ Balance: {} tokens (~{} minutes remaining)",
+             balance_response.tokens_balance,
+             balance_response.minutes_remaining);
+
+    Ok(balance_response)
+}
+
+/**
  * DESIGN DECISION: Proxy Whisper transcription through server API with credit tracking
  * WHY: Server manages OpenAI key + tracks usage + enforces credit limits (Pattern-MONETIZATION-001)
  *
@@ -145,12 +228,6 @@ pub async fn transcribe_audio(
     let wav_bytes = audio_to_wav(audio_samples, sample_rate)
         .context("Failed to convert audio to WAV")?;
     println!("✅ WAV file created: {} bytes ({}Hz sample rate)", wav_bytes.len(), sample_rate);
-
-    // DEBUG: Save WAV file to disk for inspection
-    let debug_path = std::env::temp_dir().join("lumina_debug.wav");
-    std::fs::write(&debug_path, &wav_bytes)
-        .context("Failed to write debug WAV file")?;
-    println!("🔍 DEBUG: Saved WAV to {:?}", debug_path);
 
     // Create multipart form with audio file
     let form = multipart::Form::new()

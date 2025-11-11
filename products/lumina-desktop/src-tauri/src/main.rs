@@ -346,6 +346,35 @@ fn record_event(event_type: String, metadata: Option<String>) -> Result<(), Stri
 }
 
 /**
+ * DESIGN DECISION: Tauri command to check token balance
+ * WHY: Frontend needs to display balance and check before allowing recording
+ *
+ * REASONING CHAIN:
+ * 1. Load license key from settings
+ * 2. Call server API GET /api/tokens/balance
+ * 3. Return balance data to frontend
+ * 4. Frontend displays "1,000,000 tokens (~2666 minutes)"
+ * 5. Result: User sees available balance before recording
+ */
+#[tauri::command]
+async fn get_token_balance() -> Result<transcription::TokenBalanceResponse, String> {
+    // Load settings to get license key and API URL
+    let settings = get_settings().map_err(|e| format!("Failed to load settings: {}", e))?;
+
+    if settings.license_key.is_empty() {
+        return Err("License key not configured. Please activate device first.".to_string());
+    }
+
+    // Check balance via server API
+    transcription::check_token_balance(
+        &settings.license_key,
+        &settings.global_network_api_endpoint,
+    )
+    .await
+    .map_err(|e| format!("Failed to check balance: {}", e))
+}
+
+/**
  * DESIGN DECISION: Global hotkey toggles recording state
  * WHY: User wants Shift+~ or ` to start/stop recording from any application
  *
@@ -386,6 +415,49 @@ async fn toggle_recording(
 
     if is_starting_recording {
         println!("🎤 Recording started...");
+
+        // DESIGN DECISION: Pre-flight token balance check before recording
+        // WHY: Prevents wasting user's time recording if they don't have enough tokens
+        //
+        // REASONING CHAIN:
+        // 1. Load settings to get license key
+        // 2. Check token balance via server API
+        // 3. Calculate minimum required tokens (375 = 1 minute)
+        // 4. If balance < 375 → Show upgrade prompt, don't start recording
+        // 5. If balance >= 375 → Proceed with recording
+        // 6. Result: User only records when they can afford transcription
+        let settings = get_settings().map_err(|e| format!("Failed to load settings: {}", e))?;
+
+        if !settings.license_key.is_empty() {
+            match transcription::check_token_balance(
+                &settings.license_key,
+                &settings.global_network_api_endpoint,
+            ).await {
+                Ok(balance) => {
+                    const MIN_TOKENS: u64 = 375; // 1 minute of transcription
+                    if balance.tokens_balance < MIN_TOKENS {
+                        println!("⚠️ Insufficient tokens: {} < {} required", balance.tokens_balance, MIN_TOKENS);
+                        // Emit event to show upgrade prompt in frontend
+                        app.emit("insufficient-tokens", balance.clone()).map_err(|e| e.to_string())?;
+                        // Revert recording state
+                        let mut recording = state.lock().map_err(|e| format!("Lock error: {}", e))?;
+                        recording.is_recording = false;
+                        recording.start_time = None;
+                        return Err(format!(
+                            "Insufficient tokens: {} tokens remaining. Need at least {} tokens for 1 minute.",
+                            balance.tokens_balance,
+                            MIN_TOKENS
+                        ));
+                    }
+                    println!("✅ Pre-flight check passed: {} tokens available",
+                             balance.tokens_balance);
+                }
+                Err(e) => {
+                    eprintln!("⚠️ Balance check failed: {}. Proceeding with recording anyway.", e);
+                    // Don't block recording if balance check fails (network issues, etc.)
+                }
+            }
+        }
 
         // Start audio capture with thread-local storage
         let buffer_clone = Arc::clone(&audio_buffer);
@@ -1810,6 +1882,7 @@ fn main() {
             list_audio_devices,
             get_settings,
             save_settings,
+            get_token_balance,
             get_usage_metrics,
             get_time_saved_history,
             record_event,

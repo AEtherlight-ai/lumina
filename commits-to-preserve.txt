@@ -1,0 +1,99 @@
+f7dadf7 fix(ui): correct Bug/Feature buttons to use skill-based workflow (UI-006 FIX)
+257e507 fix(ui): implement CORRECT workflow - structured forms → enhance → main text area (UI-006 FINAL)
+295956e feat(DEBUG-004): implement sprint file dropdown multi-file support
+ec40f3f enhance(skill): add ENHANCE mode to sprint-plan skill
+702a6f5 enhance(sprint): add 7 release validation tasks for v0.16.7
+199370d enhance(sprint): upgrade RELEASE tasks to full rich format
+9874281 feat(webview): display all rich format task fields + fix pattern tag contrast
+6d07041 feat(sprint): create self-configuration system sprint (v1.0)
+4262d8a enhance(sprint): add UI-011 WebView refresh bug
+f00420c docs(release): complete v0.16.7 release documentation
+e417709 feat(UI-011): Add diagnostic logging to FileSystemWatcher for sprint auto-refresh debugging
+a41126d feat(REFACTOR-007): Fix sprint refresh button - accurate notification, reload selected file
+770c926 docs(release): complete pre-publish audit for v0.16.7
+c3d0907 docs(RELEASE-007): complete comprehensive pre-publish audit
+3944bfb fix(gitignore): exclude binary installers from git tracking
+64da44c docs(publish): add comprehensive desktop installer workflow documentation
+a4f47c5 chore: release v0.16.7
+6d928d3 fix(publish): replace Unix jq select() with cross-platform JSON parsing
+48ce25b fix(vscodeignore): exclude .vscode-test-extensions and .vscode-test-user-data
+9e5eca4 feat(PROTECT-000): implement AI-enhanced task prompt export system
+bcce6e8 fix(PROTECT-000): remove overlay UI, insert AI-enhanced prompt into Voice text area
+f7024b5 feat(PROTECT-000): AI-enhanced task prompt export system
+c0f44d4 chore: bump version to 0.16.8
+705fa4c chore: release v0.16.9
+1285722 chore(PROTECT-000): mark task complete and add protection skills
+2c6e24d chore: release v0.16.10
+6a025bb fix(analyzer): Fix critical analyzer tests blocking npm publish
+f2c241d fix(tests): Fix all 27 test failures for v0.16.11
+cb4ebd3 chore: bump version to 0.16.12
+62c5a0e chore: release v0.16.13
+c7bf7d1 fix(analyzer): Fix test isolation - use unique output directories per test suite
+bc8fb7c feat(publish): Add Pattern-PUBLISH-004 pre-publish validation + fix scoped/unscoped naming
+e7de392 fix(validation): Fix test exit code detection in pre-publish-check + clean test artifacts
+c810354 chore(analyzer): Add test artifacts to .gitignore
+d073cae chore(analyzer): Remove test artifacts from git tracking
+509ed7e fix(validation): Skip analyzer test check (publish script runs tests anyway)
+e1ec70f chore: reset to v0.16.13 for clean automated publish
+b15764f fix(imports): Change @aetherlight/analyzer to aetherlight-analyzer (unscoped)
+5dc37ee fix(deps): Add @types/mocha for test compilation
+aebc4ba chore: release v0.16.15
+486752c feat(sprint): Add POST-005 task to fix automated publish script
+246e034 docs: Update all publishing documentation for v0.16.15 and POST-005
+fe54ce6 enhance(sprint): Add MVP prompt system tasks + intelligence backlog
+97fbc4b feat(PROTECT-001): Annotate passing code with @protected levels
+d371421 chore(sprint): Mark PROTECT-001 as completed, update progress (6%)
+331945d fix(sprint): Correct progress count to 3/62 (was incorrectly 4/62)
+3322855 feat(PROTECT-002): Complete protection enforcement system
+8022e90 chore(sprint): Mark PROTECT-002 as completed, update progress (6%)
+db66e9b feat(PROTECT-003): Complete CODE_PROTECTION_POLICY.md documentation
+783cbd7 feat(protect): Complete PROTECT-001 with full workflow compliance
+1fa4215 feat(protect): Complete PROTECT-002 with full workflow compliance
+eb906f0 feat(protect): Verify and complete PROTECT-003 with full workflow compliance
+8cbd53c feat(mvp): PROTECT-000A MVP - TaskAnalyzer with TDD (in progress)
+77c55fc feat(protect): Implement PROTECT-000A - Variable-driven task analyzer (MVP)
+7865fe8 feat(UX-001): Implement universal enhancement pattern for all 6 buttons
+ac416a1 feat(UX-003): Add Show/Hide Completed Tasks checkbox to Sprint Panel
+09ecf62 feat(protect): Implement PROTECT-000B - Phase-Aware Smart Task Selection
+526d68f feat(UX-004): Remove button text labels, keep icons only
+5ea42c2 docs(PROTECT-000C): Add manual test plan and mark task complete
+62a0b68 feat(UX-005): Move Start Next Task button to sprint header
+11464c5 feat(UX-006): Text area UI improvements - resize handle + label removal
+3aca9ae feat(PROTECT-000E): Implement config.json auto-generation
+de667e7 feat(UX-007): Add Ctrl+Shift+Enter for immediate command execution
+5830c11 feat(UX-008): Remove terminal edit button from Voice Panel
+0b47905 feat(MVP-001): Add skill assignment to sprint-plan workflow (Step 3.6)
+d439bc8 enhance(sprint): add PROTECT-000F to Phase 3 MVP prompt system
+6c03745 feat(UX-009): Implement terminal selection persistence
+0c14268 chore(sprint): Update task statuses - UX-001, UX-009 and UI-POLISH cleanup
+d5cefb9 enhance(POST-005): Add pre-publish validation and GitHub release confirmation
+e2175dd enhance(TEMPLATE): Improve template validation and workflow checks
+404cb65 chore(sprint): Mark UX-009 as completed
+8962079 feat(SELF-004): Implement InterviewEngine with VS Code APIs
+615afc2 feat(SELF-005): Add Phase 2 integration tests
+5eab037 chore(sprint): Mark SELF-004 and SELF-005 as completed
+c2cabd2 chore(sprint): Mark PROTECT-000F as completed
+7342641 chore(sprint): Mark UX-011 as completed (done in UX-006)
+b38fbce feat(UX-010/012/013/014): Voice Panel UX improvements
+c320587 feat(PHASE-7): Add Phase 7 documentation synchronization tasks
+1c2b68d feat(DOC-008): Add documentation refactoring/context optimization task
+bff8414 feat(BACKLOG-001): Improve transcription progress indicator visibility
+2011252 docs(sprint-plan): Update skill docs for DOC-005 refactoring task
+b8ac591 docs(test-plan): Add UX-010/012/013/014 and BACKLOG-001 test cases
+0d97842 feat(DEPRECATE-001): Remove F13 quick voice capture functionality
+78a6616 feat(DEPRECATE-002): Remove Shift+Backtick global voice typing functionality
+2b05b56 docs(DOC-001): Update CHANGELOG.md with Sprint 3 changes
+dc1c0cf docs(DOC-002): Update README.md with Sprint 3 features
+f8060da docs(DOC-003): Extract reusable patterns from Sprint 3 - Update INDEX
+1b22547 docs(DOC-004): Update CLAUDE.md with Sprint 3 workflows
+6fa0ba1 docs(DOC-005): Skills documentation already current
+51be9bc docs(sprint-3): DOC-007 - Create website documentation for Sprint 3
+2113476 docs(sprint-3): AGENT-002 - Update KNOWN_ISSUES.md with Sprint 3 status
+16b83a2 docs(sprint-3): RETRO-002 - Extract Pattern-PREFLIGHT-001 from retrospective
+7dc5663 feat(DESKTOP-001): Refactor Whisper service to proxy through server API
+f9e874f feat(WALK-001-005): Implement Getting Started walkthrough system
+48e29ff feat(HELP-001): Implement Help & Getting Started menu
+89028ce feat(UNLINK-006 to UNLINK-008): Add comprehensive testing suite
+183f7a8 docs(DOC-001 to DOC-004): Complete Sprint 4 documentation for AI discoverability
+9da09b6 docs(AGENT-002): Update KNOWN_ISSUES.md with Sprint 4 success story
+016384d Remove products/lumina-web before history cleanup

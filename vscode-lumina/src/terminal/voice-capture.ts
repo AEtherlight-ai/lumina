@@ -119,53 +119,27 @@ export class VoiceCapture {
     }
 
     /**
-     * Transcribe audio using Whisper API
+     * Transcribe audio - BYOK MODEL REMOVED
      *
-     * DESIGN DECISION: OpenAI Whisper API for transcription
-     * WHY: 32x realtime, high accuracy, supports 50+ languages
+     * DESIGN DECISION: Remove BYOK (Bring Your Own Key) model - Sprint 4
+     * WHY: Monetization requires server-side key management and credit tracking
      *
-     * PERFORMANCE: <2s for 30s audio
+     * REASONING CHAIN:
+     * 1. Old model: Terminal → OpenAI (user's API key) → No monetization
+     * 2. New model: Terminal uses Desktop → Server → OpenAI (Brett's key) → Credit tracking
+     * 3. Desktop app handles transcription via hotkey (Shift+~ or `)
+     * 4. Terminal voice capture deprecated (use desktop app instead)
+     *
+     * PATTERN: Pattern-MONETIZATION-001 (Server-Side Key Management)
+     * RELATED: products/lumina-desktop/src-tauri/src/transcription.rs
      */
     private async transcribe(audioBlob: Blob): Promise<void> {
-        try {
-            // Get Whisper API key from config
-            const config = vscode.workspace.getConfiguration('aetherlight');
-            const whisperApiKey = config.get<string>('whisperApiKey');
-
-            if (!whisperApiKey) {
-                throw new Error('Whisper API key not configured');
-            }
-
-            // Convert webm to wav (if needed)
-            // TODO: Implement audio conversion if Whisper doesn't support webm
-
-            // Call Whisper API
-            const formData = new FormData();
-            formData.append('file', audioBlob, 'audio.webm');
-            formData.append('model', 'whisper-1');
-
-            const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-                method: 'POST',
-                headers: {
-                    Authorization: `Bearer ${whisperApiKey}`,
-                },
-                body: formData,
-            });
-
-            if (!response.ok) {
-                throw new Error(`Whisper API error: ${response.statusText}`);
-            }
-
-            const result = await response.json() as { text: string };
-            const transcription = result.text;
-
-            // Emit transcription event
-            if (this.events.onTranscription) {
-                this.events.onTranscription(transcription);
-            }
-        } catch (error) {
-            this.handleError(error as Error);
-        }
+        const error = new Error(
+            'Direct OpenAI transcription removed in Sprint 4. ' +
+            'Please use the desktop app hotkey (Shift+~ or `) for voice transcription instead. ' +
+            'This enables credit tracking and monetization.'
+        );
+        this.handleError(error);
     }
 
     /**

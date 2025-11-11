@@ -19,7 +19,130 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [0.17.0] - 2025-11-08 - Sprint 3: MVP-003 Prompt System, Self-Configuration & UX Polish
+## [0.17.0] - 2025-11-11 - Sprint 4: Key Authorization & Monetization
+
+### Added
+
+#### **Server-Side OpenAI Key Management** (Pattern-MONETIZATION-001)
+- **Token-based pricing system**: 375 tokens per minute of transcription
+  - Free tier: 250,000 tokens (~666 minutes one-time)
+  - Pro tier: 1,000,000 tokens/month ($29.99/month)
+  - Token purchase: 1,000,000 tokens ($24.99 one-time, never expires)
+  - Files: `website/supabase/migrations/007_credit_system.sql`, `008_token_system.sql`
+
+- **Desktop app token integration**:
+  - Token balance display (shows tokens + tier, real-time updates)
+  - Pre-flight checks before recording (requires 375 tokens minimum)
+  - Server-driven warning system (80%, 90%, 95% thresholds)
+  - License key activation wizard (Step 3 in InstallationWizard)
+  - Files: `products/lumina-desktop/src-tauri/src/transcription.rs`, `products/lumina-desktop/src/components/VoiceCapture.tsx`
+
+- **API endpoints deployed to production**:
+  - `GET /api/tokens/balance` - Check token balance with warnings array
+  - `POST /api/desktop/transcribe` - Server-proxied Whisper transcription with token deduction
+  - `POST /api/tokens/consume` - Manual token deduction for future features
+  - `POST /api/stripe/create-checkout` - Stripe Checkout Session integration
+  - `POST /api/webhooks/stripe` - Stripe webhook fulfillment
+  - Production URL: https://aetherlight-aelors-projects.vercel.app
+
+- **Website dashboard UI**:
+  - Token balance widget on main dashboard
+  - Shows: Balance, usage, tier, minutes remaining
+  - "Buy Tokens" button opens pricing page
+  - Stripe integration for token purchases and subscriptions
+  - Production URL: https://aetherlight.dev/dashboard
+
+- **Monthly token refresh automation**:
+  - Vercel cron job (runs 1st of each month)
+  - Endpoint: `/api/cron/refresh-tokens`
+  - Automatic 1M token refresh for Pro users
+  - Files: `website/vercel.json`, `website/app/api/cron/refresh-tokens/route.ts`
+
+### Changed
+
+- **Desktop app Whisper proxy**: Transcription now goes through server API instead of direct OpenAI calls
+  - Architecture: Desktop → Server API → OpenAI (server manages API key)
+  - Token deduction tracked automatically per transcription
+  - Error handling: 401 (invalid key), 402 (insufficient tokens), 403 (inactive device), 500 (server error)
+
+- **Token balance UI**: Replaced client-side warning calculation with server-driven display
+  - Removed 35 lines of client-side threshold logic
+  - Server calculates warnings based on subscription tier
+  - Desktop displays warnings from API response
+  - Files: `products/lumina-desktop/src/components/VoiceCapture.tsx:54-84` (deleted)
+
+- **Warnings API**: Enhanced with server-side threshold calculation
+  - Warning levels: medium (80%), high (90%), critical (95%)
+  - Thresholds calculated per subscription tier
+  - Backward compatible (works with or without warnings field)
+
+### Removed
+
+- **BYOK (Bring Your Own Key) model removed from extension**:
+  - `transcribeAudioWithWhisper()` function deleted from `voicePanel.ts`
+  - `transcribeAudio()` function deleted from `voiceRecorder.ts`
+  - `transcribe()` function deleted from `voice-capture.ts`
+  - `api.openai.com` removed from CSP header
+  - All OpenAI API calls replaced with error messages directing users to desktop app
+
+### Deprecated
+
+- **OpenAI-related settings** (Sprint 4):
+  - `aetherlight.openaiApiKey` - No longer functional (marked [DEPRECATED Sprint 4])
+  - `aetherlight.terminal.voice.autoTranscribe` - No longer functional
+  - `aetherlight.terminal.voice.openaiModel` - No longer functional
+  - `aetherlight.openai.apiKey` - No longer functional
+  - `aetherlight.desktop.whisperModel` - No longer functional
+  - `aetherlight.desktop.offlineMode` - Default changed to false, marked deprecated
+
+### Fixed
+
+- **RLS blocking license key authentication** (2025-11-11):
+  - Changed API to use service role key (bypasses Row Level Security)
+  - License key authentication now works in production
+  - Files: `website/lib/supabase/server.ts`, `website/app/api/tokens/balance/route.ts`
+  - Deployed: Commit 29c379e7
+
+- **Pricing documentation mismatch** (2025-11-11):
+  - Updated code comment to match production ($29.99/month for Pro)
+  - File: `website/lib/stripe/config.ts`
+  - Deployed: Commit 8b3c9795
+
+### Breaking Changes
+
+- **Extension v0.17.0 requires desktop app v0.17.0**: Both must be upgraded together
+- **BYOK model removed**: Users can no longer provide their own OpenAI API keys
+- **OpenAI API key settings no longer functional**: All transcription goes through server
+- **License key required**: Users must sign up and activate license key in desktop app
+
+### Migration
+
+See [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md) for upgrading from BYOK (v0.16.x) to server-managed keys (v0.17.0).
+
+**Key Migration Steps:**
+1. Update extension to v0.17.0
+2. Update desktop app to v0.17.0
+3. Sign up at https://aetherlight.dev/signup
+4. Get license key from dashboard
+5. Enter key in desktop app installation wizard (Step 3)
+6. Start recording - transcription now works through server!
+
+### Pattern Reference
+
+- **Pattern-MONETIZATION-001**: Server-Side Key Management
+  - Architecture: Extension → Desktop → Server → OpenAI
+  - Token-based pricing (375 tokens/minute)
+  - Credit tracking and usage limits
+  - Server-calculated warning thresholds
+
+### Test Credentials (Production)
+
+- Free tier: License key `CD7W-AJDK-RLQT-LUFA` (250,000 tokens)
+- Pro tier: License key `W7HD-X79Q-CQJ9-XW13` (1,000,000 tokens/month)
+
+---
+
+## [0.16.x] - 2025-11-08 - Sprint 3: MVP-003 Prompt System, Self-Configuration & UX Polish
 
 ### Added
 

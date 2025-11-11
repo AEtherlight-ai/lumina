@@ -20,6 +20,24 @@
 import { useEffect, useState } from 'react';
 import { useVoiceCapture } from '../hooks/useVoiceCapture';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
+import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
+
+interface TokenWarning {
+  level: string;        // "medium" | "high" | "critical"
+  threshold: number;    // 80 | 90 | 95
+  message: string;      // User-friendly warning message
+  percentage_used: number;
+}
+
+interface TokenBalance {
+  success: boolean;
+  tokens_balance: number;
+  tokens_used_this_month: number;
+  subscription_tier: string;
+  minutes_remaining: number;
+  warnings?: TokenWarning[];  // NEW: Server-calculated warnings
+}
 
 export function VoiceCapture() {
   const { state, isRecording, result, error, startCapture, stopCapture } =
@@ -27,6 +45,105 @@ export function VoiceCapture() {
 
   const [recordingMode, setRecordingMode] = useState<'hold' | 'click'>('click'); // TODO: Make configurable in settings
   const [isClickRecording, setIsClickRecording] = useState(false);
+  const [tokenBalance, setTokenBalance] = useState<TokenBalance | null>(null);
+  const [showInsufficientTokens, setShowInsufficientTokens] = useState(false);
+  const [showLowBalanceToast, setShowLowBalanceToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [lastWarningThreshold, setLastWarningThreshold] = useState<number | null>(null);
+
+  /**
+   * DESIGN DECISION: Display server-calculated warnings (NO client-side calculation)
+   * WHY: Server is source of truth for thresholds, prevents client/server mismatch
+   *
+   * PATTERN: Pattern-MONETIZATION-001 (Server-Side Key Management)
+   * CHANGE: Replaced client-side warning calculation with server warnings (Sprint 4)
+   */
+  const checkBalanceWarnings = (balance: TokenBalance) => {
+    // If no warnings from server, clear any existing warnings
+    if (!balance.warnings || balance.warnings.length === 0) {
+      return;
+    }
+
+    // Get highest severity warning (server sends them in order)
+    const highestWarning = balance.warnings[0];
+
+    // Only show warning if threshold changed (prevent duplicate toasts)
+    if (lastWarningThreshold === highestWarning.threshold) {
+      return;
+    }
+
+    // Update state and show toast
+    setLastWarningThreshold(highestWarning.threshold);
+    setToastMessage(highestWarning.message);
+    setShowLowBalanceToast(true);
+
+    // Auto-hide toast after 5 seconds
+    setTimeout(() => {
+      setShowLowBalanceToast(false);
+    }, 5000);
+  };
+
+  /**
+   * DESIGN DECISION: Load token balance on component mount + background polling
+   * WHY: User needs real-time visibility into token balance
+   *
+   * REASONING CHAIN:
+   * 1. Load balance immediately on mount
+   * 2. Set up polling interval (5 minutes)
+   * 3. Check warning thresholds after each load
+   * 4. Show toast notifications at 80%/90%/95% usage
+   * 5. Result: User never surprised by insufficient tokens
+   */
+  useEffect(() => {
+    const loadBalance = async () => {
+      try {
+        const balance = await invoke<TokenBalance>('get_token_balance');
+        setTokenBalance(balance);
+        checkBalanceWarnings(balance);
+        console.log('Token balance loaded:', balance);
+      } catch (error) {
+        console.error('Failed to load token balance:', error);
+        // Don't block UX if balance check fails
+      }
+    };
+
+    // Load immediately
+    loadBalance();
+
+    // Poll every 5 minutes (300000ms)
+    const intervalId = setInterval(() => {
+      loadBalance();
+    }, 300000);
+
+    // Listen for insufficient-tokens events from backend
+    const unlistenPromise = listen<TokenBalance>('insufficient-tokens', (event) => {
+      console.warn('Insufficient tokens:', event.payload);
+      setTokenBalance(event.payload);
+      setShowInsufficientTokens(true);
+    });
+
+    return () => {
+      clearInterval(intervalId);
+      unlistenPromise.then(unlisten => unlisten());
+    };
+  }, [lastWarningThreshold]);
+
+  /**
+   * DESIGN DECISION: Refresh balance after transcription completes
+   * WHY: User sees updated balance after tokens are consumed
+   */
+  useEffect(() => {
+    if (state === 'complete' && result) {
+      // Refresh balance after transcription
+      invoke<TokenBalance>('get_token_balance')
+        .then(balance => {
+          setTokenBalance(balance);
+          checkBalanceWarnings(balance);
+          console.log('Balance refreshed:', balance);
+        })
+        .catch(err => console.error('Failed to refresh balance:', err));
+    }
+  }, [state, result]);
 
   /**
    * DESIGN DECISION: Auto-copy transcription to clipboard
@@ -101,15 +218,16 @@ export function VoiceCapture() {
    * WHY: User wants cleaner look, transcription visible, no unnecessary buttons
    */
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100vh',
-        backgroundColor: '#ffffff',
-        overflow: 'hidden',
-      }}
-    >
+    <>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100vh',
+          backgroundColor: '#ffffff',
+          overflow: 'hidden',
+        }}
+      >
       {/* Top ticker bar - shows recording status and transcription in real-time */}
       {/* Thin recording indicator bar at very top - pulses while recording */}
       {isRecording && (
@@ -147,6 +265,20 @@ export function VoiceCapture() {
             position: 'relative',
           }}
         >
+          {/* Pulsing overlay for processing state */}
+          {state === 'processing' && (
+            <div
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: 'linear-gradient(90deg, rgba(59, 130, 246, 0.3) 0%, rgba(59, 130, 246, 1) 50%, rgba(59, 130, 246, 0.3) 100%)',
+                animation: 'pulse-bar 1.5s ease-in-out infinite',
+              }}
+            />
+          )}
           <div
             style={{
               color: 'white',
@@ -154,10 +286,12 @@ export function VoiceCapture() {
               fontWeight: '500',
               whiteSpace: 'nowrap',
               animation: result && result.text.length > 50 ? 'scroll-left 15s linear infinite' : 'none',
+              position: 'relative',
+              zIndex: 1,
             }}
           >
             {isRecording && !result && '🎤 Recording...'}
-            {state === 'processing' && 'Transcribing...'}
+            {state === 'processing' && '⚙️ Transcribing...'}
             {result && result.text}
           </div>
         </div>
@@ -283,26 +417,179 @@ export function VoiceCapture() {
         </div>
       </div>
 
-      {/* CSS animation for scrolling ticker */}
-      <style>{`
-        @keyframes scroll-left {
-          0% {
-            transform: translateX(100%);
-          }
-          100% {
-            transform: translateX(-100%);
-          }
-        }
+        {/* Token Balance Display */}
+        {tokenBalance && (
+          <div style={{
+            position: 'absolute',
+            bottom: '16px',
+            right: '16px',
+            padding: '12px 16px',
+            background: 'rgba(255, 255, 255, 0.95)',
+            borderRadius: '8px',
+            boxShadow: '0 2px 12px rgba(0, 0, 0, 0.1)',
+            fontSize: '14px',
+            color: '#374151',
+          }}>
+            <div style={{ fontWeight: 600, marginBottom: '4px' }}>
+              {tokenBalance.tokens_balance.toLocaleString()} tokens
+            </div>
+            <div style={{ fontSize: '12px', color: '#6b7280' }}>
+              {tokenBalance.subscription_tier}
+            </div>
+          </div>
+        )}
 
-        @keyframes pulse-bar {
-          0% {
-            transform: translateX(-100%);
+        {/* CSS animation for scrolling ticker */}
+        <style>{`
+          @keyframes scroll-left {
+            0% {
+              transform: translateX(100%);
+            }
+            100% {
+              transform: translateX(-100%);
+            }
           }
-          100% {
+
+          @keyframes pulse-bar {
+            0% {
+              transform: translateX(-100%);
+            }
+            100% {
+              transform: translateX(100%);
+            }
+          }
+        `}</style>
+      </div>
+
+      {/* Insufficient Tokens Modal */}
+      {showInsufficientTokens && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.7)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+          }}
+          onClick={() => setShowInsufficientTokens(false)}
+        >
+          <div
+            style={{
+              background: 'white',
+              borderRadius: '16px',
+              padding: '32px',
+              maxWidth: '400px',
+              textAlign: 'center',
+              boxShadow: '0 25px 50px rgba(0, 0, 0, 0.5)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚠️</div>
+            <h2 style={{ margin: '0 0 16px 0', color: '#1f2937', fontSize: '24px' }}>
+              Insufficient Tokens
+            </h2>
+            <p style={{ margin: '0 0 24px 0', color: '#6b7280', fontSize: '16px' }}>
+              You need at least 375 tokens to transcribe 1 minute of audio.
+              <br />
+              <br />
+              Current balance: <strong>{tokenBalance?.tokens_balance.toLocaleString() || 0} tokens</strong>
+            </p>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+              <button
+                onClick={() => {
+                  window.open('https://aetherlight-aelors-projects.vercel.app/dashboard?action=upgrade', '_blank');
+                  setShowInsufficientTokens(false);
+                }}
+                style={{
+                  padding: '12px 24px',
+                  background: '#3b82f6',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '16px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Buy More Tokens
+              </button>
+              <button
+                onClick={() => setShowInsufficientTokens(false)}
+                style={{
+                  padding: '12px 24px',
+                  background: '#e5e7eb',
+                  color: '#374151',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '16px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Low Balance Toast Notification */}
+      {showLowBalanceToast && (
+        <div
+          style={{
+            position: 'fixed',
+            top: '24px',
+            right: '24px',
+            background: lastWarningThreshold === 95 ? '#dc2626' : lastWarningThreshold === 90 ? '#f59e0b' : '#fbbf24',
+            color: 'white',
+            padding: '16px 24px',
+            borderRadius: '12px',
+            boxShadow: '0 10px 40px rgba(0, 0, 0, 0.3)',
+            fontSize: '16px',
+            fontWeight: 600,
+            zIndex: 10000,
+            maxWidth: '400px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            animation: 'slideIn 0.3s ease-out',
+          }}
+        >
+          <span>{toastMessage}</span>
+          <button
+            onClick={() => setShowLowBalanceToast(false)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'white',
+              fontSize: '20px',
+              cursor: 'pointer',
+              padding: '0 4px',
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
+
+      {/* Toast animation */}
+      <style>{`
+        @keyframes slideIn {
+          from {
             transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
           }
         }
       `}</style>
-    </div>
+    </>
   );
 }

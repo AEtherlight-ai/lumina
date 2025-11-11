@@ -18,18 +18,23 @@ async function main() {
 
         // Download VS Code, unzip it and run the integration test
         // Use explicit directories and quote paths to handle spaces (Windows compatibility)
-        // IMPORTANT: Pass empty workspace folder to avoid VS Code scanning parent directories
-        // which can cause module resolution issues with paths containing spaces
+        // IMPORTANT: Pass workspace folder to prevent VS Code from scanning parent directories
+        // which can cause module resolution issues with paths containing spaces (Windows Dropbox bug)
+        // Use a temporary empty workspace folder inside the extension directory
+        const workspaceFolder = path.join(extensionDevelopmentPath, '.vscode-test-workspace');
+
         await runTests({
             extensionDevelopmentPath,
             extensionTestsPath,
             launchArgs: [
+                workspaceFolder,  // Open workspace folder to prevent parent directory scanning
                 '--new-window',
                 '--skip-welcome',
                 `--user-data-dir="${path.join(extensionDevelopmentPath, '.vscode-test-user-data')}"`,
                 `--extensions-dir="${path.join(extensionDevelopmentPath, '.vscode-test-extensions')}"`,
                 '--no-sandbox',
-                '--disable-workspace-trust'
+                '--disable-workspace-trust',
+                '--disable-extensions'  // Disable other extensions during testing
             ]
         });
     } catch (err) {

@@ -26,6 +26,9 @@ interface InstallationState {
   currentStep: number;
   storageMB: number;
   selectedDomains: string[];
+  licenseKey: string;
+  isValidatingLicense: boolean;
+  licenseError: string | null;
   isProvisioning: boolean;
   provisioningProgress: number;
   error: string | null;
@@ -53,6 +56,9 @@ export default function InstallationWizard({ onComplete }: { onComplete: () => v
     currentStep: 0,
     storageMB: 500,
     selectedDomains: [],
+    licenseKey: '',
+    isValidatingLicense: false,
+    licenseError: null,
     isProvisioning: false,
     provisioningProgress: 0,
     error: null,
@@ -267,6 +273,167 @@ export default function InstallationWizard({ onComplete }: { onComplete: () => v
     </div>
   );
 
+  const validateLicenseKey = async () => {
+    if (!state.licenseKey.trim()) {
+      updateState({ licenseError: 'Please enter a license key' });
+      return;
+    }
+
+    updateState({ isValidatingLicense: true, licenseError: null });
+
+    try {
+      // Try to get token balance to validate license key
+      const balance = await invoke('get_token_balance');
+      console.log('License key validated:', balance);
+
+      // Save license key to settings
+      const currentSettings: any = await invoke('get_settings');
+      await invoke('save_settings', {
+        settings: {
+          ...currentSettings,
+          license_key: state.licenseKey.trim(),
+        },
+      });
+
+      // Move to next step
+      updateState({ isValidatingLicense: false, currentStep: 4 });
+    } catch (error) {
+      console.error('License validation failed:', error);
+      updateState({
+        isValidatingLicense: false,
+        licenseError: `Invalid license key: ${error}`,
+      });
+    }
+  };
+
+  const renderActivation = () => (
+    <div className="wizard-step activation-step">
+      <h2>Activate Your Device</h2>
+      <p className="step-description">
+        Sign in to get your license key and start using voice capture
+      </p>
+
+      <div className="activation-options">
+        <button
+          className="auth-button primary"
+          onClick={() => {
+            window.open('https://aetherlight-aelors-projects.vercel.app/sign-up?source=desktop-install', '_blank');
+          }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '16px',
+            padding: '20px',
+            background: '#3b82f6',
+            color: 'white',
+            border: 'none',
+            borderRadius: '12px',
+            fontSize: '16px',
+            cursor: 'pointer',
+            marginBottom: '12px',
+            width: '100%',
+            textAlign: 'left',
+          }}
+        >
+          <span style={{ fontSize: '32px' }}>🚀</span>
+          <div>
+            <h3 style={{ margin: '0 0 4px 0' }}>New User? Sign Up</h3>
+            <p style={{ margin: 0, fontSize: '14px', opacity: 0.9 }}>
+              Create account • Get 1M tokens free • ~2,666 minutes
+            </p>
+          </div>
+        </button>
+
+        <button
+          className="auth-button secondary"
+          onClick={() => {
+            window.open('https://aetherlight-aelors-projects.vercel.app/sign-in?source=desktop-install', '_blank');
+          }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '16px',
+            padding: '20px',
+            background: '#f3f4f6',
+            color: '#374151',
+            border: 'none',
+            borderRadius: '12px',
+            fontSize: '16px',
+            cursor: 'pointer',
+            width: '100%',
+            textAlign: 'left',
+          }}
+        >
+          <span style={{ fontSize: '32px' }}>🔑</span>
+          <div>
+            <h3 style={{ margin: '0 0 4px 0' }}>Already have an account? Sign In</h3>
+            <p style={{ margin: 0, fontSize: '14px', opacity: 0.7 }}>
+              Access your license key from dashboard
+            </p>
+          </div>
+        </button>
+      </div>
+
+      <div className="license-input" style={{ marginTop: '24px' }}>
+        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>
+          Paste your license key here:
+        </label>
+        <input
+          type="text"
+          placeholder="XXXX-XXXX-XXXX-XXXX"
+          value={state.licenseKey}
+          onChange={(e) => updateState({ licenseKey: e.target.value, licenseError: null })}
+          style={{
+            width: '100%',
+            padding: '12px',
+            fontSize: '16px',
+            border: state.licenseError ? '2px solid #ef4444' : '1px solid #d1d5db',
+            borderRadius: '8px',
+            marginBottom: '12px',
+          }}
+        />
+        {state.licenseError && (
+          <div style={{ color: '#ef4444', fontSize: '14px', marginBottom: '12px' }}>
+            {state.licenseError}
+          </div>
+        )}
+        <button
+          onClick={validateLicenseKey}
+          disabled={state.isValidatingLicense || !state.licenseKey.trim()}
+          style={{
+            width: '100%',
+            padding: '12px',
+            background: '#3b82f6',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            fontSize: '16px',
+            fontWeight: 600,
+            cursor: 'pointer',
+            opacity: (state.isValidatingLicense || !state.licenseKey.trim()) ? 0.5 : 1,
+          }}
+        >
+          {state.isValidatingLicense ? 'Validating...' : 'Validate License Key'}
+        </button>
+      </div>
+
+      <div className="wizard-buttons" style={{ marginTop: '24px' }}>
+        <button
+          className="wizard-button secondary"
+          onClick={() => updateState({ currentStep: 2 })}
+        >
+          Back
+        </button>
+        <button
+          className="wizard-button secondary"
+          onClick={() => updateState({ currentStep: 4 })}
+        >
+          Skip for now (add later in Settings)
+        </button>
+      </div>
+    </div>
+  );
+
   const renderConfirmation = () => (
     <div className="wizard-step confirmation-step">
       <h2>Ready to Install</h2>
@@ -305,7 +472,7 @@ export default function InstallationWizard({ onComplete }: { onComplete: () => v
       <div className="wizard-buttons">
         <button
           className="wizard-button secondary"
-          onClick={() => updateState({ currentStep: 2 })}
+          onClick={() => updateState({ currentStep: 3 })}
         >
           Back
         </button>
@@ -376,6 +543,7 @@ export default function InstallationWizard({ onComplete }: { onComplete: () => v
     renderWelcome,
     renderStorageConfig,
     renderDomainSelection,
+    renderActivation,
     renderConfirmation,
   ];
 
