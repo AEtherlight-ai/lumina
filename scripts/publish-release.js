@@ -250,6 +250,50 @@ async function main() {
     log('⚠ Tests skipped (not configured)', 'yellow');
   }
 
+  // Step 5.5: Build desktop app binaries
+  log('\n📋 Step 5.5: Build desktop app binaries', 'yellow');
+  log('Building Tauri desktop installers...', 'blue');
+
+  // Update desktop app version to match extension
+  const desktopPackageJsonPath = path.join(process.cwd(), 'products', 'lumina-desktop', 'package.json');
+  const desktopTauriConfPath = path.join(process.cwd(), 'products', 'lumina-desktop', 'src-tauri', 'tauri.conf.json');
+
+  const desktopPackageJson = JSON.parse(fs.readFileSync(desktopPackageJsonPath, 'utf8'));
+  const desktopTauriConf = JSON.parse(fs.readFileSync(desktopTauriConfPath, 'utf8'));
+
+  desktopPackageJson.version = newVersion;
+  desktopTauriConf.version = newVersion;
+
+  fs.writeFileSync(desktopPackageJsonPath, JSON.stringify(desktopPackageJson, null, 2) + '\n');
+  fs.writeFileSync(desktopTauriConfPath, JSON.stringify(desktopTauriConf, null, 2) + '\n');
+
+  log(`✓ Desktop app version updated to ${newVersion}`, 'green');
+
+  // Build desktop binaries
+  exec('npm run tauri build', path.join(process.cwd(), 'products', 'lumina-desktop'));
+
+  // Verify desktop binaries were created
+  const desktopBinariesPath = path.join(process.cwd(), 'products', 'lumina-desktop', 'src-tauri', 'target', 'release', 'bundle');
+  const nsisPath = path.join(desktopBinariesPath, 'nsis', `Lumina_${newVersion}_x64-setup.exe`);
+  const msiPath = path.join(desktopBinariesPath, 'msi', `Lumina_${newVersion}_x64_en-US.msi`);
+
+  if (!fs.existsSync(nsisPath) || !fs.existsSync(msiPath)) {
+    log('✗ Desktop binaries not found after build', 'red');
+    process.exit(1);
+  }
+
+  log(`✓ Desktop binaries built: ${newVersion}`, 'green');
+
+  // Copy binaries to vscode-lumina for packaging
+  const vscodeLuminaPath = path.join(process.cwd(), 'vscode-lumina');
+  const destNsisPath = path.join(vscodeLuminaPath, `Lumina_${newVersion}_x64-setup.exe`);
+  const destMsiPath = path.join(vscodeLuminaPath, `Lumina_${newVersion}_x64_en-US.msi`);
+
+  fs.copyFileSync(nsisPath, destNsisPath);
+  fs.copyFileSync(msiPath, destMsiPath);
+
+  log('✓ Desktop binaries copied to vscode-lumina', 'green');
+
   // Step 6: Package VS Code extension
   log('\n📋 Step 6: Package VS Code extension', 'yellow');
   exec('npm run package', path.join(process.cwd(), 'vscode-lumina'));
@@ -386,23 +430,24 @@ Then reload VS Code to see the update.
 
   fs.writeFileSync('.release-notes.tmp', releaseNotes);
 
-  // Find desktop app installers
-  const vscodeLuminaPath = path.join(process.cwd(), 'vscode-lumina');
+  // Find desktop app installers (built in Step 5.5)
+  // Note: vscodeLuminaPath already declared in Step 5.5
   const desktopFiles = [];
-  const exeFile = path.join(vscodeLuminaPath, 'Lumina_0.1.0_x64-setup.exe');
-  const msiFile = path.join(vscodeLuminaPath, 'Lumina_0.1.0_x64_en-US.msi');
+  const exeFile = path.join(vscodeLuminaPath, `Lumina_${newVersion}_x64-setup.exe`);
+  const msiFile = path.join(vscodeLuminaPath, `Lumina_${newVersion}_x64_en-US.msi`);
 
   if (fs.existsSync(exeFile)) {
     desktopFiles.push(`"${exeFile}"`);
-    log(`   Found desktop installer: Lumina_0.1.0_x64-setup.exe`, 'blue');
+    log(`   Found desktop installer: Lumina_${newVersion}_x64-setup.exe`, 'blue');
   }
   if (fs.existsSync(msiFile)) {
     desktopFiles.push(`"${msiFile}"`);
-    log(`   Found desktop installer: Lumina_0.1.0_x64_en-US.msi`, 'blue');
+    log(`   Found desktop installer: Lumina_${newVersion}_x64_en-US.msi`, 'blue');
   }
 
   if (desktopFiles.length === 0) {
     log('⚠️  Warning: No desktop installers found', 'yellow');
+    log('   This should not happen - Step 5.5 should have built them', 'yellow');
     log('   Desktop app will not be available for this release', 'yellow');
   } else {
     log(`✓ Found ${desktopFiles.length} desktop installer(s)`, 'green');
@@ -452,19 +497,19 @@ Then reload VS Code to see the update.
 
   // Check for desktop installers
   if (assetNames.length > 0) {
-    const hasExe = assetNames.includes('Lumina_0.1.0_x64-setup.exe');
-    const hasMsi = assetNames.includes('Lumina_0.1.0_x64_en-US.msi');
+    const hasExe = assetNames.includes(`Lumina_${newVersion}_x64-setup.exe`);
+    const hasMsi = assetNames.includes(`Lumina_${newVersion}_x64_en-US.msi`);
 
     if (hasExe) {
-      log('✓ Verified: Lumina_0.1.0_x64-setup.exe exists on GitHub', 'green');
+      log(`✓ Verified: Lumina_${newVersion}_x64-setup.exe exists on GitHub`, 'green');
     } else {
-      log('⚠️  Warning: Lumina_0.1.0_x64-setup.exe not found in release', 'yellow');
+      log(`⚠️  Warning: Lumina_${newVersion}_x64-setup.exe not found in release`, 'yellow');
     }
 
     if (hasMsi) {
-      log('✓ Verified: Lumina_0.1.0_x64_en-US.msi exists on GitHub', 'green');
+      log(`✓ Verified: Lumina_${newVersion}_x64_en-US.msi exists on GitHub`, 'green');
     } else {
-      log('⚠️  Warning: Lumina_0.1.0_x64_en-US.msi not found in release', 'yellow');
+      log(`⚠️  Warning: Lumina_${newVersion}_x64_en-US.msi not found in release`, 'yellow');
     }
 
     if (!hasExe && !hasMsi) {
