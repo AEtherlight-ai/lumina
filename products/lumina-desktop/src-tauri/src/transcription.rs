@@ -28,15 +28,16 @@ use enigo::Enigo;
 use std::thread;
 use std::time::Duration;
 
-/// Server API transcription response (with credit tracking)
-#[derive(Debug, Deserialize)]
-struct TranscriptionResponse {
-    text: String,
-    cost_usd: f64,
-    balance_remaining_usd: f64,
-    duration_seconds: u64,
-    #[serde(default)]
-    message: String,
+/// Server API transcription response (token-based)
+/// Matches API contract: website/app/api/desktop/transcribe/route.ts:338-345
+#[derive(Debug, Deserialize, Serialize)]
+pub struct TranscriptionResponse {
+    pub success: bool,
+    pub text: String,
+    pub duration_seconds: u64,
+    pub tokens_used: u64,
+    pub tokens_balance: u64,
+    pub transaction_id: String,
 }
 
 /// Warning level from server (80%, 90%, 95% thresholds)
@@ -199,10 +200,12 @@ pub async fn check_token_balance(
  *   - language: "en" (optional, improves accuracy)
  *
  * Response (200):
+ *   - success: bool (true if transcription succeeded)
  *   - text: string (transcribed text)
- *   - cost_usd: number (actual cost for this transcription)
- *   - balance_remaining_usd: number (user's remaining credit balance)
- *   - duration_seconds: number (audio duration)
+ *   - duration_seconds: number (audio duration in seconds)
+ *   - tokens_used: number (tokens consumed for this transcription)
+ *   - tokens_balance: number (user's remaining token balance)
+ *   - transaction_id: string (unique identifier for this transaction)
  *
  * Error Responses:
  *   - 401: Invalid or missing license_key
@@ -295,10 +298,15 @@ pub async fn transcribe_audio(
         .await
         .context("Failed to parse server API response")?;
 
+    // Check if transcription was successful
+    if !transcription_response.success {
+        anyhow::bail!("Transcription failed: API returned success=false");
+    }
+
     println!("✅ Transcription received: {} characters", transcription_response.text.len());
-    println!("💰 Cost: ${:.4}, Balance remaining: ${:.2}",
-             transcription_response.cost_usd,
-             transcription_response.balance_remaining_usd);
+    println!("💰 Tokens used: {}, Balance remaining: {} tokens",
+             transcription_response.tokens_used,
+             transcription_response.tokens_balance);
 
     Ok(transcription_response.text)
 }
@@ -367,5 +375,51 @@ mod tests {
         // Check WAV header magic number "RIFF"
         assert_eq!(&wav_bytes[0..4], b"RIFF");
         assert_eq!(&wav_bytes[8..12], b"WAVE");
+    }
+
+    /// Test deserialization of TranscriptionResponse with token-based API contract
+    /// Expected format matches website/app/api/desktop/transcribe/route.ts:338-345
+    #[test]
+    fn test_transcription_response_deserialization_success() {
+        // Simulate actual API response (token-based)
+        let json_response = r#"{
+            "success": true,
+            "text": "This is a test transcription",
+            "duration_seconds": 600,
+            "tokens_used": 3750,
+            "tokens_balance": 996250,
+            "transaction_id": "550e8400-e29b-41d4-a716-446655440000"
+        }"#;
+
+        // Test deserialization
+        let response: TranscriptionResponse = serde_json::from_str(json_response)
+            .expect("Failed to deserialize TranscriptionResponse");
+
+        // Assert all 6 fields match expected values
+        assert_eq!(response.text, "This is a test transcription");
+        assert_eq!(response.duration_seconds, 600);
+        assert_eq!(response.tokens_used, 3750);
+        assert_eq!(response.tokens_balance, 996250);
+        assert_eq!(response.transaction_id, "550e8400-e29b-41d4-a716-446655440000");
+        assert!(response.success);
+    }
+
+    /// Test deserialization with success=false (API error case)
+    #[test]
+    fn test_transcription_response_deserialization_failure() {
+        let json_response = r#"{
+            "success": false,
+            "text": "",
+            "duration_seconds": 0,
+            "tokens_used": 0,
+            "tokens_balance": 996250,
+            "transaction_id": ""
+        }"#;
+
+        let response: TranscriptionResponse = serde_json::from_str(json_response)
+            .expect("Failed to deserialize error response");
+
+        assert!(!response.success);
+        assert_eq!(response.text, "");
     }
 }
