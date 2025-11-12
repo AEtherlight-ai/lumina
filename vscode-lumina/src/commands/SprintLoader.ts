@@ -68,6 +68,8 @@ export interface SprintTask {
     reasoning_chain?: string[];
     pattern_context?: string;
     success_impact?: string;
+    enhanced_prompt?: string;  // MVP-003: Path to enhanced task prompt (e.g., "internal/sprints/enhanced_prompts/BUG-002A_ENHANCED_PROMPT.md")
+    template?: string;  // MVP-003: Template version used (e.g., "MVP-003-PromptEnhancer-TaskTemplate-v1.0")
     // Test-related fields (TDD enforcement)
     error_handling?: string;
     test_requirements?: string;

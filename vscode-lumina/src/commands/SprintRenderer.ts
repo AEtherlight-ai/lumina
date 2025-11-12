@@ -420,6 +420,31 @@ export class SprintRenderer {
                     </div>
                 ` : ''}
 
+                ${task.enhanced_prompt ? `
+                    <div class="task-details-section">
+                        <h3>📋 Enhanced Prompt</h3>
+                        <div class="enhanced-prompt-info">
+                            <p class="enhanced-prompt-path">
+                                <span class="codicon codicon-file-text"></span>
+                                <code>${this.escapeHtml(task.enhanced_prompt)}</code>
+                            </p>
+                            ${task.template ? `
+                                <p class="template-info">
+                                    <span class="codicon codicon-symbol-class"></span>
+                                    Template: <code>${this.escapeHtml(task.template)}</code>
+                                </p>
+                            ` : ''}
+                            <p class="enhanced-prompt-description">
+                                Comprehensive implementation guide with context, validation, TDD steps, and acceptance criteria.
+                            </p>
+                            <button class="task-button task-button-secondary" onclick="openEnhancedPrompt('${this.escapeHtml(task.enhanced_prompt)}')">
+                                <span class="codicon codicon-file-text"></span>
+                                Open Enhanced Prompt
+                            </button>
+                        </div>
+                    </div>
+                ` : ''}
+
                 ${task.dependencies && task.dependencies.length > 0 ? `
                     <div class="task-details-section">
                         <h3>Dependencies</h3>
