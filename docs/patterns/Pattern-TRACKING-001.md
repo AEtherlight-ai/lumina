@@ -386,6 +386,348 @@ BIGGEST_CHALLENGE: IPC protocol edge cases (needed 1 rework iteration)
 
 ---
 
+## Sprint TOML Lifecycle Management
+
+**Added:** 2025-01-12 (v1.1 - Sprint integration)
+
+### Overview
+
+Sprint TOML file (`internal/sprints/ACTIVE_SPRINT.toml`) is the **source of truth** for task status. This section documents the lifecycle management protocol for updating task status during execution.
+
+### File Location
+
+- **Path**: Always `internal/sprints/ACTIVE_SPRINT.toml` (only one active sprint at a time)
+- **Format**: TOML (parsed by SprintLoader.ts:292-333)
+- **Validation**: Pre-commit hook runs `validate-sprint-schema.js`
+
+### Task Status Lifecycle
+
+```
+pending → in_progress → completed
+            ↓
+         deferred (if blocked)
+```
+
+### State Definitions
+
+| State | Meaning | When to Use |
+|-------|---------|-------------|
+| `pending` | Task ready to start, dependencies clear | Initial state, or after unblocking |
+| `in_progress` | Task actively being worked on | IMMEDIATELY before starting work |
+| `completed` | Task finished, validated, committed | After commit + validation pass |
+| `deferred` | Task blocked or postponed | When blocker encountered |
+
+---
+
+### Update Protocol
+
+#### Before Starting Task (pending → in_progress)
+
+**Manual Process:**
+
+1. **Find task line numbers**:
+   ```bash
+   grep -n "^\[tasks.{TASK-ID}\]" internal/sprints/ACTIVE_SPRINT.toml
+   ```
+
+2. **Read current status** (use Read tool):
+   ```bash
+   # Example output: Line 1089
+   # Read lines 1089-1120 to see full task definition
+   ```
+
+3. **Update status** (use Edit tool):
+   ```markdown
+   Tool: Edit
+   File: internal/sprints/ACTIVE_SPRINT.toml
+   old_string: status = "pending"
+   new_string: status = "in_progress"
+   ```
+
+4. **Validate update**:
+   ```bash
+   grep -A 1 "^\[tasks.{TASK-ID}\]" internal/sprints/ACTIVE_SPRINT.toml | grep status
+   # Expected output: status = "in_progress"
+   ```
+
+**Automated Process (Skill)**:
+
+```bash
+/sprint-task-lifecycle start {TASK-ID}
+```
+
+**Integration with TodoWrite**:
+- Add as Step 0A (first implementation step)
+- Mark "in_progress" in TodoWrite AFTER Sprint TOML updated
+- Ensures Sprint Panel UI reflects current work
+
+---
+
+#### After Completing Task (in_progress → completed)
+
+**Manual Process:**
+
+1. **Read current task section**:
+   ```bash
+   grep -A 10 "^\[tasks.{TASK-ID}\]" internal/sprints/ACTIVE_SPRINT.toml
+   ```
+
+2. **Update status + add completion date** (use Edit tool):
+   ```markdown
+   Tool: Edit
+   File: internal/sprints/ACTIVE_SPRINT.toml
+   old_string: status = "in_progress"
+   new_string: status = "completed"
+   completed_date = "2025-01-12"
+   ```
+
+3. **Validate update**:
+   ```bash
+   grep -A 2 "^\[tasks.{TASK-ID}\]" internal/sprints/ACTIVE_SPRINT.toml | grep -E "status|completed_date"
+   # Expected output:
+   # status = "completed"
+   # completed_date = "2025-01-12"
+   ```
+
+**Automated Process (Skill)**:
+
+```bash
+/sprint-task-lifecycle complete {TASK-ID}
+```
+
+**Integration with TodoWrite**:
+- Add as Step N (final implementation step, after commit)
+- Mark this TodoWrite item as "completed" AFTER Sprint TOML updated
+- Ensures Sprint Panel UI reflects task completion
+
+---
+
+#### If Blocked or Deferred (in_progress → deferred)
+
+**Manual Process:**
+
+1. **Update status + add reason** (use Edit tool):
+   ```markdown
+   Tool: Edit
+   File: internal/sprints/ACTIVE_SPRINT.toml
+   old_string: status = "in_progress"
+   new_string: status = "deferred"
+   deferred_reason = "Blocked by API changes in BUG-001"
+   ```
+
+2. **Validate update**:
+   ```bash
+   grep -A 3 "^\[tasks.{TASK-ID}\]" internal/sprints/ACTIVE_SPRINT.toml | grep -E "status|deferred_reason"
+   ```
+
+**Automated Process (Skill)**:
+
+```bash
+/sprint-task-lifecycle defer {TASK-ID} "Blocked by API changes in BUG-001"
+```
+
+**Follow-up Actions**:
+- Document blocker in task notes or issue tracker
+- Update dependencies if blocker is another task
+- Notify user of deferral reason
+- Move to next available task
+
+---
+
+### Required Fields
+
+**Minimum fields for every task**:
+
+```toml
+[tasks.TASK-ID]
+id = "TASK-ID"
+name = "Task description"
+status = "pending"  # or in_progress, completed, deferred
+phase = "Implementation"
+agent = "infrastructure-agent"
+estimated_time = "2 hours"
+dependencies = []  # or ["OTHER-TASK-ID"]
+```
+
+**Optional fields**:
+
+```toml
+completed_date = "2025-01-12"  # Required when status = "completed"
+deferred_reason = "Reason text"  # Required when status = "deferred"
+enhanced_prompt = "internal/sprints/enhanced_prompts/TASK-ID_ENHANCED_PROMPT.md"
+skill = "publish"  # If automated skill available
+actual_time = "1.5 hours"  # For retrospective analysis
+```
+
+---
+
+### Validation
+
+**Pre-commit Hook:**
+- `scripts/validate-sprint-schema.js` runs automatically
+- Validates TOML format, required fields, status values
+- Blocks commit if validation fails
+
+**Manual Validation:**
+
+```bash
+node scripts/validate-sprint-schema.js
+# Expected output: ✅ Sprint schema valid
+```
+
+---
+
+### Integration with Enhanced Prompts (Template v1.3)
+
+**Every enhanced prompt includes Sprint TOML management**:
+
+```markdown
+## Context Gathered
+
+### Sprint TOML
+- **File**: `internal/sprints/ACTIVE_SPRINT.toml`
+- **Task Entry**: Lines {LINE_START}-{LINE_END}
+- **Management**: Use `/sprint-task-lifecycle` skill (see Pattern-TRACKING-001)
+
+## Implementation Steps
+
+### Step 0A: Update Sprint Status (2 min)
+```bash
+/sprint-task-lifecycle start {TASK-ID}
+```
+
+### Step N: Mark Task Complete (2 min)
+```bash
+/sprint-task-lifecycle complete {TASK-ID}
+```
+```
+
+---
+
+### Benefits of Sprint TOML Tracking
+
+**1. Sprint Panel UI Synchronization**
+- Real-time status updates visible in VS Code Sprint Panel
+- Users see which tasks are in progress, completed, deferred
+- Visual progress tracking across entire sprint
+
+**2. Dependency Management**
+- Tasks with status = "completed" unblock dependent tasks
+- Sprint Panel highlights next available tasks
+- Prevents starting tasks with incomplete dependencies
+
+**3. Retrospective Data**
+- completed_date enables velocity calculations
+- Compare estimated_time vs actual_time (if tracked)
+- Identify bottlenecks and improve future estimates
+
+**4. Workflow Enforcement**
+- Can't mark task complete without commit (git check)
+- Pre-commit hook validates Sprint TOML format
+- Automated validation prevents parser failures
+
+**5. Multi-Agent Coordination**
+- All agents see current task status
+- Prevents duplicate work (two agents starting same task)
+- Clear handoffs between agents (status transitions)
+
+---
+
+### Anti-Patterns (What NOT to Do)
+
+**❌ "Update status after task complete"**
+- Result: Sprint Panel doesn't show work in progress
+- User can't track real-time progress
+- Solution: Update to "in_progress" BEFORE starting work
+
+**❌ "Forget to add completed_date"**
+- Result: Can't calculate task duration for retrospective
+- Missing data for velocity calculations
+- Solution: Use automated skill or follow manual protocol
+
+**❌ "Manually edit without reading file first"**
+- Result: Syntax errors, parser failures (2025-11-03 incident)
+- Solution: Always Read → Edit → Validate
+
+**❌ "Skip validation after update"**
+- Result: Broken TOML not caught until commit
+- Pre-commit hook fails, commit blocked
+- Solution: Validate immediately after edit
+
+**❌ "Update status without TodoWrite tracking"**
+- Result: Sprint TOML out of sync with TodoWrite
+- User sees conflicting status information
+- Solution: Sprint TOML update = explicit TodoWrite step
+
+---
+
+### Automation: sprint-task-lifecycle Skill
+
+**Purpose**: Eliminate manual grep/read/edit/validate steps
+
+**Usage**:
+
+```bash
+# Start task (pending → in_progress)
+/sprint-task-lifecycle start BUG-002A
+
+# Complete task (in_progress → completed + date)
+/sprint-task-lifecycle complete BUG-002A
+
+# Defer task (in_progress → deferred + reason)
+/sprint-task-lifecycle defer BUG-002A "Blocked by API changes"
+```
+
+**Implementation Location**: `.claude/skills/sprint-task-lifecycle/`
+
+**Benefits**:
+- ✅ Single command replaces 4 manual steps
+- ✅ Automatic validation built-in
+- ✅ Error handling (task not found, file not writable)
+- ✅ Consistent behavior across all tasks
+
+**Fallback**: If skill unavailable, follow manual process documented above
+
+---
+
+### Example: BUG-002A Lifecycle
+
+**Before Starting (Step 0A)**:
+
+```bash
+# Automated (preferred)
+/sprint-task-lifecycle start BUG-002A
+
+# Manual (if skill unavailable)
+grep -n "^\[tasks.BUG-002A\]" internal/sprints/ACTIVE_SPRINT.toml
+# Output: 1089
+# Read lines 1089-1120
+# Edit: status = "pending" → status = "in_progress"
+# Validate: grep -A 1 "^\[tasks.BUG-002A\]" ... | grep status
+```
+
+**Result**: Sprint Panel shows BUG-002A as "In Progress"
+
+---
+
+**After Completing (Step N)**:
+
+```bash
+# Automated (preferred)
+/sprint-task-lifecycle complete BUG-002A
+
+# Manual (if skill unavailable)
+# Edit: status = "in_progress" → status = "completed"\ncompleted_date = "2025-01-12"
+# Validate: Check both fields present
+```
+
+**Result**:
+- Sprint Panel shows BUG-002A as "Completed"
+- Tasks with dependency on BUG-002A are now unblocked
+- Retrospective data includes completion timestamp
+
+---
+
 ## Continuous Improvement
 
 **As this pattern evolves:**
@@ -394,6 +736,8 @@ BIGGEST_CHALLENGE: IPC protocol edge cases (needed 1 rework iteration)
 3. Add new metrics as discovered (e.g., context switch cost)
 4. Build visualization dashboards (burndown charts, efficiency trends)
 5. Generate predictive models from historical data
+6. **NEW**: Improve Sprint TOML automation (skill enhancements)
+7. **NEW**: Add actual_time tracking for velocity calculations
 
 **Future Enhancements:**
 - Automated timestamp recording (git hooks)
