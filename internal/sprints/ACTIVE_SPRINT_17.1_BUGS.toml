@@ -2577,11 +2577,17 @@ Commit Hash: 61d24b5
 [tasks.BUG-011]
 id = "BUG-011"
 name = "Add extension license key validation on activation (LIVE validation)"
-status = "pending"
+status = "ready"
 phase = "extension-license-validation"
 agent = "infrastructure-agent"
 enhanced_prompt = "internal/sprints/enhanced_prompts/BUG-011_ENHANCED_PROMPT.md"
 questions_doc = "internal/sprints/questions/BUG-011_QUESTIONS.md"
+implementation_approach = "Bearer token pattern using /api/tokens/balance (no device fingerprint required)"
+api_endpoint = "GET https://aetherlight.ai/api/tokens/balance (Authorization: Bearer {license_key})"
+test_keys = "Free: CD7W-AJDK-RLQT-LUFA | Pro: W7HD-X79Q-CQJ9-XW13"
+estimated_time_actual = "6 hours"
+answers_received = "2025-11-13"
+cleared_to_proceed = true
 template = "MVP-003-PromptEnhancer-TaskTemplate-v1.4.3"
 why = """
 CRITICAL SECURITY GAP:\r
