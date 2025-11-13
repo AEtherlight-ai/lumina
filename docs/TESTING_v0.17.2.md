@@ -405,11 +405,11 @@ completion_percentage = 6  # (1 / 18) * 100
 
 ### Category 6: Desktop App Functionality
 **Priority**: CRITICAL
-**Tests**: 7 (Tests 35-41 - BUG-002A, BUG-002)
-**Time**: 30 minutes
+**Tests**: 13 (Tests 35-47 - BUG-002A, BUG-002, BUG-008, BUG-009, BUG-010)
+**Time**: 50 minutes
 
-**Total Tests**: 41
-**Total Time**: ~115 minutes (1.9 hours)
+**Total Tests**: 47
+**Total Time**: ~135 minutes (2.25 hours)
 
 ---
 
@@ -1391,6 +1391,229 @@ completion_percentage = 6  # (1 / 18) * 100
 
 ---
 
+### Test 42: BUG-008 - Code Analyzer Modal (Verification - BUG-010)
+**Category**: Desktop App Functionality
+**Priority**: CRITICAL
+**Commit**: adbf0cf
+**Dependencies**: BUG-001 (TaskAnalyzer safety check)
+
+**Steps**:
+1. Launch Extension Development Host (F5 in VS Code)
+2. Open Voice Panel (click ÆtherLight icon in sidebar)
+3. Click "Code Analyzer" button (left toolbar)
+4. Verify modal opens with Q&A form
+5. Fill form fields:
+   - Languages: TypeScript, JavaScript (multi-select with Ctrl/Cmd)
+   - Frameworks: React
+   - Focus Area: Architecture Review
+   - Complexity: Moderate
+   - Concerns: (leave blank or add text)
+6. Click "✨ Enhance" button
+7. Verify modal closes
+8. Verify enhanced code analysis prompt appears in main text area
+9. Open browser console (Ctrl+Shift+I in webview)
+10. Verify no console errors
+
+**Test Workspace 1: No config.json**
+- [ ] Modal opens (no crash, no TypeError)
+- [ ] Form fields visible and functional
+- [ ] Multi-select works (Ctrl/Cmd + click)
+- [ ] Enhance button works
+- [ ] Modal closes after enhance
+- [ ] Enhanced prompt appears in text area
+- [ ] No console errors
+
+**Test Workspace 2: With config.json**
+- Create `.aetherlight/config.json` with:
+  ```json
+  {
+    "agents": {
+      "infrastructure-agent": {
+        "name": "Infrastructure Agent",
+        "focus": "Infrastructure, CI/CD"
+      }
+    }
+  }
+  ```
+- [ ] Modal opens successfully
+- [ ] Q&A flow works
+- [ ] Enhanced prompt generated
+- [ ] No console errors
+
+**Expected Result**: ✅ Code Analyzer modal works in all scenarios, no crashes
+
+**Actual Result**: _____________________________
+
+**Status**: [ ] PASS [ ] FAIL
+
+---
+
+### Test 43: BUG-009 - Sprint Planner Modal (Verification - BUG-010)
+**Category**: Desktop App Functionality
+**Priority**: CRITICAL
+**Commit**: 229c172
+**Dependencies**: BUG-001 (TaskAnalyzer safety check)
+
+**Steps**:
+1. Launch Extension Development Host (F5 in VS Code)
+2. Open Voice Panel
+3. Click "Sprint Planner" button (left toolbar)
+4. Verify modal opens with Q&A form
+5. Fill form fields:
+   - Sprint Duration: 2 Weeks (dropdown)
+   - Team Size: 5 (number input)
+   - Sprint Goals: "Implement authentication and fix installation UX" (textarea)
+   - Priorities: New Features, Bug Fixes (multi-select with Ctrl/Cmd)
+   - Additional Context: "Sprint 17.1, focus on desktop app stability" (optional)
+6. Click "✨ Enhance" button
+7. Verify modal closes
+8. Verify enhanced sprint plan appears in main text area
+9. Check console for errors
+
+**Test Workspace 1: No config.json**
+- [ ] Modal opens (no crash, no TypeError)
+- [ ] Form fields visible and functional
+- [ ] Multi-select priorities works (Ctrl/Cmd + click)
+- [ ] Enhance button works
+- [ ] Modal closes after enhance
+- [ ] Enhanced sprint plan appears in text area
+- [ ] No console errors
+
+**Test Workspace 2: With config.json**
+- Use same config.json from Test 42
+- [ ] Modal opens successfully
+- [ ] Q&A flow works
+- [ ] Enhanced plan generated
+- [ ] No console errors
+
+**Expected Result**: ✅ Sprint Planner modal works in all scenarios, no crashes
+
+**Actual Result**: _____________________________
+
+**Status**: [ ] PASS [ ] FAIL
+
+---
+
+### Test 44: BUG-010 - Edge Case: Empty config.json
+**Category**: Desktop App Functionality
+**Priority**: HIGH
+**Commit**: BUG-010 verification
+**Dependencies**: BUG-001, BUG-008, BUG-009
+
+**Steps**:
+1. Create new test workspace: `test-workspace-empty-config`
+2. Create `.aetherlight/config.json` with content: `{}`
+3. Open Voice Panel
+4. Click "Code Analyzer" button
+5. Verify modal opens (should not crash)
+6. Click "Sprint Planner" button
+7. Verify modal opens (should not crash)
+8. Check console for errors
+
+**Expected Results**:
+- [ ] Code Analyzer modal opens (no crash)
+- [ ] Sprint Planner modal opens (no crash)
+- [ ] No console errors related to missing agents
+- [ ] Graceful degradation (modals work without agents config)
+
+**Actual Result**: _____________________________
+
+**Status**: [ ] PASS [ ] FAIL
+
+---
+
+### Test 45: BUG-010 - Edge Case: Malformed config.json
+**Category**: Desktop App Functionality
+**Priority**: HIGH
+**Commit**: BUG-010 verification
+**Dependencies**: BUG-001, BUG-008, BUG-009
+
+**Steps**:
+1. Create new test workspace: `test-workspace-malformed-config`
+2. Create `.aetherlight/config.json` with invalid JSON: `{ "agents": { "foo": }`
+3. Open Voice Panel
+4. Click "Code Analyzer" button
+5. Verify modal opens (graceful error handling)
+6. Check console for parse error (expected)
+7. Verify modal still functions despite parse error
+
+**Expected Results**:
+- [ ] Modal opens (graceful degradation)
+- [ ] Parse error logged to console (but no crash)
+- [ ] Q&A flow completes successfully
+- [ ] Enhanced prompt generated
+
+**Actual Result**: _____________________________
+
+**Status**: [ ] PASS [ ] FAIL
+
+---
+
+### Test 46: BUG-010 - Edge Case: Multiple Rapid Modal Opens
+**Category**: Desktop App Functionality
+**Priority**: MEDIUM
+**Commit**: BUG-010 verification
+**Dependencies**: BUG-001, BUG-008, BUG-009
+
+**Steps**:
+1. Open Voice Panel in test workspace (no config.json)
+2. Click "Code Analyzer" button 3 times rapidly (as fast as possible)
+3. Verify only one modal visible at a time
+4. Close modal
+5. Click "Sprint Planner" button 3 times rapidly
+6. Verify no race conditions or duplicate modals
+7. Check console for errors
+
+**Expected Results**:
+- [ ] Only one modal visible at a time
+- [ ] No race conditions
+- [ ] No duplicate modals
+- [ ] No console errors
+
+**Actual Result**: _____________________________
+
+**Status**: [ ] PASS [ ] FAIL
+
+---
+
+### Test 47: BUG-010 - Modal Form Validation
+**Category**: Desktop App Functionality
+**Priority**: HIGH
+**Commit**: BUG-010 verification
+**Dependencies**: BUG-008, BUG-009
+
+**Steps**:
+1. Open Code Analyzer modal
+2. Leave all fields empty (don't select any languages)
+3. Click "✨ Enhance" button
+4. Verify error message appears: "⚠️ Please select at least one programming language"
+5. Verify modal stays open (doesn't close)
+6. Close modal
+7. Open Sprint Planner modal
+8. Leave "Sprint Duration" empty
+9. Click "✨ Enhance" button
+10. Verify error message appears: "⚠️ Please select a sprint duration"
+11. Fill duration but leave "Sprint Goals" empty
+12. Click "✨ Enhance" button
+13. Verify error message appears: "⚠️ Please enter sprint goals"
+14. Enter team size = 0
+15. Click "✨ Enhance" button
+16. Verify error message appears: "⚠️ Team size must be at least 1"
+
+**Expected Results**:
+- [ ] Code Analyzer validates at least one language required
+- [ ] Sprint Planner validates duration required
+- [ ] Sprint Planner validates goals required
+- [ ] Sprint Planner validates positive team size
+- [ ] All error messages display correctly
+- [ ] Modal stays open on validation failure
+
+**Actual Result**: _____________________________
+
+**Status**: [ ] PASS [ ] FAIL
+
+---
+
 ## Test Credentials
 
 ### Website API (for future BUG-002A/B/C testing)
@@ -1458,6 +1681,12 @@ completion_percentage = 6  # (1 / 18) * 100
 - [ ] Test 38: BUG-002 - License Activation Dialog Component
 - [ ] Test 39: BUG-002 - Cargo.toml Dependencies
 - [ ] Test 41: BUG-002 - Sprint TOML Completion Status
+- [ ] Test 42: BUG-008 - Code Analyzer Modal (Verification - BUG-010)
+- [ ] Test 43: BUG-009 - Sprint Planner Modal (Verification - BUG-010)
+- [ ] Test 44: BUG-010 - Edge Case: Empty config.json
+- [ ] Test 45: BUG-010 - Edge Case: Malformed config.json
+- [ ] Test 46: BUG-010 - Edge Case: Multiple Rapid Modal Opens
+- [ ] Test 47: BUG-010 - Modal Form Validation
 
 ### Optional Tests (Nice to Have)
 - [ ] Test 40: BUG-002 - Integration Test with Live API (Optional)
@@ -1484,7 +1713,7 @@ completion_percentage = 6  # (1 / 18) * 100
 - Extension Version: 0.17.2
 
 **Results**:
-- Total Tests Run: _____ / 41
+- Total Tests Run: _____ / 47
 - Tests Passed: _____
 - Tests Failed: _____
 - Tests Skipped: _____
