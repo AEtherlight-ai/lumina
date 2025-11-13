@@ -760,6 +760,12 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
              * FLOW: Find next task → Generate AI-enhanced prompt → Insert into Voice text area → User reviews + sends to terminal
              */
             case 'startNextTask':
+                /**
+                 * ENHANCE-001.3: Start Next Task with v3.0 Context Builder
+                 * WHY: Use TaskContextBuilder → handleEnhancement() → AIEnhancementService
+                 * PATTERN: Next Task → TaskContextBuilder → EnhancementContext → Universal Handler → Enhanced Prompt
+                 * ARCHITECTURE: v3.0 (dependency-aware task selection, comprehensive validation)
+                 */
                 {
                     const nextTask = this.taskStarter.findNextReadyTask(this.sprintTasks);
                     if (!nextTask) {
@@ -768,64 +774,51 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                     }
 
                     try {
-                        // UX-001: Generate AI-enhanced prompt (UNIVERSAL PATTERN)
-                        vscode.window.showInformationMessage(`⏳ Generating AI-enhanced prompt for ${nextTask.id}...`);
-
-                        const { TaskPromptExporter } = await import('../services/TaskPromptExporter');
-                        const exporter = new TaskPromptExporter();
-
-                        // Export task with AI enhancement (temporal drift detection, current state analysis)
-                        const enhancedPrompt = await exporter.generateEnhancedPrompt(nextTask.id);
-
-                        // PROTECT-000D: Check if response contains gaps/questions
-                        if (enhancedPrompt.includes('⚠️  Task Analysis - Gaps Detected')) {
-                            // Gaps detected - need to re-analyze to get Question[] objects
-                            const { TaskAnalyzer } = await import('../services/TaskAnalyzer');
-                            const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
-                            const analyzer = new TaskAnalyzer(workspaceRoot);
-                            const state = await exporter.analyzeProjectState(nextTask.id);
-                            const completedTasksWithStatus = state.completedTasks.map(t => ({ ...t, status: 'completed' }));
-                            const analysisResult = await analyzer.analyzeTask(nextTask as any, completedTasksWithStatus);
-
-                            if (analysisResult.status === 'needs_clarification' && analysisResult.questions) {
-                                // Show Q&A modal
-                                const modal = new TaskQuestionModal(this._context, analysisResult.questions, nextTask.id);
-                                modal.show((taskId, answers) => {
-                                    // User answered questions - regenerate prompt (with answers if needed)
-                                    // For MVP, just regenerate without answers (TODO: Pass answers to analyzer)
-                                    exporter.generateEnhancedPrompt(taskId).then(finalPrompt => {
-                                        if (!finalPrompt.includes('⚠️  Task Analysis - Gaps Detected')) {
-                                            webview.postMessage({
-                                                type: 'populateTextArea',
-                                                text: finalPrompt
-                                            });
-                                            vscode.window.showInformationMessage(`✅ AI-enhanced prompt for ${taskId} loaded - review in text area and click Send`);
-                                        } else {
-                                            vscode.window.showWarningMessage('Some gaps remain unresolved. Please review the task definition.');
-                                            webview.postMessage({
-                                                type: 'populateTextArea',
-                                                text: finalPrompt
-                                            });
-                                        }
-                                    });
-                                });
-                            }
-                        } else {
-                            // No gaps - insert enhanced prompt into Voice text area (UNIVERSAL PATTERN)
-                            // User can then review, edit, select terminal, and send
-                            webview.postMessage({
-                                type: 'populateTextArea',
-                                text: enhancedPrompt
-                            });
-
-                            vscode.window.showInformationMessage(`✅ AI-enhanced prompt for ${nextTask.id} loaded - review in text area and click Send`);
-                        }
-
+                        const taskBuilder = new TaskContextBuilder(this._context);
+                        await this.handleEnhancement(
+                            'start_task',
+                            { taskId: nextTask.id },
+                            taskBuilder,
+                            webview
+                        );
                     } catch (error) {
-                        vscode.window.showErrorMessage(`Failed to generate enhanced prompt: ${(error as Error).message}`);
+                        console.error('[ÆtherLight] Start next task enhancement failed:', error);
+                        vscode.window.showErrorMessage(`Failed to start next task: ${(error as Error).message}`);
                     }
                 }
                 break;
+
+                // OLD IMPLEMENTATION (ENHANCE-001.2 - commented for rollback safety):
+                // case 'startNextTask':
+                //     {
+                //         const nextTask = this.taskStarter.findNextReadyTask(this.sprintTasks);
+                //         if (!nextTask) {
+                //             vscode.window.showWarningMessage('No ready tasks available. All tasks are either completed, in progress, or blocked by dependencies.');
+                //             break;
+                //         }
+                //
+                //         try {
+                //             // UX-001: Generate AI-enhanced prompt (UNIVERSAL PATTERN)
+                //             vscode.window.showInformationMessage(`⏳ Generating AI-enhanced prompt for ${nextTask.id}...`);
+                //             const { TaskPromptExporter } = await import('../services/TaskPromptExporter');
+                //             const exporter = new TaskPromptExporter();
+                //             const enhancedPrompt = await exporter.generateEnhancedPrompt(nextTask.id);
+                //
+                //             // PROTECT-000D: Check if response contains gaps/questions
+                //             if (enhancedPrompt.includes('⚠️  Task Analysis - Gaps Detected')) {
+                //                 // [Modal logic omitted for brevity]
+                //             } else {
+                //                 webview.postMessage({
+                //                     type: 'populateTextArea',
+                //                     text: enhancedPrompt
+                //                 });
+                //                 vscode.window.showInformationMessage(`✅ AI-enhanced prompt for ${nextTask.id} loaded - review in text area and click Send`);
+                //             }
+                //         } catch (error) {
+                //             vscode.window.showErrorMessage(`Failed to generate enhanced prompt: ${(error as Error).message}`);
+                //         }
+                //     }
+                //     break;
 
             /**
              * UX-001: Start Specific Task (UNIVERSAL ENHANCEMENT PATTERN)
@@ -833,77 +826,60 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
              * CHANGE: No longer shows dialog or updates TOML. Just generates prompt for review.
              */
             case 'startTask':
-                {
-                    const task = this.sprintTasks.find(t => t.id === message.taskId);
-                    if (!task) {
-                        vscode.window.showErrorMessage(`Task ${message.taskId} not found`);
-                        break;
-                    }
-
-                    try {
-                        // UX-001: Generate AI-enhanced prompt (UNIVERSAL PATTERN)
-                        vscode.window.showInformationMessage(`⏳ Generating AI-enhanced prompt for ${task.id}...`);
-
-                        // BUG-013: Get currently selected sprint file from SprintLoader
-                        // WHY: User may have selected different sprint in dropdown
-                        // REASONING: TaskPromptExporter should read from UI-selected sprint, not hardcoded path
-                        const currentSprintPath = this.sprintLoader.getSprintFilePath();
-
-                        const { TaskPromptExporter } = await import('../services/TaskPromptExporter');
-                        const exporter = new TaskPromptExporter(currentSprintPath);
-
-                        // Export task with AI enhancement (temporal drift detection, current state analysis)
-                        const enhancedPrompt = await exporter.generateEnhancedPrompt(task.id);
-
-                        // PROTECT-000D: Check if response contains gaps/questions
-                        if (enhancedPrompt.includes('⚠️  Task Analysis - Gaps Detected')) {
-                            // Gaps detected - need to re-analyze to get Question[] objects
-                            const { TaskAnalyzer } = await import('../services/TaskAnalyzer');
-                            const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
-                            const analyzer = new TaskAnalyzer(workspaceRoot);
-                            const state = await exporter.analyzeProjectState(task.id);
-                            const completedTasksWithStatus = state.completedTasks.map(t => ({ ...t, status: 'completed' }));
-                            const analysisResult = await analyzer.analyzeTask(task as any, completedTasksWithStatus);
-
-                            if (analysisResult.status === 'needs_clarification' && analysisResult.questions) {
-                                // Show Q&A modal
-                                const modal = new TaskQuestionModal(this._context, analysisResult.questions, task.id);
-                                modal.show((taskId, answers) => {
-                                    // User answered questions - regenerate prompt (with answers if needed)
-                                    // For MVP, just regenerate without answers (TODO: Pass answers to analyzer)
-                                    exporter.generateEnhancedPrompt(taskId).then(finalPrompt => {
-                                        if (!finalPrompt.includes('⚠️  Task Analysis - Gaps Detected')) {
-                                            webview.postMessage({
-                                                type: 'populateTextArea',
-                                                text: finalPrompt
-                                            });
-                                            vscode.window.showInformationMessage(`✅ AI-enhanced prompt for ${taskId} loaded - review in text area and click Send`);
-                                        } else {
-                                            vscode.window.showWarningMessage('Some gaps remain unresolved. Please review the task definition.');
-                                            webview.postMessage({
-                                                type: 'populateTextArea',
-                                                text: finalPrompt
-                                            });
-                                        }
-                                    });
-                                });
-                            }
-                        } else {
-                            // No gaps - send to webview to populate main text area (UNIVERSAL PATTERN)
-                            // User can then review, edit, select terminal, and send
-                            webview.postMessage({
-                                type: 'populateTextArea',
-                                text: enhancedPrompt
-                            });
-
-                            vscode.window.showInformationMessage(`✅ AI-enhanced prompt for ${task.id} loaded - review in text area and click Send`);
-                        }
-
-                    } catch (error) {
-                        vscode.window.showErrorMessage(`Failed to generate enhanced prompt: ${(error as Error).message}`);
-                    }
+                /**
+                 * ENHANCE-001.3: Start Task with v3.0 Context Builder
+                 * WHY: Use TaskContextBuilder → handleEnhancement() → AIEnhancementService
+                 * PATTERN: Task → TaskContextBuilder → EnhancementContext → Universal Handler → Enhanced Prompt
+                 * ARCHITECTURE: v3.0 (TOML loading, dependency validation, temporal drift detection)
+                 */
+                try {
+                    const taskBuilder = new TaskContextBuilder(this._context);
+                    await this.handleEnhancement(
+                        'start_task',
+                        { taskId: message.taskId },
+                        taskBuilder,
+                        webview
+                    );
+                } catch (error) {
+                    console.error('[ÆtherLight] Start task enhancement failed:', error);
+                    vscode.window.showErrorMessage(`Failed to start task: ${(error as Error).message}`);
                 }
                 break;
+
+                // OLD IMPLEMENTATION (ENHANCE-001.2 - commented for rollback safety):
+                // case 'startTask':
+                //     {
+                //         const task = this.sprintTasks.find(t => t.id === message.taskId);
+                //         if (!task) {
+                //             vscode.window.showErrorMessage(`Task ${message.taskId} not found`);
+                //             break;
+                //         }
+                //
+                //         try {
+                //             // UX-001: Generate AI-enhanced prompt (UNIVERSAL PATTERN)
+                //             vscode.window.showInformationMessage(`⏳ Generating AI-enhanced prompt for ${task.id}...`);
+                //
+                //             // BUG-013: Get currently selected sprint file from SprintLoader
+                //             const currentSprintPath = this.sprintLoader.getSprintFilePath();
+                //             const { TaskPromptExporter } = await import('../services/TaskPromptExporter');
+                //             const exporter = new TaskPromptExporter(currentSprintPath);
+                //             const enhancedPrompt = await exporter.generateEnhancedPrompt(task.id);
+                //
+                //             // PROTECT-000D: Check if response contains gaps/questions
+                //             if (enhancedPrompt.includes('⚠️  Task Analysis - Gaps Detected')) {
+                //                 // [Modal logic omitted for brevity]
+                //             } else {
+                //                 webview.postMessage({
+                //                     type: 'populateTextArea',
+                //                     text: enhancedPrompt
+                //                 });
+                //                 vscode.window.showInformationMessage(`✅ AI-enhanced prompt for ${task.id} loaded - review in text area and click Send`);
+                //             }
+                //         } catch (error) {
+                //             vscode.window.showErrorMessage(`Failed to generate enhanced prompt: ${(error as Error).message}`);
+                //         }
+                //     }
+                //     break;
 
             /**
              * MVP-003: Open Enhanced Prompt File
@@ -1270,34 +1246,56 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
             case 'analyzeCodeEnhance':
                 /**
-                 * PROTECT-000F: Code Analyzer Enhancement with MVP-003 Intelligence
-                 * WHY: Generate comprehensive workspace analysis prompt using MVP-003 system
-                 * PATTERN: TemplateTaskBuilder → TaskPromptExporter.generateEnhancedPromptFromTemplate() → Gap detection + Q&A → Enhanced prompt
-                 * UPGRADE: Was basic PromptEnhancer → Now full MVP-003 (gap detection, questions, project state)
+                 * ENHANCE-001.3: Code Analyzer with v3.0 Context Builder
+                 * WHY: Use CodeAnalyzerContextBuilder → handleEnhancement() → AIEnhancementService
+                 * PATTERN: Focus Area → CodeAnalyzerContextBuilder → EnhancementContext → Universal Handler → Enhanced Prompt
+                 * ARCHITECTURE: v3.0 (workspace analysis, git history, complexity metrics, semantic pattern search)
                  */
                 try {
-                    // Detect languages and frameworks from workspace (placeholder - can be enhanced with DiscoveryService)
-                    const languages = ['TypeScript']; // TODO: Use DiscoveryService to detect languages
-                    const frameworks = ['VS Code']; // TODO: Use DiscoveryService to detect frameworks
-
-                    // Build template task using TemplateTaskBuilder
-                    const codeAnalyzerTemplate = this.templateTaskBuilder.buildCodeAnalyzerTemplate(languages, frameworks);
-
-                    // Generate enhanced prompt using MVP-003 system
-                    const enhancedPrompt = await this.taskPromptExporter.generateEnhancedPromptFromTemplate(codeAnalyzerTemplate);
-
-                    // Send to webview to populate main text area
-                    webview.postMessage({
-                        type: 'populateTextArea',
-                        text: enhancedPrompt
-                    });
-
-                    vscode.window.showInformationMessage('✨ Code analysis prompt enhanced (MVP-003) - review in text area and click Send');
+                    const codeAnalyzerBuilder = new CodeAnalyzerContextBuilder(this._context);
+                    await this.handleEnhancement(
+                        'analyze_code',
+                        { focusArea: message.focusArea || 'general' },
+                        codeAnalyzerBuilder,
+                        webview
+                    );
                 } catch (error) {
                     console.error('[ÆtherLight] Code analyzer enhancement failed:', error);
-                    vscode.window.showErrorMessage(`Failed to enhance code analyzer: ${(error as Error).message}`);
+                    vscode.window.showErrorMessage(`Failed to analyze code: ${(error as Error).message}`);
                 }
                 break;
+
+                // OLD IMPLEMENTATION (ENHANCE-001.2 - commented for rollback safety):
+                // case 'analyzeCodeEnhance':
+                //     /**
+                //      * PROTECT-000F: Code Analyzer Enhancement with MVP-003 Intelligence
+                //      * WHY: Generate comprehensive workspace analysis prompt using MVP-003 system
+                //      * PATTERN: TemplateTaskBuilder → TaskPromptExporter.generateEnhancedPromptFromTemplate() → Gap detection + Q&A → Enhanced prompt
+                //      * UPGRADE: Was basic PromptEnhancer → Now full MVP-003 (gap detection, questions, project state)
+                //      */
+                //     try {
+                //         // Detect languages and frameworks from workspace (placeholder - can be enhanced with DiscoveryService)
+                //         const languages = ['TypeScript']; // TODO: Use DiscoveryService to detect languages
+                //         const frameworks = ['VS Code']; // TODO: Use DiscoveryService to detect frameworks
+                //
+                //         // Build template task using TemplateTaskBuilder
+                //         const codeAnalyzerTemplate = this.templateTaskBuilder.buildCodeAnalyzerTemplate(languages, frameworks);
+                //
+                //         // Generate enhanced prompt using MVP-003 system
+                //         const enhancedPrompt = await this.taskPromptExporter.generateEnhancedPromptFromTemplate(codeAnalyzerTemplate);
+                //
+                //         // Send to webview to populate main text area
+                //         webview.postMessage({
+                //             type: 'populateTextArea',
+                //             text: enhancedPrompt
+                //         });
+                //
+                //         vscode.window.showInformationMessage('✨ Code analysis prompt enhanced (MVP-003) - review in text area and click Send');
+                //     } catch (error) {
+                //         console.error('[ÆtherLight] Code analyzer enhancement failed:', error);
+                //         vscode.window.showErrorMessage(`Failed to enhance code analyzer: ${(error as Error).message}`);
+                //     }
+                //     break;
 
             case 'sprintPlannerEnhance':
                 /**
