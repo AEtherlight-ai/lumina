@@ -2016,7 +2016,7 @@ Lessons Learned:
 - Pragmatic approach: Verify defaults before implementing custom solutions
 
 Commit: docs(desktop): Document Windows MSI installer and registry entries (BUG-007)
-Commit Hash: [PENDING - will add after commit]
+Commit Hash: 2208819
 """
 
 [tasks.BUG-008]
