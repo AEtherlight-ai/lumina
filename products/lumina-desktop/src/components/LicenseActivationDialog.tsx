@@ -33,7 +33,7 @@
  */
 
 import React, { useState } from 'react';
-import { invoke } from '@tauri-apps/api/tauri';
+import { invoke } from '@tauri-apps/api/core';
 
 interface LicenseActivationDialogProps {
   onActivated: () => void;  // Callback when activation succeeds
