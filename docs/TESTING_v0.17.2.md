@@ -376,6 +376,107 @@ completion_percentage = 6  # (1 / 18) * 100
 
 ---
 
+### Commit 5: Extension License Key Validation (BUG-011)
+**Commit**: `38766e4`
+**Date**: 2025-11-13
+**Branch**: feature/v0.17.2-bug-fixes
+**Message**: `feat(extension): Add license key validation with Bearer token pattern (BUG-011)`
+
+**Changes**:
+
+#### Files Created (TDD Approach):
+1. **`vscode-lumina/src/auth/licenseValidator.ts`** (~200 lines)
+   - Bearer token authentication with `GET /api/tokens/balance`
+   - 24-hour caching for API efficiency
+   - 2-second timeout with graceful offline mode
+   - Comprehensive error handling (401, 429, network errors)
+
+2. **`vscode-lumina/src/auth/tierGate.ts`** (~130 lines)
+   - Feature access control based on subscription tier
+   - Free tier: All features EXCEPT voice capture
+   - Paid tiers (network/pro/enterprise): All features enabled
+   - Offline mode: Same as free tier
+
+3. **`vscode-lumina/src/test/auth/licenseValidator.test.ts`** (10 tests)
+   - Valid free/pro tier license keys
+   - Invalid key handling (401)
+   - Network error handling with offline fallback
+   - Timeout handling
+   - 24-hour caching validation
+   - Rate limiting (429)
+
+4. **`vscode-lumina/src/test/auth/tierGate.test.ts`** (9 tests)
+   - Free tier blocks voice capture
+   - Paid tiers allow voice capture
+   - Offline mode blocks voice capture
+   - Feature gate validation for all tiers
+
+#### Files Modified:
+1. **`vscode-lumina/package.json`** (configuration properties)
+   - Added `aetherlight.licenseKey` setting
+   - Added `aetherlight.userTier` setting (enum: free/network/pro/enterprise/offline)
+
+2. **`vscode-lumina/src/extension.ts`** (lines 36-37, 267-394, 615-690)
+   - License validation flow on every activation
+   - First-time activation prompt ("Enter License Key" / "Get Free Tier")
+   - Tier status bar display (icon + tier name + tooltip)
+   - TierGate storage in context for command access
+
+3. **`vscode-lumina/src/commands/captureVoice.ts`** (lines 81-108)
+   - Tier gate check before voice capture
+   - Upgrade prompts for free tier users
+
+4. **`vscode-lumina/src/commands/captureVoiceGlobal.ts`** (lines 28-55)
+   - Tier gate check for global voice capture
+   - Consistent gating logic with captureVoice
+
+5. **`vscode-lumina/src/commands/voicePanel.ts`** (bug fix at 4946-4952)
+   - Fixed orphaned methods outside class (compilation error)
+
+**Test Credentials**:
+- Free tier: `CD7W-AJDK-RLQT-LUFA`
+- Pro tier: `W7HD-X79Q-CQJ9-XW13`
+
+**Patterns**:
+- Pattern-AUTH-001 (Bearer token authentication)
+- Pattern-FEATURE-GATING-001 (Tier-based feature access)
+- Pattern-UI-004 (Tier status bar indicator)
+- Pattern-CODE-001 (Code workflow)
+- Pattern-TDD-001 (Test-driven development)
+
+**Testing**: See Tests 48-56 (BUG-011 License Validation)
+- [ ] Test 48: Extension First-Time Activation Prompt
+- [ ] Test 49: License Key Validation (Free Tier)
+- [ ] Test 50: License Key Validation (Pro Tier)
+- [ ] Test 51: Invalid License Key Handling
+- [ ] Test 52: Tier Status Bar Display
+- [ ] Test 53: Voice Capture Gating (Free Tier Blocked)
+- [ ] Test 54: Voice Capture Gating (Pro Tier Allowed)
+- [ ] Test 55: Offline Mode Graceful Degradation
+- [ ] Test 56: BUG-011 Sprint TOML Completion Status
+
+---
+
+### Commit 6: BUG-011 Code Audit Report
+**Commit**: `281ec53`
+**Date**: 2025-11-13
+**Branch**: feature/v0.17.2-bug-fixes
+**Message**: `docs(audit): Add BUG-011 code audit report - PASSED with zero issues`
+
+**Changes**:
+- **Created**: `internal/sprints/audits/BUG-011_AUDIT.md` (477 lines)
+  - Comprehensive audit of all BUG-011 implementation
+  - Validated: Zero merge conflicts, zero errors
+  - Status: PASSED - Approved for production
+- **Modified**: `internal/sprints/ACTIVE_SPRINT_17.1_BUGS.toml`
+  - Added `audit_report_doc` link
+  - Added `audit_status = "PASSED"`
+  - Added `audit_date = "2025-11-13"`
+
+**Testing**: Audit validated all code - no additional testing required
+
+---
+
 ## Test Categories
 
 ### Category 1: Extension Functionality
@@ -1607,6 +1708,290 @@ completion_percentage = 6  # (1 / 18) * 100
 - [ ] Sprint Planner validates positive team size
 - [ ] All error messages display correctly
 - [ ] Modal stays open on validation failure
+
+**Actual Result**: _____________________________
+
+**Status**: [ ] PASS [ ] FAIL
+
+---
+
+### Test 48: BUG-011 - Extension First-Time Activation Prompt
+**Category**: Extension Functionality
+**Priority**: CRITICAL
+**Commit**: 38766e4
+**Dependencies**: None
+
+**Steps**:
+1. Clear extension settings: Run command palette → "Preferences: Open User Settings (JSON)"
+2. Remove any existing `aetherlight.licenseKey` and `aetherlight.userTier` entries
+3. Reload VS Code window (Cmd/Ctrl+R)
+4. Observe extension activation
+5. Verify prompt appears: "Welcome to ÆtherLight! Please enter your license key to continue."
+6. Verify two buttons: "Enter License Key" and "Get Free Tier"
+7. Click "Get Free Tier"
+8. Verify message: "ÆtherLight activated with Free tier. Voice capture disabled. Upgrade at aetherlight.ai"
+
+**Expected Results**:
+- [ ] First-time prompt appears on activation
+- [ ] Two options presented: Enter License Key / Get Free Tier
+- [ ] "Get Free Tier" activates extension with free tier
+- [ ] Tier set to 'free' in settings
+- [ ] Status bar shows "🛡️ Free"
+
+**Actual Result**: _____________________________
+
+**Status**: [ ] PASS [ ] FAIL
+
+---
+
+### Test 49: BUG-011 - License Key Validation (Free Tier)
+**Category**: Extension Functionality
+**Priority**: CRITICAL
+**Commit**: 38766e4
+**Test Credential**: `CD7W-AJDK-RLQT-LUFA` (Free tier)
+
+**Steps**:
+1. Clear extension settings (remove licenseKey and userTier)
+2. Reload VS Code window
+3. When prompt appears, click "Enter License Key"
+4. Enter free tier key: `CD7W-AJDK-RLQT-LUFA`
+5. Press Enter
+6. Wait for validation (2 seconds max)
+7. Check status bar for tier display
+8. Verify tooltip shows "ÆtherLight Tier: free" and "Voice Capture: ❌ Disabled (Upgrade Required)"
+9. Check settings: Verify `aetherlight.licenseKey` = entered key
+10. Check settings: Verify `aetherlight.userTier` = "free"
+
+**Expected Results**:
+- [ ] License key accepted and validated
+- [ ] Status bar shows "🛡️ Free"
+- [ ] Tooltip shows tier = free and voice capture disabled
+- [ ] Settings updated with license key and tier
+- [ ] No error messages shown
+- [ ] Validation completes in < 2 seconds
+
+**Actual Result**: _____________________________
+
+**Status**: [ ] PASS [ ] FAIL
+
+---
+
+### Test 50: BUG-011 - License Key Validation (Pro Tier)
+**Category**: Extension Functionality
+**Priority**: CRITICAL
+**Commit**: 38766e4
+**Test Credential**: `W7HD-X79Q-CQJ9-XW13` (Pro tier)
+
+**Steps**:
+1. Open settings JSON: Command palette → "Preferences: Open User Settings (JSON)"
+2. Update license key: `"aetherlight.licenseKey": "W7HD-X79Q-CQJ9-XW13"`
+3. Save settings and reload VS Code window
+4. Check status bar after activation
+5. Verify tier shows "⭐ Pro" (green color)
+6. Hover over status bar item
+7. Verify tooltip: "ÆtherLight Tier: pro" and "Voice Capture: ✅ Enabled"
+8. Check settings: Verify `aetherlight.userTier` = "pro"
+
+**Expected Results**:
+- [ ] Pro tier license validated successfully
+- [ ] Status bar shows "⭐ Pro" with green color
+- [ ] Tooltip shows tier = pro and voice capture enabled
+- [ ] Settings updated with tier = "pro"
+- [ ] No error messages shown
+
+**Actual Result**: _____________________________
+
+**Status**: [ ] PASS [ ] FAIL
+
+---
+
+### Test 51: BUG-011 - Invalid License Key Handling
+**Category**: Extension Functionality
+**Priority**: HIGH
+**Commit**: 38766e4
+
+**Steps**:
+1. Open settings JSON
+2. Set invalid license key: `"aetherlight.licenseKey": "INVALID-KEY-1234-5678"`
+3. Save settings and reload VS Code window
+4. Observe activation
+5. Verify error message appears with details about invalid key
+6. Check status bar
+7. Verify tier falls back to "🛡️ Free" (graceful degradation)
+8. Check OUTPUT panel > ÆtherLight for error logs
+9. Verify settings updated with tier = "free"
+
+**Expected Results**:
+- [ ] Error message shown: "ÆtherLight: License validation failed. Invalid license key: ..."
+- [ ] Extension falls back to free tier (graceful degradation)
+- [ ] Status bar shows "🛡️ Free"
+- [ ] Extension remains functional (doesn't crash)
+- [ ] Error logged to OUTPUT panel
+
+**Actual Result**: _____________________________
+
+**Status**: [ ] PASS [ ] FAIL
+
+---
+
+### Test 52: BUG-011 - Tier Status Bar Display
+**Category**: Extension Functionality
+**Priority**: HIGH
+**Commit**: 38766e4
+
+**Steps**:
+1. Ensure free tier is active (from Test 49 or 51)
+2. Locate status bar in bottom right of VS Code window
+3. Verify tier status bar item appears (should be leftmost in right section, priority 100)
+4. Check icon: Should show "🛡️" for free tier
+5. Check text: Should show "Free"
+6. Check color: Should be gray (#888888)
+7. Hover over status bar item
+8. Verify tooltip displays:
+   - Line 1: "ÆtherLight Tier: free"
+   - Line 2: "Voice Capture: ❌ Disabled (Upgrade Required)"
+9. Click status bar item
+10. Verify browser opens to https://aetherlight.ai/upgrade
+
+**Expected Results**:
+- [ ] Status bar item visible in bottom right
+- [ ] Correct icon for tier (🛡️ = free, ⭐ = pro, ✓ = network, 🏢 = enterprise, ⚠️ = offline)
+- [ ] Correct color (gray for free, green for paid, yellow for offline)
+- [ ] Tooltip shows tier name and voice capture status
+- [ ] Click opens upgrade page for free/offline tier
+- [ ] Click opens settings for paid tier
+
+**Actual Result**: _____________________________
+
+**Status**: [ ] PASS [ ] FAIL
+
+---
+
+### Test 53: BUG-011 - Voice Capture Gating (Free Tier Blocked)
+**Category**: Extension Functionality
+**Priority**: CRITICAL
+**Commit**: 38766e4
+
+**Pre-condition**: Free tier active (from Test 49 or 51)
+
+**Steps**:
+1. Verify free tier is active (status bar shows "🛡️ Free")
+2. Try to trigger voice capture via command palette: "ÆtherLight: Capture Voice"
+3. Verify warning message appears: "Voice capture requires a paid subscription (uses OpenAI Whisper API)."
+4. Verify two buttons: "Upgrade Now" and "Learn More"
+5. Click "Upgrade Now" → Verify browser opens to https://aetherlight.ai/upgrade
+6. Close browser and try again
+7. This time click "Learn More" → Verify browser opens to https://aetherlight.ai/features
+8. Try hotkey: Press backtick (`) to open voice panel
+9. Verify same warning message appears
+10. Try command: "ÆtherLight: Capture Voice Global"
+11. Verify same warning message appears
+
+**Expected Results**:
+- [ ] All 3 voice capture entry points blocked for free tier
+- [ ] Warning message shows clearly why (OpenAI API costs)
+- [ ] Upgrade prompts offer two actions: Upgrade Now / Learn More
+- [ ] Extension doesn't crash or hang
+- [ ] Upgrade links work correctly
+
+**Actual Result**: _____________________________
+
+**Status**: [ ] PASS [ ] FAIL
+
+---
+
+### Test 54: BUG-011 - Voice Capture Gating (Pro Tier Allowed)
+**Category**: Extension Functionality
+**Priority**: CRITICAL
+**Commit**: 38766e4
+
+**Pre-condition**: Pro tier active (from Test 50)
+
+**Steps**:
+1. Verify pro tier is active (status bar shows "⭐ Pro")
+2. Try command: "ÆtherLight: Capture Voice"
+3. Verify NO warning message appears
+4. Verify command attempts to execute (may fail if desktop app not running - that's OK)
+5. Try hotkey: Press backtick (`)
+6. Verify NO warning message appears
+7. Verify voice panel opens or attempts to connect
+8. Try command: "ÆtherLight: Capture Voice Global"
+9. Verify NO warning message appears
+
+**Expected Results**:
+- [ ] All 3 voice capture entry points work for pro tier
+- [ ] NO tier gate warning shown
+- [ ] Commands execute (may show IPC connection errors - that's expected)
+- [ ] No upgrade prompts appear
+
+**Actual Result**: _____________________________
+
+**Status**: [ ] PASS [ ] FAIL
+
+---
+
+### Test 55: BUG-011 - Offline Mode Graceful Degradation
+**Category**: Extension Functionality
+**Priority**: MEDIUM
+**Commit**: 38766e4
+
+**Steps**:
+1. Disconnect from internet (disable Wi-Fi or use airplane mode)
+2. Open settings JSON
+3. Set a valid-looking license key: `"aetherlight.licenseKey": "TEST-OFFLINE-MODE-KEY"`
+4. Save settings and reload VS Code window
+5. Wait for activation (should timeout after 2 seconds)
+6. Observe warning message (should mention offline mode)
+7. Check status bar
+8. Verify tier shows "⚠️ Offline" with yellow color (#ffaa00)
+9. Hover over status bar
+10. Verify tooltip shows "ÆtherLight Tier: offline" and "Voice Capture: ❌ Disabled"
+11. Try voice capture command
+12. Verify blocked (offline mode = same as free tier)
+13. Reconnect to internet
+14. Reload VS Code window
+15. Verify tier updates based on license validation
+
+**Expected Results**:
+- [ ] Network failure handled gracefully (no crash)
+- [ ] Timeout after 2 seconds
+- [ ] Warning message shown about offline mode
+- [ ] Status bar shows "⚠️ Offline" (yellow)
+- [ ] Voice capture blocked in offline mode
+- [ ] Extension remains functional
+- [ ] Reconnecting internet allows validation to work
+
+**Actual Result**: _____________________________
+
+**Status**: [ ] PASS [ ] FAIL
+
+---
+
+### Test 56: BUG-011 - Sprint TOML Completion Status
+**Category**: Sprint Panel UI
+**Priority**: MEDIUM
+**Commit**: 38766e4, 281ec53
+
+**Steps**:
+1. Open Sprint Panel (ÆtherLight icon in Activity Bar)
+2. Locate BUG-011 task in task list
+3. Verify status shows "✅ completed"
+4. Click on BUG-011 task to expand details
+5. Verify completion_date shows "2025-11-13"
+6. Verify completion_notes_doc link exists: `internal/sprints/completion/BUG-011_COMPLETION.md`
+7. Verify audit_report_doc link exists: `internal/sprints/audits/BUG-011_AUDIT.md`
+8. Verify audit_status shows "PASSED"
+9. Verify completion_summary shows brief description of implementation
+10. Verify patterns list includes: Pattern-CODE-001, Pattern-TDD-001, Pattern-FEATURE-GATING-001, Pattern-UI-004, Pattern-AUTH-001
+
+**Expected Results**:
+- [ ] BUG-011 marked as completed in Sprint TOML
+- [ ] Completion date = 2025-11-13
+- [ ] Completion notes document linked
+- [ ] Audit report document linked
+- [ ] Audit status = PASSED
+- [ ] All 5 patterns documented
+- [ ] Sprint Panel displays status correctly
 
 **Actual Result**: _____________________________
 
