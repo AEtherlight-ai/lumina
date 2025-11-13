@@ -1795,7 +1795,7 @@ Pattern Compliance:
 - ✅ Pattern-IPC-002: Inter-process communication (extension ↔ desktop app)
 
 Commit: fix(desktop): Implement auto-update mechanism with Tauri v2 plugin (BUG-006)
-Commit Hash: [PENDING - will add after commit]
+Commit Hash: 7264195
 """
 
 [tasks.BUG-007]
