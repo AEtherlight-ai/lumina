@@ -562,14 +562,54 @@ async fn toggle_recording(
 
         // Transcribe audio via server API (proxies to OpenAI with credit tracking)
         println!("🔄 Transcribing audio via server API...");
-        let transcript = transcription::transcribe_audio(
+        let transcript = match transcription::transcribe_audio(
             &audio_samples,
             sample_rate, // Use native sample rate
             &settings.license_key,
             &settings.global_network_api_endpoint,
         )
         .await
-        .map_err(|e| format!("Transcription failed: {}", e))?;
+        {
+            Ok(text) => text,
+            Err(e) => {
+                // Handle structured errors with frontend event emission (BUG-004)
+                use transcription::TranscriptionError;
+
+                match &e {
+                    TranscriptionError::Unauthorized { message } => {
+                        // Emit event to show license activation dialog
+                        let _ = app.emit("show-license-activation", message.clone());
+                        return Err(format!("License invalid: {}. Please re-activate your device.", message));
+                    }
+                    TranscriptionError::PaymentRequired { message, balance_tokens, required_tokens } => {
+                        // Emit event to show token purchase dialog with balance
+                        let payload = serde_json::json!({
+                            "message": message,
+                            "balance": balance_tokens,
+                            "required": required_tokens,
+                        });
+                        let _ = app.emit("show-token-purchase", payload);
+                        return Err(format!("Insufficient tokens: {}. You have {} tokens, need {} tokens.",
+                            message, balance_tokens, required_tokens));
+                    }
+                    TranscriptionError::Forbidden { message } => {
+                        // Emit event to show device activation dialog
+                        let _ = app.emit("show-device-activation", message.clone());
+                        return Err(format!("Device not active: {}. Please activate your device.", message));
+                    }
+                    TranscriptionError::ServerError { message } |
+                    TranscriptionError::NetworkError { message } => {
+                        // Emit event to show retry dialog
+                        let _ = app.emit("show-retry-dialog", message.clone());
+                        return Err(format!("Temporary error: {}. Please try again.", message));
+                    }
+                    _ => {
+                        // Generic error handling for NotFound, ParseError
+                        return Err(format!("Transcription failed: {}", e));
+                    }
+                }
+            }
+        };
 
         println!("✅ Transcription received: {}", transcript);
 

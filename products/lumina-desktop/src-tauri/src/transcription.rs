@@ -65,7 +65,7 @@ pub struct TokenBalanceResponse {
 /// Supports both token-based (new) and USD-based (legacy) responses
 /// API contract: website/app/api/desktop/transcribe/route.ts:172-182
 #[derive(Debug, Deserialize)]
-struct TranscriptionError {
+struct ApiErrorResponse {
     error: String,
 
     // Token-based fields (NEW - API uses these for 402 errors)
@@ -85,6 +85,65 @@ struct TranscriptionError {
     #[serde(default)]
     message: String,
 }
+
+/// Transcription errors with HTTP status code classification (BUG-004)
+///
+/// DESIGN DECISION: Structured error enum for actionable user feedback
+/// WHY: Different error types require different user actions (re-activate, upgrade, retry)
+///
+/// Error Type Mapping:
+/// - 401: Invalid/revoked license → Show license activation dialog
+/// - 402: Insufficient tokens → Show upgrade/purchase dialog with balance
+/// - 403: Device not active → Show device activation dialog
+/// - 404: API endpoint missing → Log error, show support message
+/// - 500-599: Server error → Show retry dialog
+/// - Network: Connection failed → Show retry dialog with connectivity check
+/// - Parse: Malformed response → Log error, show support message
+#[derive(Debug)]
+pub enum TranscriptionError {
+    Unauthorized {
+        message: String,
+    },
+    PaymentRequired {
+        message: String,
+        balance_tokens: u64,
+        required_tokens: u64,
+    },
+    Forbidden {
+        message: String,
+    },
+    NotFound {
+        message: String,
+    },
+    ServerError {
+        message: String,
+    },
+    NetworkError {
+        message: String,
+    },
+    ParseError {
+        message: String,
+    },
+}
+
+impl std::fmt::Display for TranscriptionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Unauthorized { message } => write!(f, "Unauthorized: {}", message),
+            Self::PaymentRequired { message, balance_tokens, required_tokens } => {
+                write!(f, "Payment Required: {} (balance: {} tokens, required: {} tokens)",
+                    message, balance_tokens, required_tokens)
+            }
+            Self::Forbidden { message } => write!(f, "Forbidden: {}", message),
+            Self::NotFound { message } => write!(f, "Not Found: {}", message),
+            Self::ServerError { message } => write!(f, "Server Error: {}", message),
+            Self::NetworkError { message } => write!(f, "Network Error: {}", message),
+            Self::ParseError { message } => write!(f, "Parse Error: {}", message),
+        }
+    }
+}
+
+impl std::error::Error for TranscriptionError {}
 
 /**
  * DESIGN DECISION: Send audio at native sample rate to OpenAI Whisper API
@@ -232,9 +291,11 @@ pub async fn transcribe_audio(
     sample_rate: u32,
     license_key: &str,
     api_url: &str,
-) -> Result<String> {
+) -> Result<String, TranscriptionError> {
     if license_key.is_empty() {
-        anyhow::bail!("License key not configured. Please activate device first.");
+        return Err(TranscriptionError::Unauthorized {
+            message: "License key not configured. Please activate device first.".to_string(),
+        });
     }
 
     // Convert audio to WAV format with CORRECT sample rate in header
@@ -242,7 +303,9 @@ pub async fn transcribe_audio(
     println!("📊 Captured {} audio samples at {}Hz", audio_samples.len(), sample_rate);
     println!("🔄 Converting {} samples to WAV format...", audio_samples.len());
     let wav_bytes = audio_to_wav(audio_samples, sample_rate)
-        .context("Failed to convert audio to WAV")?;
+        .map_err(|e| TranscriptionError::ParseError {
+            message: format!("Failed to convert audio to WAV: {}", e),
+        })?;
     println!("✅ WAV file created: {} bytes ({}Hz sample rate)", wav_bytes.len(), sample_rate);
 
     // Create multipart form with audio file
@@ -251,7 +314,10 @@ pub async fn transcribe_audio(
             "file",
             multipart::Part::bytes(wav_bytes)
                 .file_name("audio.wav")
-                .mime_str("audio/wav")?,
+                .mime_str("audio/wav")
+                .map_err(|e| TranscriptionError::ParseError {
+                    message: format!("Invalid MIME type: {}", e),
+                })?,
         )
         .text("model", "whisper-1")
         .text("language", "en"); // Optional: improves accuracy for English
@@ -268,7 +334,9 @@ pub async fn transcribe_audio(
         .multipart(form)
         .send()
         .await
-        .context("Failed to send request to server API")?;
+        .map_err(|e| TranscriptionError::NetworkError {
+            message: format!("Connection failed: {}", e),
+        })?;
 
     // Check for API errors
     let status = response.status();
@@ -276,55 +344,55 @@ pub async fn transcribe_audio(
     if !status.is_success() {
         let error_text = response.text().await.unwrap_or_default();
 
-        // Try to parse structured error response
-        if let Ok(error_response) = serde_json::from_str::<TranscriptionError>(&error_text) {
-            // Handle insufficient credits (402)
-            if status == 402 {
-                // Prioritize token-based error messages (new API format)
-                if error_response.balance_tokens > 0 || error_response.required_tokens > 0 {
-                    anyhow::bail!(
-                        "Insufficient tokens: {} balance, {} required. {}",
-                        error_response.balance_tokens,
-                        error_response.required_tokens,
-                        error_response.message
-                    );
-                }
-
-                // Fallback to USD-based error messages (legacy API format)
-                anyhow::bail!(
-                    "Insufficient credits: ${:.4} balance, ${:.4} required. {}",
-                    error_response.balance_usd,
-                    error_response.required_usd,
-                    error_response.message
-                );
+        // Parse structured error response
+        let error_response: ApiErrorResponse = match serde_json::from_str(&error_text) {
+            Ok(err) => err,
+            Err(_) => {
+                // Fallback for unstructured errors
+                return Err(TranscriptionError::ParseError {
+                    message: format!("Server returned {}: {}", status, error_text),
+                });
             }
+        };
 
-            // Handle other structured errors
-            anyhow::bail!(
-                "Server API error ({}): {} - {}",
-                status,
-                error_response.error,
-                error_response.message
-            );
-        }
-
-        // Fallback for unstructured errors
-        anyhow::bail!(
-            "Server API error ({}): {}",
-            status,
-            error_text
-        );
+        // Classify error based on HTTP status code (BUG-004)
+        return Err(match status.as_u16() {
+            401 => TranscriptionError::Unauthorized {
+                message: error_response.error,
+            },
+            402 => TranscriptionError::PaymentRequired {
+                message: error_response.error,
+                balance_tokens: error_response.balance_tokens,
+                required_tokens: error_response.required_tokens,
+            },
+            403 => TranscriptionError::Forbidden {
+                message: error_response.error,
+            },
+            404 => TranscriptionError::NotFound {
+                message: error_response.error,
+            },
+            500..=599 => TranscriptionError::ServerError {
+                message: error_response.error,
+            },
+            _ => TranscriptionError::ParseError {
+                message: format!("Unexpected status {}: {}", status, error_response.error),
+            },
+        });
     }
 
     // Parse JSON response
     let transcription_response: TranscriptionResponse = response
         .json()
         .await
-        .context("Failed to parse server API response")?;
+        .map_err(|e| TranscriptionError::ParseError {
+            message: format!("Failed to parse server API response: {}", e),
+        })?;
 
     // Check if transcription was successful
     if !transcription_response.success {
-        anyhow::bail!("Transcription failed: API returned success=false");
+        return Err(TranscriptionError::ServerError {
+            message: "Transcription failed: API returned success=false".to_string(),
+        });
     }
 
     println!("✅ Transcription received: {} characters", transcription_response.text.len());
@@ -450,7 +518,7 @@ mod tests {
     /// Test deserialization of 402 error with token-based fields (BUG-002A.1)
     /// Expected format matches website/app/api/desktop/transcribe/route.ts:172-182
     #[test]
-    fn test_transcription_error_402_tokens() {
+    fn test_api_error_response_402_tokens() {
         // Simulate actual API 402 response (token-based)
         let json_response = r#"{
             "error": "Insufficient tokens",
@@ -461,8 +529,8 @@ mod tests {
         }"#;
 
         // Test deserialization
-        let error: TranscriptionError = serde_json::from_str(json_response)
-            .expect("Failed to deserialize TranscriptionError");
+        let error: ApiErrorResponse = serde_json::from_str(json_response)
+            .expect("Failed to deserialize ApiErrorResponse");
 
         // Assert token fields are correctly deserialized
         assert_eq!(error.error, "Insufficient tokens");
@@ -475,7 +543,7 @@ mod tests {
     /// Test compatibility with USD-based 402 errors (backward compatibility)
     /// Some legacy API responses may still use USD fields
     #[test]
-    fn test_transcription_error_402_usd_fallback() {
+    fn test_api_error_response_402_usd_fallback() {
         // Simulate legacy API 402 response (USD-based)
         let json_response = r#"{
             "error": "Insufficient credits",
@@ -485,8 +553,8 @@ mod tests {
         }"#;
 
         // Test deserialization with fallback to USD fields
-        let error: TranscriptionError = serde_json::from_str(json_response)
-            .expect("Failed to deserialize TranscriptionError");
+        let error: ApiErrorResponse = serde_json::from_str(json_response)
+            .expect("Failed to deserialize ApiErrorResponse");
 
         // Assert USD fields are correctly deserialized
         assert_eq!(error.error, "Insufficient credits");
