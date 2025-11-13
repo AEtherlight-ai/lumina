@@ -1999,6 +1999,80 @@ completion_percentage = 6  # (1 / 18) * 100
 
 ---
 
+### Test 57: BUG-012 - Link/Unlink Toggle for Pop-Out Sprint Views
+**Category**: Sprint Panel UI
+**Priority**: HIGH
+**Commit**: TBD
+**Dependencies**: None
+
+**Steps**:
+1. Launch Extension Development Host (F5 in VS Code)
+2. Open Sprint Panel (click ÆtherLight icon in sidebar)
+3. Verify sprint panel displays correctly
+4. Click 🔄 "Pop Out Sprint" button to create a pop-out panel
+5. Verify pop-out panel opens in new window
+6. Verify toggle button appears at top of pop-out panel (NOT in main panel)
+7. Verify toggle button shows "🔗 Linked" by default
+8. Verify description text: "Sprint selection syncs with main panel"
+
+**Test Linked Behavior (Default)**:
+9. In main panel, select a different sprint from dropdown (e.g., switch to archived sprint)
+10. Verify pop-out panel automatically syncs to the same sprint
+11. In main panel, switch back to ACTIVE_SPRINT.toml
+12. Verify pop-out panel syncs again
+
+**Test Unlinked Behavior**:
+13. In pop-out panel, click toggle button
+14. Verify button changes to "🔓 Unlinked"
+15. Verify description changes to: "Independent sprint selection enabled"
+16. Verify notification appears: "🔓 Panel unlinked - independent sprint selection enabled"
+17. In main panel, select a different sprint from dropdown
+18. Verify pop-out panel does NOT sync (maintains independent sprint)
+19. In pop-out panel, select a different sprint from dropdown
+20. Verify main panel does NOT sync (independent selection working)
+
+**Test Re-linking**:
+21. In pop-out panel, click toggle button again
+22. Verify button changes back to "🔗 Linked"
+23. Verify notification appears: "🔗 Panel linked - sprint selection will sync with main panel"
+24. In main panel, select a different sprint from dropdown
+25. Verify pop-out panel syncs again (re-linking successful)
+
+**Test Multiple Pop-Out Panels**:
+26. Create a second pop-out panel (click 🔄 button again)
+27. Verify second panel initializes as "🔗 Linked"
+28. Unlink first pop-out panel (click toggle)
+29. Keep second pop-out panel linked
+30. Change sprint in main panel
+31. Verify first pop-out panel does NOT sync (unlinked)
+32. Verify second pop-out panel DOES sync (linked)
+
+**Test FileSystemWatcher Auto-Refresh**:
+33. Keep one panel linked and one unlinked
+34. Externally modify ACTIVE_SPRINT.toml (e.g., change a task status)
+35. Verify linked panels refresh automatically
+36. Verify unlinked panels do NOT refresh (maintain independent state)
+
+**Expected Results**:
+- [ ] Toggle button only appears in pop-out panels (NOT main panel)
+- [ ] Toggle button shows correct initial state (🔗 Linked)
+- [ ] Linked panels sync sprint selection with main panel
+- [ ] Unlinked panels maintain independent sprint selection
+- [ ] Re-linking restores sync behavior
+- [ ] Multiple panels can have different link states simultaneously
+- [ ] FileSystemWatcher respects link state (only refreshes linked panels)
+- [ ] Notifications appear when toggling (🔗/🔓 icons)
+- [ ] UI updates correctly (button text, icon, description)
+- [ ] No console errors in webview (Ctrl+Shift+I)
+- [ ] TypeScript compilation succeeds
+- [ ] Backward compatible: Panels default to linked (existing behavior preserved)
+
+**Actual Result**: _____________________________
+
+**Status**: [ ] PASS [ ] FAIL
+
+---
+
 ## Test Credentials
 
 ### Website API (for future BUG-002A/B/C testing)
@@ -2073,6 +2147,20 @@ completion_percentage = 6  # (1 / 18) * 100
 - [ ] Test 46: BUG-010 - Edge Case: Multiple Rapid Modal Opens
 - [ ] Test 47: BUG-010 - Modal Form Validation
 
+### License Validation Tests (Critical)
+- [ ] Test 48: BUG-011 - Extension First-Time Activation Prompt
+- [ ] Test 49: BUG-011 - License Key Validation (Free Tier)
+- [ ] Test 50: BUG-011 - License Key Validation (Pro Tier)
+- [ ] Test 51: BUG-011 - Invalid License Key Handling
+- [ ] Test 52: BUG-011 - Tier Status Bar Display
+- [ ] Test 53: BUG-011 - Voice Capture Gating (Free Tier Blocked)
+- [ ] Test 54: BUG-011 - Voice Capture Gating (Pro Tier Allowed)
+- [ ] Test 55: BUG-011 - Offline Mode Graceful Degradation
+- [ ] Test 56: BUG-011 - Sprint TOML Completion Status
+
+### Sprint Panel UX Tests (High Priority)
+- [ ] Test 57: BUG-012 - Link/Unlink Toggle for Pop-Out Sprint Views
+
 ### Optional Tests (Nice to Have)
 - [ ] Test 40: BUG-002 - Integration Test with Live API (Optional)
 - [ ] Test 16: Enhanced Prompt Button Not Shown When Field Missing
@@ -2098,7 +2186,7 @@ completion_percentage = 6  # (1 / 18) * 100
 - Extension Version: 0.17.2
 
 **Results**:
-- Total Tests Run: _____ / 47
+- Total Tests Run: _____ / 57
 - Tests Passed: _____
 - Tests Failed: _____
 - Tests Skipped: _____

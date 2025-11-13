@@ -216,11 +216,17 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                         console.log('[ÆtherLight] FileSystemWatcher: No main webview to refresh');
                     }
 
-                    // Refresh all popped-out panels
+                    // UNLINK-001: Refresh all popped-out panels (only linked panels)
+                    // WHY: FileSystemWatcher auto-refresh should respect link state
+                    // REASONING: When ACTIVE_SPRINT.toml changes, only update linked panels
                     if (this.poppedOutPanels.length > 0) {
-                        console.log(`[ÆtherLight] FileSystemWatcher: Refreshing ${this.poppedOutPanels.length} popped-out panels`);
+                        const linkedCount = this.poppedOutPanels.filter(p => this.isPanelLinked(p)).length;
+                        console.log(`[ÆtherLight] FileSystemWatcher: Refreshing ${linkedCount}/${this.poppedOutPanels.length} linked panels`);
                         for (const panel of this.poppedOutPanels) {
-                            panel.webview.html = this._getHtmlForWebview(panel.webview);
+                            if (this.isPanelLinked(panel)) {
+                                panel.webview.html = this._getHtmlForWebview(panel.webview);
+                            }
+                            // Unlinked panels: Skip refresh, maintain independent state
                         }
                     }
 
@@ -634,6 +640,27 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 }
                 break;
 
+            case 'togglePanelLink':
+                // UNLINK-001: Toggle link state for pop-out panel
+                // Find which panel sent this message
+                const senderPanel = this.poppedOutPanels.find(p => p.webview === webview);
+                if (senderPanel) {
+                    const currentlyLinked = this.isPanelLinked(senderPanel);
+                    const newLinkState = !currentlyLinked;
+                    this.setPanelLinked(senderPanel, newLinkState);
+
+                    // Update the panel's UI to reflect new state
+                    senderPanel.webview.html = this._getHtmlForWebview(senderPanel.webview);
+
+                    // Show notification with clear feedback
+                    if (newLinkState) {
+                        vscode.window.showInformationMessage('🔗 Panel linked - sprint selection will sync with main panel');
+                    } else {
+                        vscode.window.showInformationMessage('🔓 Panel unlinked - independent sprint selection enabled');
+                    }
+                }
+                break;
+
             case 'selectEngineer':
                 // Switch engineer view
                 this.selectedEngineerId = message.engineerId;
@@ -946,6 +973,9 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 // Track this panel for synchronized updates
                 this.poppedOutPanels.push(panel);
 
+                // UNLINK-001: Initialize panel as linked (default) - backward compatible
+                this.setPanelLinked(panel, true);
+
                 // Clone current sprint view HTML into the panel
                 panel.webview.html = this._getHtmlForWebview(panel.webview);
 
@@ -960,6 +990,8 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                     if (index > -1) {
                         this.poppedOutPanels.splice(index, 1);
                     }
+                    // UNLINK-001: Clean up link state tracking (prevent memory leak)
+                    this.panelLinkStates.delete(panel);
                 });
 
                 vscode.window.showInformationMessage('Sprint view opened in new editor panel. You can drag it to any column or float it as a separate window.');
@@ -1401,9 +1433,15 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                         this._view.webview.html = this._getHtmlForWebview(this._view.webview);
                     }
 
-                    // Refresh popped-out panels
+                    // UNLINK-001: Refresh popped-out panels (only linked panels)
+                    // WHY: Unlinked panels should maintain independent sprint selection
+                    // REASONING: isPanelLinked() returns true by default (backward compatible)
+                    //            Only skip refresh if explicitly unlinked
                     for (const panel of this.poppedOutPanels) {
-                        panel.webview.html = this._getHtmlForWebview(panel.webview);
+                        if (this.isPanelLinked(panel)) {
+                            panel.webview.html = this._getHtmlForWebview(panel.webview);
+                        }
+                        // Unlinked panels: Skip refresh, maintain independent sprint
                     }
 
                     vscode.window.showInformationMessage(`✅ Switched to sprint: ${filename}`);
@@ -1715,6 +1753,24 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
         window.startNextTask = function() {
             vscode.postMessage({ type: 'startNextTask' });
         };
+
+        // UNLINK-001: Toggle panel link state
+        window.togglePanelLink = function() {
+            vscode.postMessage({ type: 'togglePanelLink' });
+        };
+
+        // UNLINK-001: Check if this is a pop-out panel and show toggle button
+        window.addEventListener('DOMContentLoaded', function() {
+            // Pop-out panels have window.opener or are WebviewPanel (not WebviewView)
+            // For simplicity, show toggle button if sprint header doesn't have pop-out button
+            const popOutBtn = document.querySelector('button[onclick="popOutSprint()"]');
+            const linkToggleContainer = document.getElementById('linkToggleContainer');
+
+            // If no pop-out button found, this IS a pop-out panel → show toggle
+            if (!popOutBtn && linkToggleContainer) {
+                linkToggleContainer.style.display = 'block';
+            }
+        });
 
         // REFACTOR-000-UI: Start Specific Task (with dependency validation)
         window.startTask = function(taskId) {
@@ -2388,6 +2444,17 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 </div>
             </div>
 
+            <!-- UNLINK-001: Link/Unlink toggle button (only in pop-out panels) -->
+            <div id="linkToggleContainer" style="display: none; padding: 8px; border-bottom: 1px solid var(--vscode-panel-border);">
+                <button id="linkToggleBtn" class="link-toggle-btn" onclick="togglePanelLink()" title="Toggle sprint selection sync">
+                    <span id="linkToggleIcon">🔗</span>
+                    <span id="linkToggleText">Linked</span>
+                </button>
+                <span id="linkToggleDesc" style="font-size: 11px; color: var(--vscode-descriptionForeground); margin-left: 8px;">
+                    Sprint selection syncs with main panel
+                </span>
+            </div>
+
             <!-- UI-010: Consolidated task statistics (single compact row) -->
             <div class="progress-section">
                 <div class="progress-text-compact">
@@ -2762,9 +2829,14 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 this._view.webview.html = this._getHtmlForWebview(this._view.webview);
             }
 
-            // Also refresh popped-out panels
+            // UNLINK-001: Also refresh popped-out panels (only linked panels)
+            // WHY: First-run setup should respect link state (though unlikely to have unlinked panels during setup)
+            // REASONING: Consistent behavior across all refresh operations
             for (const panel of this.poppedOutPanels) {
-                panel.webview.html = this._getHtmlForWebview(panel.webview);
+                if (this.isPanelLinked(panel)) {
+                    panel.webview.html = this._getHtmlForWebview(panel.webview);
+                }
+                // Unlinked panels: Skip refresh, maintain independent state
             }
 
             console.log('[ÆtherLight] First-run setup complete! Sprint Tab ready.');
@@ -3334,6 +3406,30 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
         .icon-btn svg {
             fill: currentColor;
+        }
+
+        /* UNLINK-001: Link/Unlink toggle button */
+        .link-toggle-btn {
+            padding: 6px 12px;
+            background-color: var(--vscode-button-secondaryBackground);
+            color: var(--vscode-button-secondaryForeground);
+            border: 1px solid var(--vscode-button-border);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+        }
+
+        .link-toggle-btn:hover {
+            background-color: var(--vscode-button-secondaryHoverBackground);
+        }
+
+        .link-toggle-btn.unlinked {
+            background-color: var(--vscode-inputValidation-warningBackground);
+            border-color: var(--vscode-inputValidation-warningBorder);
         }
 
         /* Engineer Tabs */
