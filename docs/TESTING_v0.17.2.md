@@ -2073,6 +2073,92 @@ completion_percentage = 6  # (1 / 18) * 100
 
 ---
 
+### Test 58: BUG-013 - "Start This Task" Uses Selected Sprint File
+**Category**: Sprint Panel Core Functionality
+**Priority**: CRITICAL
+**Commit**: 4ee4925
+**Dependencies**: Sprint Panel with dropdown selector
+
+**Context**: This is the REAL fix for BUG-013. The initial fix (commit 28a9309) changed config.json, which was a workaround that made the dropdown useless. The real bug was TaskPromptExporter hardcoding the sprint path instead of reading from the UI-selected sprint file.
+
+**Steps**:
+1. Launch Extension Development Host (F5 in VS Code)
+2. Open Sprint Panel (click ÆtherLight icon in sidebar)
+3. Verify sprint dropdown is visible at top of panel
+4. Note which sprint file is currently selected (default: ACTIVE_SPRINT.toml)
+5. Verify tasks from that sprint are displayed
+
+**Test Sprint Dropdown Selection**:
+6. Click sprint dropdown at top of panel
+7. Verify dropdown shows available sprint files:
+   - ACTIVE_SPRINT.toml (Sprint 3)
+   - ACTIVE_SPRINT_17.1_BUGS.toml (Bug Sprint)
+   - Any other ACTIVE_SPRINT_*.toml files
+8. Select "ACTIVE_SPRINT_17.1_BUGS.toml" from dropdown
+9. Verify UI refreshes and shows bug tasks (BUG-001 through BUG-013)
+
+**Test "Start This Task" - Bug Sprint**:
+10. Find BUG-002 task in the list
+11. Verify "Start This Task" button is visible on the task
+12. Click "Start This Task" button on BUG-002
+13. Verify notification appears: "⏳ Generating AI-enhanced prompt for BUG-002..."
+14. Wait for enhanced prompt generation (should take < 2 seconds)
+15. Verify NO error appears (no "Task BUG-002 not found in sprint TOML")
+16. Verify enhanced prompt is generated and displayed
+17. Verify prompt contains BUG-002 task details from ACTIVE_SPRINT_17.1_BUGS.toml
+
+**Test "Start This Task" - Different Sprint**:
+18. Use dropdown to switch to "ACTIVE_SPRINT.toml" (Sprint 3)
+19. Verify UI shows Sprint 3 tasks (PROTECT-*, CONFIG-*, etc.)
+20. Find any Sprint 3 task (e.g., CONFIG-001)
+21. Click "Start This Task" on that task
+22. Verify enhanced prompt generated from ACTIVE_SPRINT.toml (not bug sprint)
+
+**Test Sprint Switching**:
+23. Switch back to "ACTIVE_SPRINT_17.1_BUGS.toml" using dropdown
+24. Click "Start This Task" on BUG-003
+25. Verify enhanced prompt generated from bug sprint file
+26. Switch to ACTIVE_SPRINT.toml
+27. Click "Start This Task" on a Sprint 3 task
+28. Verify enhanced prompt generated from Sprint 3 file
+
+**Test Error Handling**:
+29. Manually try to trigger enhanced prompt for invalid task ID (if possible via dev tools)
+30. Verify error message shows which sprint file was searched
+31. Verify error message lists available sprint files
+32. Verify error message suggests updating config if needed
+
+**Expected Results**:
+- [ ] Sprint dropdown shows all ACTIVE_SPRINT_*.toml files
+- [ ] Selecting sprint from dropdown refreshes UI with correct tasks
+- [ ] "Start This Task" reads from currently selected sprint file
+- [ ] BUG-002 enhanced prompt generated when bug sprint selected
+- [ ] Sprint 3 task prompts generated when Sprint 3 selected
+- [ ] Switching sprints works correctly (no stale data)
+- [ ] No "Task not found" errors when clicking "Start This Task"
+- [ ] Enhanced prompts contain correct task data from selected sprint
+- [ ] Error messages show which sprint file was searched
+- [ ] Error messages list available sprint files
+- [ ] TypeScript compilation succeeds
+- [ ] No console errors in Extension Host
+
+**Previous Bug (Commit 28a9309)**:
+- ❌ Changed config.json to hardcode bug sprint
+- ❌ Made dropdown useless (always read from config, not dropdown)
+- ❌ Required config change every time user switches sprints
+
+**Real Fix (Commit 4ee4925)**:
+- ✅ TaskPromptExporter accepts sprint path parameter
+- ✅ voicePanel passes selected sprint path from SprintLoader
+- ✅ Dropdown controls which sprint is active (as intended)
+- ✅ Config only sets default/initial sprint
+
+**Actual Result**: _____________________________
+
+**Status**: [ ] PASS [ ] FAIL
+
+---
+
 ## Test Credentials
 
 ### Website API (for future BUG-002A/B/C testing)
@@ -2161,6 +2247,9 @@ completion_percentage = 6  # (1 / 18) * 100
 ### Sprint Panel UX Tests (High Priority)
 - [ ] Test 57: BUG-012 - Link/Unlink Toggle for Pop-Out Sprint Views
 
+### Sprint Panel Core Functionality Tests (CRITICAL)
+- [ ] Test 58: BUG-013 - "Start This Task" Uses Selected Sprint File
+
 ### Optional Tests (Nice to Have)
 - [ ] Test 40: BUG-002 - Integration Test with Live API (Optional)
 - [ ] Test 16: Enhanced Prompt Button Not Shown When Field Missing
@@ -2186,7 +2275,7 @@ completion_percentage = 6  # (1 / 18) * 100
 - Extension Version: 0.17.2
 
 **Results**:
-- Total Tests Run: _____ / 57
+- Total Tests Run: _____ / 58
 - Tests Passed: _____
 - Tests Failed: _____
 - Tests Skipped: _____
