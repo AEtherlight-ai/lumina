@@ -2577,7 +2577,7 @@ Commit Hash: 61d24b5
 [tasks.BUG-011]
 id = "BUG-011"
 name = "Add extension license key validation on activation (LIVE validation)"
-status = "ready"
+status = "completed"
 phase = "extension-license-validation"
 agent = "infrastructure-agent"
 enhanced_prompt = "internal/sprints/enhanced_prompts/BUG-011_ENHANCED_PROMPT.md"
@@ -2588,6 +2588,7 @@ test_keys = "Free: CD7W-AJDK-RLQT-LUFA | Pro: W7HD-X79Q-CQJ9-XW13"
 estimated_time_actual = "6 hours"
 answers_received = "2025-11-13"
 cleared_to_proceed = true
+completion_date = "2025-11-13"
 template = "MVP-003-PromptEnhancer-TaskTemplate-v1.4.3"
 why = """
 CRITICAL SECURITY GAP:\r
@@ -2728,9 +2729,11 @@ test_files = [
 ]
 test_coverage_requirement = 0.9
 performance_target = "Validation completes < 2 seconds, doesn't block activation"
-patterns = [ "Pattern-CODE-001", "Pattern-TDD-001" ]
+patterns = [ "Pattern-CODE-001", "Pattern-TDD-001", "Pattern-FEATURE-GATING-001", "Pattern-UI-004", "Pattern-AUTH-001" ]
 dependencies = [ ]
-api_endpoints = [ "POST /api/license/validate" ]
+api_endpoints = [ "GET /api/tokens/balance" ]
+completion_notes_doc = "internal/sprints/completion/BUG-011_COMPLETION.md"
+completion_summary = "Implemented full license validation system: LicenseValidator (Bearer token, 24h cache, 2s timeout), TierGate (feature access control), activation flow (first-time prompt + validation), tier status bar, voice capture gating (3 locations). 4 files created, 7 files modified, 19 tests written (TDD approach), TypeScript compilation SUCCESS. Fixed orphaned methods bug in voicePanel.ts. All validation criteria met."
 
 [tasks.BUG-012]
 id = "BUG-012"
@@ -2738,6 +2741,8 @@ name = "Implement unlink feature for pop-out sprint views (marked complete but m
 status = "pending"
 phase = "unlink-feature"
 agent = "ui-agent"
+enhanced_prompt = "internal/sprints/enhanced_prompts/BUG-012_ENHANCED_PROMPT.md"
+template = "MVP-003-PromptEnhancer-TaskTemplate-v1.4.3"
 why = """
 MARKED COMPLETE BUT NOT IMPLEMENTED:\r
 \r
@@ -2998,6 +3003,169 @@ test_coverage_requirement = 0
 performance_target = "Task lookup < 100ms, enhanced prompt generation < 2 seconds"
 patterns = [ "Pattern-CODE-001" ]
 dependencies = [ "BUG-001" ]
+
+[tasks.INFRA-003]
+id = "INFRA-003"
+name = "Implement automated task document linking enforcement system"
+status = "pending"
+phase = "documentation-infrastructure"
+agent = "infrastructure-agent"
+enhanced_prompt = "docs/patterns/Pattern-DOCS-002-TaskDocumentLinking.md"
+why = """
+ORGANIZATIONAL DEBT ACCUMULATING:
+
+Current Problem:
+- Task documents (enhanced prompts, questions, test plans) can become orphaned
+- No enforcement that documents are linked in sprint TOML
+- Manual process prone to human error (forgot to link BUG-012 initially)
+- Difficult to discover all documents for a task
+- Inconsistent organization across sprints
+
+Gap: No automated validation that all task documents follow naming convention and are linked in TOML.
+
+Evidence:
+- BUG-012 initially created without TOML link (caught manually)
+- No validation script exists
+- No pre-commit hook
+- 100% reliance on human diligence
+
+Impact: Lost documentation, inconsistent organization, technical debt.
+Severity: MEDIUM - Preventable organizational issues.
+"""
+description = """
+Implement 100% automated enforcement system for task document linking:
+
+1. Sprint-Aware Naming Convention Enforcement
+   - All task docs MUST use: {SPRINT_ID}_{TASK_ID}_{TYPE}.md
+   - Example: 17.1-BUGS_BUG-013_ENHANCED_PROMPT.md
+   - Example: 17.1-BUGS_BUG-013_QUESTIONS.md
+   - Sprint ID extracted from TOML filename (ACTIVE_SPRINT_17.1_BUGS.toml → 17.1-BUGS)
+   - Prevents collisions when multiple sprints have same task IDs
+
+2. TOML Linking Validation
+   - All enhanced prompts MUST be linked in sprint TOML
+   - All questions docs MUST be linked in sprint TOML
+   - Validate all TOML links point to existing files
+   - Validate sprint ID in filename matches task's owning sprint
+
+3. Automated Validation Script
+   - Create: scripts/validate-task-docs.js
+   - Checks all documents are linked
+   - Finds orphaned documents
+   - Reports broken links
+   - Detects sprint ID mismatches
+
+4. Document Migration Script
+   - Create: scripts/migrate-task-docs.js
+   - Renames existing docs to sprint-aware format
+   - Updates all TOML references automatically
+   - Dry-run mode for preview
+
+5. Pre-Commit Hook
+   - Block commits with orphaned docs
+   - Block commits with broken links
+   - Block commits with sprint ID mismatches
+   - Run validation automatically
+
+6. Documentation
+   - Pattern-DOCS-002: Task document linking (CREATED, v1.1 with sprint-aware naming)
+   - Update CLAUDE.md with new process
+   - Create enforcement guide
+"""
+reasoning_chain = [
+  "1. Agent creates enhanced prompt BUG-012_ENHANCED_PROMPT.md",
+  "2. Agent forgets to add enhanced_prompt field to TOML",
+  "3. Document is orphaned (exists but not linked)",
+  "4. Weeks later: Can't find document by searching TOML",
+  "5. Problem: Manual process allows human error",
+  "6. Solution: Automated validation catches 100% of cases",
+  "7. Pre-commit hook blocks bad commits",
+  "8. Result: Zero orphaned documents possible"
+]
+success_impact = """
+After INFRA-003 complete:
+✅ 100% enforcement (pre-commit hook blocks bad commits)
+✅ All task documents follow sprint-aware naming convention
+✅ No collisions when multiple sprints have same task IDs
+✅ Sprint ID validation prevents wrong-sprint assignment
+✅ All task documents linked in sprint TOML
+✅ No orphaned documents possible
+✅ Validation script finds issues instantly
+✅ Clear error messages with fix instructions
+✅ Discoverable by sprint + task ID (ls internal/sprints/*/17.1-BUGS_BUG-013*)
+✅ TOML serves as single source of truth
+✅ Zero human error possible (automated)
+✅ Existing docs migrated to new naming format
+"""
+files_to_create = [
+  "scripts/validate-task-docs.js (validation script with sprint ID checks ~250 lines)",
+  "scripts/migrate-task-docs.js (migration script ~150 lines)",
+  "scripts/install-hooks.js (hook installer ~50 lines)",
+  ".git/hooks/pre-commit (git hook ~20 lines)"
+]
+files_to_modify = [
+  "package.json (add npm scripts for validation)",
+  ".claude/CLAUDE.md (document new process)"
+]
+deliverables = [
+  "Validation script: scripts/validate-task-docs.js (with sprint ID validation)",
+  "Migration script: scripts/migrate-task-docs.js (rename existing docs)",
+  "Hook installer: scripts/install-hooks.js",
+  "Pre-commit hook: .git/hooks/pre-commit",
+  "Pattern document: docs/patterns/Pattern-DOCS-002-TaskDocumentLinking.md (COMPLETE v1.1)",
+  "npm scripts: validate-docs, install-hooks, migrate-docs",
+  "Migrate existing documents to sprint-aware naming",
+  "Initial validation run (audit existing docs)",
+  "Fix any orphaned documents found",
+  "Documentation in CLAUDE.md"
+]
+estimated_time = "4-5 hours"
+estimated_lines = 450
+validation_criteria = [
+  "Validation script exists and runs successfully",
+  "Pre-commit hook installed and working",
+  "Hook blocks commits with orphaned docs",
+  "Hook blocks commits with broken links",
+  "All existing documents pass validation",
+  "npm run validate-docs shows 0 errors",
+  "Test: Create orphaned doc → hook blocks commit",
+  "Test: Break TOML link → hook blocks commit",
+  "Pattern-DOCS-002 exists and documents system"
+]
+error_handling = """
+Validation script error messages:
+- "Orphaned document: {path} (NOT LINKED in TOML)"
+- "Broken link: {taskId}.{field} = '{path}' (FILE NOT FOUND)"
+- "Invalid naming: {path} (expected {SPRINT_ID}_{TASK_ID}_{TYPE}.md)"
+- "Sprint ID mismatch: {path} (document sprint={sprintId}, task belongs to sprint={taskSprintId})"
+- "Missing required field: {taskId}.enhanced_prompt (ALL TASKS MUST HAVE)"
+
+Clear fix instructions for each error type.
+
+Migration script output:
+- "Renaming: BUG-011_ENHANCED_PROMPT.md → 17.1-BUGS_BUG-011_ENHANCED_PROMPT.md"
+- "Updating TOML reference: [tasks.BUG-011].enhanced_prompt"
+- "Migration complete: X files renamed, Y TOML references updated"
+"""
+test_requirements = """
+Manual Testing:
+1. Run validation script on existing docs
+2. Fix any orphaned documents found
+3. Install pre-commit hook
+4. Test hook blocks orphaned doc commit
+5. Test hook blocks broken link commit
+6. Test hook allows valid commit
+7. Verify npm scripts work
+
+Automated Testing:
+- Unit tests for validation logic (optional)
+- Integration tests for git hook (optional)
+"""
+test_files = [ "Manual testing primarily (validation + git hooks)" ]
+test_coverage_requirement = 0
+performance_target = "Validation completes < 5 seconds for 100 documents, hook adds < 1 second to commit"
+patterns = [ "Pattern-DOCS-002", "Pattern-VALIDATION-001" ]
+dependencies = [ ]
 
 [tasks.ENHANCE-001]
 id = "ENHANCE-001"

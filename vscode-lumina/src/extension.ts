@@ -33,6 +33,8 @@ import * as path from 'path';
 import { IPCClient } from './ipc/client';
 import { registerCaptureVoiceCommand } from './commands/captureVoice';
 import { checkAndSetupUserDocumentation } from './firstRunSetup';
+import { LicenseValidator } from './auth/licenseValidator';
+import { TierGate } from './auth/tierGate';
 // REMOVED - These files don't exist (work-in-progress features):
 // import { registerSimpleVoiceCaptureCommand } from './commands/simpleVoiceCapture';
 // import { registerCaptureVoiceGlobalCommand } from './commands/captureVoiceGlobal';
@@ -261,6 +263,135 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	 * PATTERN: Pattern-WORKSPACE-001 (Per-Workspace Setup)
 	 */
 	await checkAndSetupUserDocumentation(context);
+
+	/**
+	 * DESIGN DECISION: Validate license key EARLY (before launching features)
+	 * WHY: Block paid features for invalid/free tier users before they see UI
+	 *
+	 * REASONING CHAIN (BUG-011 - CRITICAL SECURITY):
+	 * 1. Extension needs to validate license on EVERY activation (not just first run)
+	 * 2. Get license key from settings (aetherlight.licenseKey)
+	 * 3. Call Bearer token API: GET /api/tokens/balance with Authorization: Bearer {key}
+	 * 4. API returns tier (free/network/pro/enterprise) if valid, 401 if invalid
+	 * 5. Set tier in TierGate for feature gating (free tier = no voice capture)
+	 * 6. Store tier in settings for UI display (status bar shows tier)
+	 * 7. If no key or invalid → Show activation prompt with "Get Free Tier" option
+	 * 8. Graceful degradation: Offline mode if network fails (cached tier)
+	 *
+	 * PATTERN: Pattern-AUTH-001 (License validation), Pattern-FEATURE-GATING-001
+	 * RELATED: auth/licenseValidator.ts, auth/tierGate.ts, package.json (settings)
+	 * TEST KEYS: CD7W-AJDK-RLQT-LUFA (free), W7HD-X79Q-CQJ9-XW13 (pro)
+	 */
+	const config = vscode.workspace.getConfiguration('aetherlight');
+	let licenseKey = config.get<string>('licenseKey', '');
+
+	const validator = new LicenseValidator();
+	const tierGate = new TierGate();
+
+	try {
+		if (!licenseKey) {
+			// First-time activation: Show prompt
+			const action = await vscode.window.showInformationMessage(
+				'Welcome to ÆtherLight! Please enter your license key to continue.',
+				'Enter License Key',
+				'Get Free Tier'
+			);
+
+			if (action === 'Enter License Key') {
+				licenseKey = await vscode.window.showInputBox({
+					prompt: 'Enter your ÆtherLight license key',
+					placeHolder: 'XXXX-XXXX-XXXX-XXXX',
+					ignoreFocusOut: true
+				}) || '';
+
+				if (licenseKey) {
+					await config.update('licenseKey', licenseKey, vscode.ConfigurationTarget.Global);
+				}
+			} else if (action === 'Get Free Tier') {
+				// Set free tier (no key required)
+				tierGate.setUserTier('free');
+				await config.update('userTier', 'free', vscode.ConfigurationTarget.Global);
+				vscode.window.showInformationMessage('ÆtherLight activated with Free tier. Voice capture disabled. Upgrade at aetherlight.ai');
+			}
+		}
+
+		if (licenseKey) {
+			// Validate license key (with offline support)
+			const result = await validator.validateLicenseKey(licenseKey, {
+				allowOffline: true,
+				timeout: 2000
+			});
+
+			// Update tier in settings
+			tierGate.setUserTier(result.tier);
+			await config.update('userTier', result.tier, vscode.ConfigurationTarget.Global);
+
+			// Show status
+			if (result.tier === 'offline') {
+				vscode.window.showWarningMessage('ÆtherLight: License validation offline. Using cached tier.');
+			} else {
+				console.log(`ÆtherLight activated (${result.tier} tier)`);
+			}
+		}
+	} catch (error: any) {
+		// License validation failed
+		console.error('[ÆtherLight] License validation failed:', error);
+		vscode.window.showErrorMessage(`ÆtherLight: License validation failed. ${error.message}`);
+
+		// Default to free tier (graceful degradation)
+		tierGate.setUserTier('free');
+		await config.update('userTier', 'free', vscode.ConfigurationTarget.Global);
+	}
+
+	// Store tierGate in context for command access
+	(context as any).tierGate = tierGate;
+
+	/**
+	 * BUG-011: Add status bar item to display user tier
+	 * WHY: User should always see their current subscription tier (transparency)
+	 *
+	 * REASONING CHAIN:
+	 * 1. License validation sets tier (free, network, pro, enterprise, offline)
+	 * 2. Show tier in status bar (always visible, bottom right)
+	 * 3. Click → open settings or upgrade page
+	 * 4. Color coding: Free = gray, Paid = green, Offline = yellow
+	 * 5. Tooltip shows feature access summary
+	 *
+	 * PATTERN: Pattern-UI-004 (Tier Status Bar Indicator)
+	 * RELATED: tierGate.ts (feature gates), licenseValidator.ts (tier validation)
+	 */
+	const tierStatusBar = vscode.window.createStatusBarItem(
+		vscode.StatusBarAlignment.Right,
+		100 // High priority (appears leftmost in right section)
+	);
+
+	// Get current tier from tierGate
+	const currentTier = tierGate.getUserTier() || 'free';
+	const tierIcons: Record<string, string> = {
+		'free': '$(shield)',
+		'network': '$(verified)',
+		'pro': '$(star-full)',
+		'enterprise': '$(organization)',
+		'offline': '$(warning)'
+	};
+	const tierColors: Record<string, string> = {
+		'free': '#888888',
+		'network': '#00ff00',
+		'pro': '#00ff00',
+		'enterprise': '#00ff00',
+		'offline': '#ffaa00'
+	};
+
+	tierStatusBar.text = `${tierIcons[currentTier] || '$(shield)'} ${currentTier.charAt(0).toUpperCase() + currentTier.slice(1)}`;
+	tierStatusBar.tooltip = `ÆtherLight Tier: ${currentTier}\nVoice Capture: ${tierGate.canUseFeature('voiceCapture') ? '✅ Enabled' : '❌ Disabled (Upgrade Required)'}`;
+	tierStatusBar.command = currentTier === 'free' || currentTier === 'offline'
+		? { command: 'vscode.open', arguments: [vscode.Uri.parse('https://aetherlight.ai/upgrade')], title: 'Upgrade' }
+		: { command: 'workbench.action.openSettings', arguments: ['aetherlight.licenseKey'], title: 'Open Settings' };
+	tierStatusBar.color = tierColors[currentTier] || '#888888';
+	tierStatusBar.show();
+
+	// Store in context for future updates
+	context.subscriptions.push(tierStatusBar);
 
 	/**
 	 * DESIGN DECISION: Setup docs when workspace folders change (user opens new repo)
@@ -528,6 +659,35 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	 * 5. Result: Reliable tab switching regardless of current state
 	 */
 	const openVoicePanelCommand = vscode.commands.registerCommand('aetherlight.openVoicePanel', async () => {
+		/**
+		 * BUG-011: Check tier gate before allowing voice capture
+		 * WHY: Voice capture costs money (OpenAI Whisper API) - only paid tiers allowed
+		 *
+		 * REASONING CHAIN:
+		 * 1. Free tier users can use all features EXCEPT voice capture (API costs)
+		 * 2. Paid tiers (network, pro, enterprise) can use voice capture
+		 * 3. Offline mode = same as free tier (can't validate tokens)
+		 * 4. If blocked, show upgrade prompt with link to upgrade page
+		 *
+		 * PATTERN: Pattern-FEATURE-GATING-001
+		 * RELATED: tierGate.ts (feature gate configuration), extension.ts (tier setup)
+		 */
+		const tierGate = (context as any).tierGate;
+		if (!tierGate || !tierGate.canUseFeature('voiceCapture')) {
+			const action = await vscode.window.showWarningMessage(
+				'Voice capture requires a paid subscription (uses OpenAI Whisper API).',
+				'Upgrade Now',
+				'Learn More'
+			);
+
+			if (action === 'Upgrade Now') {
+				vscode.env.openExternal(vscode.Uri.parse('https://aetherlight.ai/upgrade'));
+			} else if (action === 'Learn More') {
+				vscode.env.openExternal(vscode.Uri.parse('https://aetherlight.ai/features'));
+			}
+			return;
+		}
+
 		/**
 		 * DESIGN DECISION: Backtick records into Activity Panel input field via IPC
 		 * WHY: User wants ` to record into command/transcript input (not type globally)

@@ -68,6 +68,7 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
     private taskDetailsCache: Map<string, string> = new Map(); // Cache for extracted task sections
     private poppedOutPanels: vscode.WebviewPanel[] = []; // Track all popped-out panels
     private sprintFileWatchers: vscode.FileSystemWatcher[] = []; // Auto-refresh on TOML changes
+    private panelLinkStates: Map<vscode.WebviewPanel, boolean> = new Map(); // UNLINK-001: Track link state per panel (default: true)
 
     constructor(
         private readonly _extensionUri: vscode.Uri,
@@ -4833,6 +4834,34 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
      *
      * See: package.json contributes.configuration for available settings
      */
+
+    /**
+     * UNLINK-001: Set panel link state
+     *
+     * REASONING: Track whether panel's sprint selection is linked to main panel
+     * Default: true (linked) - backward compatible
+     * Used by toggle button to switch between linked/unlinked states
+     *
+     * @param panel - WebviewPanel instance
+     * @param isLinked - true = linked (syncs with main panel), false = unlinked (independent)
+     */
+    private setPanelLinked(panel: vscode.WebviewPanel, isLinked: boolean): void {
+        this.panelLinkStates.set(panel, isLinked);
+    }
+
+    /**
+     * UNLINK-001: Get panel link state
+     *
+     * REASONING: Check if panel should sync sprint selection with main panel
+     * Default: true (linked) - if panel not in Map, assume linked for backward compatibility
+     *
+     * @param panel - WebviewPanel instance
+     * @returns true if linked (syncs), false if unlinked (independent)
+     */
+    private isPanelLinked(panel: vscode.WebviewPanel): boolean {
+        // If panel not in Map → default to linked (backward compatible)
+        return this.panelLinkStates.get(panel) ?? true;
+    }
 }
 
 // ============================================================================
