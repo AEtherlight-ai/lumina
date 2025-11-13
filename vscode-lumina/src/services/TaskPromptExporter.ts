@@ -558,7 +558,18 @@ ${templateTask.success_impact || 'Enhancement improves user workflow and code qu
 
             // Find task in TOML data
             if (!data.tasks || !data.tasks[taskId]) {
-                throw new Error(`Task ${taskId} not found in sprint TOML`);
+                const sprintFileName = path.basename(this.sprintFilePath);
+                const sprintDir = path.join(this.workspaceRoot, 'internal', 'sprints');
+                const availableSprints = fs.existsSync(sprintDir)
+                    ? fs.readdirSync(sprintDir)
+                        .filter(f => f.startsWith('ACTIVE_SPRINT') && f.endsWith('.toml'))
+                    : [];
+
+                throw new Error(
+                    `Task ${taskId} not found in ${sprintFileName}.\n\n` +
+                    `Available sprint files:\n${availableSprints.map(f => `  - ${f}`).join('\n')}\n\n` +
+                    `Update config.structure.activeSprint in .aetherlight/config.json to the correct file.`
+                );
             }
 
             // Return task data

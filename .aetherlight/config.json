@@ -8,7 +8,7 @@
   },
   "structure": {
     "sprintDir": "internal/sprints",
-    "activeSprint": "ACTIVE_SPRINT.toml",
+    "activeSprint": "ACTIVE_SPRINT_17.1_BUGS.toml",
     "patternsDir": "docs/patterns",
     "testsDir": "vscode-lumina/test",
     "sourceDir": "vscode-lumina/src"
