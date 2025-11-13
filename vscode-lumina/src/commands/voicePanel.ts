@@ -4229,14 +4229,122 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 showStatus('✨ Enhancing code analysis prompt...', 'info');
             };
 
+            /**
+             * BUG-009: Sprint Planner - Structured Form → Enhance → Main Text Area → Terminal
+             * WHY: Gather sprint parameters, enhance with AI, populate main text area for review
+             * PATTERN: Form with fields → Enhance button → Main text area → Send button
+             *
+             * FIXED: Previously immediately called postMessage (no modal shown)
+             * NOW: Shows modal with Q&A form (duration, goals, team size, priorities, context)
+             *
+             * REFERENCE: Follows BUG-008 Code Analyzer pattern (successful implementation)
+             */
             window.openSprintPlanner = function() {
-                /**
-                 * UX-001: Sprint Planner Enhancement Pattern
-                 * WHY: Generate sprint planning prompt → Load to text area for user review
-                 * PATTERN: Extract context → Enhance → Populate text area (UNIVERSAL PATTERN)
-                 */
-                showStatus('📋 Generating sprint plan prompt...', 'info');
-                vscode.postMessage({ type: 'sprintPlannerEnhance' });
+                const content = \`
+                    <div style="padding: 16px; max-width: 600px;">
+                        <p style="color: var(--vscode-descriptionForeground); margin-bottom: 16px; font-size: 13px;">
+                            Answer questions about your sprint below. Click "Enhance" to generate an enhanced sprint plan in the main text area, where you can review/edit before sending to terminal.
+                        </p>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                            <div>
+                                <label style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 12px;">Sprint Duration <span style="color: var(--vscode-errorForeground);">*</span></label>
+                                <select id="sprintDuration" style="width: 100%; padding: 6px; background: var(--vscode-dropdown-background); color: var(--vscode-dropdown-foreground); border: 1px solid var(--vscode-dropdown-border); border-radius: 3px; font-size: 13px;">
+                                    <option value="">Select duration...</option>
+                                    <option value="1-week">1 Week</option>
+                                    <option value="2-weeks" selected>2 Weeks</option>
+                                    <option value="3-weeks">3 Weeks</option>
+                                    <option value="4-weeks">4 Weeks (1 Month)</option>
+                                    <option value="custom">Custom</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 12px;">Team Size</label>
+                                <input type="number" id="teamSize" min="1" max="50" value="5" style="width: 100%; padding: 6px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); border-radius: 3px; font-size: 13px;" placeholder="Number of team members">
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom: 12px;">
+                            <label style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 12px;">Sprint Goals <span style="color: var(--vscode-errorForeground);">*</span></label>
+                            <textarea id="sprintGoals" rows="4" style="width: 100%; padding: 8px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); border-radius: 3px; font-family: var(--vscode-editor-font-family); font-size: 13px;" placeholder="What are the main objectives for this sprint? (e.g., Implement authentication system, Fix critical bugs, Add new dashboard)"></textarea>
+                        </div>
+
+                        <div style="margin-bottom: 12px;">
+                            <label style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 12px;">Priorities (optional)</label>
+                            <select id="sprintPriorities" multiple size="4" style="width: 100%; padding: 6px; background: var(--vscode-dropdown-background); color: var(--vscode-dropdown-foreground); border: 1px solid var(--vscode-dropdown-border); border-radius: 3px; font-size: 13px;">
+                                <option value="features">New Features</option>
+                                <option value="bugs">Bug Fixes</option>
+                                <option value="refactoring">Refactoring</option>
+                                <option value="testing">Testing</option>
+                                <option value="documentation">Documentation</option>
+                                <option value="performance">Performance</option>
+                                <option value="security">Security</option>
+                                <option value="ux">UX Improvements</option>
+                            </select>
+                            <div style="font-size: 11px; color: var(--vscode-descriptionForeground); margin-top: 2px;">
+                                Hold Ctrl/Cmd to select multiple
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom: 16px;">
+                            <label style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 12px;">Additional Context (optional)</label>
+                            <textarea id="sprintContext" rows="3" style="width: 100%; padding: 8px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); border-radius: 3px; font-family: var(--vscode-editor-font-family); font-size: 13px;" placeholder="Team constraints, dependencies, risks, or other considerations..."></textarea>
+                        </div>
+
+                        <button onclick="enhanceSprintPlanner()" style="padding: 8px 16px; background: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 13px;">
+                            ✨ Enhance
+                        </button>
+                        <span style="margin-left: 8px; font-size: 12px; color: var(--vscode-descriptionForeground);">
+                            Populates main text area with enhanced sprint plan
+                        </span>
+                    </div>
+                \`;
+                window.showWorkflow('sprint-planner', '📋 Sprint Planner', content);
+            };
+
+            window.enhanceSprintPlanner = function() {
+                const duration = document.getElementById('sprintDuration').value;
+                const teamSize = parseInt(document.getElementById('teamSize').value) || 5;
+                const goals = document.getElementById('sprintGoals').value;
+
+                // Collect priorities (multi-select)
+                const prioritiesSelect = document.getElementById('sprintPriorities');
+                const selectedPriorities = Array.from(prioritiesSelect.selectedOptions).map(opt => opt.value);
+
+                const context = document.getElementById('sprintContext').value;
+
+                // Validation: Duration and goals required
+                if (!duration || duration === '') {
+                    showStatus('⚠️ Please select a sprint duration', 'error');
+                    return;
+                }
+
+                if (!goals.trim()) {
+                    showStatus('⚠️ Please enter sprint goals', 'error');
+                    return;
+                }
+
+                // Validation: Team size must be positive
+                if (teamSize <= 0) {
+                    showStatus('⚠️ Team size must be at least 1', 'error');
+                    return;
+                }
+
+                // Send all form data to extension for enhancement
+                vscode.postMessage({
+                    type: 'sprintPlannerEnhance',
+                    data: {
+                        duration: duration,
+                        teamSize: teamSize,
+                        goals: goals,
+                        priorities: selectedPriorities,
+                        context: context
+                    }
+                });
+
+                // Close workflow
+                window.closeWorkflow();
+                showStatus('✨ Enhancing sprint plan...', 'info');
             };
 
             // RIGHT TOOLBAR: Utilities
