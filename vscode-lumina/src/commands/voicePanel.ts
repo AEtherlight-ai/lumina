@@ -21,6 +21,7 @@ import { FeatureRequestContextBuilder } from '../services/enhancement/FeatureReq
 import { GeneralContextBuilder } from '../services/enhancement/GeneralContextBuilder'; // ENHANCE-001.2: General text context builder
 import { TaskContextBuilder } from '../services/enhancement/TaskContextBuilder'; // ENHANCE-001.3: Task context builder (TOML, dependencies, temporal drift)
 import { CodeAnalyzerContextBuilder } from '../services/enhancement/CodeAnalyzerContextBuilder'; // ENHANCE-001.3: Code analyzer context builder (workspace analysis, git history, complexity)
+import { SprintPlannerContextBuilder } from '../services/enhancement/SprintPlannerContextBuilder'; // ENHANCE-001.4: Sprint planner context builder (5-component orchestration)
 
 /**
  * @protected - Partial protection for passing sections only
