@@ -3217,6 +3217,34 @@ deliverables = [
 ]
 estimated_time = "8-12 hours"
 estimated_lines = 500
+subtask_progress = """
+ENHANCE-001.1 (Universal Handler + Interfaces): ✅ Completed 2025-01-13
+  - Created IContextBuilder interface (single build() method)
+  - Created EnhancementContext type (5-field normalized structure)
+  - Created handleEnhancement() universal handler in voicePanel.ts
+  - Commits: [from Sprint v0.17.2]
+
+ENHANCE-001.2 (Simple Context Builders): ✅ Completed 2025-01-13
+  - Implemented BugContextBuilder (bug report normalization)
+  - Implemented FeatureContextBuilder (feature request normalization)
+  - Implemented GeneralContextBuilder (text intent extraction)
+  - All builders implement IContextBuilder interface
+  - Tests: 3 test files (RED phase complete)
+  - Commits: 7adb1fc, 6b0a38b, 18e6d99
+
+ENHANCE-001.3 (Complex Context Builders): ✅ Completed 2025-01-13
+  - Implemented TaskContextBuilder (TOML loading, dependency validation, temporal drift)
+  - Implemented CodeAnalyzerContextBuilder (workspace analysis, git history, complexity)
+  - Handler wiring complete (startTask, startNextTask, analyzeCodeEnhance)
+  - Deprecation notices added for old implementations
+  - Tests: 2 test files with 29 test cases (RED phase complete)
+  - Commits: e4fdb00, f59430c, bc6e7a4
+
+ENHANCE-001.4+: Pending
+  - Remaining: AIEnhancementService integration
+  - Remaining: Template system consolidation
+  - Remaining: End-to-end testing
+"""
 validation_criteria = [
   "PromptEnhancer imports all enhancement services (ContextGatherer, SkillDetector, TaskAnalyzer, PatternLibrary)",
   "PromptEnhancer.enhancePrompt() returns comprehensive EnhancedPrompt",
