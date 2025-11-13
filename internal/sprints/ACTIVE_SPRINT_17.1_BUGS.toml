@@ -4834,6 +4834,7 @@ validation_criteria = [
   "Tests pass (70% coverage)"
 ]
 dependencies = ["ENHANCE-001.1", "ENHANCE-001.6"]
+enhanced_prompt = "internal/sprints/enhanced_prompts/17.1-BUGS_ENHANCE-001.7_ENHANCED_PROMPT.md"
 
 [tasks."ENHANCE-001.8"]
 id = "ENHANCE-001.8"
