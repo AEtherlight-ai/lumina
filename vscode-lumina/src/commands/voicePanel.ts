@@ -788,7 +788,13 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 }
                 break;
 
-                // OLD IMPLEMENTATION (ENHANCE-001.2 - commented for rollback safety):
+                // ==================================================================================
+                // DEPRECATED: OLD IMPLEMENTATION (Pre-ENHANCE-001.3)
+                // STATUS: Replaced by TaskContextBuilder (v3.0 architecture)
+                // REMOVAL DATE: After v0.18.0 validation (estimated 2025-12-01)
+                // WHY KEPT: Rollback safety during transition period
+                // TO REMOVE: Delete this entire commented block after successful validation
+                // ==================================================================================
                 // case 'startNextTask':
                 //     {
                 //         const nextTask = this.taskStarter.findNextReadyTask(this.sprintTasks);
@@ -846,7 +852,13 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 }
                 break;
 
-                // OLD IMPLEMENTATION (ENHANCE-001.2 - commented for rollback safety):
+                // ==================================================================================
+                // DEPRECATED: OLD IMPLEMENTATION (Pre-ENHANCE-001.3)
+                // STATUS: Replaced by TaskContextBuilder (v3.0 architecture)
+                // REMOVAL DATE: After v0.18.0 validation (estimated 2025-12-01)
+                // WHY KEPT: Rollback safety during transition period
+                // TO REMOVE: Delete this entire commented block after successful validation
+                // ==================================================================================
                 // case 'startTask':
                 //     {
                 //         const task = this.sprintTasks.find(t => t.id === message.taskId);
@@ -1101,7 +1113,13 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 }
                 break;
 
-                // OLD IMPLEMENTATION (ENHANCE-001.1 - commented for rollback safety):
+                // ==================================================================================
+                // DEPRECATED: OLD IMPLEMENTATION (Pre-ENHANCE-001.2)
+                // STATUS: Replaced by context builders (v3.0 architecture)
+                // REMOVAL DATE: After v0.18.0 validation (estimated 2025-12-01)
+                // WHY KEPT: Rollback safety during transition period
+                // TO REMOVE: Delete this entire commented block after successful validation
+                // ==================================================================================
                 // /**
                 //  * PROTECT-000F: General Enhancement with MVP-003 Intelligence
                 //  * WHY: Enhance user's natural language prompt using MVP-003 system
@@ -1150,7 +1168,13 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 }
                 break;
 
-                // OLD IMPLEMENTATION (ENHANCE-001.1 - commented for rollback safety):
+                // ==================================================================================
+                // DEPRECATED: OLD IMPLEMENTATION (Pre-ENHANCE-001.2)
+                // STATUS: Replaced by context builders (v3.0 architecture)
+                // REMOVAL DATE: After v0.18.0 validation (estimated 2025-12-01)
+                // WHY KEPT: Rollback safety during transition period
+                // TO REMOVE: Delete this entire commented block after successful validation
+                // ==================================================================================
                 // /**
                 //  * PROTECT-000F: Bug Report Enhancement with MVP-003 Intelligence
                 //  * WHY: Generate structured bug report prompt using MVP-003 system
@@ -1207,7 +1231,13 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 }
                 break;
 
-                // OLD IMPLEMENTATION (ENHANCE-001.1 - commented for rollback safety):
+                // ==================================================================================
+                // DEPRECATED: OLD IMPLEMENTATION (Pre-ENHANCE-001.2)
+                // STATUS: Replaced by context builders (v3.0 architecture)
+                // REMOVAL DATE: After v0.18.0 validation (estimated 2025-12-01)
+                // WHY KEPT: Rollback safety during transition period
+                // TO REMOVE: Delete this entire commented block after successful validation
+                // ==================================================================================
                 // /**
                 //  * PROTECT-000F: Feature Request Enhancement with MVP-003 Intelligence
                 //  * WHY: Generate structured feature request prompt using MVP-003 system
@@ -1265,7 +1295,13 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 }
                 break;
 
-                // OLD IMPLEMENTATION (ENHANCE-001.2 - commented for rollback safety):
+                // ==================================================================================
+                // DEPRECATED: OLD IMPLEMENTATION (Pre-ENHANCE-001.3)
+                // STATUS: Replaced by CodeAnalyzerContextBuilder (v3.0 architecture)
+                // REMOVAL DATE: After v0.18.0 validation (estimated 2025-12-01)
+                // WHY KEPT: Rollback safety during transition period
+                // TO REMOVE: Delete this entire commented block after successful validation
+                // ==================================================================================
                 // case 'analyzeCodeEnhance':
                 //     /**
                 //      * PROTECT-000F: Code Analyzer Enhancement with MVP-003 Intelligence
