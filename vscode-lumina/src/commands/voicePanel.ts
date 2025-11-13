@@ -19,6 +19,8 @@ import { IContextBuilder } from '../interfaces/IContextBuilder'; // ENHANCE-001.
 import { BugReportContextBuilder } from '../services/enhancement/BugReportContextBuilder'; // ENHANCE-001.2: Bug report context builder
 import { FeatureRequestContextBuilder } from '../services/enhancement/FeatureRequestContextBuilder'; // ENHANCE-001.2: Feature request context builder
 import { GeneralContextBuilder } from '../services/enhancement/GeneralContextBuilder'; // ENHANCE-001.2: General text context builder
+import { TaskContextBuilder } from '../services/enhancement/TaskContextBuilder'; // ENHANCE-001.3: Task context builder (TOML, dependencies, temporal drift)
+import { CodeAnalyzerContextBuilder } from '../services/enhancement/CodeAnalyzerContextBuilder'; // ENHANCE-001.3: Code analyzer context builder (workspace analysis, git history, complexity)
 
 /**
  * @protected - Partial protection for passing sections only
