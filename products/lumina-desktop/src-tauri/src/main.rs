@@ -89,6 +89,13 @@ struct AppSettings {
     paste_hotkey: Option<String>,     // Future: configurable paste hotkey
     openai_api_key: String,           // Deprecated (BYOK model) - kept for migration
     license_key: String,              // NEW: Server-managed key authentication
+    // License validation response fields (BUG-003)
+    #[serde(default)]
+    user_id: Option<String>,          // User UUID from /api/license/validate
+    #[serde(default)]
+    device_id: Option<String>,        // Device UUID from /api/license/validate
+    #[serde(default)]
+    tier: Option<String>,             // "free" or "pro" from /api/license/validate
     // Three-tier architecture: Local → Hosted → Global
     global_network_api_endpoint: String,  // ÆtherLight API (Vercel)
     hosted_node_url: Option<String>,      // User's own Supabase/Postgres (optional)
@@ -102,6 +109,10 @@ impl Default for AppSettings {
             paste_hotkey: None,     // Future: user-configurable
             openai_api_key: String::new(), // Deprecated (BYOK model) - kept for migration
             license_key: String::new(), // NEW: User must configure via Settings or activation
+            // License validation fields (BUG-003) - populated after /api/license/validate succeeds
+            user_id: None,          // Set after license activation
+            device_id: None,        // Set after license activation
+            tier: None,             // Set after license activation ("free" or "pro")
             global_network_api_endpoint: "https://api.aetherlight.ai".to_string(), // ÆtherLight global network
             hosted_node_url: None,  // Optional: user's own cloud backup
             selected_domains: vec![], // User selects in Settings UI
