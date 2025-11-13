@@ -16,6 +16,9 @@ import { TemplateTaskBuilder } from '../services/TemplateTaskBuilder'; // PROTEC
 import { TaskPromptExporter } from '../services/TaskPromptExporter'; // PROTECT-000F: Template enhancement
 import { AIEnhancementService } from '../services/AIEnhancementService'; // ENHANCE-001.1: AI enhancement with VS Code LM API
 import { IContextBuilder } from '../interfaces/IContextBuilder'; // ENHANCE-001.1: Context builder interface
+import { BugReportContextBuilder } from '../services/enhancement/BugReportContextBuilder'; // ENHANCE-001.2: Bug report context builder
+import { FeatureRequestContextBuilder } from '../services/enhancement/FeatureRequestContextBuilder'; // ENHANCE-001.2: Feature request context builder
+import { GeneralContextBuilder } from '../services/enhancement/GeneralContextBuilder'; // ENHANCE-001.2: General text context builder
 
 /**
  * @protected - Partial protection for passing sections only
@@ -1101,104 +1104,167 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
             case 'enhanceText':
                 /**
-                 * PROTECT-000F: General Enhancement with MVP-003 Intelligence
-                 * WHY: Enhance user's natural language prompt using MVP-003 system
-                 * PATTERN: User prompt → TemplateTaskBuilder → TaskPromptExporter.generateEnhancedPromptFromTemplate() → Enhanced prompt
-                 * UPGRADE: Was basic PromptEnhancer → Now full MVP-003 (gap detection, pattern injection, context analysis)
+                 * ENHANCE-001.2: General Text Enhancement with v3.0 Context Builder
+                 * WHY: Use GeneralContextBuilder → handleEnhancement() → AIEnhancementService
+                 * PATTERN: Text → GeneralContextBuilder → EnhancementContext → Universal Handler → Enhanced Prompt
+                 * ARCHITECTURE: v3.0 (strategy pattern, normalized context, pluggable builders)
                  */
                 try {
-                    // Build template task using TemplateTaskBuilder
-                    const generalEnhanceTemplate = this.templateTaskBuilder.buildGeneralEnhanceTemplate(message.text);
-
-                    // Generate enhanced prompt using MVP-003 system
-                    const enhancedPrompt = await this.taskPromptExporter.generateEnhancedPromptFromTemplate(generalEnhanceTemplate);
-
-                    webview.postMessage({
-                        type: 'enhancedText',
-                        text: enhancedPrompt
-                    });
+                    const generalBuilder = new GeneralContextBuilder(this._context);
+                    await this.handleEnhancement(
+                        'general_enhance',
+                        { text: message.text },
+                        generalBuilder,
+                        webview
+                    );
                 } catch (error) {
-                    console.error('[ÆtherLight] Prompt enhancement failed:', error);
-                    // Fall back to original text if enhancement fails
-                    webview.postMessage({
-                        type: 'enhancedText',
-                        text: message.text
-                    });
+                    console.error('[ÆtherLight] General enhancement failed:', error);
+                    vscode.window.showErrorMessage(`Failed to enhance text: ${(error as Error).message}`);
                 }
                 break;
 
+                // OLD IMPLEMENTATION (ENHANCE-001.1 - commented for rollback safety):
+                // /**
+                //  * PROTECT-000F: General Enhancement with MVP-003 Intelligence
+                //  * WHY: Enhance user's natural language prompt using MVP-003 system
+                //  * PATTERN: User prompt → TemplateTaskBuilder → TaskPromptExporter.generateEnhancedPromptFromTemplate() → Enhanced prompt
+                //  * UPGRADE: Was basic PromptEnhancer → Now full MVP-003 (gap detection, pattern injection, context analysis)
+                //  */
+                // try {
+                //     // Build template task using TemplateTaskBuilder
+                //     const generalEnhanceTemplate = this.templateTaskBuilder.buildGeneralEnhanceTemplate(message.text);
+                //
+                //     // Generate enhanced prompt using MVP-003 system
+                //     const enhancedPrompt = await this.taskPromptExporter.generateEnhancedPromptFromTemplate(generalEnhanceTemplate);
+                //
+                //     webview.postMessage({
+                //         type: 'enhancedText',
+                //         text: enhancedPrompt
+                //     });
+                // } catch (error) {
+                //     console.error('[ÆtherLight] Prompt enhancement failed:', error);
+                //     // Fall back to original text if enhancement fails
+                //     webview.postMessage({
+                //         type: 'enhancedText',
+                //         text: message.text
+                //     });
+                // }
+                // break;
+
             case 'enhanceBugReport':
                 /**
-                 * PROTECT-000F: Bug Report Enhancement with MVP-003 Intelligence
-                 * WHY: Generate structured bug report prompt using MVP-003 system
-                 * PATTERN: Form data → TemplateTaskBuilder → TaskPromptExporter.generateEnhancedPromptFromTemplate() → Enhanced prompt
-                 * UPGRADE: Was basic PromptEnhancer → Now full MVP-003 (gap detection, TDD workflow, root cause analysis)
+                 * ENHANCE-001.2: Bug Report Enhancement with v3.0 Context Builder
+                 * WHY: Use BugReportContextBuilder → handleEnhancement() → AIEnhancementService
+                 * PATTERN: Form → BugReportContextBuilder → EnhancementContext → Universal Handler → Enhanced Prompt
+                 * ARCHITECTURE: v3.0 (strategy pattern, git history search, file discovery)
                  */
                 try {
-                    const bugData = message.data;
-
-                    // Build template task using TemplateTaskBuilder
-                    const bugReportTemplate = this.templateTaskBuilder.buildBugReportTemplate({
-                        title: bugData.title,
-                        severity: bugData.severity,
-                        stepsToReproduce: bugData.description || '',
-                        expectedBehavior: '',
-                        actualBehavior: bugData.description || '',
-                        additionalContext: bugData.context || ''
-                    });
-
-                    // Generate enhanced prompt using MVP-003 system
-                    const enhancedPrompt = await this.taskPromptExporter.generateEnhancedPromptFromTemplate(bugReportTemplate);
-
-                    // Send to webview to populate main text area
-                    webview.postMessage({
-                        type: 'populateTextArea',
-                        text: enhancedPrompt
-                    });
-
-                    vscode.window.showInformationMessage('✨ Bug report enhanced (MVP-003) - review in text area and click Send');
+                    const bugBuilder = new BugReportContextBuilder(this._context);
+                    await this.handleEnhancement(
+                        'bug_report',
+                        message.data,
+                        bugBuilder,
+                        webview
+                    );
                 } catch (error) {
                     console.error('[ÆtherLight] Bug report enhancement failed:', error);
                     vscode.window.showErrorMessage(`Failed to enhance bug report: ${(error as Error).message}`);
                 }
                 break;
 
+                // OLD IMPLEMENTATION (ENHANCE-001.1 - commented for rollback safety):
+                // /**
+                //  * PROTECT-000F: Bug Report Enhancement with MVP-003 Intelligence
+                //  * WHY: Generate structured bug report prompt using MVP-003 system
+                //  * PATTERN: Form data → TemplateTaskBuilder → TaskPromptExporter.generateEnhancedPromptFromTemplate() → Enhanced prompt
+                //  * UPGRADE: Was basic PromptEnhancer → Now full MVP-003 (gap detection, TDD workflow, root cause analysis)
+                //  */
+                // try {
+                //     const bugData = message.data;
+                //
+                //     // Build template task using TemplateTaskBuilder
+                //     const bugReportTemplate = this.templateTaskBuilder.buildBugReportTemplate({
+                //         title: bugData.title,
+                //         severity: bugData.severity,
+                //         stepsToReproduce: bugData.description || '',
+                //         expectedBehavior: '',
+                //         actualBehavior: bugData.description || '',
+                //         additionalContext: bugData.context || ''
+                //     });
+                //
+                //     // Generate enhanced prompt using MVP-003 system
+                //     const enhancedPrompt = await this.taskPromptExporter.generateEnhancedPromptFromTemplate(bugReportTemplate);
+                //
+                //     // Send to webview to populate main text area
+                //     webview.postMessage({
+                //         type: 'populateTextArea',
+                //         text: enhancedPrompt
+                //     });
+                //
+                //     vscode.window.showInformationMessage('✨ Bug report enhanced (MVP-003) - review in text area and click Send');
+                // } catch (error) {
+                //     console.error('[ÆtherLight] Bug report enhancement failed:', error);
+                //     vscode.window.showErrorMessage(`Failed to enhance bug report: ${(error as Error).message}`);
+                // }
+                // break;
+
             case 'enhanceFeatureRequest':
                 /**
-                 * PROTECT-000F: Feature Request Enhancement with MVP-003 Intelligence
-                 * WHY: Generate structured feature request prompt using MVP-003 system
-                 * PATTERN: Form data → TemplateTaskBuilder → TaskPromptExporter.generateEnhancedPromptFromTemplate() → Enhanced prompt
-                 * UPGRADE: Was basic PromptEnhancer → Now full MVP-003 (gap detection, TDD workflow, use case analysis)
+                 * ENHANCE-001.2: Feature Request Enhancement with v3.0 Context Builder
+                 * WHY: Use FeatureRequestContextBuilder → handleEnhancement() → AIEnhancementService
+                 * PATTERN: Form → FeatureRequestContextBuilder → EnhancementContext → Universal Handler → Enhanced Prompt
+                 * ARCHITECTURE: v3.0 (strategy pattern, git history search, use case pattern mapping)
                  */
                 try {
-                    const featureData = message.data;
-
-                    // Build template task using TemplateTaskBuilder
-                    const featureRequestTemplate = this.templateTaskBuilder.buildFeatureRequestTemplate({
-                        title: featureData.title,
-                        priority: featureData.priority,
-                        category: featureData.category || '',
-                        useCase: featureData.useCase || '',
-                        proposedSolution: featureData.proposedSolution || featureData.solution || '',
-                        alternativeApproaches: featureData.alternativeApproaches || '',
-                        additionalContext: featureData.additionalContext || featureData.context || ''
-                    });
-
-                    // Generate enhanced prompt using MVP-003 system
-                    const enhancedPrompt = await this.taskPromptExporter.generateEnhancedPromptFromTemplate(featureRequestTemplate);
-
-                    // Send to webview to populate main text area
-                    webview.postMessage({
-                        type: 'populateTextArea',
-                        text: enhancedPrompt
-                    });
-
-                    vscode.window.showInformationMessage('✨ Feature request enhanced (MVP-003) - review in text area and click Send');
+                    const featureBuilder = new FeatureRequestContextBuilder(this._context);
+                    await this.handleEnhancement(
+                        'feature_request',
+                        message.data,
+                        featureBuilder,
+                        webview
+                    );
                 } catch (error) {
                     console.error('[ÆtherLight] Feature request enhancement failed:', error);
                     vscode.window.showErrorMessage(`Failed to enhance feature request: ${(error as Error).message}`);
                 }
                 break;
+
+                // OLD IMPLEMENTATION (ENHANCE-001.1 - commented for rollback safety):
+                // /**
+                //  * PROTECT-000F: Feature Request Enhancement with MVP-003 Intelligence
+                //  * WHY: Generate structured feature request prompt using MVP-003 system
+                //  * PATTERN: Form data → TemplateTaskBuilder → TaskPromptExporter.generateEnhancedPromptFromTemplate() → Enhanced prompt
+                //  * UPGRADE: Was basic PromptEnhancer → Now full MVP-003 (gap detection, TDD workflow, use case analysis)
+                //  */
+                // try {
+                //     const featureData = message.data;
+                //
+                //     // Build template task using TemplateTaskBuilder
+                //     const featureRequestTemplate = this.templateTaskBuilder.buildFeatureRequestTemplate({
+                //         title: featureData.title,
+                //         priority: featureData.priority,
+                //         category: featureData.category || '',
+                //         useCase: featureData.useCase || '',
+                //         proposedSolution: featureData.proposedSolution || featureData.solution || '',
+                //         alternativeApproaches: featureData.alternativeApproaches || '',
+                //         additionalContext: featureData.additionalContext || featureData.context || ''
+                //     });
+                //
+                //     // Generate enhanced prompt using MVP-003 system
+                //     const enhancedPrompt = await this.taskPromptExporter.generateEnhancedPromptFromTemplate(featureRequestTemplate);
+                //
+                //     // Send to webview to populate main text area
+                //     webview.postMessage({
+                //         type: 'populateTextArea',
+                //         text: enhancedPrompt
+                //     });
+                //
+                //     vscode.window.showInformationMessage('✨ Feature request enhanced (MVP-003) - review in text area and click Send');
+                // } catch (error) {
+                //     console.error('[ÆtherLight] Feature request enhancement failed:', error);
+                //     vscode.window.showErrorMessage(`Failed to enhance feature request: ${(error as Error).message}`);
+                // }
+                // break;
 
             case 'analyzeCodeEnhance':
                 /**
