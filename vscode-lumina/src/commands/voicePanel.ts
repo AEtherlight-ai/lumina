@@ -4100,14 +4100,133 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
              */
 
             // LEFT TOOLBAR: Primary actions
+            /**
+             * BUG-008: Code Analyzer - Structured Form → Enhance → Main Text Area → Terminal
+             * WHY: Gather contextual data about codebase, enhance with AI, populate main text area for review
+             * PATTERN: Form with fields → Enhance button → Main text area → Send button
+             *
+             * FIXED: Previously immediately called postMessage (no modal shown)
+             * NOW: Shows modal with Q&A form (languages, frameworks, focus, complexity)
+             */
             window.openCodeAnalyzer = function() {
-                /**
-                 * UX-001: Code Analyzer Enhancement Pattern
-                 * WHY: Analyze workspace structure → Generate enhanced prompt → Load to text area
-                 * PATTERN: Extract context → Enhance → Populate text area (UNIVERSAL PATTERN)
-                 */
-                showStatus('🔍 Analyzing workspace...', 'info');
-                vscode.postMessage({ type: 'analyzeCodeEnhance' });
+                const content = \`
+                    <div style="padding: 16px; max-width: 600px;">
+                        <p style="color: var(--vscode-descriptionForeground); margin-bottom: 16px; font-size: 13px;">
+                            Answer questions about your codebase below. Click "Enhance" to generate an enhanced code analysis prompt in the main text area, where you can review/edit before sending to terminal.
+                        </p>
+
+                        <div style="margin-bottom: 12px;">
+                            <label style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 12px;">Programming Languages <span style="color: var(--vscode-errorForeground);">*</span></label>
+                            <select id="codeLanguages" multiple size="4" style="width: 100%; padding: 6px; background: var(--vscode-dropdown-background); color: var(--vscode-dropdown-foreground); border: 1px solid var(--vscode-dropdown-border); border-radius: 3px; font-size: 13px;">
+                                <option value="typescript">TypeScript</option>
+                                <option value="javascript">JavaScript</option>
+                                <option value="python">Python</option>
+                                <option value="rust">Rust</option>
+                                <option value="go">Go</option>
+                                <option value="java">Java</option>
+                                <option value="csharp">C#</option>
+                                <option value="cpp">C++</option>
+                                <option value="other">Other</option>
+                            </select>
+                            <div style="font-size: 11px; color: var(--vscode-descriptionForeground); margin-top: 2px;">
+                                Hold Ctrl/Cmd to select multiple
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom: 12px;">
+                            <label style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 12px;">Frameworks/Libraries (optional)</label>
+                            <select id="codeFrameworks" multiple size="4" style="width: 100%; padding: 6px; background: var(--vscode-dropdown-background); color: var(--vscode-dropdown-foreground); border: 1px solid var(--vscode-dropdown-border); border-radius: 3px; font-size: 13px;">
+                                <option value="react">React</option>
+                                <option value="vue">Vue</option>
+                                <option value="angular">Angular</option>
+                                <option value="express">Express</option>
+                                <option value="django">Django</option>
+                                <option value="flask">Flask</option>
+                                <option value="spring">Spring</option>
+                                <option value="dotnet">.NET</option>
+                                <option value="tauri">Tauri</option>
+                                <option value="electron">Electron</option>
+                                <option value="none">None</option>
+                            </select>
+                            <div style="font-size: 11px; color: var(--vscode-descriptionForeground); margin-top: 2px;">
+                                Hold Ctrl/Cmd to select multiple
+                            </div>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                            <div>
+                                <label style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 12px;">Focus Area</label>
+                                <select id="codeFocus" style="width: 100%; padding: 6px; background: var(--vscode-dropdown-background); color: var(--vscode-dropdown-foreground); border: 1px solid var(--vscode-dropdown-border); border-radius: 3px; font-size: 13px;">
+                                    <option value="architecture">Architecture Review</option>
+                                    <option value="performance">Performance Optimization</option>
+                                    <option value="security">Security Analysis</option>
+                                    <option value="testing">Testing Coverage</option>
+                                    <option value="documentation">Documentation</option>
+                                    <option value="refactoring">Refactoring</option>
+                                    <option value="general" selected>General Analysis</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 12px;">Complexity Level</label>
+                                <select id="codeComplexity" style="width: 100%; padding: 6px; background: var(--vscode-dropdown-background); color: var(--vscode-dropdown-foreground); border: 1px solid var(--vscode-dropdown-border); border-radius: 3px; font-size: 13px;">
+                                    <option value="simple">Simple</option>
+                                    <option value="moderate" selected>Moderate</option>
+                                    <option value="complex">Complex</option>
+                                    <option value="very-complex">Very Complex</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom: 16px;">
+                            <label style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 12px;">Specific Concerns (optional)</label>
+                            <textarea id="codeConcerns" rows="3" style="width: 100%; padding: 8px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); border-radius: 3px; font-family: var(--vscode-editor-font-family); font-size: 13px;" placeholder="Any specific areas, files, or concerns you want analyzed..."></textarea>
+                        </div>
+
+                        <button onclick="enhanceCodeAnalyzer()" style="padding: 8px 16px; background: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 13px;">
+                            ✨ Enhance
+                        </button>
+                        <span style="margin-left: 8px; font-size: 12px; color: var(--vscode-descriptionForeground);">
+                            Populates main text area with enhanced prompt
+                        </span>
+                    </div>
+                \`;
+                window.showWorkflow('code-analyzer', '🔍 Code Analyzer', content);
+            };
+
+            window.enhanceCodeAnalyzer = function() {
+                // Collect languages (multi-select)
+                const languagesSelect = document.getElementById('codeLanguages');
+                const selectedLanguages = Array.from(languagesSelect.selectedOptions).map(opt => opt.value);
+
+                // Collect frameworks (multi-select)
+                const frameworksSelect = document.getElementById('codeFrameworks');
+                const selectedFrameworks = Array.from(frameworksSelect.selectedOptions).map(opt => opt.value);
+
+                const focus = document.getElementById('codeFocus').value;
+                const complexity = document.getElementById('codeComplexity').value;
+                const concerns = document.getElementById('codeConcerns').value;
+
+                // Validation: At least one language required
+                if (selectedLanguages.length === 0) {
+                    showStatus('⚠️ Please select at least one programming language', 'error');
+                    return;
+                }
+
+                // Send all form data to extension for enhancement
+                vscode.postMessage({
+                    type: 'analyzeCodeEnhance',
+                    data: {
+                        languages: selectedLanguages,
+                        frameworks: selectedFrameworks,
+                        focus: focus,
+                        complexity: complexity,
+                        concerns: concerns
+                    }
+                });
+
+                // Close workflow
+                window.closeWorkflow();
+                showStatus('✨ Enhancing code analysis prompt...', 'info');
             };
 
             window.openSprintPlanner = function() {
