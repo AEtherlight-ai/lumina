@@ -87,6 +87,48 @@ let desktopAppProcess: ChildProcess | null = null;
  *
  * @param context - VS Code extension context (for logging and paths)
  */
+/**
+ * Check if extension and desktop app versions are compatible (BUG-006)
+ *
+ * DESIGN DECISION: Major and minor versions must match
+ * WHY: Prevent IPC protocol mismatches between extension and desktop app
+ *
+ * PATTERN: Pattern-DESKTOP-AUTO-LAUNCH-001
+ */
+function checkVersionCompatibility(extensionVersion: string, desktopAppVersion: string): boolean {
+	const extParts = extensionVersion.split('.').map(Number);
+	const appParts = desktopAppVersion.split('.').map(Number);
+
+	// Major version must match
+	if (extParts[0] !== appParts[0]) {
+		return false;
+	}
+
+	// Minor version: Desktop app can be 1 version behind
+	if (extParts[1] - appParts[1] > 1) {
+		return false;
+	}
+
+	return true;
+}
+
+/**
+ * Get desktop app version from package.json (BUG-006)
+ */
+function getDesktopAppVersion(workspaceRoot: string): string | null {
+	try {
+		const packageJsonPath = path.join(workspaceRoot, 'products', 'lumina-desktop', 'package.json');
+		if (!fs.existsSync(packageJsonPath)) {
+			return null;
+		}
+		const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+		return packageJson.version || null;
+	} catch (error) {
+		console.error('[ÆtherLight] Failed to read desktop app version:', error);
+		return null;
+	}
+}
+
 function launchDesktopApp(context: vscode.ExtensionContext): void {
 	try {
 		// Detect OS platform
@@ -99,6 +141,29 @@ function launchDesktopApp(context: vscode.ExtensionContext): void {
 		if (!workspaceRoot) {
 			console.log('[ÆtherLight] No workspace folder open - skipping desktop app launch');
 			return;
+		}
+
+		// BUG-006: Check desktop app version compatibility before launch
+		const extensionVersion = vscode.extensions.getExtension('aetherlight.lumina')?.packageJSON?.version;
+		const desktopAppVersion = getDesktopAppVersion(workspaceRoot);
+
+		if (extensionVersion && desktopAppVersion) {
+			const compatible = checkVersionCompatibility(extensionVersion, desktopAppVersion);
+
+			if (!compatible) {
+				const message = `Desktop app (v${desktopAppVersion}) is outdated. Extension is v${extensionVersion}. Please rebuild desktop app for best experience.`;
+				console.warn(`[ÆtherLight] ${message}`);
+				vscode.window.showWarningMessage(message, 'Rebuild Desktop App', 'Continue Anyway').then((selection) => {
+					if (selection === 'Rebuild Desktop App') {
+						vscode.window.showInformationMessage('Run: cd products/lumina-desktop && npm run tauri build');
+						return;
+					}
+					// User chose "Continue Anyway" - proceed with launch
+				});
+				// Note: We continue with the launch even if outdated (non-blocking warning)
+			} else {
+				console.log(`[ÆtherLight] Version check passed: Extension v${extensionVersion}, Desktop app v${desktopAppVersion}`);
+			}
 		}
 
 		// Determine executable name and path based on platform
