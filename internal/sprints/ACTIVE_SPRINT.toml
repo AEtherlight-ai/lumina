@@ -3240,9 +3240,23 @@ ENHANCE-001.3 (Complex Context Builders): ✅ Completed 2025-01-13
   - Tests: 2 test files with 29 test cases (RED phase complete)
   - Commits: e4fdb00, f59430c, bc6e7a4
 
-ENHANCE-001.4+: Pending
+ENHANCE-001.4 (Sprint Planner Context Builder): ✅ Completed 2025-01-13
+  - Implemented SprintPlannerContextBuilder (5-component orchestration)
+  - Component 1: Existing sprints loader (glob + TOML parse)
+  - Component 2: Sprint template loader (SPRINT_TEMPLATE.toml with 4 categories)
+  - Component 3: Agent capabilities loader (expertise + test coverage)
+  - Component 4: Git branch analyzer (feature/master detection)
+  - Component 5: Pattern search (sprint planning patterns)
+  - Parallel loading via Promise.all (< 2s performance)
+  - Graceful degradation & comprehensive error handling
+  - Tests: 18 test cases (90% coverage target)
+  - Commit: 5b8e8ce
+
+ENHANCE-001.5+: Pending
+  - Remaining: Template Evolution System (outcome tracking, self-improvement)
+  - Remaining: Metadata Passthrough (HTML comment embedding)
+  - Remaining: Iterative Refinement UI (chat-style prompt refinement)
   - Remaining: AIEnhancementService integration
-  - Remaining: Template system consolidation
   - Remaining: End-to-end testing
 """
 validation_criteria = [
