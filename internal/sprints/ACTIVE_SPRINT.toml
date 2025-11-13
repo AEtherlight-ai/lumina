@@ -138,7 +138,59 @@ enhanced_prompt = "internal/sprints/enhanced_prompts/BUG-002_ENHANCED_PROMPT.md"
 template = "MVP-003-PromptEnhancer-TaskTemplate-v1.4.2"
 completed_date = "2025-01-13"
 commit_hash = "92289e6"
+estimated_time = "6-8 hours"
+estimated_lines = 400
+test_coverage_requirement = 0.9
+performance_target = "Validation completes < 3 seconds, fingerprint generation < 100ms"
 
+# Array fields
+reasoning_chain = [
+  "1. User downloads and installs desktop app",
+  "2. App launches → settings.json has empty license_key",
+  "3. MISSING: Should call validate_license_key() on startup",
+  "4. MISSING: Should prompt user for license key if empty",
+  "5. User has no way to enter license key → blocked",
+  "6. User tries to use voice capture",
+  "7. Error: 'License key not configured' with no resolution path",
+  "8. User frustrated, may uninstall"
+]
+files_to_modify = [
+  "products/lumina-desktop/src-tauri/src/main.rs (add startup logic, validate_license_key function)",
+  "products/lumina-desktop/src-tauri/Cargo.toml (add dependencies: sha2, get_mac_address)"
+]
+files_to_create = [
+  "products/lumina-desktop/src-tauri/src/auth.rs (license validation module)",
+  "products/lumina-desktop/src/components/LicenseActivationDialog.tsx (frontend UI)"
+]
+deliverables = [
+  "validate_license_key() function calling POST /api/license/validate",
+  "generate_device_fingerprint() function (OS + CPU + MAC hash)",
+  "activate_license() Tauri command",
+  "First-launch detection (check if license_key empty)",
+  "Frontend activation dialog with license key input",
+  "Error handling for invalid/already-activated licenses",
+  "Store validation response (user_id, device_id, tier) in settings",
+  "Unit tests for validation flow"
+]
+validation_criteria = [
+  "First launch shows activation prompt",
+  "User can enter license key",
+  "Valid license activates successfully",
+  "Invalid license shows clear error",
+  "Already-activated license shows 403 error",
+  "device_fingerprint generated correctly",
+  "user_id, device_id, tier stored in settings.json",
+  "Subsequent launches skip prompt (license_key exists)"
+]
+test_files = [
+  "products/lumina-desktop/src-tauri/tests/auth_validation.rs",
+  "products/lumina-desktop/src-tauri/tests/device_fingerprint.rs"
+]
+patterns = [ "Pattern-CODE-001", "Pattern-TDD-001" ]
+dependencies = [ "BUG-002A", "BUG-002B", "BUG-002C", "BUG-003" ]
+api_endpoints = [ "POST /api/license/validate" ]
+
+# Multi-line text fields
 why = """
 Missing Implementation: Desktop app has license_key field but no validation flow.\r
 \r
@@ -159,6 +211,7 @@ Expected Behavior (from documentation):\r
 Impact: Users cannot activate desktop app, voice capture unusable.\r
 Severity: CRITICAL - Desktop app completely non-functional for new users.\r
 """
+
 context = """
 Server Infrastructure EXISTS (validated 2025-11-12):\r
 - Endpoint: POST /api/license/validate\r
@@ -186,16 +239,7 @@ Missing Implementations:\r
 - Frontend activation UI ✗\r
 - Update TranscriptionResponse struct (USD → tokens) ✗\r
 """
-reasoning_chain = [
-  "1. User downloads and installs desktop app",
-  "2. App launches → settings.json has empty license_key",
-  "3. MISSING: Should call validate_license_key() on startup",
-  "4. MISSING: Should prompt user for license key if empty",
-  "5. User has no way to enter license key → blocked",
-  "6. User tries to use voice capture",
-  "7. Error: 'License key not configured' with no resolution path",
-  "8. User frustrated, may uninstall"
-]
+
 success_impact = """
 After BUG-002 complete:\r
 ✅ First-time users see license activation prompt on launch\r
@@ -206,36 +250,7 @@ After BUG-002 complete:\r
 ✅ Clear error messages if license invalid/already activated\r
 ✅ Users can start using voice capture immediately after activation\r
 """
-files_to_modify = [
-  "products/lumina-desktop/src-tauri/src/main.rs (add startup logic, validate_license_key function)",
-  "products/lumina-desktop/src-tauri/Cargo.toml (add dependencies: sha2, get_mac_address)"
-]
-files_to_create = [
-  "products/lumina-desktop/src-tauri/src/auth.rs (license validation module)",
-  "products/lumina-desktop/src/components/LicenseActivationDialog.tsx (frontend UI)"
-]
-deliverables = [
-  "validate_license_key() function calling POST /api/license/validate",
-  "generate_device_fingerprint() function (OS + CPU + MAC hash)",
-  "activate_license() Tauri command",
-  "First-launch detection (check if license_key empty)",
-  "Frontend activation dialog with license key input",
-  "Error handling for invalid/already-activated licenses",
-  "Store validation response (user_id, device_id, tier) in settings",
-  "Unit tests for validation flow"
-]
-estimated_time = "6-8 hours"
-estimated_lines = 400
-validation_criteria = [
-  "First launch shows activation prompt",
-  "User can enter license key",
-  "Valid license activates successfully",
-  "Invalid license shows clear error",
-  "Already-activated license shows 403 error",
-  "device_fingerprint generated correctly",
-  "user_id, device_id, tier stored in settings.json",
-  "Subsequent launches skip prompt (license_key exists)"
-]
+
 error_handling = """
 Error boundaries:\r
 - Handle network failures during validation (retry with exponential backoff)\r
@@ -246,6 +261,7 @@ Error boundaries:\r
 - Validate license_key format: XXXX-XXXX-XXXX-XXXX (16 alphanumeric chars + 3 hyphens)\r
 - Reject keys with incorrect format (e.g., 'lic_' prefix, missing hyphens)\r
 """
+
 test_requirements = """
 TDD Requirements (Infrastructure Task - 90% coverage):\r
 \r
@@ -262,15 +278,7 @@ RED Phase - Write tests FIRST:\r
 GREEN Phase - Implement to pass tests\r
 REFACTOR Phase - Optimize validation performance\r
 """
-test_files = [
-  "products/lumina-desktop/src-tauri/tests/auth_validation.rs",
-  "products/lumina-desktop/src-tauri/tests/device_fingerprint.rs"
-]
-test_coverage_requirement = 0.9
-performance_target = "Validation completes < 3 seconds, fingerprint generation < 100ms"
-patterns = [ "Pattern-CODE-001", "Pattern-TDD-001" ]
-dependencies = [ "BUG-002A", "BUG-002B", "BUG-002C", "BUG-003" ]
-api_endpoints = [ "POST /api/license/validate" ]
+
 completion_notes = """
 Completed 2025-01-13 by AI agent (tauri-desktop-agent)\r
 \r
