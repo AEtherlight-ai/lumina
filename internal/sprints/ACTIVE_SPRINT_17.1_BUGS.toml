@@ -2571,7 +2571,7 @@ Pattern Compliance:
 - ✅ Pattern-COMPLETION-001: Sprint TOML updated with completion_notes
 
 Commit: docs(testing): Add BUG-010 modal verification tests to v0.17.2 testing document
-Commit Hash: [PENDING - will add after commit]
+Commit Hash: 61d24b5
 """
 
 [tasks.BUG-011]
@@ -2581,6 +2581,7 @@ status = "pending"
 phase = "extension-license-validation"
 agent = "infrastructure-agent"
 enhanced_prompt = "internal/sprints/enhanced_prompts/BUG-011_ENHANCED_PROMPT.md"
+questions_doc = "internal/sprints/questions/BUG-011_QUESTIONS.md"
 template = "MVP-003-PromptEnhancer-TaskTemplate-v1.4.3"
 why = """
 CRITICAL SECURITY GAP:\r
