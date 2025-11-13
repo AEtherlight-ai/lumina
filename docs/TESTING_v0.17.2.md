@@ -28,11 +28,14 @@ This document provides comprehensive testing instructions for v0.17.2, which inc
 
 1. **MVP-003 Enhanced Prompt System** - Infrastructure for AI-enhanced task prompts
 2. **Sprint 17.1 Bug Fixes** - Critical corrections and consensus validation
-3. **Template System Updates** - Enhanced template with agent/skill tracking
+3. **BUG-002 License Validation** - Complete authentication system for desktop app
+4. **Template System Updates** - Enhanced template with agent/skill tracking
 
 **Goals**:
 - Verify enhanced prompt system displays correctly in Sprint Panel
 - Validate sprint TOML updates (BUG-002A/B/C additions)
+- Test license validation backend and frontend (BUG-002)
+- Verify desktop app authentication integration is complete
 - Confirm template improvements for future task generation
 - Ensure no regressions in existing functionality
 
@@ -304,6 +307,75 @@ completion_percentage = 6  # (1 / 18) * 100
 
 ---
 
+### Commit 3: License Validation Flow Implementation (BUG-002)
+**Commit**: `92289e6`
+**Date**: 2025-01-13
+**Branch**: feature/v0.17.2-bug-fixes
+**Message**: `feat(desktop): Implement license validation flow on first launch (BUG-002)`
+
+**Changes**:
+
+#### Backend (Rust):
+1. **New File**: `products/lumina-desktop/src-tauri/src/auth.rs` (260 lines)
+   - `generate_device_fingerprint()`: SHA-256 hash of OS + CPU + MAC address
+   - `validate_license_key()`: POST /api/license/validate with error handling
+   - `LicenseValidationResponse` struct
+   - 5 unit tests + 2 integration tests
+
+2. **Modified**: `products/lumina-desktop/src-tauri/src/main.rs`
+   - Added `mod auth;` declaration (line 48)
+   - Added `activate_license()` Tauri command (lines 740-799)
+   - Registered command in invoke_handler (line 1959)
+   - Added first-launch detection (lines 1955-1967)
+
+3. **Modified**: `products/lumina-desktop/src-tauri/Cargo.toml`
+   - Added `sha2 = "0.10"` (SHA-256 hashing)
+   - Added `mac_address = "1.1"` (MAC address retrieval)
+   - Added `tempfile = "3.8"` (dev-dependency for tests)
+
+#### Frontend (React/TypeScript):
+1. **New File**: `products/lumina-desktop/src/components/LicenseActivationDialog.tsx` (240 lines)
+   - Blocking modal dialog (dark theme)
+   - License key input with validation
+   - Error display with detailed messages
+   - Loading states
+   - Help section with dashboard link
+
+**Testing**: See Tests 36-40 (BUG-002)
+- [ ] Test 36: License Validation Backend Module
+- [ ] Test 37: License Validation Tauri Command
+- [ ] Test 38: License Activation Dialog Component
+- [ ] Test 39: Cargo.toml Dependencies
+- [ ] Test 40: Integration Test with Live API (Optional)
+
+---
+
+### Commit 4: Sprint TOML Update (BUG-002)
+**Commit**: `75843dd`
+**Date**: 2025-01-13
+**Branch**: feature/v0.17.2-bug-fixes
+**Message**: `chore(sprint): Mark BUG-002 as completed in Sprint TOML`
+
+**Changes**:
+- **Modified**: `internal/sprints/ACTIVE_SPRINT_17.1_BUGS.toml`
+  - Changed status from `pending` to `completed`
+  - Added `completed_date = "2025-01-13"`
+  - Added `commit_hash = "92289e6"`
+  - Added comprehensive `completion_notes` (110 lines)
+    - Implementation summary
+    - Backend/frontend implementation details
+    - API integration details
+    - Testing results (5 unit tests passing)
+    - Device fingerprint details
+    - User flow documentation
+    - Next steps
+    - Pattern compliance checklist
+
+**Testing**: See Test 41 (BUG-002 Sprint TOML)
+- [ ] Test 41: BUG-002 Sprint TOML Completion Status
+
+---
+
 ## Test Categories
 
 ### Category 1: Extension Functionality
@@ -331,8 +403,13 @@ completion_percentage = 6  # (1 / 18) * 100
 **Tests**: 10
 **Time**: 20 minutes
 
-**Total Tests**: 51
-**Total Time**: ~95 minutes (1.5 hours)
+### Category 6: Desktop App Functionality
+**Priority**: CRITICAL
+**Tests**: 7 (Tests 35-41 - BUG-002A, BUG-002)
+**Time**: 30 minutes
+
+**Total Tests**: 41
+**Total Time**: ~115 minutes (1.9 hours)
 
 ---
 
@@ -1080,6 +1157,240 @@ completion_percentage = 6  # (1 / 18) * 100
 
 ---
 
+### Test 35: BUG-002A - TranscriptionResponse Struct Migration
+**Category**: Desktop App Functionality
+**Priority**: CRITICAL
+**Commit**: 835ba2d
+
+**Steps**:
+1. Navigate to `products/lumina-desktop/src-tauri/src/transcription.rs`
+2. Verify TranscriptionResponse struct (lines 33-41) contains:
+   - `success: bool`
+   - `text: String`
+   - `duration_seconds: u64`
+   - `tokens_used: u64`
+   - `tokens_balance: u64`
+   - `transaction_id: String`
+3. Run unit tests: `cd products/lumina-desktop/src-tauri && cargo test transcription`
+4. Verify both tests pass:
+   - `test_transcription_response_deserialization_success`
+   - `test_transcription_response_deserialization_failure`
+5. Check test code (lines 382-424) matches API contract
+6. Verify struct comments reference API endpoint (website/app/api/desktop/transcribe/route.ts:338-345)
+
+**Expected Result**: ✅ Struct uses token-based fields (NOT USD), all tests pass
+
+**Actual Result**: _____________________________
+
+**Status**: [ ] PASS [ ] FAIL
+
+---
+
+### Test 36: BUG-002 - License Validation Backend Module
+**Category**: Desktop App Functionality
+**Priority**: CRITICAL
+**Commit**: 92289e6
+
+**Steps**:
+1. Navigate to `products/lumina-desktop/src-tauri/src/auth.rs`
+2. Verify file exists (260 lines)
+3. Check function signatures:
+   - `generate_device_fingerprint() -> Result<String>`
+   - `validate_license_key(license_key: &str, api_url: &str) -> Result<LicenseValidationResponse>`
+4. Verify LicenseValidationResponse struct fields (lines 91-99):
+   - `valid: bool`
+   - `user_id: String`
+   - `device_id: String`
+   - `tier: String`
+   - `storage_limit_mb: u64`
+   - `user_name: String`
+   - `message: String`
+5. Run unit tests: `cd products/lumina-desktop/src-tauri && cargo test auth`
+6. Verify 5 unit tests pass:
+   - `test_fingerprint_consistency` ✅
+   - `test_fingerprint_length` ✅
+   - `test_fingerprint_not_empty` ✅
+   - `test_empty_license_key` ✅
+   - `test_whitespace_license_key` ✅
+7. Verify 2 integration tests are marked #[ignore]:
+   - `test_valid_license_key_free_tier`
+   - `test_invalid_license_key`
+8. Check comments explain device fingerprint approach (OS + CPU + MAC → SHA-256)
+
+**Expected Result**: ✅ auth.rs module exists, all unit tests pass (5/5), integration tests present
+
+**Actual Result**: _____________________________
+
+**Status**: [ ] PASS [ ] FAIL
+
+---
+
+### Test 37: BUG-002 - License Validation Tauri Command
+**Category**: Desktop App Functionality
+**Priority**: CRITICAL
+**Commit**: 92289e6
+
+**Steps**:
+1. Navigate to `products/lumina-desktop/src-tauri/src/main.rs`
+2. Verify `mod auth;` declaration exists (line 48)
+3. Verify `activate_license()` Tauri command exists (lines 740-799):
+   - Signature: `async fn activate_license(license_key: String) -> Result<String, String>`
+   - Uses `auth::validate_license_key()` function
+   - Saves settings on success (license_key, user_id, device_id, tier)
+   - Returns success message with user name and tier
+4. Verify command registration in invoke_handler (line 1959):
+   ```rust
+   .invoke_handler(tauri::generate_handler![
+       ...
+       activate_license,  // BUG-002
+       ...
+   ])
+   ```
+5. Verify first-launch detection logic (lines 1955-1967):
+   - Checks if `settings.license_key.is_empty()`
+   - Logs warning with dashboard link
+6. Run `cargo check` to verify compilation: `cd products/lumina-desktop/src-tauri && cargo check`
+
+**Expected Result**: ✅ activate_license command exists, registered, first-launch detection added, cargo check succeeds
+
+**Actual Result**: _____________________________
+
+**Status**: [ ] PASS [ ] FAIL
+
+---
+
+### Test 38: BUG-002 - License Activation Dialog Component
+**Category**: Desktop App Functionality
+**Priority**: CRITICAL
+**Commit**: 92289e6
+
+**Steps**:
+1. Navigate to `products/lumina-desktop/src/components/LicenseActivationDialog.tsx`
+2. Verify file exists (240 lines)
+3. Check component interface:
+   - Accepts `onActivated: () => void` callback
+   - Uses React hooks: `useState` for licenseKey, error, isActivating
+4. Verify UI elements exist:
+   - Header: "Activate ÆtherLight Desktop"
+   - Input field with placeholder "XXXX-XXXX-XXXX-XXXX"
+   - Error display (conditional rendering based on error state)
+   - "Activate Device" button (disabled when empty or activating)
+   - Help section with dashboard link (https://aetherlight.ai/dashboard)
+5. Check activation logic (handleActivate function):
+   - Validates input (not empty)
+   - Calls `invoke<string>('activate_license', { licenseKey })`
+   - Shows success alert on completion
+   - Calls `onActivated()` callback
+   - Handles errors and displays error message
+6. Verify styling:
+   - Dark theme (#1e1e1e background)
+   - Monospace font for license key input
+   - Red error borders/backgrounds
+7. Check Enter key support (handleKeyPress function)
+
+**Expected Result**: ✅ Component exists, has all UI elements, proper error handling, dark theme styling
+
+**Actual Result**: _____________________________
+
+**Status**: [ ] PASS [ ] FAIL
+
+---
+
+### Test 39: BUG-002 - Cargo.toml Dependencies
+**Category**: Desktop App Functionality
+**Priority**: HIGH
+**Commit**: 92289e6
+
+**Steps**:
+1. Navigate to `products/lumina-desktop/src-tauri/Cargo.toml`
+2. Verify license validation dependencies added (lines 39-41):
+   ```toml
+   # License validation (BUG-002)
+   sha2 = "0.10"  # SHA-256 hashing for device fingerprint
+   mac_address = "1.1"  # MAC address retrieval for device fingerprint
+   ```
+3. Verify dev-dependencies section added (lines 67-68):
+   ```toml
+   [dev-dependencies]
+   tempfile = "3.8"  # Temporary directories for tests
+   ```
+4. Check comments explain purpose of each dependency
+5. Run `cargo build` to verify dependencies resolve: `cd products/lumina-desktop/src-tauri && cargo build`
+
+**Expected Result**: ✅ Dependencies added with comments, cargo build succeeds
+
+**Actual Result**: _____________________________
+
+**Status**: [ ] PASS [ ] FAIL
+
+---
+
+### Test 40: BUG-002 - Integration Test with Live API (Optional)
+**Category**: Desktop App Functionality
+**Priority**: LOW (Optional)
+**Commit**: 92289e6
+
+**Prerequisites**:
+- Internet connection required
+- Test license key: `CD7W-AJDK-RLQT-LUFA` (free tier)
+- API endpoint: `POST https://aetherlight.ai/api/license/validate`
+
+**Steps**:
+1. Run integration tests: `cd products/lumina-desktop/src-tauri && cargo test -- --ignored`
+2. This will run:
+   - `test_valid_license_key_free_tier` - Validates with CD7W-AJDK-RLQT-LUFA
+   - `test_invalid_license_key` - Validates with fake key (expects 404)
+3. Verify test results:
+   - Valid key test: PASS or expected 403 (already activated)
+   - Invalid key test: PASS (expects error)
+
+**Expected Result**: ✅ Integration tests run (may fail if already activated - that's expected)
+
+**Actual Result**: _____________________________
+
+**Status**: [ ] PASS [ ] FAIL [ ] SKIPPED (No internet/API unavailable)
+
+**Notes**: This test may fail with 403 "Already activated" if the test license key is already in use. This is expected behavior and validates that the API integration works correctly.
+
+---
+
+### Test 41: BUG-002 - Sprint TOML Completion Status
+**Category**: Sprint TOML Updates
+**Priority**: HIGH
+**Commit**: 75843dd
+
+**Steps**:
+1. Navigate to `internal/sprints/ACTIVE_SPRINT_17.1_BUGS.toml`
+2. Find `[tasks.BUG-002]` section (line 158)
+3. Verify status updated:
+   - `status = "completed"` (was "pending")
+   - `completed_date = "2025-01-13"`
+   - `commit_hash = "92289e6"`
+4. Verify completion_notes section exists (lines 320-432):
+   - Implementation summary
+   - Backend implementation details
+   - Frontend implementation details
+   - API integration details
+   - Testing results (5 unit tests passing)
+   - Device fingerprint details
+   - User flow documentation
+   - Next steps
+   - Pattern compliance checklist
+5. Check completion_notes mentions all deliverables:
+   - auth.rs module (260 lines)
+   - activate_license() command
+   - LicenseActivationDialog component (240 lines)
+   - Dependencies added (sha2, mac_address, tempfile)
+   - 5 unit tests + 2 integration tests
+
+**Expected Result**: ✅ BUG-002 marked completed with comprehensive completion_notes
+
+**Actual Result**: _____________________________
+
+**Status**: [ ] PASS [ ] FAIL
+
+---
+
 ## Test Credentials
 
 ### Website API (for future BUG-002A/B/C testing)
@@ -1140,7 +1451,16 @@ completion_percentage = 6  # (1 / 18) * 100
 - [ ] Test 28: Code Analyzer Still Works (BUG-001 Fix)
 - [ ] Test 30: Task Status Changes Still Work
 
+### Desktop App Functionality Tests (Critical)
+- [ ] Test 35: BUG-002A - TranscriptionResponse Struct Migration
+- [ ] Test 36: BUG-002 - License Validation Backend Module
+- [ ] Test 37: BUG-002 - License Validation Tauri Command
+- [ ] Test 38: BUG-002 - License Activation Dialog Component
+- [ ] Test 39: BUG-002 - Cargo.toml Dependencies
+- [ ] Test 41: BUG-002 - Sprint TOML Completion Status
+
 ### Optional Tests (Nice to Have)
+- [ ] Test 40: BUG-002 - Integration Test with Live API (Optional)
 - [ ] Test 16: Enhanced Prompt Button Not Shown When Field Missing
 - [ ] Test 17: WebView Console Errors
 - [ ] Test 29: Sprint Planner Still Works
@@ -1164,7 +1484,7 @@ completion_percentage = 6  # (1 / 18) * 100
 - Extension Version: 0.17.2
 
 **Results**:
-- Total Tests Run: _____ / 34
+- Total Tests Run: _____ / 41
 - Tests Passed: _____
 - Tests Failed: _____
 - Tests Skipped: _____
@@ -1174,6 +1494,7 @@ completion_percentage = 6  # (1 / 18) * 100
 - [ ] All Enhanced Prompt System tests passed
 - [ ] All Sprint TOML tests passed
 - [ ] All Regression tests passed
+- [ ] All Desktop App Functionality tests passed
 
 **Blockers Found**: _____________________________
 
@@ -1193,6 +1514,6 @@ completion_percentage = 6  # (1 / 18) * 100
 
 ---
 
-**Document Version**: 1.0
-**Last Updated**: 2025-11-12
+**Document Version**: 1.1
+**Last Updated**: 2025-01-13
 **Next Update**: After testing completion
