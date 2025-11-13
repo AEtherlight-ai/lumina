@@ -14,6 +14,8 @@ import { PromptEnhancer } from '../services/PromptEnhancer';
 import { TaskQuestionModal } from '../webview/TaskQuestionModal'; // PROTECT-000D: Q&A modal for gap resolution
 import { TemplateTaskBuilder } from '../services/TemplateTaskBuilder'; // PROTECT-000F: Template task construction
 import { TaskPromptExporter } from '../services/TaskPromptExporter'; // PROTECT-000F: Template enhancement
+import { AIEnhancementService } from '../services/AIEnhancementService'; // ENHANCE-001.1: AI enhancement with VS Code LM API
+import { IContextBuilder } from '../interfaces/IContextBuilder'; // ENHANCE-001.1: Context builder interface
 
 /**
  * @protected - Partial protection for passing sections only
@@ -60,6 +62,7 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
     private promptEnhancer: PromptEnhancer; // REFACTOR-001: Prompt enhancement with patterns
     private templateTaskBuilder: TemplateTaskBuilder; // PROTECT-000F: Template task construction
     private taskPromptExporter: TaskPromptExporter; // PROTECT-000F: MVP-003 template enhancement
+    private aiEnhancementService: AIEnhancementService; // ENHANCE-001.1: AI enhancement service (v3.0 architecture)
     private sprintTasks: SprintTask[] = [];
     private selectedTaskId: string | null = null;
     private selectedEngineerId: string = 'all'; // 'all' or specific engineer ID
@@ -100,6 +103,14 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
         const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
         this.templateTaskBuilder = new TemplateTaskBuilder(workspaceRoot);
         this.taskPromptExporter = new TaskPromptExporter();
+
+        /**
+         * ENHANCE-001.1: Initialize AIEnhancementService
+         * REASONING: v3.0 architecture - Use VS Code LM API for AI enhancement
+         * WHY: Leverage user's existing AI (Copilot, Continue.dev) instead of building custom AI logic
+         * PATTERN: Pattern-LEVERAGE-001 (Leverage Existing Infrastructure)
+         */
+        this.aiEnhancementService = new AIEnhancementService();
 
         /**
          * B-003: Initialize AutoTerminalSelector for intelligent terminal selection
@@ -828,8 +839,13 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                         // UX-001: Generate AI-enhanced prompt (UNIVERSAL PATTERN)
                         vscode.window.showInformationMessage(`⏳ Generating AI-enhanced prompt for ${task.id}...`);
 
+                        // BUG-013: Get currently selected sprint file from SprintLoader
+                        // WHY: User may have selected different sprint in dropdown
+                        // REASONING: TaskPromptExporter should read from UI-selected sprint, not hardcoded path
+                        const currentSprintPath = this.sprintLoader.getSprintFilePath();
+
                         const { TaskPromptExporter } = await import('../services/TaskPromptExporter');
-                        const exporter = new TaskPromptExporter();
+                        const exporter = new TaskPromptExporter(currentSprintPath);
 
                         // Export task with AI enhancement (temporal drift detection, current state analysis)
                         const enhancedPrompt = await exporter.generateEnhancedPrompt(task.id);
@@ -2799,6 +2815,74 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
         html = html.replace(/\n\n/g, '<br><br>');
 
         return html;
+    }
+
+    /**
+     * ENHANCE-001.1: Universal Enhancement Handler (v3.0 Architecture)
+     *
+     * DESIGN DECISION: Single method handles all button types via strategy pattern
+     * WHY: Eliminates code duplication, enables zero-risk extensibility
+     *
+     * REASONING CHAIN:
+     * 1. Each button type has specialized IContextBuilder implementation
+     * 2. Universal handler delegates context building to appropriate builder
+     * 3. AIEnhancementService uses VS Code LM API to enhance context
+     * 4. Enhanced prompt populated in text area for user review
+     * 5. Result: ~30 lines replaces 200+ lines of v2.0 orchestration logic
+     *
+     * PATTERN: Pattern-STRATEGY-001 (Strategy Pattern for Pluggable Behavior)
+     * ARCHITECTURE: v3.0 Context Builder Pattern
+     * RELATED: IContextBuilder.ts, AIEnhancementService.ts, EnhancementContext.ts
+     *
+     * MIGRATION: v2.0 → v3.0
+     * - v2.0: Each button has separate case handler (200+ lines each)
+     * - v3.0: Universal handler + IContextBuilder (~30 lines total)
+     * - Benefit: 85% less code, 100% safer extensibility
+     *
+     * EXTENSIBILITY:
+     * To add new button type:
+     * 1. Create IContextBuilder implementation (~50 lines)
+     * 2. Call handleEnhancement() with builder instance
+     * 3. Zero risk to existing buttons
+     *
+     * @param buttonType - Button type identifier (for logging/metadata)
+     * @param input - Raw input from button form (structure varies by button)
+     * @param contextBuilder - IContextBuilder implementation for this button type
+     * @param webview - Webview to post result to
+     */
+    private async handleEnhancement(
+        buttonType: string,
+        input: any,
+        contextBuilder: IContextBuilder,
+        webview: vscode.Webview
+    ): Promise<void> {
+        try {
+            // Step 1: Show progress notification
+            vscode.window.showInformationMessage(`✨ Enhancing ${buttonType} prompt...`);
+
+            // Step 2: Build context using specialized context builder
+            const context = await contextBuilder.build(input);
+
+            // Step 3: Enhance using AI service (VS Code LM API or template fallback)
+            const enhancedPrompt = await this.aiEnhancementService.enhance(context);
+
+            // Step 4: Populate text area with enhanced prompt
+            webview.postMessage({
+                type: 'populateTextArea',
+                text: enhancedPrompt
+            });
+
+            // Step 5: Success notification
+            vscode.window.showInformationMessage(
+                `✅ ${buttonType} enhanced - review in text area and click Send`
+            );
+
+        } catch (error) {
+            console.error(`[ÆtherLight] ${buttonType} enhancement failed:`, error);
+            vscode.window.showErrorMessage(
+                `Failed to enhance ${buttonType}: ${(error as Error).message}`
+            );
+        }
     }
 
     /**
@@ -5034,7 +5118,7 @@ function getVoicePanelBodyContent(): string {
     <div class="transcription-editor">
         <textarea
             id="transcriptionText"
-            placeholder="Press \` (backtick, left of 1 key) to record voice&#10;Or type directly&#10;Hit 'Enhance' to enrich your prompt&#10;Use Ctrl+Enter to send to terminal&#10;Multiple terminals highlighted? They share a name - right-click to rename for unique targeting"
+            placeholder="Press \` (backtick, left of 1 key) to record voice&#10;Or type directly&#10;Hit 'Enhance' to enrich your prompt&#10;Use Ctrl+Enter to send to terminal&#10;Multiple terminals highlighted? They share a name - right-click on terminal tab and select 'Rename' for unique targeting, then hit refresh in ÆtherLight Voice"
         ></textarea>
     </div>
 
