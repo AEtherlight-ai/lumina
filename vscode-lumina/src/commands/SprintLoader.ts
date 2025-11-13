@@ -76,6 +76,7 @@ export interface SprintTask {
     design_doc?: string;  // Path to design document (e.g., "internal/sprints/design/17.1-BUGS_UI-001_DESIGN.md")
     pattern_reference?: string;  // Path to primary pattern document (e.g., "docs/patterns/Pattern-UI-006-TabbedSidebar.md")
     completion_notes?: string;  // Detailed completion notes for completed tasks (multiline string)
+    subtask_progress?: string;  // Progress tracking for parent tasks with subtasks (multiline string with ✅ markers)
     // Test-related fields (TDD enforcement)
     error_handling?: string;
     test_requirements?: string;
