@@ -24,6 +24,8 @@ import { VoiceCapture } from './components/VoiceCapture';
 import Dashboard from './components/Dashboard';
 import InvitationPanel from './components/InvitationPanel';
 import InstallationWizard from './components/InstallationWizard';
+import { LicenseActivationDialog } from './components/LicenseActivationDialog';
+import { useLicenseActivation } from './hooks/useLicenseActivation';
 
 interface Settings {
   recording_hotkey: string | null;
@@ -50,6 +52,14 @@ function App() {
   const [isRecordingHotkey, setIsRecordingHotkey] = useState(false);
   const [isPasteHotkey, setIsPasteHotkey] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+
+  // License activation hook (BUG-005)
+  const {
+    showDialog: showLicenseDialog,
+    handleActivate: handleLicenseActivated,
+  } = useLicenseActivation({
+    licenseKey: settings.license_key,
+  });
 
   // Check if this is the first run
   useEffect(() => {
@@ -217,6 +227,16 @@ function App() {
           // Reload settings after installation
           invoke<Settings>('get_settings').then(setSettings).catch(console.error);
         }}
+      />
+    );
+  }
+
+  // Show license activation dialog if license_key is empty (BUG-005)
+  // This shows AFTER InstallationWizard (if first run) or on 401/403 errors
+  if (showLicenseDialog) {
+    return (
+      <LicenseActivationDialog
+        onActivated={handleLicenseActivated}
       />
     );
   }
