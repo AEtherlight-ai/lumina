@@ -62,13 +62,26 @@ pub struct TokenBalanceResponse {
 }
 
 /// Server API error response (for 402 Insufficient Credits, etc.)
+/// Supports both token-based (new) and USD-based (legacy) responses
+/// API contract: website/app/api/desktop/transcribe/route.ts:172-182
 #[derive(Debug, Deserialize)]
 struct TranscriptionError {
     error: String,
+
+    // Token-based fields (NEW - API uses these for 402 errors)
+    #[serde(default)]
+    balance_tokens: u64,
+    #[serde(default)]
+    required_tokens: u64,
+    #[serde(default)]
+    shortfall_tokens: u64,
+
+    // USD-based fields (LEGACY - backward compatibility)
     #[serde(default)]
     balance_usd: f64,
     #[serde(default)]
     required_usd: f64,
+
     #[serde(default)]
     message: String,
 }
@@ -267,6 +280,17 @@ pub async fn transcribe_audio(
         if let Ok(error_response) = serde_json::from_str::<TranscriptionError>(&error_text) {
             // Handle insufficient credits (402)
             if status == 402 {
+                // Prioritize token-based error messages (new API format)
+                if error_response.balance_tokens > 0 || error_response.required_tokens > 0 {
+                    anyhow::bail!(
+                        "Insufficient tokens: {} balance, {} required. {}",
+                        error_response.balance_tokens,
+                        error_response.required_tokens,
+                        error_response.message
+                    );
+                }
+
+                // Fallback to USD-based error messages (legacy API format)
                 anyhow::bail!(
                     "Insufficient credits: ${:.4} balance, ${:.4} required. {}",
                     error_response.balance_usd,
@@ -421,5 +445,53 @@ mod tests {
 
         assert!(!response.success);
         assert_eq!(response.text, "");
+    }
+
+    /// Test deserialization of 402 error with token-based fields (BUG-002A.1)
+    /// Expected format matches website/app/api/desktop/transcribe/route.ts:172-182
+    #[test]
+    fn test_transcription_error_402_tokens() {
+        // Simulate actual API 402 response (token-based)
+        let json_response = r#"{
+            "error": "Insufficient tokens",
+            "balance_tokens": 0,
+            "required_tokens": 31,
+            "shortfall_tokens": 31,
+            "message": "You need 31 tokens but only have 0. Please upgrade or purchase more tokens."
+        }"#;
+
+        // Test deserialization
+        let error: TranscriptionError = serde_json::from_str(json_response)
+            .expect("Failed to deserialize TranscriptionError");
+
+        // Assert token fields are correctly deserialized
+        assert_eq!(error.error, "Insufficient tokens");
+        assert_eq!(error.balance_tokens, 0);
+        assert_eq!(error.required_tokens, 31);
+        assert_eq!(error.shortfall_tokens, 31);
+        assert!(error.message.contains("31 tokens"));
+    }
+
+    /// Test compatibility with USD-based 402 errors (backward compatibility)
+    /// Some legacy API responses may still use USD fields
+    #[test]
+    fn test_transcription_error_402_usd_fallback() {
+        // Simulate legacy API 402 response (USD-based)
+        let json_response = r#"{
+            "error": "Insufficient credits",
+            "balance_usd": 0.00,
+            "required_usd": 0.02,
+            "message": "Please add credits to continue."
+        }"#;
+
+        // Test deserialization with fallback to USD fields
+        let error: TranscriptionError = serde_json::from_str(json_response)
+            .expect("Failed to deserialize TranscriptionError");
+
+        // Assert USD fields are correctly deserialized
+        assert_eq!(error.error, "Insufficient credits");
+        assert_eq!(error.balance_usd, 0.00);
+        assert_eq!(error.required_usd, 0.02);
+        assert_eq!(error.message, "Please add credits to continue.");
     }
 }
