@@ -4,7 +4,11 @@
   "description": "**Last Updated:** 2025-10-12\r **Pre-Commit Hook Version:** 2.0",
   "main": "upload-patterns.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "validate-docs": "node validate-task-docs.js",
+    "migrate-docs": "node migrate-task-docs.js",
+    "migrate-docs:dry-run": "node migrate-task-docs.js --dry-run",
+    "install-hooks": "node install-hooks.js"
   },
   "keywords": [],
   "author": "",
