@@ -32,7 +32,10 @@
       "Bash(git submodule:*)",
       "Bash(cargo check:*)",
       "Bash(curl:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(done)",
+      "Bash(cargo clean:*)",
+      "Bash(cargo test:*)"
     ],
     "deny": [],
     "ask": []

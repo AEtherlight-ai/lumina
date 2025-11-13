@@ -1,9 +1,10 @@
 # Sprint Task Lifecycle Skill
 
 **Created:** 2025-01-12
-**Purpose:** Automate Sprint TOML task status transitions
-**Pattern:** Pattern-TRACKING-001 (Sprint TOML Lifecycle Management)
-**Version:** 1.0
+**Updated:** 2025-01-13
+**Purpose:** Automate Sprint TOML task status transitions with completion_notes enforcement
+**Pattern:** Pattern-TRACKING-001 (Sprint TOML Lifecycle Management), Pattern-COMPLETION-001 (Completion Documentation)
+**Version:** 2.0 (Added completion_notes validation enforcement)
 
 ---
 
@@ -49,26 +50,88 @@ This skill automates the repetitive process of updating task status in `internal
 
 **When to Use**: After committing task changes (Step N, final step)
 
+**⚠️ CRITICAL REQUIREMENT (v2.0)**: This command now VALIDATES `completion_notes` field exists BEFORE marking task as complete. If missing, the command will BLOCK with error and provide template.
+
 **What It Does**:
 1. Finds `ACTIVE_SPRINT.toml`
 2. Searches for `[tasks.<TASK-ID>]` using grep
-3. Reads current status field
-4. Updates `status = "in_progress"` → `status = "completed"` using Edit tool
-5. Adds `completed_date = "{YYYY-MM-DD}"` field (current date in ISO format)
-6. Validates both fields present using grep
-7. Returns confirmation message
+3. **NEW v2.0**: Checks if `completion_notes` field exists (50-line grep window)
+4. **NEW v2.0**: If `completion_notes` missing → BLOCK with error + template
+5. Reads current status field
+6. Updates `status = "in_progress"` → `status = "completed"` using Edit tool
+7. Adds `completed_date = "{YYYY-MM-DD}"` field (current date in ISO format)
+8. **NEW v2.0**: Validates all 3 fields present (status, completed_date, completion_notes)
+9. Returns confirmation message
 
 **Example**:
 ```bash
 /sprint-task-lifecycle complete BUG-002A
 ```
 
-**Expected Output**:
+**Expected Output (SUCCESS)**:
 ```
 ✅ Task BUG-002A marked as completed
 📅 Completion date: 2025-01-12
 📍 Location: internal/sprints/ACTIVE_SPRINT.toml:1089
+📝 Completion notes: Present (validated)
 🔓 Dependent tasks are now unblocked
+```
+
+**Expected Output (BLOCKED - Missing completion_notes)**:
+```
+❌ BLOCKED: Cannot mark task BUG-002A as complete
+📍 Location: internal/sprints/ACTIVE_SPRINT.toml:1089
+
+⚠️ MISSING REQUIRED FIELD: completion_notes
+
+Pattern-COMPLETION-001 requires completion_notes field BEFORE marking task complete.
+
+Historical context: BUG-002A, BUG-003, BUG-002 audits (2025-01-12/13) found agents skipped
+completion documentation. This enforcement prevents process compliance gaps.
+
+---
+
+🛠️ FIX: Add completion_notes field to your task section (after completed_date):
+
+completion_notes = """
+Completed 2025-01-12 by AI agent (YOUR_AGENT_NAME)
+
+Changes Made:
+- [CHANGE_SUMMARY_1]
+- [CHANGE_SUMMARY_2]
+- [CHANGE_SUMMARY_3]
+
+Technical Details:
+- File(s): [FILE_PATH]:[LINE_NUMBERS]
+- Lines Added/Modified: [LINE_COUNT]
+- Test Coverage: [COVERAGE]% ([TEST_COUNT] tests, all passing)
+- Breaking Change: YES|NO
+- Commit: [COMMIT_HASH]
+
+Testing:
+- Unit tests: [RESULTS]
+- Integration tests: [RESULTS]
+- Manual testing: [SUMMARY]
+
+Impact:
+- Unblocks: [UNBLOCKED_TASKS]
+- Fixes: [ISSUE_DESCRIPTION]
+- Enables: [NEW_CAPABILITY]
+
+Dependencies:
+- Blocked by: [COMPLETED_DEPENDENCIES]
+- Related: [RELATED_TASKS]
+
+Next Steps:
+- [NEXT_STEP_1]
+- [NEXT_STEP_2] (if applicable)
+"""
+
+---
+
+After adding completion_notes, run this command again.
+
+Reference: Pattern-COMPLETION-001, Template v1.4.3 (Step N-2)
 ```
 
 ---
@@ -128,9 +191,13 @@ This skill automates the repetitive process of updating task status in `internal
    new_string: status = "in_progress"
    ```
 
-4. **Grep** - Validate update succeeded
+4. **Grep** - Validate update succeeded (v2.0: also checks completion_notes for `complete` command)
    ```bash
+   # v1.0 validation (start/defer commands)
    grep -A 2 "^\[tasks.<TASK-ID>\]" internal/sprints/ACTIVE_SPRINT.toml | grep -E "status|completed_date|deferred_reason"
+
+   # v2.0 validation (complete command - includes completion_notes check)
+   grep -A 50 "^\[tasks.<TASK-ID>\]" internal/sprints/ACTIVE_SPRINT.toml | grep -E "status|completed_date|completion_notes"
    ```
 
 ---
@@ -185,6 +252,31 @@ Requested transition: start (pending → in_progress)
 Cannot transition from "completed" back to "in_progress".
 Task is already finished. Create a new task if rework needed.
 ```
+
+**Error 5: Missing completion_notes (v2.0 - NEW)**
+
+```
+❌ BLOCKED: Cannot mark task {TASK-ID} as complete
+📍 Location: internal/sprints/ACTIVE_SPRINT.toml:{LINE}
+
+⚠️ MISSING REQUIRED FIELD: completion_notes
+
+Pattern-COMPLETION-001 requires completion_notes field BEFORE marking task complete.
+
+Historical context: BUG-002A, BUG-003, BUG-002 audits (2025-01-12/13) found agents skipped
+completion documentation. This enforcement prevents process compliance gaps.
+
+---
+
+🛠️ FIX: Add completion_notes field to your task section (after completed_date).
+See Template v1.4.3 (Step N-2) for full template.
+
+After adding completion_notes, run `/sprint-task-lifecycle complete {TASK-ID}` again.
+
+Reference: Pattern-COMPLETION-001, Template v1.4.3 (Step N-2)
+```
+
+**Why This Error Exists**: Historical audits (BUG-002A, BUG-003, BUG-002) found 72% process compliance due to agents skipping completion documentation. v2.0 enforces completion_notes BEFORE marking tasks complete to prevent process gaps.
 
 ---
 
@@ -485,21 +577,40 @@ Fallback: Follow Pattern-TRACKING-001 manual process
 
 ## Skill Status
 
-**Status**: ✅ Documented (Implementation pending)
-**Priority**: HIGH (blocks enhanced prompt usage)
-**Estimated Implementation**: 1-2 hours
+**Status**: ✅ Documented (v2.0 - Added completion_notes enforcement)
+**Priority**: CRITICAL (enforces Pattern-COMPLETION-001)
+**Version**: 2.0
+**Updated**: 2025-01-13
 **Dependencies**: None (uses existing tools: Grep, Read, Edit)
 
-**Implementation Checklist**:
-- [ ] Create skill implementation file (skill.ts or skill.js)
-- [ ] Add command parsing logic (start/complete/defer)
-- [ ] Implement grep → read → edit → validate flow
-- [ ] Add error handling for all failure modes
-- [ ] Test with BUG-002A task (validation)
-- [ ] Update all 13 agent context files to reference skill
-- [ ] Update Enhanced Prompt Template v1.3 with skill breadcrumbs
-- [ ] Document in CHANGELOG.md
+**v2.0 Changes (2025-01-13)**:
+- ✅ **ADDED**: `completion_notes` field validation in `complete` command
+- ✅ **ADDED**: Error 5 - Missing completion_notes (blocks completion)
+- ✅ **ADDED**: Automated completion_notes template in error message
+- ✅ **ENFORCEMENT**: Pattern-COMPLETION-001 now enforced at skill level
+- 📊 **Rationale**: Historical audits (BUG-002A, BUG-003, BUG-002) found agents skipped completion documentation despite template v1.4.2 strengthening
+
+**Implementation Checklist (v2.0)**:
+- [ ] Update skill implementation file to add completion_notes validation
+- [ ] Add 50-line grep window check for completion_notes field
+- [ ] Block `complete` command if completion_notes missing
+- [ ] Return error message with completion_notes template
+- [ ] Test with task missing completion_notes (should block)
+- [ ] Test with task having completion_notes (should succeed)
+- [ ] Update all 13 agent context files to reference v2.0
+- [ ] Update Enhanced Prompt Template v1.4.3 references
+- [ ] Document in CHANGELOG.md (v2.0 - completion_notes enforcement)
+
+**Two-Layer Defense (v1.4.3 + v2.0)**:
+1. **Template v1.4.3**: Completion notes moved to Step N-2 (BEFORE commit)
+2. **Skills v2.0**: `/sprint-task-lifecycle complete` validates completion_notes exists
+
+**Benefits of v2.0**:
+- ✅ Blocks task completion if documentation missing
+- ✅ Provides automated template for agents to fill
+- ✅ Prevents 72% process compliance gaps (historical audit findings)
+- ✅ Enforces Pattern-COMPLETION-001 at skills level, not just template level
 
 ---
 
-**This skill eliminates manual Sprint TOML management overhead and ensures consistent task tracking across all agents and tasks.**
+**This skill eliminates manual Sprint TOML management overhead and ensures consistent task tracking across all agents and tasks. v2.0 adds completion documentation enforcement to prevent process compliance gaps.**

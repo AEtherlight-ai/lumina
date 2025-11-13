@@ -34,9 +34,12 @@ export class TaskPromptExporter {
     private sprintFilePath: string;
     private analyzer: TaskAnalyzer;
 
-    constructor() {
+    constructor(sprintFilePath?: string) {
         this.workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
-        this.sprintFilePath = path.join(this.workspaceRoot, 'internal', 'sprints', 'ACTIVE_SPRINT.toml');
+        // BUG-013: Use provided sprint file path (from UI dropdown) or fall back to default
+        // WHY: Sprint Panel dropdown allows user to select different sprint files
+        // REASONING: TaskPromptExporter should read from currently selected sprint, not hardcoded path
+        this.sprintFilePath = sprintFilePath || path.join(this.workspaceRoot, 'internal', 'sprints', 'ACTIVE_SPRINT.toml');
         this.analyzer = new TaskAnalyzer(this.workspaceRoot);
     }
 

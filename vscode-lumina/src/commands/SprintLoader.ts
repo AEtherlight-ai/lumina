@@ -70,6 +70,12 @@ export interface SprintTask {
     success_impact?: string;
     enhanced_prompt?: string;  // MVP-003: Path to enhanced task prompt (e.g., "internal/sprints/enhanced_prompts/BUG-002A_ENHANCED_PROMPT.md")
     template?: string;  // MVP-003: Template version used (e.g., "MVP-003-PromptEnhancer-TaskTemplate-v1.0")
+    // UI-001: Additional document links (sprint-aware naming)
+    questions_doc?: string;  // Path to questions document (e.g., "internal/sprints/questions/17.1-BUGS_UI-001_QUESTIONS.md")
+    test_plan?: string;  // Path to test plan document (e.g., "internal/sprints/test_plans/17.1-BUGS_UI-001_TEST_PLAN.md")
+    design_doc?: string;  // Path to design document (e.g., "internal/sprints/design/17.1-BUGS_UI-001_DESIGN.md")
+    pattern_reference?: string;  // Path to primary pattern document (e.g., "docs/patterns/Pattern-UI-006-TabbedSidebar.md")
+    completion_notes?: string;  // Detailed completion notes for completed tasks (multiline string)
     // Test-related fields (TDD enforcement)
     error_handling?: string;
     test_requirements?: string;

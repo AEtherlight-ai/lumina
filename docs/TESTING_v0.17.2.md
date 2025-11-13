@@ -30,6 +30,8 @@ This document provides comprehensive testing instructions for v0.17.2, which inc
 2. **Sprint 17.1 Bug Fixes** - Critical corrections and consensus validation
 3. **BUG-002 License Validation** - Complete authentication system for desktop app
 4. **Template System Updates** - Enhanced template with agent/skill tracking
+5. **UI-001 Sprint Panel Enhancements** - Display enhanced TOML metadata fields in UI
+6. **INFRA-003 Document Linking System** - Automated task document linking enforcement
 
 **Goals**:
 - Verify enhanced prompt system displays correctly in Sprint Panel
@@ -37,6 +39,8 @@ This document provides comprehensive testing instructions for v0.17.2, which inc
 - Test license validation backend and frontend (BUG-002)
 - Verify desktop app authentication integration is complete
 - Confirm template improvements for future task generation
+- Test UI-001 metadata display (completion_notes, questions_doc, test_plan, design_doc, pattern_reference)
+- Verify INFRA-003 document linking enforcement (pre-commit hooks)
 - Ensure no regressions in existing functionality
 
 ---
@@ -2073,7 +2077,106 @@ completion_percentage = 6  # (1 / 18) * 100
 
 ---
 
-### Test 58: BUG-013 - "Start This Task" Uses Selected Sprint File
+### Test 58: UI-001 - Display Enhanced TOML Fields in Sprint Panel UI
+**Category**: Sprint Panel UI
+**Priority**: HIGH
+**Commit**: TBD
+**Dependencies**: INFRA-003
+
+**Context**: Adds UI support for new sprint metadata fields (completion_notes, questions_doc, test_plan, design_doc, pattern_reference) to SprintRenderer task detail view.
+
+**Steps**:
+1. Launch Extension Development Host (F5 in VS Code)
+2. Open Sprint Panel (click ÆtherLight icon in sidebar)
+3. Navigate to ACTIVE_SPRINT_17.1_BUGS.toml using dropdown
+4. Find a completed task with enhanced metadata (e.g., INFRA-003)
+5. Click "View Details" on the task
+
+**Test Documents Section**:
+6. Verify "📄 Documents" section appears in task details
+7. For tasks with enhanced_prompt, verify:
+   - File icon (codicon-file-text)
+   - Label: "Enhanced Prompt:"
+   - Clickable filename button (shows filename only, not full path)
+   - Template badge displayed inline (e.g., "MVP-003-PromptEnhancer-TaskTemplate-v1.4.3")
+8. For tasks with questions_doc, verify:
+   - Question icon (codicon-question)
+   - Label: "Questions Document:"
+   - Clickable filename button
+9. For tasks with test_plan, verify:
+   - Beaker icon (codicon-beaker)
+   - Label: "Test Plan:"
+   - Clickable filename button
+10. For tasks with design_doc, verify:
+   - Structure icon (codicon-symbol-structure)
+   - Label: "Design Document:"
+   - Clickable filename button
+11. Click any document link and verify file opens in VS Code editor
+
+**Test Completion Notes Section**:
+12. Find a completed task (status = "completed")
+13. Scroll to completion notes section
+14. Verify "✅ Completion Notes" heading exists
+15. Verify HTML <details>/<summary> expandable element
+16. Verify "Show Details" summary text
+17. Click to expand completion notes
+18. Verify pre-formatted text displays correctly (formatting preserved)
+19. Verify notes content matches TOML completion_notes field
+
+**Test Pattern Reference Section**:
+20. Find a task with pattern_reference field
+21. Verify "🔗 Pattern Reference" section appears
+22. Verify library icon (codicon-library)
+23. Verify clickable filename button
+24. Verify full path displayed below button (as <code> element)
+25. Click pattern reference link and verify file opens
+
+**Test Graceful Degradation**:
+26. View details for tasks WITHOUT enhanced metadata fields
+27. Verify no Documents section appears (hidden gracefully)
+28. Verify no Completion Notes section appears for non-completed tasks
+29. Verify no Pattern Reference section for tasks without pattern_reference
+30. Verify no JavaScript errors in browser console (Ctrl+Shift+I in webview)
+
+**Test Multiple Tasks**:
+31. View UI-001 task details (should have enhanced_prompt)
+32. View INFRA-003 task details (should have completion_notes)
+33. View BUG-011 task details (should have enhanced_prompt, questions_doc, test_plan)
+34. Verify each task displays appropriate sections
+
+**Expected Results**:
+- [ ] Documents section displays all available document links
+- [ ] Template badge appears inline with enhanced_prompt
+- [ ] All document links are clickable and open correct files
+- [ ] Completion notes section only appears for completed tasks
+- [ ] Completion notes are expandable with <details>/<summary>
+- [ ] Completion notes formatting preserved (use <pre> tag)
+- [ ] Pattern reference displays as clickable link with full path
+- [ ] Missing fields gracefully hidden (no empty sections)
+- [ ] Icon-based UI using VS Code codicons
+- [ ] No console errors in webview
+- [ ] Files open correctly when links clicked
+- [ ] TypeScript compilation succeeds
+- [ ] No regression in existing UI elements
+
+**Files Modified**:
+- `vscode-lumina/src/commands/SprintLoader.ts` (5 new interface fields)
+- `vscode-lumina/src/commands/SprintRenderer.ts` (72 lines of UI code added)
+- `vscode-lumina/src/test/commands/SprintRenderer.test.ts` (CREATED - 400 lines, 11 tests)
+- `internal/sprints/ACTIVE_SPRINT_17.1_BUGS.toml` (UI-001 marked completed)
+
+**Test Implementation**:
+- Unit tests written (11 test cases covering all scenarios)
+- Tests compile successfully with TypeScript
+- TDD approach followed (tests written first)
+
+**Actual Result**: _____________________________
+
+**Status**: [ ] PASS [ ] FAIL
+
+---
+
+### Test 59: BUG-013 - "Start This Task" Uses Selected Sprint File
 **Category**: Sprint Panel Core Functionality
 **Priority**: CRITICAL
 **Commit**: 4ee4925
@@ -2247,8 +2350,11 @@ completion_percentage = 6  # (1 / 18) * 100
 ### Sprint Panel UX Tests (High Priority)
 - [ ] Test 57: BUG-012 - Link/Unlink Toggle for Pop-Out Sprint Views
 
+### Sprint Panel UI Enhancement Tests (HIGH)
+- [ ] Test 58: UI-001 - Display Enhanced TOML Fields in Sprint Panel UI
+
 ### Sprint Panel Core Functionality Tests (CRITICAL)
-- [ ] Test 58: BUG-013 - "Start This Task" Uses Selected Sprint File
+- [ ] Test 59: BUG-013 - "Start This Task" Uses Selected Sprint File
 
 ### Optional Tests (Nice to Have)
 - [ ] Test 40: BUG-002 - Integration Test with Live API (Optional)
@@ -2275,7 +2381,7 @@ completion_percentage = 6  # (1 / 18) * 100
 - Extension Version: 0.17.2
 
 **Results**:
-- Total Tests Run: _____ / 58
+- Total Tests Run: _____ / 59
 - Tests Passed: _____
 - Tests Failed: _____
 - Tests Skipped: _____
@@ -2305,6 +2411,6 @@ completion_percentage = 6  # (1 / 18) * 100
 
 ---
 
-**Document Version**: 1.1
-**Last Updated**: 2025-01-13
+**Document Version**: 1.2
+**Last Updated**: 2025-01-13 (Added UI-001 test coverage)
 **Next Update**: After testing completion

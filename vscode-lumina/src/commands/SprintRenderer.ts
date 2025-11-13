@@ -420,27 +420,75 @@ export class SprintRenderer {
                     </div>
                 ` : ''}
 
-                ${task.enhanced_prompt ? `
-                    <div class="task-details-section">
-                        <h3>📋 Enhanced Prompt</h3>
-                        <div class="enhanced-prompt-info">
-                            <p class="enhanced-prompt-path">
-                                <span class="codicon codicon-file-text"></span>
-                                <code>${this.escapeHtml(task.enhanced_prompt)}</code>
-                            </p>
-                            ${task.template ? `
-                                <p class="template-info">
-                                    <span class="codicon codicon-symbol-class"></span>
-                                    Template: <code>${this.escapeHtml(task.template)}</code>
-                                </p>
+                ${task.enhanced_prompt || task.questions_doc || task.test_plan || task.design_doc ? `
+                    <div class="task-details-section task-documents-section">
+                        <h3>📄 Documents</h3>
+                        <div class="task-documents-list">
+                            ${task.enhanced_prompt ? `
+                                <div class="document-item">
+                                    <span class="codicon codicon-file-text"></span>
+                                    <strong>Enhanced Prompt:</strong>
+                                    <button class="task-button task-button-link" onclick="openDocument('${this.escapeHtml(task.enhanced_prompt)}')">
+                                        ${this.escapeHtml(task.enhanced_prompt.split('/').pop() || '')}
+                                    </button>
+                                    ${task.template ? `
+                                        <span class="template-badge">
+                                            <span class="codicon codicon-symbol-class"></span>
+                                            ${this.escapeHtml(task.template)}
+                                        </span>
+                                    ` : ''}
+                                </div>
                             ` : ''}
-                            <p class="enhanced-prompt-description">
-                                Comprehensive implementation guide with context, validation, TDD steps, and acceptance criteria.
-                            </p>
-                            <button class="task-button task-button-secondary" onclick="openEnhancedPrompt('${this.escapeHtml(task.enhanced_prompt)}')">
-                                <span class="codicon codicon-file-text"></span>
-                                Open Enhanced Prompt
+                            ${task.questions_doc ? `
+                                <div class="document-item">
+                                    <span class="codicon codicon-question"></span>
+                                    <strong>Questions Document:</strong>
+                                    <button class="task-button task-button-link" onclick="openDocument('${this.escapeHtml(task.questions_doc)}')">
+                                        ${this.escapeHtml(task.questions_doc.split('/').pop() || '')}
+                                    </button>
+                                </div>
+                            ` : ''}
+                            ${task.test_plan ? `
+                                <div class="document-item">
+                                    <span class="codicon codicon-beaker"></span>
+                                    <strong>Test Plan:</strong>
+                                    <button class="task-button task-button-link" onclick="openDocument('${this.escapeHtml(task.test_plan)}')">
+                                        ${this.escapeHtml(task.test_plan.split('/').pop() || '')}
+                                    </button>
+                                </div>
+                            ` : ''}
+                            ${task.design_doc ? `
+                                <div class="document-item">
+                                    <span class="codicon codicon-symbol-structure"></span>
+                                    <strong>Design Document:</strong>
+                                    <button class="task-button task-button-link" onclick="openDocument('${this.escapeHtml(task.design_doc)}')">
+                                        ${this.escapeHtml(task.design_doc.split('/').pop() || '')}
+                                    </button>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                ` : ''}
+
+                ${task.completion_notes && task.status === 'completed' ? `
+                    <div class="task-details-section completion-notes-section">
+                        <h3>✅ Completion Notes</h3>
+                        <details>
+                            <summary>Show Details</summary>
+                            <pre class="completion-notes">${this.escapeHtml(task.completion_notes)}</pre>
+                        </details>
+                    </div>
+                ` : ''}
+
+                ${task.pattern_reference ? `
+                    <div class="task-details-section pattern-reference-section">
+                        <h3>🔗 Pattern Reference</h3>
+                        <div class="pattern-reference-item">
+                            <span class="codicon codicon-library"></span>
+                            <button class="task-button task-button-link" onclick="openDocument('${this.escapeHtml(task.pattern_reference)}')">
+                                ${this.escapeHtml(task.pattern_reference.split('/').pop() || '')}
                             </button>
+                            <p class="pattern-reference-path"><code>${this.escapeHtml(task.pattern_reference)}</code></p>
                         </div>
                     </div>
                 ` : ''}
