@@ -12,6 +12,7 @@ import { TaskStarter } from '../services/TaskStarter';
 import { TaskDependencyValidator } from '../services/TaskDependencyValidator';
 import { PromptEnhancer } from '../services/PromptEnhancer';
 import { TaskQuestionModal } from '../webview/TaskQuestionModal'; // PROTECT-000D: Q&A modal for gap resolution
+import { ContextPreviewModal } from '../webview/ContextPreviewModal'; // ENHANCE-001.8: Context preview & override UI
 import { TemplateTaskBuilder } from '../services/TemplateTaskBuilder'; // PROTECT-000F: Template task construction
 import { TaskPromptExporter } from '../services/TaskPromptExporter'; // PROTECT-000F: Template enhancement
 import { AIEnhancementService } from '../services/AIEnhancementService'; // ENHANCE-001.1: AI enhancement with VS Code LM API
@@ -78,6 +79,12 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
     private poppedOutPanels: vscode.WebviewPanel[] = []; // Track all popped-out panels
     private sprintFileWatchers: vscode.FileSystemWatcher[] = []; // Auto-refresh on TOML changes
     private panelLinkStates: Map<vscode.WebviewPanel, boolean> = new Map(); // UNLINK-001: Track link state per panel (default: true)
+
+    // ENHANCE-001.7: Refinement state tracking
+    private currentEnhancedPrompt: string = ''; // Current enhanced prompt (for updates)
+    private promptHistory: string[] = []; // History for undo (last 10 prompts)
+    private currentContext: any = null; // Original enhancement context (for re-enhancement)
+    private refinementHistory: Array<{ type: string; feedback: string; timestamp: string }> = []; // Refinement metadata
 
     constructor(
         private readonly _extensionUri: vscode.Uri,
@@ -1232,6 +1239,32 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 }
                 break;
 
+            case 'refinement':
+                /**
+                 * ENHANCE-001.7: Prompt Refinement (Iterative Improvement)
+                 * WHY: Allow users to refine prompts without restarting
+                 * PATTERN: Refinement button → Build feedback → Re-enhance with AIEnhancementService
+                 * ARCHITECTURE: v3.0 (reuse AIEnhancementService.enhance() with refinement feedback)
+                 */
+                await this.handleRefinement(message, webview);
+                break;
+
+            case 'getPatterns':
+                /**
+                 * ENHANCE-001.7: Get available patterns for dropdown
+                 * WHY: "Include Pattern" button needs list of patterns
+                 */
+                try {
+                    const patterns = await this.getAvailablePatterns();
+                    webview.postMessage({
+                        type: 'populatePatterns',
+                        patterns: patterns
+                    });
+                } catch (error) {
+                    console.error('[ÆtherLight] Failed to get patterns:', error);
+                }
+                break;
+
                 // ==================================================================================
                 // DEPRECATED: OLD IMPLEMENTATION (Pre-ENHANCE-001.2)
                 // STATUS: Replaced by context builders (v3.0 architecture)
@@ -2292,6 +2325,104 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             border-color: var(--vscode-focusBorder);
         }
 
+        /* ENHANCE-001.7: Refinement buttons */
+        .refinement-container {
+            margin-top: 12px;
+            padding: 12px;
+            background: var(--vscode-editor-inactiveSelectionBackground);
+            border-radius: 6px;
+            border: 1px solid var(--vscode-panel-border);
+        }
+
+        .confidence-badge {
+            margin-bottom: 8px;
+            font-size: 12px;
+            color: var(--vscode-descriptionForeground);
+        }
+
+        .refinement-actions {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .refinement-btn {
+            padding: 5px 10px;
+            font-size: 12px;
+            border: 1px solid var(--vscode-button-border);
+            background: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .refinement-btn:hover {
+            background: var(--vscode-button-hoverBackground);
+        }
+
+        .refinement-btn .icon {
+            font-size: 13px;
+        }
+
+        .revert-btn {
+            margin-left: auto;
+            background: var(--vscode-button-secondaryBackground);
+        }
+
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: var(--vscode-editor-background);
+            padding: 20px;
+            border-radius: 8px;
+            min-width: 400px;
+            border: 1px solid var(--vscode-panel-border);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-content h3 {
+            margin-top: 0;
+            margin-bottom: 12px;
+        }
+
+        .modal-content textarea,
+        .modal-content select {
+            width: 100%;
+            padding: 8px;
+            margin: 12px 0;
+            background: var(--vscode-input-background);
+            color: var(--vscode-input-foreground);
+            border: 1px solid var(--vscode-input-border);
+            border-radius: 4px;
+            font-family: var(--vscode-editor-font-family);
+            font-size: 13px;
+        }
+
+        .modal-content select {
+            cursor: pointer;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+            margin-top: 16px;
+        }
+
         .controls {
             display: flex;
             gap: 8px;
@@ -2961,23 +3092,57 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
     ): Promise<void> {
         try {
             // Step 1: Show progress notification
-            vscode.window.showInformationMessage(`✨ Enhancing ${buttonType} prompt...`);
+            vscode.window.showInformationMessage(`✨ Gathering context for ${buttonType}...`);
 
             // Step 2: Build context using specialized context builder
             const context = await contextBuilder.build(input);
 
-            // Step 3: Enhance using AI service (VS Code LM API or template fallback)
-            const enhancedPrompt = await this.aiEnhancementService.enhance(context);
+            // Step 3: ENHANCE-001.8 - Show context preview modal
+            // User reviews context, can edit patterns/override warnings, then proceeds
+            const modal = new ContextPreviewModal(this._context, context);
 
-            // Step 4: Populate text area with enhanced prompt
-            webview.postMessage({
-                type: 'populateTextArea',
-                text: enhancedPrompt
-            });
+            modal.show(
+                // onProceed callback: User clicked [Proceed] - enhance with edited context
+                async (editedContext) => {
+                    try {
+                        vscode.window.showInformationMessage(`✨ Enhancing ${buttonType} prompt...`);
 
-            // Step 5: Success notification
-            vscode.window.showInformationMessage(
-                `✅ ${buttonType} enhanced - review in text area and click Send`
+                        // Step 4: Enhance using AI service (VS Code LM API or template fallback)
+                        const enhancedPrompt = await this.aiEnhancementService.enhance(editedContext);
+
+                        // ENHANCE-001.7: Store context and prompt for refinement
+                        this.currentContext = editedContext;
+                        this.currentEnhancedPrompt = enhancedPrompt;
+                        this.promptHistory = []; // Reset history on new enhancement
+                        this.refinementHistory = []; // Reset refinement history
+
+                        // Step 5: Populate text area with enhanced prompt
+                        webview.postMessage({
+                            type: 'populateTextArea',
+                            text: enhancedPrompt
+                        });
+
+                        // ENHANCE-001.7: Show refinement buttons
+                        webview.postMessage({
+                            type: 'showRefinementButtons',
+                            confidence: editedContext.metadata?.confidence || { score: 80, level: 'high' }
+                        });
+
+                        // Step 6: Success notification
+                        vscode.window.showInformationMessage(
+                            `✅ ${buttonType} enhanced - review in text area and click Send`
+                        );
+                    } catch (enhanceError) {
+                        console.error(`[ÆtherLight] ${buttonType} enhancement failed:`, enhanceError);
+                        vscode.window.showErrorMessage(
+                            `Failed to enhance ${buttonType}: ${(enhanceError as Error).message}`
+                        );
+                    }
+                },
+                // onCancel callback: User clicked [Cancel]
+                () => {
+                    vscode.window.showInformationMessage(`${buttonType} enhancement cancelled`);
+                }
             );
 
         } catch (error) {
@@ -2985,6 +3150,177 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             vscode.window.showErrorMessage(
                 `Failed to enhance ${buttonType}: ${(error as Error).message}`
             );
+        }
+    }
+
+    /**
+     * ENHANCE-001.7: Handle prompt refinement
+     *
+     * DESIGN DECISION: Iterative refinement without restarting
+     * WHY: Users want to say "add more about X" or "simplify" without re-filling form
+     *
+     * REASONING CHAIN:
+     * 1. User clicks refinement button (Refine, Simplify, Add Detail, Include Pattern)
+     * 2. Build refinement feedback instruction
+     * 3. Re-enhance using AI service with original context + feedback
+     * 4. Update text area with refined prompt
+     * 5. Preserve prompt history for undo
+     * 6. Track refinement metadata (iteration count, refinement types)
+     *
+     * PATTERN: Pattern-UX-001 (Iterative refinement improves UX)
+     * ARCHITECTURE: v3.0 AI Enhancement System (reuse AIEnhancementService)
+     *
+     * @param message - Refinement message from webview
+     * @param webview - Webview to post result to
+     */
+    private async handleRefinement(message: any, webview: vscode.Webview): Promise<void> {
+        try {
+            const { refinementType, userInput, patternId } = message;
+
+            // Build refinement feedback instruction
+            let refinementFeedback = '';
+
+            switch (refinementType) {
+                case 'refine':
+                    refinementFeedback = 'Include more examples and guidance. Add more context and detail to make the prompt more comprehensive.';
+                    break;
+
+                case 'simplify':
+                    refinementFeedback = 'Make this prompt concise. Remove verbose sections. Keep only essential information.';
+                    break;
+
+                case 'add-detail':
+                    if (!userInput || userInput.trim() === '') {
+                        vscode.window.showErrorMessage('Please enter what area to expand');
+                        return;
+                    }
+                    refinementFeedback = `Expand this specific area: ${userInput}. Add more detail and examples.`;
+                    break;
+
+                case 'include-pattern':
+                    if (!patternId || patternId.trim() === '') {
+                        vscode.window.showErrorMessage('Please select a pattern');
+                        return;
+                    }
+                    refinementFeedback = `Include guidance from ${patternId}. Apply this pattern to the prompt.`;
+                    break;
+
+                case 'undo':
+                    // Revert to previous version
+                    if (this.promptHistory.length === 0) {
+                        vscode.window.showWarningMessage('No previous version to revert to');
+                        return;
+                    }
+
+                    const previousPrompt = this.promptHistory.pop();
+                    if (previousPrompt) {
+                        this.currentEnhancedPrompt = previousPrompt;
+                        webview.postMessage({
+                            type: 'populateTextArea',
+                            text: previousPrompt
+                        });
+                        vscode.window.showInformationMessage('✅ Reverted to previous version');
+                    }
+                    return;
+
+                default:
+                    throw new Error(`Unknown refinement type: ${refinementType}`);
+            }
+
+            // Verify we have context to refine
+            if (!this.currentContext) {
+                vscode.window.showErrorMessage('No enhancement to refine. Please enhance first.');
+                return;
+            }
+
+            // Store current prompt in history (for undo)
+            this.promptHistory.push(this.currentEnhancedPrompt);
+            // Limit history to last 10 prompts
+            if (this.promptHistory.length > 10) {
+                this.promptHistory.shift();
+            }
+
+            // Re-enhance with feedback
+            console.log(`[ÆtherLight] Re-enhancing with feedback: ${refinementFeedback}`);
+            vscode.window.showInformationMessage('✨ Refining prompt...');
+
+            const refinedPrompt = await this.aiEnhancementService.enhance(
+                this.currentContext,
+                refinementFeedback
+            );
+
+            // Update current prompt
+            this.currentEnhancedPrompt = refinedPrompt;
+
+            // Update webview with refined prompt
+            webview.postMessage({
+                type: 'populateTextArea',
+                text: refinedPrompt
+            });
+
+            // Track refinement in metadata
+            this.refinementHistory.push({
+                type: refinementType,
+                feedback: refinementFeedback,
+                timestamp: new Date().toISOString()
+            });
+
+            vscode.window.showInformationMessage('✅ Prompt refined successfully');
+
+        } catch (error) {
+            console.error('[ÆtherLight] Refinement failed:', error);
+            vscode.window.showErrorMessage(`Refinement failed: ${(error as Error).message}`);
+        }
+    }
+
+    /**
+     * ENHANCE-001.7: Get available patterns for dropdown
+     *
+     * DESIGN DECISION: Load patterns from docs/patterns/ directory
+     * WHY: Pattern dropdown needs list of available patterns
+     *
+     * REASONING CHAIN:
+     * 1. User clicks "Include Pattern" button
+     * 2. Modal opens with pattern dropdown
+     * 3. Dropdown needs to be populated with available patterns
+     * 4. Read docs/patterns/ directory, filter Pattern-*.md files
+     * 5. Fallback to default patterns if directory read fails
+     *
+     * @returns Array of pattern IDs (e.g., ['Pattern-CODE-001', 'Pattern-TDD-001'])
+     */
+    private async getAvailablePatterns(): Promise<string[]> {
+        try {
+            const fs = require('fs');
+            const path = require('path');
+
+            const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || process.cwd();
+            const patternsDir = path.join(workspaceRoot, 'docs', 'patterns');
+
+            // Check if directory exists
+            if (!fs.existsSync(patternsDir)) {
+                throw new Error('Patterns directory not found');
+            }
+
+            // Find all Pattern-*.md files
+            const files = fs.readdirSync(patternsDir);
+            const patternFiles = files.filter((f: string) => f.startsWith('Pattern-') && f.endsWith('.md'));
+
+            // Extract pattern IDs from filenames
+            const patterns = patternFiles.map((f: string) => path.basename(f, '.md'));
+
+            return patterns.sort();
+
+        } catch (error) {
+            console.warn('[ÆtherLight] Failed to load patterns:', error);
+            // Fallback to default patterns
+            return [
+                'Pattern-CODE-001',
+                'Pattern-TDD-001',
+                'Pattern-SPRINT-PLAN-001',
+                'Pattern-GIT-001',
+                'Pattern-IMPROVEMENT-001',
+                'Pattern-TRACKING-001'
+            ];
         }
     }
 
@@ -4003,6 +4339,24 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                         updateSendButton();
                         showStatus('✅ Review enhanced text and click Send to terminal', 'info');
                         break;
+                    case 'showRefinementButtons':
+                        // ENHANCE-001.7: Show refinement buttons after enhancement
+                        document.getElementById('refinementButtons').style.display = 'block';
+                        const confidenceLevel = message.confidence?.level || 'Medium';
+                        const confidenceScore = message.confidence?.score || 80;
+                        document.getElementById('confidenceLevel').textContent = \`\${confidenceLevel} (\${confidenceScore}%)\`;
+                        break;
+                    case 'populatePatterns':
+                        // ENHANCE-001.7: Populate pattern dropdown
+                        const patternSelect = document.getElementById('patternSelect');
+                        patternSelect.innerHTML = '<option value="">-- Select Pattern --</option>';
+                        message.patterns.forEach(pattern => {
+                            const option = document.createElement('option');
+                            option.value = pattern;
+                            option.textContent = pattern;
+                            patternSelect.appendChild(option);
+                        });
+                        break;
                     case 'autoSelectTerminal':
                         // B-003: Auto-selection triggered by Shell Integration
                         selectTerminal(message.terminalName);
@@ -4724,6 +5078,79 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 showStatus('✨ Enhancing bug report...', 'info');
             };
 
+            // ENHANCE-001.7: Refinement functions
+            window.refinePrompt = function() {
+                vscode.postMessage({ type: 'refinement', refinementType: 'refine' });
+            };
+
+            window.simplifyPrompt = function() {
+                vscode.postMessage({ type: 'refinement', refinementType: 'simplify' });
+            };
+
+            window.undoRefinement = function() {
+                vscode.postMessage({ type: 'refinement', refinementType: 'undo' });
+            };
+
+            window.showAddDetailModal = function() {
+                document.getElementById('addDetailModal').style.display = 'flex';
+                document.getElementById('detailInput').focus();
+            };
+
+            window.hideAddDetailModal = function() {
+                document.getElementById('addDetailModal').style.display = 'none';
+                document.getElementById('detailInput').value = '';
+            };
+
+            window.submitDetail = function() {
+                const userInput = document.getElementById('detailInput').value.trim();
+                if (!userInput) {
+                    showStatus('⚠️ Please enter what area to expand', 'error');
+                    return;
+                }
+                vscode.postMessage({
+                    type: 'refinement',
+                    refinementType: 'add-detail',
+                    userInput: userInput
+                });
+                window.hideAddDetailModal();
+            };
+
+            window.showPatternModal = function() {
+                document.getElementById('patternModal').style.display = 'flex';
+                // Request patterns from extension
+                vscode.postMessage({ type: 'getPatterns' });
+            };
+
+            window.hidePatternModal = function() {
+                document.getElementById('patternModal').style.display = 'none';
+            };
+
+            window.submitPattern = function() {
+                const patternId = document.getElementById('patternSelect').value;
+                if (!patternId) {
+                    showStatus('⚠️ Please select a pattern', 'error');
+                    return;
+                }
+                vscode.postMessage({
+                    type: 'refinement',
+                    refinementType: 'include-pattern',
+                    patternId: patternId
+                });
+                window.hidePatternModal();
+            };
+
+            // Close modals on Escape key
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    if (document.getElementById('addDetailModal').style.display !== 'none') {
+                        window.hideAddDetailModal();
+                    }
+                    if (document.getElementById('patternModal').style.display !== 'none') {
+                        window.hidePatternModal();
+                    }
+                }
+            });
+
             /**
              * UI-006 REFIX: Feature Request - Structured Form → Enhance → Main Text Area → Terminal
              * WHY: Gather contextual data, enhance with skill, populate main text area for review
@@ -5223,6 +5650,56 @@ function getVoicePanelBodyContent(): string {
             id="transcriptionText"
             placeholder="Press \` (backtick, left of 1 key) to record voice&#10;Or type directly&#10;Hit 'Enhance' to enrich your prompt&#10;Use Ctrl+Enter to send to terminal&#10;Multiple terminals highlighted? They share a name - right-click on terminal tab and select 'Rename' for unique targeting, then hit refresh in ÆtherLight Voice"
         ></textarea>
+    </div>
+
+    <!-- ENHANCE-001.7: Refinement buttons (shown after enhancement) -->
+    <div id="refinementButtons" class="refinement-container" style="display: none;">
+        <div class="confidence-badge">
+            <span>Confidence: <strong id="confidenceLevel">High</strong></span>
+        </div>
+        <div class="refinement-actions">
+            <button class="refinement-btn" onclick="refinePrompt()" title="Add more examples and guidance">
+                <span class="icon">✨</span> Refine
+            </button>
+            <button class="refinement-btn" onclick="simplifyPrompt()" title="Make concise, remove verbose sections">
+                <span class="icon">⚡</span> Simplify
+            </button>
+            <button class="refinement-btn" onclick="showAddDetailModal()" title="Expand specific areas">
+                <span class="icon">📝</span> Add Detail
+            </button>
+            <button class="refinement-btn" onclick="showPatternModal()" title="Include pattern guidance">
+                <span class="icon">🎯</span> Include Pattern
+            </button>
+            <button class="refinement-btn revert-btn" onclick="undoRefinement()" title="Revert to previous version">
+                <span class="icon">↩️</span> Undo
+            </button>
+        </div>
+    </div>
+
+    <!-- ENHANCE-001.7: Add Detail Modal -->
+    <div id="addDetailModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h3>Add Detail - What area should be expanded?</h3>
+            <textarea id="detailInput" placeholder="e.g., 'Add more about error handling'" rows="3"></textarea>
+            <div class="modal-actions">
+                <button onclick="submitDetail()">Add Detail</button>
+                <button onclick="hideAddDetailModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ENHANCE-001.7: Include Pattern Modal -->
+    <div id="patternModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h3>Include Pattern - Select pattern to add</h3>
+            <select id="patternSelect">
+                <option value="">-- Select Pattern --</option>
+            </select>
+            <div class="modal-actions">
+                <button onclick="submitPattern()">Include Pattern</button>
+                <button onclick="hidePatternModal()">Cancel</button>
+            </div>
+        </div>
     </div>
 
     <!-- REFACTOR-006: Workflow area container (opens below text area) -->
