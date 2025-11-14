@@ -5574,6 +5574,7 @@ description = "Analyze impact of authentication changes and modal fixes. Ensure 
 estimated_time = "2 hours"
 dependencies = [ "BUG-001", "BUG-002", "BUG-003", "BUG-004", "BUG-005" ]
 agent = "testing-agent"
+enhanced_prompt = "internal/sprints/enhanced_prompts/17.1-BUGS_QA-001_ENHANCED_PROMPT.md"
 deliverables = [
   "Ripple analysis report",
   "List of affected components",
