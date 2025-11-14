@@ -3252,11 +3252,22 @@ ENHANCE-001.4 (Sprint Planner Context Builder): ✅ Completed 2025-01-13
   - Tests: 18 test cases (90% coverage target)
   - Commit: 5b8e8ce
 
-ENHANCE-001.5+: Pending
-  - Remaining: Template Evolution System (outcome tracking, self-improvement)
+ENHANCE-001.5 (Template Evolution System): ✅ Completed 2025-01-13
+  - Implemented TemplateEvolutionService (450 lines)
+  - Implemented GitCommitWatcher (220 lines)
+  - Background git monitoring (30-minute window, 30-second polling)
+  - Outcome analysis (success/failure detection, confidence scoring)
+  - Gap logging (missing files, missing tests)
+  - Pattern reinforcement (confidence increase)
+  - Template updater with backup/rollback (TODO: actual file modification)
+  - Integration with AIEnhancementService (both AI and template fallback)
+  - Data persistence (.vscode/template-evolution.json)
+  - Tests: 19 test cases (13 + 6)
+  - Commit: 1472606
+
+ENHANCE-001.6+: Pending
   - Remaining: Metadata Passthrough (HTML comment embedding)
   - Remaining: Iterative Refinement UI (chat-style prompt refinement)
-  - Remaining: AIEnhancementService integration
   - Remaining: End-to-end testing
 """
 validation_criteria = [
