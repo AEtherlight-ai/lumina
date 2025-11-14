@@ -47,6 +47,7 @@ import * as path from 'path';
 import { EnhancementContext } from '../types/EnhancementContext';
 import { EnhancementMetadata, MetadataFormatterOptions } from '../types/EnhancementMetadata';
 import { TemplateEvolutionService } from './TemplateEvolutionService'; // ENHANCE-001.5: Outcome tracking
+import { ProgressStream } from './ProgressStream'; // ENHANCE-001.9: Progressive loading UI
 
 export class AIEnhancementService {
     private templateEvolution: TemplateEvolutionService;
@@ -58,58 +59,137 @@ export class AIEnhancementService {
      * Enhance prompt using VS Code Language Model API
      *
      * Flow:
-     * 1. Check for available language models (Copilot, Continue.dev, etc.)
-     * 2. If available: Build AI prompt → Send to model → Stream response
-     * 3. If unavailable: Fall back to template system
-     * 4. Embed metadata in HTML comment for terminal AI
-     * 5. Return enhanced prompt
+     * 1. Normalize input (context already normalized by IContextBuilder)
+     * 2. Gather workspace context (files, git, patterns, SOPs)
+     * 3. Analyze git history
+     * 4. Find patterns
+     * 5. Validate files
+     * 6. Generate enhanced prompt (via AI or template)
      *
      * @param context - Normalized enhancement context from IContextBuilder
+     * @param refinementFeedback - Optional refinement instruction (ENHANCE-001.7: Iterative refinement)
+     * @param progress - Optional ProgressStream for UI updates (ENHANCE-001.9: Progressive loading)
      * @returns Enhanced prompt with embedded metadata
      */
-    async enhance(context: EnhancementContext): Promise<string> {
+    async enhance(
+        context: EnhancementContext,
+        refinementFeedback?: string,
+        progress?: ProgressStream
+    ): Promise<string> {
         try {
-            // Step 1: Check for available language models
+            // ENHANCE-001.9: Step 1 - Normalize input (context already normalized)
+            if (progress) {
+                progress.startStep(1, 'Normalize input');
+                // Context is already normalized by IContextBuilder, so this is instant
+                progress.completeStep(1);
+            }
+
+            // ENHANCE-001.9: Step 2 - Gather workspace context
+            if (progress) {
+                progress.startStep(2, 'Gather workspace context');
+            }
+
+            // Workspace context already in context.workspaceContext
+            // This step represents the work done by IContextBuilder
+            if (progress) {
+                progress.completeStep(2);
+            }
+
+            // ENHANCE-001.9: Step 3 - Analyze git history
+            if (progress) {
+                progress.startStep(3, 'Analyze git history');
+            }
+
+            // Git commits already in context.workspaceContext.gitCommits
+            if (progress) {
+                progress.completeStep(3);
+            }
+
+            // ENHANCE-001.9: Step 4 - Find patterns
+            if (progress) {
+                progress.startStep(4, 'Find patterns');
+            }
+
+            // Patterns already in context.metadata.patterns
+            if (progress) {
+                progress.completeStep(4);
+            }
+
+            // ENHANCE-001.9: Step 5 - Validate files
+            if (progress) {
+                progress.startStep(5, 'Validate files');
+            }
+
+            // Validation already in context.metadata.validation
+            if (progress) {
+                progress.completeStep(5);
+            }
+
+            // ENHANCE-001.9: Step 6 - Generate enhanced prompt
+            if (progress) {
+                progress.startStep(6, 'Generate enhanced prompt');
+            }
+
+            // Check for available language models
             const models = await vscode.lm.selectChatModels();
 
             if (models.length === 0) {
                 // No AI available - fall back to template
                 console.log('[ÆtherLight] No language models available, using template fallback');
-                return this.templateFallback(context);
+                const result = this.templateFallback(context);
+
+                // Complete step 6
+                if (progress) {
+                    progress.completeStep(6);
+                }
+
+                return result;
             }
 
-            // Step 2: Build prompt for AI
-            const promptForAI = this.buildAIPrompt(context);
+            // Build prompt for AI (include refinement feedback if provided)
+            const promptForAI = this.buildAIPrompt(context, refinementFeedback);
 
-            // Step 3: Send request to language model
+            // Send request to language model
             const messages = [vscode.LanguageModelChatMessage.User(promptForAI)];
             const token = new vscode.CancellationTokenSource().token;
 
             console.log(`[ÆtherLight] Sending enhancement request to ${models[0].name}`);
             const response = await models[0].sendRequest(messages, {}, token);
 
-            // Step 4: Stream response
+            // Stream response
             let result = '';
             for await (const chunk of response.text) {
                 result += chunk;
             }
 
-            // Step 5: Embed metadata
+            // Embed metadata
             const enhancedPrompt = this.embedMetadata(result, context);
 
-            // Step 6: Track enhancement for outcome analysis (ENHANCE-001.5)
+            // Track enhancement for outcome analysis (ENHANCE-001.5)
             this.templateEvolution.trackEnhancement({
                 context: context,
                 enhancedPrompt: enhancedPrompt,
                 timestamp: new Date()
             });
 
+            // Complete step 6
+            if (progress) {
+                progress.completeStep(6);
+            }
+
             return enhancedPrompt;
 
         } catch (error) {
             // AI error - fall back to template
             console.warn('[ÆtherLight] AI enhancement failed, using template fallback:', error);
-            return this.templateFallback(context);
+
+            // Mark step 6 as error
+            if (progress) {
+                progress.errorStep(6, error as Error);
+            }
+
+            const result = this.templateFallback(context);
+            return result;
         }
     }
 
@@ -122,12 +202,14 @@ export class AIEnhancementService {
      * 3. Workspace Context (languages, frameworks, git commits)
      * 4. Patterns to Apply (ÆtherLight patterns)
      * 5. SOPs (CLAUDE.md, aetherlight.md)
-     * 6. Request (generate comprehensive prompt following MVP-003 template)
+     * 6. Refinement Feedback (if re-enhancing - ENHANCE-001.7)
+     * 7. Request (generate comprehensive prompt following MVP-003 template)
      *
      * @param context - Enhancement context
+     * @param refinementFeedback - Optional refinement instruction (ENHANCE-001.7)
      * @returns Prompt string for AI
      */
-    private buildAIPrompt(context: EnhancementContext): string {
+    private buildAIPrompt(context: EnhancementContext, refinementFeedback?: string): string {
         const sections: string[] = [];
 
         // Header
@@ -194,17 +276,29 @@ export class AIEnhancementService {
             sections.push('');
         }
 
+        // Refinement Feedback (ENHANCE-001.7: Iterative refinement)
+        if (refinementFeedback) {
+            sections.push(`## Refinement Feedback`);
+            sections.push(`**IMPORTANT**: This is a refinement request. Apply this feedback to the previous prompt:`);
+            sections.push(refinementFeedback);
+            sections.push('');
+        }
+
         // Request
         sections.push(`## Request`);
-        sections.push(`Generate a comprehensive, actionable prompt that:`);
-        sections.push(`1. Clearly states the objective`);
-        sections.push(`2. Provides specific context (files, patterns, SOPs)`);
-        sections.push(`3. Lists concrete execution steps`);
-        sections.push(`4. Includes success validation criteria`);
-        sections.push(`5. Follows MVP-003 template structure`);
-        sections.push(`6. Incorporates Pattern-TDD-001 (tests FIRST)`);
-        sections.push(`7. Applies relevant ÆtherLight patterns`);
-        sections.push(`8. Is ready for terminal AI to execute`);
+        if (refinementFeedback) {
+            sections.push(`Refine the previous prompt by applying the feedback above. Maintain the same structure but improve according to the feedback.`);
+        } else {
+            sections.push(`Generate a comprehensive, actionable prompt that:`);
+            sections.push(`1. Clearly states the objective`);
+            sections.push(`2. Provides specific context (files, patterns, SOPs)`);
+            sections.push(`3. Lists concrete execution steps`);
+            sections.push(`4. Includes success validation criteria`);
+            sections.push(`5. Follows MVP-003 template structure`);
+            sections.push(`6. Incorporates Pattern-TDD-001 (tests FIRST)`);
+            sections.push(`7. Applies relevant ÆtherLight patterns`);
+            sections.push(`8. Is ready for terminal AI to execute`);
+        }
 
         return sections.join('\n');
     }

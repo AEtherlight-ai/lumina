@@ -16,6 +16,7 @@ import { ContextPreviewModal } from '../webview/ContextPreviewModal'; // ENHANCE
 import { TemplateTaskBuilder } from '../services/TemplateTaskBuilder'; // PROTECT-000F: Template task construction
 import { TaskPromptExporter } from '../services/TaskPromptExporter'; // PROTECT-000F: Template enhancement
 import { AIEnhancementService } from '../services/AIEnhancementService'; // ENHANCE-001.1: AI enhancement with VS Code LM API
+import { ProgressStream } from '../services/ProgressStream'; // ENHANCE-001.9: Progressive loading UI
 import { IContextBuilder } from '../interfaces/IContextBuilder'; // ENHANCE-001.1: Context builder interface
 import { BugReportContextBuilder } from '../services/enhancement/BugReportContextBuilder'; // ENHANCE-001.2: Bug report context builder
 import { FeatureRequestContextBuilder } from '../services/enhancement/FeatureRequestContextBuilder'; // ENHANCE-001.2: Feature request context builder
@@ -3105,27 +3106,82 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 // onProceed callback: User clicked [Proceed] - enhance with edited context
                 async (editedContext) => {
                     try {
-                        vscode.window.showInformationMessage(`✨ Enhancing ${buttonType} prompt...`);
+                        // ENHANCE-001.9: Progressive loading UI with withProgress
+                        await vscode.window.withProgress({
+                            location: vscode.ProgressLocation.Notification,
+                            title: `Enhancing ${buttonType} prompt...`,
+                            cancellable: true
+                        }, async (progress, token) => {
+                            // Create progress stream
+                            const progressStream = new ProgressStream();
+                            progressStream.start();
 
-                        // Step 4: Enhance using AI service (VS Code LM API or template fallback)
-                        const enhancedPrompt = await this.aiEnhancementService.enhance(editedContext);
+                            // Set up progress listeners
+                            progressStream.on('step_start', (data) => {
+                                progress.report({
+                                    message: `⏳ ${data.name}...`,
+                                    increment: 0
+                                });
+                            });
 
-                        // ENHANCE-001.7: Store context and prompt for refinement
-                        this.currentContext = editedContext;
-                        this.currentEnhancedPrompt = enhancedPrompt;
-                        this.promptHistory = []; // Reset history on new enhancement
-                        this.refinementHistory = []; // Reset refinement history
+                            progressStream.on('step_complete', (data) => {
+                                const elapsed = (data.duration / 1000).toFixed(2);
+                                progress.report({
+                                    message: `✓ ${data.name} (${elapsed}s)`,
+                                    increment: 16.67 // ~100% / 6 steps
+                                });
+                            });
 
-                        // Step 5: Populate text area with enhanced prompt
-                        webview.postMessage({
-                            type: 'populateTextArea',
-                            text: enhancedPrompt
-                        });
+                            progressStream.on('step_error', (data) => {
+                                progress.report({
+                                    message: `✗ ${data.name} (error)`,
+                                    increment: 16.67
+                                });
+                            });
 
-                        // ENHANCE-001.7: Show refinement buttons
-                        webview.postMessage({
-                            type: 'showRefinementButtons',
-                            confidence: editedContext.metadata?.confidence || { score: 80, level: 'high' }
+                            // Handle cancellation
+                            token.onCancellationRequested(() => {
+                                progressStream.cancel('User cancelled enhancement');
+                            });
+
+                            // Step 4: Enhance using AI service (VS Code LM API or template fallback)
+                            const enhancedPrompt = await this.aiEnhancementService.enhance(
+                                editedContext,
+                                undefined, // no refinement feedback
+                                progressStream // pass progress stream
+                            );
+
+                            // Check if cancelled
+                            if (token.isCancellationRequested) {
+                                vscode.window.showInformationMessage('Enhancement cancelled');
+                                return;
+                            }
+
+                            // Complete progress
+                            progressStream.finish();
+                            const totalTime = ((progressStream.getTotalElapsedTime() || 0) / 1000).toFixed(2);
+                            progress.report({
+                                message: `✅ Complete in ${totalTime}s`,
+                                increment: 100
+                            });
+
+                            // ENHANCE-001.7: Store context and prompt for refinement
+                            this.currentContext = editedContext;
+                            this.currentEnhancedPrompt = enhancedPrompt;
+                            this.promptHistory = []; // Reset history on new enhancement
+                            this.refinementHistory = []; // Reset refinement history
+
+                            // Step 5: Populate text area with enhanced prompt
+                            webview.postMessage({
+                                type: 'populateTextArea',
+                                text: enhancedPrompt
+                            });
+
+                            // ENHANCE-001.7: Show refinement buttons
+                            webview.postMessage({
+                                type: 'showRefinementButtons',
+                                confidence: editedContext.metadata?.confidence || { score: 80, level: 'high' }
+                            });
                         });
 
                         // Step 6: Success notification
@@ -3240,22 +3296,75 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 this.promptHistory.shift();
             }
 
-            // Re-enhance with feedback
+            // Re-enhance with feedback (ENHANCE-001.9: with progress UI)
             console.log(`[ÆtherLight] Re-enhancing with feedback: ${refinementFeedback}`);
-            vscode.window.showInformationMessage('✨ Refining prompt...');
 
-            const refinedPrompt = await this.aiEnhancementService.enhance(
-                this.currentContext,
-                refinementFeedback
-            );
+            await vscode.window.withProgress({
+                location: vscode.ProgressLocation.Notification,
+                title: 'Refining prompt...',
+                cancellable: true
+            }, async (progress, token) => {
+                // Create progress stream
+                const progressStream = new ProgressStream();
+                progressStream.start();
 
-            // Update current prompt
-            this.currentEnhancedPrompt = refinedPrompt;
+                // Set up progress listeners
+                progressStream.on('step_start', (data) => {
+                    progress.report({
+                        message: `⏳ ${data.name}...`,
+                        increment: 0
+                    });
+                });
 
-            // Update webview with refined prompt
-            webview.postMessage({
-                type: 'populateTextArea',
-                text: refinedPrompt
+                progressStream.on('step_complete', (data) => {
+                    const elapsed = (data.duration / 1000).toFixed(2);
+                    progress.report({
+                        message: `✓ ${data.name} (${elapsed}s)`,
+                        increment: 16.67
+                    });
+                });
+
+                progressStream.on('step_error', (data) => {
+                    progress.report({
+                        message: `✗ ${data.name} (error)`,
+                        increment: 16.67
+                    });
+                });
+
+                // Handle cancellation
+                token.onCancellationRequested(() => {
+                    progressStream.cancel('User cancelled refinement');
+                });
+
+                // Re-enhance with feedback
+                const refinedPrompt = await this.aiEnhancementService.enhance(
+                    this.currentContext,
+                    refinementFeedback,
+                    progressStream
+                );
+
+                // Check if cancelled
+                if (token.isCancellationRequested) {
+                    vscode.window.showInformationMessage('Refinement cancelled');
+                    return;
+                }
+
+                // Complete progress
+                progressStream.finish();
+                const totalTime = ((progressStream.getTotalElapsedTime() || 0) / 1000).toFixed(2);
+                progress.report({
+                    message: `✅ Complete in ${totalTime}s`,
+                    increment: 100
+                });
+
+                // Update current prompt
+                this.currentEnhancedPrompt = refinedPrompt;
+
+                // Update webview with refined prompt
+                webview.postMessage({
+                    type: 'populateTextArea',
+                    text: refinedPrompt
+                });
             });
 
             // Track refinement in metadata
