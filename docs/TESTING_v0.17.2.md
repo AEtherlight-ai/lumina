@@ -2262,6 +2262,214 @@ completion_percentage = 6  # (1 / 18) * 100
 
 ---
 
+### Test 60: Desktop App First-Time Activation (End-to-End)
+**Category**: Integration Tests - QA-002
+**Priority**: HIGH
+**Dependencies**: BUG-002, BUG-003, BUG-005
+
+**Test Scenario**: Fresh installation with no existing settings
+
+**Setup**:
+1. Uninstall desktop app (if installed)
+2. Delete settings: `%APPDATA%\lumina-desktop\settings.json` (Windows) or `~/Library/Application Support/lumina-desktop/settings.json` (macOS)
+3. Install v0.17.2 desktop app
+4. Launch app
+
+**Steps**:
+1. Verify license activation dialog appears on first launch
+2. Verify dialog has license key input field and "Activate" button
+3. Enter invalid license key: "INVALID-KEY-12345"
+4. Click Activate
+5. Verify error message: "Invalid license key format"
+6. Enter valid license key from dashboard
+7. Click Activate
+8. Verify API call to POST /api/license/validate
+9. Verify progress indicator shown (should complete < 3 seconds)
+10. Verify success message: "License activated successfully"
+11. Verify dialog closes and main app window opens
+12. Check settings.json file
+13. Verify fields populated: license_key, user_id, device_id, tier
+14. Verify device fingerprint generated (non-empty SHA-256 hash)
+
+**Expected Results**:
+- [ ] Activation dialog appears on first launch
+- [ ] Invalid key shows error message
+- [ ] Valid key activates successfully
+- [ ] settings.json created with all required fields
+- [ ] Device fingerprint generated (< 100ms)
+- [ ] License validation completes (< 3 seconds)
+- [ ] No console errors during activation
+
+**Actual Result**: _____________________________
+
+**Status**: [ ] PASS [ ] FAIL
+
+---
+
+### Test 61: Desktop App Upgrade Scenario (v0.17.1 → v0.17.2)
+**Category**: Integration Tests - QA-002
+**Priority**: HIGH
+**Dependencies**: BUG-002, BUG-003
+
+**Test Scenario**: Existing user upgrades from v0.17.1 to v0.17.2
+
+**Setup**:
+1. Create settings.json with existing license_key only:
+   ```json
+   {
+     "license_key": "AL-XXXX-XXXX-XXXX-XXXX"
+   }
+   ```
+2. Launch v0.17.2 desktop app
+
+**Steps**:
+1. Verify license activation dialog is SKIPPED
+2. Verify main app window opens immediately
+3. Verify no re-validation required
+4. Check settings.json file
+5. Verify new fields added automatically: user_id, device_id, tier
+6. Verify old license_key preserved
+7. Verify no data loss
+
+**Expected Results**:
+- [ ] Activation dialog skipped (license_key exists)
+- [ ] App launches immediately (< 2 seconds)
+- [ ] settings.json migrated with new fields
+- [ ] Old license_key preserved
+- [ ] No data loss during upgrade
+- [ ] No console errors during migration
+
+**Actual Result**: _____________________________
+
+**Status**: [ ] PASS [ ] FAIL
+
+---
+
+### Test 62: Voice Transcription Complete Workflow
+**Category**: Integration Tests - QA-002
+**Priority**: CRITICAL
+**Dependencies**: BUG-002A, BUG-004
+
+**Test Scenario**: End-to-end voice recording and transcription
+
+**Setup**:
+1. Ensure desktop app activated with valid license
+2. Verify token balance > 375 tokens
+3. Ensure microphone access granted
+
+**Steps**:
+1. Open desktop app
+2. Press recording hotkey (Ctrl+Shift+Space or configured)
+3. Verify recording indicator appears
+4. Verify audio waveform displayed
+5. Speak for 1 minute: "This is a test transcription for v0.17.2 integration testing."
+6. Verify waveform shows audio input
+7. Verify recording duration counter increments
+8. Press hotkey again to stop recording
+9. Verify "Transcribing..." progress indicator shown
+10. Verify API call to POST /api/desktop/transcribe
+11. Verify response format includes: text, tokens_remaining
+12. Verify token balance updated in UI (decremented by 375)
+13. Verify transcription text displayed
+14. Verify text copied to clipboard (if enabled)
+
+**Performance Metrics**:
+- Recording start latency: _______ ms (target: < 500ms)
+- Transcription API call: _______ ms (target: < 5000ms for 1-min audio)
+- Total workflow time: _______ ms
+
+**Expected Results**:
+- [ ] Recording starts immediately (< 500ms)
+- [ ] Audio waveform displayed correctly
+- [ ] Recording duration counter accurate
+- [ ] Transcription completes (< 5 seconds for 1-min audio)
+- [ ] API response format correct (tokens_remaining field)
+- [ ] Token balance decremented by 375
+- [ ] Transcription text accurate
+- [ ] No console errors during workflow
+
+**Actual Result**: _____________________________
+
+**Status**: [ ] PASS [ ] FAIL
+
+---
+
+### Test 63: Transcription Error Handling (401/402/500)
+**Category**: Integration Tests - QA-002
+**Priority**: HIGH
+**Dependencies**: BUG-004
+
+**Test Scenario**: Error handling for various API failure scenarios
+
+**Test 1: Insufficient Tokens (402)**
+1. Simulate user with < 375 tokens
+2. Press hotkey to start recording
+3. Verify pre-flight check fails
+4. Verify error message: "Insufficient tokens. You need at least 375 tokens."
+5. Verify recording does NOT start
+
+**Test 2: Authentication Error (401)**
+1. Simulate invalid license key in settings
+2. Press hotkey to start recording
+3. Verify API returns 401 Unauthorized
+4. Verify error message: "Authentication failed. Please check your license key."
+5. Verify user can update license key
+
+**Test 3: Server Error (500)**
+1. Simulate server returning 500 Internal Server Error
+2. Press hotkey to start recording
+3. Verify error message: "Transcription failed. Please try again."
+4. Verify user can retry
+
+**Expected Results**:
+- [ ] Insufficient tokens shows error before recording
+- [ ] 401 error shows authentication message
+- [ ] 500 error shows retry message
+- [ ] All error messages user-friendly
+- [ ] User can recover from errors
+- [ ] No crashes during error scenarios
+
+**Actual Result**: _____________________________
+
+**Status**: [ ] PASS [ ] FAIL
+
+---
+
+### Test 64: Performance Validation (License/Fingerprint/Transcription)
+**Category**: Integration Tests - QA-002
+**Priority**: MEDIUM
+**Dependencies**: BUG-002, BUG-002A
+
+**Test Scenario**: Validate performance targets are met
+
+**Performance Targets**:
+1. **License Validation**: < 3 seconds
+2. **Device Fingerprint Generation**: < 100ms
+3. **Recording Start Latency**: < 500ms
+4. **Transcription API Call**: < 5 seconds (1-minute audio)
+5. **Dialog Open → Success**: < 4 seconds total
+
+**Measurement Steps**:
+1. Activate license and measure validation time
+2. Generate device fingerprint and measure time
+3. Start recording and measure latency
+4. Complete transcription and measure API call time
+5. Measure total activation workflow time
+
+**Expected Results**:
+- [ ] License validation: _______ ms (< 3000ms)
+- [ ] Device fingerprint: _______ ms (< 100ms)
+- [ ] Recording start: _______ ms (< 500ms)
+- [ ] Transcription API: _______ ms (< 5000ms)
+- [ ] Total activation: _______ ms (< 4000ms)
+- [ ] All targets met
+
+**Actual Result**: _____________________________
+
+**Status**: [ ] PASS [ ] FAIL
+
+---
+
 ## Test Credentials
 
 ### Website API (for future BUG-002A/B/C testing)
@@ -2356,6 +2564,13 @@ completion_percentage = 6  # (1 / 18) * 100
 ### Sprint Panel Core Functionality Tests (CRITICAL)
 - [ ] Test 59: BUG-013 - "Start This Task" Uses Selected Sprint File
 
+### Integration Tests - End-to-End Workflows (QA-002)
+- [ ] Test 60: Desktop App First-Time Activation (End-to-End)
+- [ ] Test 61: Desktop App Upgrade Scenario (v0.17.1 → v0.17.2)
+- [ ] Test 62: Voice Transcription Complete Workflow
+- [ ] Test 63: Transcription Error Handling (401/402/500)
+- [ ] Test 64: Performance Validation (License/Fingerprint/Transcription)
+
 ### Optional Tests (Nice to Have)
 - [ ] Test 40: BUG-002 - Integration Test with Live API (Optional)
 - [ ] Test 16: Enhanced Prompt Button Not Shown When Field Missing
@@ -2381,7 +2596,7 @@ completion_percentage = 6  # (1 / 18) * 100
 - Extension Version: 0.17.2
 
 **Results**:
-- Total Tests Run: _____ / 59
+- Total Tests Run: _____ / 64
 - Tests Passed: _____
 - Tests Failed: _____
 - Tests Skipped: _____
