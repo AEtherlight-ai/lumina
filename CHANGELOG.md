@@ -122,6 +122,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - User-friendly guidance for duplicate terminal names
   - Files: `vscode-lumina/src/commands/terminal.ts`
 
+#### **Sprint Planning Skill v1.1.0** (SKILL-001)
+
+- **Sprint-aware naming convention** (Pattern-DOCS-002):
+  - Format: `{SPRINT_ID}_{TASK_ID}_{TYPE}.md`
+  - Prevents document collisions across sprints
+  - Example: Sprint 3 BUG-001 vs Sprint 17.1 BUG-001 (no collision)
+  - Automated enforcement via pre-commit hook (INFRA-003)
+  - Files: `.claude/skills/sprint-plan/SKILL.md`, `docs/patterns/Pattern-DOCS-002-TaskDocumentLinking.md`
+
+- **Agent Validation Workflow** (Step 3.5):
+  - MANDATORY checklist before task creation
+  - Prevents UI tasks assigned to infrastructure-agent
+  - Query Agent Selection Guide for proper agent assignment
+  - Verify agent context file capabilities
+  - Files: `.claude/skills/sprint-plan/SKILL.md` (lines 1291-1347)
+
+- **Skill Assignment Workflow** (Step 3.6):
+  - MANDATORY checklist for autonomous execution opportunities
+  - Identifies automated workflows (publish, code-analyze, sprint-plan, etc.)
+  - Adds `skill` field to TOML for autonomous tasks
+  - Omits `skill` field for manual tasks
+  - Files: `.claude/skills/sprint-plan/SKILL.md` (lines 1382-1453)
+
+- **Skill Changelog Created**:
+  - Version history tracking for sprint-plan skill
+  - Follows Keep a Changelog format
+  - Documents v1.1.0 and v1.0.0 releases
+  - Files: `.claude/skills/sprint-plan/CHANGELOG.md`
+
 ### Fixed
 
 #### **Extension Crashes & Errors**
