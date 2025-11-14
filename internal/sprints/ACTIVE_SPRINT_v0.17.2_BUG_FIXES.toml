@@ -1,0 +1,600 @@
+[metadata]
+version = "0.17.2"
+sprint_number = "17.2"
+sprint_name = "Critical TOML Syntax Fixes & Modal Regressions"
+start_date = "2025-01-14"
+target_completion = "2025-01-15"
+status = "active"
+created = "2025-01-14"
+updated = "2025-01-14"
+
+  [metadata.focus]
+  primary = "Fix TOML syntax errors blocking Sprint Panel (CRITICAL CASCADE FAILURE)"
+  secondary = "Restore modal functionality (Code Analyzer, Sprint Planner)"
+  tertiary = "Fix prompt enhancement regressions"
+
+  [metadata.priority_order]
+  phase_0_critical_blockers = "BUG-015, BUG-016 (MUST fix TOML syntax first - blocks all features)"
+  phase_1 = "HIGH - Modal regression fixes (Code Analyzer, Sprint Planner)"
+  phase_2 = "HIGH - Prompt enhancement regression fixes"
+  phase_3 = "MEDIUM - Desktop app connection warnings (expected after app removal)"
+  phase_4 = "Quality Assurance - Testing & validation"
+  phase_5 = "Documentation - CHANGELOG & completion reports"
+
+  [metadata.audit_context]
+  audit_trigger = "User report: All features broken after Sprint 17.1 deployment"
+  critical_bugs_found = 7
+  severity = "CRITICAL - TOML syntax errors cascade to all modal features"
+  root_cause = "Markdown code blocks in TOML multi-line strings + template literal escapes"
+
+  [metadata.team]
+  team_size = 1
+  default_engineer = "engineer_1"
+
+    [[metadata.team.engineers]]
+    id = "engineer_1"
+    name = "BB_Aelor"
+    expertise = [ "typescript", "vscode-extensions", "toml", "debugging" ]
+    available_agents = [
+      "infrastructure-agent",
+      "testing-agent",
+      "documentation-agent"
+    ]
+    max_parallel_tasks = 2
+    daily_capacity_hours = 6
+
+[tasks.BUG-015]
+id = "BUG-015"
+name = "Fix TOML syntax error at row 442 (markdown code blocks)"
+status = "pending"
+phase = "toml-syntax-fixes"
+agent = "infrastructure-agent"
+enhanced_prompt = "internal/sprints/enhanced_prompts/v0.17.2_BUG-015_ENHANCED_PROMPT.md"
+why = """
+CRITICAL: TOML parser fails at row 442 with duplicate key error.
+
+Root Cause: Markdown code blocks (```json) inside multi-line strings break TOML parsing.
+Impact: Sprint Panel cannot load ANY tasks -> Cascade failure to all modals.
+Severity: CRITICAL - Blocks 100% of extension features (modals, buttons, prompt enhancement).
+"""
+context = """
+File: internal/sprints/ACTIVE_SPRINT.toml:442
+Error: "Can't redefine existing key" (TOML parser interprets ``` as syntax, not string content)
+
+Example problematic pattern:
+'''toml
+completion_notes = '''
+Website API Response (ACTUAL):
+```json
+{
+  "success": true
+}
+```
+'''
+'''
+
+TOML parser sees ``` inside triple-quoted string and fails.
+"""
+reasoning_chain = [
+  "1. ACTIVE_SPRINT.toml has markdown code blocks in completion_notes",
+  "2. TOML parser encounters ``` at row 442",
+  "3. Parser interprets ``` as syntax (not string content)",
+  "4. TOML parsing fails with duplicate key error",
+  "5. SprintLoader.loadSprint() throws exception",
+  "6. Sprint Panel shows 'No tasks loaded'",
+  "7. Code Analyzer modal cannot find tasks -> fails",
+  "8. Sprint Planner modal cannot find tasks -> fails",
+  "9. All task buttons fail with 'Task not found'",
+  "10. Prompt enhancement cannot load context -> fails"
+]
+success_impact = """
+After BUG-015 complete:
++ Sprint Panel loads tasks successfully
++ Code Analyzer modal can find and display tasks
++ Sprint Planner modal can find and display tasks
++ Task buttons work correctly
++ Prompt enhancement can load task context
+"""
+files_to_modify = [
+  "internal/sprints/ACTIVE_SPRINT.toml (row 442 area - remove or escape code blocks)"
+]
+deliverables = [
+  "Remove all markdown code blocks (```json, ```rust, etc.) from TOML strings",
+  "Replace with plain text or indented code (no backticks)",
+  "Validate TOML syntax with @iarna/toml parser",
+  "Test Sprint Panel loads without errors"
+]
+estimated_time = "1-2 hours"
+estimated_lines = 100
+validation_criteria = [
+  "TOML parses successfully (no errors)",
+  "Sprint Panel shows tasks in dropdown",
+  "No 'duplicate key' errors in console",
+  "All tasks visible in Sprint Panel"
+]
+error_handling = """
+Prevention:
+- Never use markdown code blocks (```) in TOML multi-line strings
+- Use plain text or indented code instead
+- Always validate TOML after edits: node -e "require('@iarna/toml').parse(fs.readFileSync('file.toml', 'utf-8'))"
+"""
+patterns = [ "Pattern-CODE-001", "Pattern-VALIDATION-001" ]
+
+[tasks.BUG-016]
+id = "BUG-016"
+name = "Fix TOML template literal escape errors (backticks with ${})"
+status = "pending"
+phase = "toml-syntax-fixes"
+agent = "infrastructure-agent"
+why = """
+CRITICAL: TOML parser fails with unknown escape character 96 (backtick).
+
+Root Cause: Template literals with ${} in code examples (e.g., `Error: ${msg}`)
+Impact: TOML parsing fails -> Sprint Panel cannot load.
+Severity: CRITICAL - Blocks Sprint Panel from loading.
+"""
+context = """
+Error: "Unknown escape character: 96" (96 is ASCII code for backtick `)
+TOML escape sequences: \\, \\n, \\r, \\t, \\", \\uXXXX (backtick NOT supported)
+
+Example problematic pattern:
+'''toml
+code_example = '''
+const msg = `Error: ${err}`;  // BREAKS TOML
+'''
+'''
+
+Fix: Replace template literals with string concatenation
+const msg = 'Error: ' + err;  // VALID
+"""
+reasoning_chain = [
+  "1. TOML string contains JavaScript template literal: `Error: ${msg}`",
+  "2. TOML parser encounters backtick with backslash escape attempt",
+  "3. Backtick is not a valid TOML escape character",
+  "4. Parser fails with 'Unknown escape character: 96'",
+  "5. SprintLoader cannot parse TOML",
+  "6. Sprint Panel fails to load"
+]
+success_impact = """
+After BUG-016 complete:
++ TOML parses without escape errors
++ Sprint Panel loads successfully
++ All code examples use valid syntax (no template literals)
+"""
+files_to_modify = [
+  "internal/sprints/ACTIVE_SPRINT.toml (search for backticks in code examples)"
+]
+deliverables = [
+  "Find all template literals with ${} in TOML strings",
+  "Replace with string concatenation (+) or plain text",
+  "Validate TOML syntax",
+  "Test Sprint Panel loads"
+]
+estimated_time = "1 hour"
+estimated_lines = 50
+validation_criteria = [
+  "No 'unknown escape character' errors",
+  "TOML parses successfully",
+  "Sprint Panel loads without errors"
+]
+error_handling = """
+Prevention:
+- Never use template literals (`${}`) in TOML strings
+- Use string concatenation instead: 'Error: ' + msg
+- Always validate TOML after edits
+"""
+patterns = [ "Pattern-CODE-001", "Pattern-VALIDATION-001" ]
+dependencies = [ "BUG-015" ]
+
+[tasks.BUG-003]
+id = "BUG-003"
+name = "Debug Code Analyzer modal regression (not appearing)"
+status = "pending"
+phase = "modal-regression-fixes"
+agent = "infrastructure-agent"
+why = """
+User-Reported: Code Analyzer modal does not appear after clicking button.
+
+Historical Context: BUG-008 in Sprint 17.1 was marked 'completed' but modal still fails.
+Impact: Users cannot use Code Analyzer feature.
+Severity: HIGH - Core feature non-functional.
+"""
+context = """
+Expected Behavior (from BUG-008 completion):
+1. User clicks Code Analyzer button
+2. Modal opens with task analysis
+
+Actual Behavior:
+1. User clicks button
+2. Nothing happens (no modal, no error)
+3. Console may show 'Task not found' error
+
+Hypothesis: TOML parsing failure prevents modal from loading task data.
+"""
+reasoning_chain = [
+  "1. User clicks Code Analyzer button",
+  "2. Extension tries to load current task from Sprint Panel",
+  "3. Sprint Panel has no tasks (TOML parse failure)",
+  "4. Modal cannot find task to analyze",
+  "5. Modal fails to open (silent failure or error)"
+]
+success_impact = """
+After BUG-003 complete:
++ Code Analyzer button opens modal successfully
++ Modal displays task analysis
++ User can use Code Analyzer feature
+"""
+files_to_modify = [
+  "vscode-lumina/src/commands/codeAnalyzer.ts (check modal trigger logic)",
+  "vscode-lumina/src/services/SprintPanel.ts (check getCurrentTask() logic)"
+]
+deliverables = [
+  "Identify why modal doesn't open",
+  "Fix modal trigger logic (if needed)",
+  "Add error handling for missing tasks",
+  "Test Code Analyzer button opens modal"
+]
+estimated_time = "2 hours"
+estimated_lines = 20
+validation_criteria = [
+  "Code Analyzer button opens modal",
+  "Modal displays task analysis",
+  "No silent failures",
+  "Error message if no task selected"
+]
+error_handling = """
+Safety checks:
+- Check if currentTask exists before opening modal
+- Show error notification if task not found
+- Log error to console for debugging
+"""
+patterns = [ "Pattern-CODE-001", "Pattern-TDD-001" ]
+dependencies = [ "BUG-001", "BUG-002" ]
+
+[tasks.BUG-004]
+id = "BUG-004"
+name = "Debug Sprint Planner modal regression (not appearing)"
+status = "pending"
+phase = "modal-regression-fixes"
+agent = "infrastructure-agent"
+why = """
+User-Reported: Sprint Planner modal does not appear after clicking button.
+
+Historical Context: BUG-009 in Sprint 17.1 was marked 'completed' but modal still fails.
+Impact: Users cannot use Sprint Planner feature.
+Severity: HIGH - Core feature non-functional.
+"""
+context = """
+Expected Behavior (from BUG-009 completion):
+1. User clicks Sprint Planner button
+2. Modal opens with sprint planning interface
+
+Actual Behavior:
+1. User clicks button
+2. Nothing happens (no modal, no error)
+
+Hypothesis: Same root cause as BUG-003 (TOML parsing prevents modal from loading).
+"""
+reasoning_chain = [
+  "1. User clicks Sprint Planner button",
+  "2. Extension tries to load sprint data from Sprint Panel",
+  "3. Sprint Panel has no tasks (TOML parse failure)",
+  "4. Modal cannot initialize with empty sprint",
+  "5. Modal fails to open"
+]
+success_impact = """
+After BUG-004 complete:
++ Sprint Planner button opens modal successfully
++ Modal displays sprint planning interface
++ User can use Sprint Planner feature
+"""
+files_to_modify = [
+  "vscode-lumina/src/commands/sprintPlanner.ts (check modal trigger logic)",
+  "vscode-lumina/src/services/SprintPanel.ts (check sprint loading)"
+]
+deliverables = [
+  "Identify why modal doesn't open",
+  "Fix modal trigger logic (if needed)",
+  "Add error handling for missing sprint data",
+  "Test Sprint Planner button opens modal"
+]
+estimated_time = "2 hours"
+estimated_lines = 20
+validation_criteria = [
+  "Sprint Planner button opens modal",
+  "Modal displays sprint interface",
+  "No silent failures",
+  "Error message if sprint not loaded"
+]
+error_handling = """
+Safety checks:
+- Check if sprint data exists before opening modal
+- Show error notification if sprint not found
+- Log error to console for debugging
+"""
+patterns = [ "Pattern-CODE-001", "Pattern-TDD-001" ]
+dependencies = [ "BUG-001", "BUG-002" ]
+
+[tasks.BUG-005]
+id = "BUG-005"
+name = "Fix prompt enhancement regression (not working)"
+status = "pending"
+phase = "prompt-enhancement-fixes"
+agent = "infrastructure-agent"
+why = """
+User-Reported: Prompt enhancement feature not working.
+
+Historical Context: MVP-003 (AI Enhancement System) completed in Sprint 17.1 with 9 ENHANCE tasks.
+Impact: Users cannot use AI-enhanced prompts.
+Severity: HIGH - New feature broken immediately after deployment.
+"""
+context = """
+Expected Behavior (from MVP-003 completion):
+1. User triggers prompt enhancement (voice button, manual command)
+2. AI Enhancement System analyzes context
+3. Enhanced prompt generated with metadata
+
+Actual Behavior:
+1. User triggers enhancement
+2. Nothing happens or error occurs
+3. Prompt not enhanced
+
+Hypothesis: TOML parsing failure prevents enhancement system from loading task context.
+"""
+reasoning_chain = [
+  "1. User triggers prompt enhancement",
+  "2. Enhancement system tries to load current task",
+  "3. Sprint Panel has no tasks (TOML parse failure)",
+  "4. Enhancement system cannot gather context",
+  "5. Enhancement fails (returns original prompt or errors)"
+]
+success_impact = """
+After BUG-005 complete:
++ Prompt enhancement works successfully
++ AI-enhanced prompts generated with metadata
++ User benefits from MVP-003 feature
+"""
+files_to_modify = [
+  "vscode-lumina/src/services/AIEnhancementService.ts (check context loading)",
+  "vscode-lumina/src/services/ContextBuilder.ts (check sprint context)"
+]
+deliverables = [
+  "Identify why enhancement fails",
+  "Fix context loading logic",
+  "Add error handling for missing context",
+  "Test prompt enhancement works end-to-end"
+]
+estimated_time = "2-3 hours"
+estimated_lines = 30
+validation_criteria = [
+  "Prompt enhancement generates enhanced prompts",
+  "Metadata embedded correctly",
+  "No failures when task context missing",
+  "Error message if enhancement unavailable"
+]
+error_handling = """
+Fallback strategy:
+- If task context unavailable, use template fallback
+- Show warning notification: 'Enhanced context unavailable, using template'
+- Log error for debugging
+"""
+patterns = [ "Pattern-CODE-001", "Pattern-TDD-001" ]
+dependencies = [ "BUG-001", "BUG-002" ]
+
+[tasks.BUG-006]
+id = "BUG-006"
+name = "Document desktop app connection warnings (expected behavior)"
+status = "pending"
+phase = "documentation"
+agent = "documentation-agent"
+why = """
+User-Seeing: 'Failed to connect to Lumina desktop' WebSocket warnings in console.
+
+Context: User archived old desktop app (moved to ÆtherLight_Lumina_ARCHIVED_2025-01-14).
+Impact: Warnings expected, not a bug. Documentation needed.
+Severity: LOW - Informational only.
+"""
+context = """
+Expected Behavior:
+- VS Code extension tries to connect to desktop app via WebSocket
+- If desktop app not running, connection fails (expected)
+- Warning shown in console (expected)
+
+User Action: Archived old desktop app (no longer running)
+Result: WebSocket connection warnings (expected, not a bug)
+"""
+reasoning_chain = [
+  "1. VS Code extension starts",
+  "2. Extension tries WebSocket connection to desktop app",
+  "3. Desktop app not running (archived by user)",
+  "4. Connection fails with timeout",
+  "5. Warning shown in console: 'Failed to connect to Lumina desktop'",
+  "6. Extension continues working (desktop connection optional)"
+]
+success_impact = """
+After BUG-006 complete:
++ Documentation clarifies connection warnings are expected
++ User understands desktop app connection is optional
++ Reduced support burden (users know warnings are normal)
+"""
+files_to_modify = [
+  "docs/KNOWN_ISSUES.md (add desktop connection warning explanation)",
+  "vscode-lumina/README.md (document optional desktop app connection)"
+]
+deliverables = [
+  "Add Known Issue entry for desktop connection warnings",
+  "Explain desktop app is optional (extension works standalone)",
+  "Document how to suppress warnings (disable auto-connect in settings)"
+]
+estimated_time = "30 minutes"
+estimated_lines = 20
+validation_criteria = [
+  "Documentation explains connection warnings",
+  "User understands warnings are expected",
+  "Instructions to suppress warnings (if desired)"
+]
+patterns = [ "Pattern-DOCS-001" ]
+
+[tasks.BUG-007]
+id = "BUG-007"
+name = "Fix 'Task not found' errors (BUG-013, BUG-014, GEN-001)"
+status = "pending"
+phase = "task-loading-fixes"
+agent = "infrastructure-agent"
+why = """
+User-Seeing: Console errors 'Task BUG-013 not found', 'Task BUG-014 not found', 'Task GEN-001 not found'.
+
+Root Cause: TOML parsing failure -> Sprint Panel has no tasks -> Task lookup fails.
+Impact: Task buttons fail, extension cannot find tasks.
+Severity: HIGH - Confirms TOML parsing is root cause.
+"""
+context = """
+Error Pattern:
+- Sprint Panel tries to load task by ID (e.g., 'BUG-013')
+- Sprint TOML not parsed (BUG-001 blocks parsing)
+- Task lookup returns undefined
+- Console error: 'Task XXX not found in sprint TOML'
+
+Expected After BUG-001/BUG-002 Fixed:
+- TOML parses successfully
+- Sprint Panel loads all tasks
+- Task lookup finds tasks correctly
+- No 'Task not found' errors
+"""
+reasoning_chain = [
+  "1. User clicks task button or modal tries to load task",
+  "2. Extension calls SprintPanel.getTask('BUG-013')",
+  "3. SprintPanel.tasks is empty (TOML not parsed)",
+  "4. getTask() returns undefined",
+  "5. Console error: 'Task BUG-013 not found'",
+  "6. Feature fails (button does nothing)"
+]
+success_impact = """
+After BUG-007 complete:
++ All tasks found correctly
++ No 'Task not found' errors
++ Task buttons work
++ Modals can load task data
+"""
+files_to_modify = [
+  "vscode-lumina/src/services/SprintPanel.ts (add better error logging)"
+]
+deliverables = [
+  "Verify BUG-001/BUG-002 fixes resolve 'Task not found' errors",
+  "Add defensive error handling in getTask()",
+  "Log helpful error if task not found (suggest re-parsing TOML)",
+  "Test all task buttons work after TOML fixes"
+]
+estimated_time = "1 hour"
+estimated_lines = 10
+validation_criteria = [
+  "No 'Task not found' errors after TOML fixes",
+  "Task buttons work correctly",
+  "Helpful error messages if task truly missing"
+]
+error_handling = """
+Defensive checks:
+- Log error with task ID and sprint file path
+- Suggest: 'Sprint TOML may need re-parsing'
+- Show user notification: 'Task not found. Try reloading sprint.'
+"""
+patterns = [ "Pattern-CODE-001" ]
+dependencies = [ "BUG-001", "BUG-002" ]
+
+[tasks.TEST-001]
+id = "TEST-001"
+name = "Integration testing - Verify all features work after TOML fixes"
+status = "pending"
+phase = "quality-assurance"
+agent = "testing-agent"
+why = """
+Ensure all bug fixes work correctly and no regressions introduced.
+
+Scope: Test Sprint Panel, modals, prompt enhancement, task buttons.
+Severity: HIGH - Validation before marking sprint complete.
+"""
+context = """
+Test Scenarios:
+1. Sprint Panel loads ACTIVE_SPRINT.toml successfully
+2. Code Analyzer modal opens and displays task
+3. Sprint Planner modal opens and displays sprint
+4. Prompt enhancement generates enhanced prompts
+5. Task buttons work (Start Task, Complete Task)
+6. No TOML syntax errors in console
+7. No 'Task not found' errors
+"""
+reasoning_chain = [
+  "1. Run extension in dev mode (F5)",
+  "2. Open Sprint Panel dropdown",
+  "3. Verify tasks visible",
+  "4. Click Code Analyzer button",
+  "5. Verify modal opens",
+  "6. Click Sprint Planner button",
+  "7. Verify modal opens",
+  "8. Test prompt enhancement",
+  "9. Check console for errors",
+  "10. Document results"
+]
+success_impact = """
+After TEST-001 complete:
++ All features verified working
++ No regressions detected
++ Sprint 17.2 ready for deployment
+"""
+deliverables = [
+  "Test Sprint Panel loads tasks",
+  "Test Code Analyzer modal opens",
+  "Test Sprint Planner modal opens",
+  "Test prompt enhancement works",
+  "Test task buttons work",
+  "Document test results"
+]
+estimated_time = "1-2 hours"
+validation_criteria = [
+  "All 7 test scenarios pass",
+  "No console errors",
+  "All features functional"
+]
+patterns = [ "Pattern-TDD-001", "Pattern-QA-001" ]
+dependencies = [ "BUG-001", "BUG-002", "BUG-003", "BUG-004", "BUG-005", "BUG-007" ]
+
+[tasks.DOC-001]
+id = "DOC-001"
+name = "Update CHANGELOG.md for v0.17.2 bug fixes"
+status = "pending"
+phase = "documentation"
+agent = "documentation-agent"
+why = """
+Document Sprint 17.2 bug fixes in CHANGELOG.
+
+Scope: TOML syntax fixes, modal regressions, prompt enhancement fixes.
+"""
+deliverables = [
+  "Add Sprint 17.2 entry to CHANGELOG.md",
+  "List all bug fixes (BUG-001 through BUG-007)",
+  "Document breaking changes (none expected)",
+  "Credit user for bug reports"
+]
+estimated_time = "30 minutes"
+patterns = [ "Pattern-DOCS-001", "Pattern-COMPLETION-001" ]
+dependencies = [ "TEST-001" ]
+
+[tasks.DOC-002]
+id = "DOC-002"
+name = "Create Sprint 17.2 completion reports"
+status = "pending"
+phase = "documentation"
+agent = "documentation-agent"
+why = """
+Document bug fixes following Pattern-COMPLETION-001.
+
+Scope: Create completion report for each major bug fix.
+"""
+deliverables = [
+  "docs/completion/BUG-001_TOML_SYNTAX_COMPLETION.md",
+  "docs/completion/SPRINT_17.2_SUMMARY.md",
+  "Update internal/sprints/ACTIVE_SPRINT_v0.17.2_BUG_FIXES.toml with completion notes"
+]
+estimated_time = "1 hour"
+patterns = [ "Pattern-COMPLETION-001", "Pattern-DOCS-001" ]
+dependencies = [ "TEST-001" ]
