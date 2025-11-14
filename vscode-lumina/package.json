@@ -634,6 +634,10 @@
     "pretest": "npm run compile",
     "test": "node ./out/test/runTest.js",
     "package": "npm run build:all && vsce package",
+    "validate:docs": "node ../scripts/validate-task-docs.js",
+    "validate:completion": "node ../scripts/validate-completion-documentation.js",
+    "validate:all": "npm run validate:docs && npm run validate:completion",
+    "install-hooks": "node ../scripts/install-hooks.js",
     "postinstall": "node -e \"console.log('\\n✅ ÆtherLight installed!\\n\\nNext step: Run \\\"aetherlight\\\" to install VS Code extension + Desktop app\\n')\""
   },
   "dependencies": {
