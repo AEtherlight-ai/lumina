@@ -5631,6 +5631,7 @@ description = "Use automated publish script to release v0.17.2 with bug fixes an
 estimated_time = "30 minutes"
 dependencies = [ "DOC-001", "QA-001", "QA-002" ]
 agent = "infrastructure-agent"
+enhanced_prompt = "internal/sprints/enhanced_prompts/17.1-BUGS_PUBLISH-001_ENHANCED_PROMPT.md"
 deliverables = [
   "npm publish (aetherlight@0.17.2)",
   "GitHub release (v0.17.2)",
