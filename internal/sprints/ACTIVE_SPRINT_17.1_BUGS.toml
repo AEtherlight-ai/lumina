@@ -5547,6 +5547,7 @@ estimated_lines = 150
 estimated_time = "1 hour"
 dependencies = [ "BUG-001", "BUG-002", "BUG-003", "BUG-004", "BUG-005" ]
 agent = "documentation-agent"
+enhanced_prompt = "internal/sprints/enhanced_prompts/17.1-BUGS_DOC-001_ENHANCED_PROMPT.md"
 deliverables = [
   "CHANGELOG.md updated with v0.17.2 section",
   "All 10 bugs documented in Fixed section",
