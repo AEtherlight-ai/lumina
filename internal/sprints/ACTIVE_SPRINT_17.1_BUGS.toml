@@ -5605,6 +5605,7 @@ dependencies = [
   "BUG-010"
 ]
 agent = "testing-agent"
+enhanced_prompt = "internal/sprints/enhanced_prompts/17.1-BUGS_QA-002_ENHANCED_PROMPT.md"
 deliverables = [
   "Integration test suite execution",
   "Test results report",
