@@ -288,6 +288,11 @@ export class TaskAnalyzer {
     private detectMissingTestStrategy(task: SprintTask, config: ProjectConfig): Gap[] {
         const gaps: Gap[] = [];
 
+        // Safety check: If no agents config, skip test strategy detection
+        if (!config.agents) {
+            return gaps;
+        }
+
         const agentConfig = config.agents[task.agent];
         if (!agentConfig || agentConfig.coverage === 0) {
             // Agent doesn't require tests (e.g., documentation-agent)

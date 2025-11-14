@@ -263,6 +263,25 @@
     "configuration": {
       "title": "ÆtherLight Configuration",
       "properties": {
+        "aetherlight.licenseKey": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Your ÆtherLight license key. Get your key at [aetherlight.ai](https://aetherlight.ai/license).",
+          "order": 1
+        },
+        "aetherlight.userTier": {
+          "type": "string",
+          "enum": [
+            "free",
+            "network",
+            "pro",
+            "enterprise",
+            "offline"
+          ],
+          "default": "free",
+          "markdownDescription": "Your subscription tier (set automatically after license validation). **Free tier**: All features except voice capture. **Paid tiers**: All features including voice capture.",
+          "order": 2
+        },
         "aetherlight.sync.enabled": {
           "type": "boolean",
           "default": true,
@@ -615,6 +634,10 @@
     "pretest": "npm run compile",
     "test": "node ./out/test/runTest.js",
     "package": "npm run build:all && vsce package",
+    "validate:docs": "node ../scripts/validate-task-docs.js",
+    "validate:completion": "node ../scripts/validate-completion-documentation.js",
+    "validate:all": "npm run validate:docs && npm run validate:completion",
+    "install-hooks": "node ../scripts/install-hooks.js",
     "postinstall": "node -e \"console.log('\\n✅ ÆtherLight installed!\\n\\nNext step: Run \\\"aetherlight\\\" to install VS Code extension + Desktop app\\n')\""
   },
   "dependencies": {
@@ -628,6 +651,7 @@
     "aetherlight-analyzer"
   ],
   "devDependencies": {
+    "@types/chai": "^5.2.3",
     "@types/jest": "^30.0.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "^20.10.0",
@@ -638,6 +662,7 @@
     "@vscode/test-electron": "^2.3.8",
     "@vscode/vsce": "^2.22.0",
     "ajv": "^8.17.1",
+    "chai": "^6.2.1",
     "sinon": "^21.0.0",
     "typescript": "^5.3.0"
   },

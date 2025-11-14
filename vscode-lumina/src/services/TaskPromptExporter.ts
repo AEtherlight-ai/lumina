@@ -34,9 +34,12 @@ export class TaskPromptExporter {
     private sprintFilePath: string;
     private analyzer: TaskAnalyzer;
 
-    constructor() {
+    constructor(sprintFilePath?: string) {
         this.workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
-        this.sprintFilePath = path.join(this.workspaceRoot, 'internal', 'sprints', 'ACTIVE_SPRINT.toml');
+        // BUG-013: Use provided sprint file path (from UI dropdown) or fall back to default
+        // WHY: Sprint Panel dropdown allows user to select different sprint files
+        // REASONING: TaskPromptExporter should read from currently selected sprint, not hardcoded path
+        this.sprintFilePath = sprintFilePath || path.join(this.workspaceRoot, 'internal', 'sprints', 'ACTIVE_SPRINT.toml');
         this.analyzer = new TaskAnalyzer(this.workspaceRoot);
     }
 
@@ -558,7 +561,18 @@ ${templateTask.success_impact || 'Enhancement improves user workflow and code qu
 
             // Find task in TOML data
             if (!data.tasks || !data.tasks[taskId]) {
-                throw new Error(`Task ${taskId} not found in sprint TOML`);
+                const sprintFileName = path.basename(this.sprintFilePath);
+                const sprintDir = path.join(this.workspaceRoot, 'internal', 'sprints');
+                const availableSprints = fs.existsSync(sprintDir)
+                    ? fs.readdirSync(sprintDir)
+                        .filter(f => f.startsWith('ACTIVE_SPRINT') && f.endsWith('.toml'))
+                    : [];
+
+                throw new Error(
+                    `Task ${taskId} not found in ${sprintFileName}.\n\n` +
+                    `Available sprint files:\n${availableSprints.map(f => `  - ${f}`).join('\n')}\n\n` +
+                    `Update config.structure.activeSprint in .aetherlight/config.json to the correct file.`
+                );
             }
 
             // Return task data

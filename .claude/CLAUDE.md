@@ -103,6 +103,18 @@
    - If NO → Search for similar code and copy the pattern
    - Never invent new patterns without user approval
 
+4. ✅ **Did I use sprint-aware naming for task documents?** (NEW - INFRA-003)
+   - Format: {SPRINT_ID}_{TASK_ID}_{TYPE}.md
+   - Example: 17.1-BUGS_BUG-013_ENHANCED_PROMPT.md
+   - Sprint ID from TOML filename: ACTIVE_SPRINT_17.1_BUGS.toml → 17.1-BUGS
+   - See: Pattern-DOCS-002 for full details
+   - Pre-commit hook enforces this automatically
+
+5. ✅ **Did I link the document in sprint TOML?** (NEW - INFRA-003)
+   - All enhanced prompts MUST have enhanced_prompt field
+   - All questions docs MUST have questions_doc field
+   - Pre-commit hook will block if missing
+
 **If you answered NO to ANY question, STOP and complete it NOW.**
 
 ---
@@ -113,11 +125,13 @@
 
 **Historical bugs caused by skipping this checklist:**
 - **2025-11-03:** Used `[[epic.*.tasks]]` instead of `[tasks.ID]` → Sprint panel broken (2 hours debugging)
+- **2025-01-13:** Forgot to link BUG-012 enhanced prompt in TOML → Document orphaned (caught manually before INFRA-003)
+- **Before INFRA-003:** No validation → orphaned documents accumulating silently
 - **v0.15.31-32:** Added `glob` runtime dependency → Extension activation failed (2 hours debugging)
 - **v0.13.23:** Added `@nut-tree-fork/nut-js` native dependency → Extension broken (9 hours debugging)
 - **v0.13.28, v0.13.29:** Version mismatch → User installs broken (2 hours debugging)
 
-**Total time wasted: 15+ hours**
+**Total time wasted: 15+ hours** (prevented future issues with INFRA-003 automation)
 
 **If you skip this checklist, you WILL break something. User WILL be frustrated. Time WILL be wasted.**
 

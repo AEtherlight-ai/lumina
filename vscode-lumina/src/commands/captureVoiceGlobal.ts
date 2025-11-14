@@ -25,6 +25,35 @@ import { IPCClient } from '../ipc/client';
 export function registerCaptureVoiceGlobalCommand(context: vscode.ExtensionContext): void {
     const disposable = vscode.commands.registerCommand('aetherlight.captureVoiceGlobal', async () => {
         try {
+            /**
+             * BUG-011: Check tier gate before allowing voice capture
+             * WHY: Voice capture costs money (OpenAI Whisper API) - only paid tiers allowed
+             *
+             * REASONING CHAIN:
+             * 1. Free tier users can use all features EXCEPT voice capture (API costs)
+             * 2. Paid tiers (network, pro, enterprise) can use voice capture
+             * 3. Offline mode = same as free tier (can't validate tokens)
+             * 4. If blocked, show upgrade prompt with link to upgrade page
+             *
+             * PATTERN: Pattern-FEATURE-GATING-001
+             * RELATED: tierGate.ts (feature gate configuration), extension.ts (tier setup)
+             */
+            const tierGate = (context as any).tierGate;
+            if (!tierGate || !tierGate.canUseFeature('voiceCapture')) {
+                const action = await vscode.window.showWarningMessage(
+                    'Voice capture requires a paid subscription (uses OpenAI Whisper API).',
+                    'Upgrade Now',
+                    'Learn More'
+                );
+
+                if (action === 'Upgrade Now') {
+                    vscode.env.openExternal(vscode.Uri.parse('https://aetherlight.ai/upgrade'));
+                } else if (action === 'Learn More') {
+                    vscode.env.openExternal(vscode.Uri.parse('https://aetherlight.ai/features'));
+                }
+                return;
+            }
+
             // For now, this command will invoke the enhanceTerminalInput command
             // since the IPC-based voice capture requires desktop app integration
             // that isn't fully implemented yet.

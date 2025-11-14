@@ -19,6 +19,263 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.17.2] - 2025-01-14 - Sprint 17.1: Bug Fixes + MVP-003 Prompt Enhancer
+
+### Added
+
+#### **AI-Enhanced Prompts (MVP-003 v3.0 Architecture)** (ENHANCE-001.1-001.9)
+
+- **Core AI Enhancement Architecture** (ENHANCE-001.1):
+  - IContextBuilder interface for pluggable context builders (strategy pattern)
+  - AIEnhancementService integrating VS Code Language Model API
+  - Universal enhancement handler (~30 lines, replaces 400+ lines of v2.5 code)
+  - Automatic fallback to template system when AI unavailable
+  - Files: `vscode-lumina/src/interfaces/IContextBuilder.ts`, `vscode-lumina/src/services/AIEnhancementService.ts`
+
+- **Simple Context Builders** (ENHANCE-001.2):
+  - BugReportContextBuilder: Searches git history for similar bugs
+  - FeatureRequestContextBuilder: Finds similar features in codebase
+  - GeneralContextBuilder: Extracts intent and keywords
+  - Files: `vscode-lumina/src/services/enhancement/BugReportContextBuilder.ts` (+241 lines), `FeatureRequestContextBuilder.ts` (+228 lines), `GeneralContextBuilder.ts` (+226 lines)
+
+- **Complex Context Builders** (ENHANCE-001.3):
+  - TaskContextBuilder: TOML loading, dependency validation, temporal drift detection
+  - CodeAnalyzerContextBuilder: Workspace analysis, complexity metrics, 30-day git history
+  - Files: `vscode-lumina/src/services/enhancement/TaskContextBuilder.ts` (+436 lines), `CodeAnalyzerContextBuilder.ts` (+489 lines)
+
+- **Advanced Sprint Planner** (ENHANCE-001.4):
+  - SprintPlannerContextBuilder: Orchestrates 5 data sources (existing sprints, template system, agent capabilities, patterns, git branches)
+  - SPRINT_TEMPLATE.toml integration (27 normalized tasks)
+  - Pattern library suggestions
+  - Files: `vscode-lumina/src/services/enhancement/SprintPlannerContextBuilder.ts` (+566 lines)
+
+- **Template Evolution System** (ENHANCE-001.5):
+  - TemplateEvolutionService: Self-improving templates based on outcome tracking
+  - GitCommitWatcher: 30-minute monitoring window after enhancement
+  - AI analyzes outcomes to reinforce successful patterns, log gaps
+  - Files: `vscode-lumina/src/services/TemplateEvolutionService.ts` (+483 lines), `GitCommitWatcher.ts` (+218 lines)
+
+- **Metadata Passthrough** (ENHANCE-001.6):
+  - EnhancementMetadata schema embedded in HTML comments
+  - Terminal AI can parse context without re-analysis
+  - Size optimized (~300-500 bytes per enhancement)
+  - CRITICAL for AI agent effectiveness
+  - Files: `vscode-lumina/src/types/EnhancementContext.ts`, `AIEnhancementService.ts:324-400`
+
+- **Iterative Refinement UI** (ENHANCE-001.7):
+  - 4 refinement buttons: Refine, Simplify, Add Detail, Include Pattern
+  - Re-enhance without restarting workflow
+  - Prompt history (undo last 10 versions)
+  - Refinement metadata tracking
+  - Files: `vscode-lumina/src/commands/voicePanel.ts:3176-3378` (refinement handlers)
+
+- **Context Preview & Override UI** (ENHANCE-001.8):
+  - Modal shows gathered context BEFORE enhancement runs
+  - 5 sections: Workspace, Git, Patterns, Validation, Confidence
+  - Edit capabilities: add/remove patterns, override validation, adjust git range
+  - User control and transparency
+  - Files: `vscode-lumina/src/webview/ContextPreviewModal.ts` (+417 lines)
+
+- **Progressive Loading UI** (ENHANCE-001.9):
+  - ProgressStream with real-time step tracking (6 steps)
+  - VS Code withProgress API integration
+  - Cancellable enhancement with CancellationToken
+  - 30-40% reduction in perceived wait time
+  - Files: `vscode-lumina/src/services/ProgressStream.ts` (+352 lines)
+
+**Architecture Impact:**
+- 93% code reduction vs v2.5 (400+ lines → ~30 lines universal handler)
+- Zero-risk extensibility via IContextBuilder interface
+- 2,492 implementation lines + 8,000+ lines enhanced prompts
+- 100% ENHANCE-001 series complete
+
+#### **Enhanced Prompt Template v1.3** (MVP-003)
+
+- **Breadcrumb-based architecture**: References Pattern-TRACKING-001 and Pattern-VALIDATION-001 instead of inline protocols
+- **65% token reduction**: ~1,800-2,000 tokens (down from ~4,000 in v1.0)
+- **Sprint Task Lifecycle Protocol**: Added to all 11 agent files
+- **Template Evolution**: Self-improving based on outcome tracking
+- Files: `internal/sprints/enhanced_prompts/MVP-003-PromptEnhancer-TaskTemplate-v1.3.md`, `docs/patterns/Pattern-VALIDATION-001.md`, `docs/patterns/Pattern-TRACKING-001.md`
+
+#### **Infrastructure Improvements**
+
+- **Automated Task Document Linking** (INFRA-003):
+  - Pre-commit hook validates task_document field in Sprint TOML
+  - Blocks commit if high-complexity task missing documentation
+  - Pattern-DOCS-002 enforcement
+  - Files: `scripts/validate-task-docs.js`, `.git/hooks/pre-commit`
+
+- **Completion Documentation Enforcement** (VAL-002):
+  - Pre-commit hook validates completion_notes for completed tasks
+  - Prevents 72% compliance issue (166 completed - 57 documented = 109 violations)
+  - Historical bug prevention (15+ hours debugging avoided)
+  - Files: `scripts/validate-completion-documentation.js`, `scripts/validate-completion-documentation.test.js`
+
+- **Sprint Panel UI Enhancements** (UI-001):
+  - Display enhanced_prompt field in Sprint Panel
+  - Show task_document links in task detail view
+  - Visual indicators for documented tasks
+  - Files: `vscode-lumina/src/commands/sprintPanel.ts`
+
+- **Terminal Duplicate Name Warning** (UI-002):
+  - Improved clarity: "Terminal 'X' already exists. Created 'X-2' instead."
+  - User-friendly guidance for duplicate terminal names
+  - Files: `vscode-lumina/src/commands/terminal.ts`
+
+#### **Sprint Planning Skill v1.1.0** (SKILL-001)
+
+- **Sprint-aware naming convention** (Pattern-DOCS-002):
+  - Format: `{SPRINT_ID}_{TASK_ID}_{TYPE}.md`
+  - Prevents document collisions across sprints
+  - Example: Sprint 3 BUG-001 vs Sprint 17.1 BUG-001 (no collision)
+  - Automated enforcement via pre-commit hook (INFRA-003)
+  - Files: `.claude/skills/sprint-plan/SKILL.md`, `docs/patterns/Pattern-DOCS-002-TaskDocumentLinking.md`
+
+- **Agent Validation Workflow** (Step 3.5):
+  - MANDATORY checklist before task creation
+  - Prevents UI tasks assigned to infrastructure-agent
+  - Query Agent Selection Guide for proper agent assignment
+  - Verify agent context file capabilities
+  - Files: `.claude/skills/sprint-plan/SKILL.md` (lines 1291-1347)
+
+- **Skill Assignment Workflow** (Step 3.6):
+  - MANDATORY checklist for autonomous execution opportunities
+  - Identifies automated workflows (publish, code-analyze, sprint-plan, etc.)
+  - Adds `skill` field to TOML for autonomous tasks
+  - Omits `skill` field for manual tasks
+  - Files: `.claude/skills/sprint-plan/SKILL.md` (lines 1382-1453)
+
+- **Skill Changelog Created**:
+  - Version history tracking for sprint-plan skill
+  - Follows Keep a Changelog format
+  - Documents v1.1.0 and v1.0.0 releases
+  - Files: `.claude/skills/sprint-plan/CHANGELOG.md`
+
+### Fixed
+
+#### **Extension Crashes & Errors**
+
+- **TaskAnalyzer undefined agent reference crash** (BUG-001):
+  - Error: `TypeError: Cannot read properties of undefined (reading 'infrastructure-agent')`
+  - Impact: Code Analyzer and Sprint Planner modals failed in new workspaces
+  - Fix: Added safety check `if (!config.agents) return gaps;` in TaskAnalyzer.ts:291
+  - Files: `vscode-lumina/src/services/TaskAnalyzer.ts`
+  - Commit: 67f2d6a
+
+- **'Start This Task' feature crash** (BUG-013):
+  - Error: "Task not found in sprint TOML" despite valid task ID
+  - Root cause: SprintLoader.ts didn't handle `[tasks."TASK-ID"]` format (only `[tasks.TASK-ID]`)
+  - Fix: Updated regex pattern to handle both quoted and unquoted task IDs
+  - Files: `vscode-lumina/src/services/SprintLoader.ts`
+
+- **Code Analyzer modal missing Q&A form** (BUG-008):
+  - Code Analyzer lacked interactive modal (only had basic text area)
+  - Fix: Added modal with Q&A form matching Bug Report/Feature Request UX
+  - Files: `vscode-lumina/src/commands/voicePanel.ts` (Code Analyzer modal)
+
+- **Sprint Planner modal missing Q&A form** (BUG-009):
+  - Sprint Planner lacked interactive modal
+  - Fix: Added modal with Q&A form for sprint planning
+  - Files: `vscode-lumina/src/commands/voicePanel.ts` (Sprint Planner modal)
+
+- **Modal verification after TaskAnalyzer fix** (BUG-010):
+  - Verified Code Analyzer and Sprint Planner modals work after BUG-001 fix
+  - Tested: Fresh workspace without config.json
+  - Result: Both modals open successfully
+
+#### **Desktop App Issues**
+
+- **Desktop app update mechanism failed** (BUG-006):
+  - Users reported "Failed to update" error when new version available
+  - Root cause: Tauri updater configuration mismatch
+  - Fix: Updated tauri.conf.json with correct update endpoint
+  - Files: `products/lumina-desktop/src-tauri/tauri.conf.json`
+
+- **Desktop app missing from Windows Apps & Features** (BUG-007):
+  - Users couldn't uninstall via Windows Settings (not in Apps & Features list)
+  - Root cause: MSI installer missing Windows Registry entries
+  - Fix: Added registry entries to MSI installer config
+  - Files: `products/lumina-desktop/src-tauri/tauri.conf.json` (Windows registry)
+
+- **Unlink feature for pop-out sprint views missing** (BUG-012):
+  - Task marked complete in previous sprint but code never implemented
+  - Fix: Implemented unlink button in pop-out Sprint Panel
+  - Files: `vscode-lumina/src/commands/sprintPanel.ts` (unlink handler)
+
+#### **Authentication & License Validation**
+
+- **License validation missing on first launch** (BUG-002):
+  - Desktop app didn't validate license key on startup
+  - Users blocked with "License key not configured" error with no resolution path
+  - Fix: Added startup validation flow with LicenseActivationDialog
+  - Files: `products/lumina-desktop/src-tauri/src/main.rs`, `products/lumina-desktop/src-tauri/src/auth.rs`, `products/lumina-desktop/src/components/LicenseActivationDialog.tsx`
+  - Commit: 92289e6
+
+- **Extension license key validation on activation** (BUG-011):
+  - Extension didn't validate license key when activated (only on first command)
+  - Fix: Added LIVE validation on extension.activate()
+  - Files: `vscode-lumina/src/extension.ts` (activation hook validation)
+
+- **License key format validation** (BUG-002C):
+  - Updated regex to accept new license key format (AL-XXXX-XXXX-XXXX-XXXX)
+  - Backward compatible with old format
+  - Files: `products/lumina-desktop/src-tauri/src/auth.rs`
+
+#### **API & Authentication**
+
+- **TranscriptionResponse struct using USD instead of tokens** (BUG-002A):
+  - API returned `credits_remaining` in USD, but desktop app expects tokens
+  - Fix: Migrated to token-based response format
+  - Files: `website/app/api/desktop/transcribe/route.ts`
+
+- **Token balance API missing Bearer authentication** (BUG-002B):
+  - Security improvement: Added Bearer token auth to GET /api/tokens/balance
+  - Files: `website/app/api/tokens/balance/route.ts`
+
+- **Error handling for 401/402/403 API responses** (BUG-004):
+  - Desktop app didn't handle authentication errors gracefully
+  - Fix: Added error dialogs for unauthorized (401), insufficient tokens (402), inactive device (403)
+  - Files: `products/lumina-desktop/src/components/VoiceCapture.tsx`
+
+- **AppSettings missing user_id, device_id, tier fields** (BUG-003):
+  - Settings struct incomplete for license validation
+  - Fix: Added required fields for authentication flow
+  - Files: `products/lumina-desktop/src-tauri/src/settings.rs`
+
+#### **UI/UX Improvements**
+
+- **Settings buttons non-functional** (BUG-014):
+  - Settings panel buttons (Save, Reset, Import, Export) not working
+  - Root cause: Event handlers not wired up
+  - Fix: Implemented button handlers
+  - Files: `vscode-lumina/src/commands/settingsPanel.ts`
+
+- **License activation dialog missing** (BUG-005):
+  - Frontend UI for license activation wizard incomplete
+  - Fix: Created LicenseActivationDialog component
+  - Files: `products/lumina-desktop/src/components/LicenseActivationDialog.tsx`
+
+### Changed
+
+- **Sprint Panel UI**: Now displays `enhanced_prompt` and `task_document` fields (UI-001)
+- **Terminal naming**: Improved duplicate name warning message clarity (UI-002)
+- **Pre-commit hooks**: Added validation for task documentation and completion notes (INFRA-003, VAL-002)
+
+### Deprecated
+
+- **v2.5 AI Enhancement Architecture**: Replaced with v3.0 Context Builder Pattern
+  - Old architecture: 400+ lines of button-specific handlers
+  - New architecture: ~30 lines universal handler + IContextBuilder strategy pattern
+  - Migration: Automatic (no user action required)
+
+### Security
+
+- **License validation on first launch**: Desktop app now validates license key at startup (BUG-002)
+- **Bearer token authentication**: Token balance API now requires Bearer token (BUG-002B)
+- **Device fingerprinting**: License validation includes device ID verification (BUG-002)
+
+---
+
 ## [0.17.0] - 2025-11-11 - Sprint 4: Key Authorization & Monetization
 
 ### Added

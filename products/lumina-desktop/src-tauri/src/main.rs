@@ -45,6 +45,7 @@ mod ipc_server;
 mod storage;
 mod voice;
 mod transcription;
+mod auth;  // BUG-002: License validation and device fingerprinting
 
 /**
  * DESIGN DECISION: IPC sender type alias for managed state
@@ -89,6 +90,13 @@ struct AppSettings {
     paste_hotkey: Option<String>,     // Future: configurable paste hotkey
     openai_api_key: String,           // Deprecated (BYOK model) - kept for migration
     license_key: String,              // NEW: Server-managed key authentication
+    // License validation response fields (BUG-003)
+    #[serde(default)]
+    user_id: Option<String>,          // User UUID from /api/license/validate
+    #[serde(default)]
+    device_id: Option<String>,        // Device UUID from /api/license/validate
+    #[serde(default)]
+    tier: Option<String>,             // "free" or "pro" from /api/license/validate
     // Three-tier architecture: Local → Hosted → Global
     global_network_api_endpoint: String,  // ÆtherLight API (Vercel)
     hosted_node_url: Option<String>,      // User's own Supabase/Postgres (optional)
@@ -102,6 +110,10 @@ impl Default for AppSettings {
             paste_hotkey: None,     // Future: user-configurable
             openai_api_key: String::new(), // Deprecated (BYOK model) - kept for migration
             license_key: String::new(), // NEW: User must configure via Settings or activation
+            // License validation fields (BUG-003) - populated after /api/license/validate succeeds
+            user_id: None,          // Set after license activation
+            device_id: None,        // Set after license activation
+            tier: None,             // Set after license activation ("free" or "pro")
             global_network_api_endpoint: "https://api.aetherlight.ai".to_string(), // ÆtherLight global network
             hosted_node_url: None,  // Optional: user's own cloud backup
             selected_domains: vec![], // User selects in Settings UI
@@ -550,14 +562,54 @@ async fn toggle_recording(
 
         // Transcribe audio via server API (proxies to OpenAI with credit tracking)
         println!("🔄 Transcribing audio via server API...");
-        let transcript = transcription::transcribe_audio(
+        let transcript = match transcription::transcribe_audio(
             &audio_samples,
             sample_rate, // Use native sample rate
             &settings.license_key,
             &settings.global_network_api_endpoint,
         )
         .await
-        .map_err(|e| format!("Transcription failed: {}", e))?;
+        {
+            Ok(text) => text,
+            Err(e) => {
+                // Handle structured errors with frontend event emission (BUG-004)
+                use transcription::TranscriptionError;
+
+                match &e {
+                    TranscriptionError::Unauthorized { message } => {
+                        // Emit event to show license activation dialog
+                        let _ = app.emit("show-license-activation", message.clone());
+                        return Err(format!("License invalid: {}. Please re-activate your device.", message));
+                    }
+                    TranscriptionError::PaymentRequired { message, balance_tokens, required_tokens } => {
+                        // Emit event to show token purchase dialog with balance
+                        let payload = serde_json::json!({
+                            "message": message,
+                            "balance": balance_tokens,
+                            "required": required_tokens,
+                        });
+                        let _ = app.emit("show-token-purchase", payload);
+                        return Err(format!("Insufficient tokens: {}. You have {} tokens, need {} tokens.",
+                            message, balance_tokens, required_tokens));
+                    }
+                    TranscriptionError::Forbidden { message } => {
+                        // Emit event to show device activation dialog
+                        let _ = app.emit("show-device-activation", message.clone());
+                        return Err(format!("Device not active: {}. Please activate your device.", message));
+                    }
+                    TranscriptionError::ServerError { message } |
+                    TranscriptionError::NetworkError { message } => {
+                        // Emit event to show retry dialog
+                        let _ = app.emit("show-retry-dialog", message.clone());
+                        return Err(format!("Temporary error: {}. Please try again.", message));
+                    }
+                    _ => {
+                        // Generic error handling for NotFound, ParseError
+                        return Err(format!("Transcription failed: {}", e));
+                    }
+                }
+            }
+        };
 
         println!("✅ Transcription received: {}", transcript);
 
@@ -722,6 +774,68 @@ fn save_settings(settings: AppSettings, app: AppHandle) -> Result<(), String> {
     register_hotkeys(app, &settings, ipc_sender)?;
 
     Ok(())
+}
+
+/**
+ * Activate device with license key (BUG-002)
+ *
+ * Called from frontend LicenseActivationDialog when user enters license key
+ * Validates license key with server API
+ * Stores user_id, device_id, tier in AppSettings on success
+ *
+ * REASONING CHAIN:
+ * 1. User enters license key from dashboard (https://aetherlight.ai/dashboard)
+ * 2. Frontend calls this command with license_key
+ * 3. Backend generates device_fingerprint (OS + CPU + MAC hash)
+ * 4. Backend calls POST /api/license/validate
+ * 5. On success (200 OK) → Store user_id, device_id, tier in settings.json
+ * 6. On error (400/403/404/500) → Return error message to frontend
+ *
+ * Returns success message with user_name and tier or error message
+ */
+#[tauri::command]
+async fn activate_license(license_key: String) -> Result<String, String> {
+    println!("🔑 Activating license key: {}...", &license_key[..std::cmp::min(4, license_key.len())]);
+
+    // Load current settings
+    let mut settings = get_settings()
+        .map_err(|e| format!("Failed to load settings: {}", e))?;
+
+    // Get API URL from settings
+    let api_url = settings.global_network_api_endpoint.clone();
+
+    // Validate license key with server
+    let validation_response = auth::validate_license_key(&license_key, &api_url)
+        .await
+        .map_err(|e| format!("{}", e))?; // Convert anyhow::Error to String
+
+    // Store license key and validation response in settings
+    settings.license_key = license_key.trim().to_string();
+    settings.user_id = Some(validation_response.user_id.clone());
+    settings.device_id = Some(validation_response.device_id.clone());
+    settings.tier = Some(validation_response.tier.clone());
+
+    // Save settings
+    let settings_path = get_settings_path();
+    if let Some(parent) = settings_path.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("Failed to create settings directory: {}", e))?;
+    }
+
+    let json = serde_json::to_string_pretty(&settings)
+        .map_err(|e| format!("Failed to serialize settings: {}", e))?;
+
+    std::fs::write(&settings_path, json)
+        .map_err(|e| format!("Failed to save settings: {}", e))?;
+
+    println!("✅ License activated successfully");
+    println!("   User ID: {}", validation_response.user_id);
+    println!("   Device ID: {}", validation_response.device_id);
+    println!("   Tier: {}", validation_response.tier);
+
+    Ok(format!("Device activated successfully! Welcome, {}. Your {} tier license is now active.",
+        validation_response.user_name,
+        validation_response.tier))
 }
 
 /**
@@ -1707,6 +1821,8 @@ async fn get_my_invitations() -> Result<Vec<ViralInvitation>, String> {
 
 fn main() {
     tauri::Builder::default()
+        // BUG-006: Initialize updater plugin for automatic updates
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(Mutex::new(RecordingState::default()))
         .manage(Arc::new(Mutex::new(Vec::<f32>::new()))) // Audio buffer for voice capture
         .manage(Arc::new(Mutex::new(Option::<IpcSender>::None))) // IPC sender for focus messages
@@ -1860,6 +1976,38 @@ fn main() {
             // Load settings and register hotkeys at startup
             let settings = get_settings()?;
 
+            /**
+             * DESIGN DECISION: Check for empty license_key on startup (BUG-002)
+             * WHY: First-time users need activation prompt to enter license key
+             *
+             * REASONING CHAIN:
+             * 1. App starts → load settings.json
+             * 2. Check if license_key is empty
+             * 3. If empty → Log message (frontend will detect and show LicenseActivationDialog)
+             * 4. If exists → Log success (app continues normally)
+             *
+             * Frontend Detection:
+             * - App.tsx calls get_settings() on mount
+             * - If license_key is empty → renders <LicenseActivationDialog />
+             * - If license_key exists → renders normal app UI
+             *
+             * PATTERN: Pattern-AUTH-002 (First-Launch License Check)
+             * RELATED: activate_license() command, LicenseActivationDialog.tsx
+             */
+            if settings.license_key.is_empty() {
+                println!("⚠️  First launch detected: License key not configured");
+                println!("   User will be prompted to activate device in frontend");
+                println!("   Get license key from: https://aetherlight.ai/dashboard");
+            } else {
+                println!("✅ License key configured: {}...", &settings.license_key[..std::cmp::min(4, settings.license_key.len())]);
+                if let Some(tier) = &settings.tier {
+                    println!("   Tier: {}", tier);
+                }
+                if let Some(user_id) = &settings.user_id {
+                    println!("   User ID: {}", user_id);
+                }
+            }
+
             // Get IPC sender from managed state (may be None if IPC server not started yet)
             let ipc_sender = {
                 let ipc_sender_state = app.handle().state::<Arc<Mutex<Option<IpcSender>>>>();
@@ -1870,6 +2018,54 @@ fn main() {
             if let Err(e) = register_hotkeys(app.handle().clone(), &settings, ipc_sender) {
                 eprintln!("⚠️ Failed to register hotkeys at startup: {}", e);
             }
+
+            /**
+             * DESIGN DECISION: Check for updates on startup (BUG-006)
+             * WHY: Keep users on latest version automatically, reduce support burden
+             *
+             * REASONING CHAIN:
+             * 1. App launches → Check for updates in background (non-blocking)
+             * 2. If update available → Log to console (future: show UI notification)
+             * 3. Update downloads from GitHub Releases (automatic signature verification)
+             * 4. Update installs and app restarts (user-triggered in future)
+             * 5. If failure → Rollback mechanism via Tauri updater plugin
+             *
+             * PATTERN: Pattern-DESKTOP-AUTO-LAUNCH-001, Pattern-IPC-002
+             * RELATED: tauri.conf.json updater config, GitHub Releases, extension version check
+             * PERFORMANCE: Non-blocking check, <2s latency, continues app launch immediately
+             */
+            let app_handle_update = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                use tauri_plugin_updater::UpdaterExt;
+
+                match app_handle_update.updater() {
+                    Ok(updater) => {
+                        match updater.check().await {
+                            Ok(Some(update)) => {
+                                println!("🆕 Update available: v{}", update.version);
+                                println!("   Current version: v{}", update.current_version);
+                                if let Some(date) = update.date {
+                                    println!("   Release date: {}", date);
+                                }
+                                println!("   Download size: {} bytes", update.body.as_ref().map_or(0, |b| b.len()));
+                                // TODO BUG-006: Future enhancement - show update notification UI
+                                // For now, updates are manual - user can download from https://aetherlight.ai/download
+                            }
+                            Ok(None) => {
+                                println!("✅ Desktop app is up to date");
+                            }
+                            Err(e) => {
+                                eprintln!("⚠️ Update check failed: {}", e);
+                                // Non-fatal: Continue app launch
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("⚠️ Failed to initialize updater: {}", e);
+                        // Non-fatal: Continue app launch
+                    }
+                }
+            });
 
             println!("🚀 Lumina running in system tray.");
 
@@ -1882,6 +2078,7 @@ fn main() {
             list_audio_devices,
             get_settings,
             save_settings,
+            activate_license,  // BUG-002: License validation on first launch
             get_token_balance,
             get_usage_metrics,
             get_time_saved_history,

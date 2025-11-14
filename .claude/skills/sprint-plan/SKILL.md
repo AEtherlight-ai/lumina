@@ -1,5 +1,6 @@
 ---
 name: sprint-plan
+version: 1.1.0
 description: Create structured sprint plans with automated Git workflow. Generates TOML sprints, creates feature branches, and enforces proper development workflow.
 ---
 
@@ -29,6 +30,38 @@ Automates sprint planning with Git workflow enforcement:
 **All other fields are OPTIONAL** - Use minimal format for quick tasks, rich format for complex features.
 
 **Backward compatible:** Old sprints with minimal fields continue to work. New sprints can use rich metadata.
+
+## ⚠️ CRITICAL: Sprint-Aware Naming Convention (Pattern-DOCS-002)
+
+**REQUIRED naming format:** `{SPRINT_ID}_{TASK_ID}_{TYPE}.md`
+
+**Why Sprint ID?** Prevents collisions when multiple sprints have the same task ID (e.g., Sprint 3 BUG-001 vs Sprint 17.1 BUG-001).
+
+**Examples:**
+- `17.1-BUGS_BUG-011_ENHANCED_PROMPT.md` (Sprint 17.1, enhanced prompt)
+- `17.1-BUGS_BUG-011_QUESTIONS.md` (Sprint 17.1, questions document)
+- `3_PROTECT-001_TEST_PLAN.md` (Sprint 3, test plan)
+- `4_KEY-002_DESIGN.md` (Sprint 4, design document)
+
+**Sprint ID Extraction:**
+- From TOML filename: `ACTIVE_SPRINT_17.1_BUGS.toml` → Sprint ID = `17.1-BUGS`
+- Replace underscores with hyphens: `17.1_BUGS` → `17.1-BUGS`
+
+**Document Types:**
+- `ENHANCED_PROMPT` - MVP-003 enhanced task prompt
+- `QUESTIONS` - Q&A document for task clarification
+- `TEST_PLAN` - Test plan and validation criteria
+- `DESIGN` - Design document and architecture
+- `RETROSPECTIVE` - Post-task retrospective
+
+**Enforcement:**
+- Automated via pre-commit hook (INFRA-003)
+- Validates naming convention + TOML linking
+- See: `docs/patterns/Pattern-DOCS-002-TaskDocumentLinking.md`
+
+**Migration:**
+- Old format still works (backward compatible)
+- New documents MUST use sprint-aware naming
 
 ## When Claude Should Use This
 
