@@ -6211,6 +6211,7 @@ name = "Document sprint-plan skill enhancements from Sprint 17.1"
 status = "pending"
 phase = "documentation"
 agent = "documentation-agent"
+enhanced_prompt = "internal/sprints/enhanced_prompts/17.1-BUGS_SKILL-001_ENHANCED_PROMPT.md"
 why = """
 UNDOCUMENTED ENHANCEMENTS:
 
