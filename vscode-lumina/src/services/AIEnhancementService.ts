@@ -43,9 +43,17 @@
  */
 
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { EnhancementContext } from '../types/EnhancementContext';
+import { EnhancementMetadata, MetadataFormatterOptions } from '../types/EnhancementMetadata';
+import { TemplateEvolutionService } from './TemplateEvolutionService'; // ENHANCE-001.5: Outcome tracking
 
 export class AIEnhancementService {
+    private templateEvolution: TemplateEvolutionService;
+
+    constructor() {
+        this.templateEvolution = new TemplateEvolutionService();
+    }
     /**
      * Enhance prompt using VS Code Language Model API
      *
@@ -87,7 +95,16 @@ export class AIEnhancementService {
             }
 
             // Step 5: Embed metadata
-            return this.embedMetadata(result, context);
+            const enhancedPrompt = this.embedMetadata(result, context);
+
+            // Step 6: Track enhancement for outcome analysis (ENHANCE-001.5)
+            this.templateEvolution.trackEnhancement({
+                context: context,
+                enhancedPrompt: enhancedPrompt,
+                timestamp: new Date()
+            });
+
+            return enhancedPrompt;
 
         } catch (error) {
             // AI error - fall back to template
@@ -246,7 +263,16 @@ export class AIEnhancementService {
         }
 
         // Embed metadata
-        return this.embedMetadata(sections.join('\n'), context);
+        const enhancedPrompt = this.embedMetadata(sections.join('\n'), context);
+
+        // Track enhancement for outcome analysis (ENHANCE-001.5)
+        this.templateEvolution.trackEnhancement({
+            context: context,
+            enhancedPrompt: enhancedPrompt,
+            timestamp: new Date()
+        });
+
+        return enhancedPrompt;
     }
 
     /**
@@ -254,28 +280,205 @@ export class AIEnhancementService {
      *
      * PURPOSE: Terminal AI can parse metadata to skip redundant analysis
      *
+     * ENHANCED VERSION (v1.0):
+     * - Complete metadata schema (version, timestamp, template, context summary)
+     * - Size optimization (compress if > 2KB)
+     * - Path sanitization (relative paths, not absolute)
+     * - Error handling (JSON formatting failures)
+     *
      * Format:
      * <!--
      * AETHERLIGHT_ENHANCEMENT_METADATA
-     * {JSON metadata}
+     * {
+     *   "version": "1.0",
+     *   "enhancementType": "bug",
+     *   "buttonType": "Bug Report",
+     *   "timestamp": "2025-01-13T15:45:00Z",
+     *   "confidence": {"score": 85, "level": "high"},
+     *   "contextGathered": {...},
+     *   "validation": {...}
+     * }
      * -->
      * Enhanced prompt text...
      *
-     * @param prompt - Generated prompt
+     * @param prompt - Generated prompt text
      * @param context - Enhancement context
+     * @param options - Formatter options (size limits, sanitization)
      * @returns Prompt with embedded metadata
      */
-    private embedMetadata(prompt: string, context: EnhancementContext): string {
-        const metadata = {
-            filesAnalyzed: context.workspaceContext.filesFound.map(f => f.path),
-            gitCommitsReviewed: context.workspaceContext.gitCommits.length,
-            confidence: context.metadata.confidence,
-            patterns: context.metadata.patterns,
-            agent: context.metadata.agent,
-            validation: context.metadata.validation
-        };
+    private embedMetadata(
+        prompt: string,
+        context: EnhancementContext,
+        options?: MetadataFormatterOptions
+    ): string {
+        try {
+            // Default options
+            const opts: MetadataFormatterOptions = {
+                maxSize: options?.maxSize || 2048,
+                prettyPrint: options?.prettyPrint !== false,
+                sanitizePaths: options?.sanitizePaths !== false,
+                includeSpecificContext: options?.includeSpecificContext || false
+            };
 
-        const metadataComment = `<!--\nAETHERLIGHT_ENHANCEMENT_METADATA\n${JSON.stringify(metadata, null, 2)}\n-->\n\n`;
-        return metadataComment + prompt;
+            // Build complete metadata
+            const metadata: EnhancementMetadata = {
+                version: '1.0',
+                enhancementType: context.type,
+                buttonType: this.getButtonTypeName(context.type),
+                timestamp: new Date().toISOString(),
+                templateVersion: 'MVP-003 v1.4.3',
+                confidence: context.metadata.confidence,
+                contextGathered: {
+                    workspace: {
+                        rootPath: opts.sanitizePaths
+                            ? this.sanitizePath(context.workspaceContext.rootPath)
+                            : context.workspaceContext.rootPath,
+                        languages: context.workspaceContext.languages,
+                        frameworks: context.workspaceContext.frameworks,
+                        filesAnalyzed: context.workspaceContext.filesFound.length,
+                        directoryCount: this.estimateDirectoryCount(context.workspaceContext.rootPath)
+                    },
+                    git: context.workspaceContext.gitCommits.length > 0 ? {
+                        commitsAnalyzed: context.workspaceContext.gitCommits.length,
+                        daysBack: this.calculateDaysBack(context.workspaceContext.gitCommits),
+                        branch: this.getCurrentBranch(),
+                        hasUncommittedChanges: false  // TODO: Implement git status check
+                    } : undefined,
+                    filesFound: this.compressFilesFound(
+                        context.workspaceContext.filesFound,
+                        opts.sanitizePaths !== false
+                    ),
+                    patterns: context.metadata.patterns,
+                    sops: {
+                        claudeMd: !!context.workspaceContext.sops.claudeMd,
+                        aetherlightMd: !!context.workspaceContext.sops.aetherlightMd
+                    }
+                },
+                validation: context.metadata.validation,
+                agent: context.metadata.agent,
+                specificContext: opts.includeSpecificContext ? context.specificContext : undefined
+            };
+
+            // Format as JSON
+            let metadataJson = opts.prettyPrint
+                ? JSON.stringify(metadata, null, 2)
+                : JSON.stringify(metadata);
+
+            // Size check: compress if needed
+            const maxSize = opts.maxSize || 2048;
+            if (metadataJson.length > maxSize) {
+                console.log(`[AIEnhancementService] Metadata too large (${metadataJson.length} bytes), compressing`);
+                metadata.contextGathered.filesFound = metadata.contextGathered.filesFound.slice(0, 5);
+                metadata.specificContext = undefined;
+                metadataJson = JSON.stringify(metadata, null, 2);
+            }
+
+            // Format as HTML comment
+            const metadataComment = `<!--\nAETHERLIGHT_ENHANCEMENT_METADATA\n${metadataJson}\n-->\n\n`;
+            return metadataComment + prompt;
+
+        } catch (error) {
+            // Fallback: if metadata fails, return prompt without metadata
+            console.error('[AIEnhancementService] Metadata embedding failed:', error);
+            return prompt;
+        }
+    }
+
+    /**
+     * Get human-readable button type name
+     */
+    private getButtonTypeName(type: string): string {
+        const names: Record<string, string> = {
+            'task': 'Start This Task',
+            'bug': 'Bug Report',
+            'feature': 'Feature Request',
+            'code_analyzer': 'Code Analyzer',
+            'sprint_planner': 'Sprint Planner',
+            'general': 'General Enhancement'
+        };
+        return names[type] || type;
+    }
+
+    /**
+     * Sanitize workspace path (convert absolute → relative, remove username)
+     */
+    private sanitizePath(absolutePath: string): string {
+        // Remove username from path
+        let sanitized = absolutePath.replace(/\/Users\/[^\/]+\//, '/Users/<user>/');
+        sanitized = sanitized.replace(/C:\\Users\\[^\\]+\\/, 'C:\\Users\\<user>\\');
+
+        // Convert to relative if possible
+        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        if (workspaceRoot && absolutePath.startsWith(workspaceRoot)) {
+            return path.relative(workspaceRoot, absolutePath) || '.';
+        }
+
+        return sanitized;
+    }
+
+    /**
+     * Compress filesFound list (top 10 by relevance)
+     */
+    private compressFilesFound(
+        files: Array<{ path: string; relevance: number; reason: string }>,
+        sanitize: boolean
+    ): Array<{ path: string; relevance: number; reason: string }> {
+        // Sort by relevance (descending)
+        const sorted = [...files].sort((a, b) => b.relevance - a.relevance);
+
+        // Take top 10
+        const top10 = sorted.slice(0, 10);
+
+        // Sanitize paths if requested
+        return top10.map(file => ({
+            path: sanitize ? this.sanitizePath(file.path) : file.path,
+            relevance: file.relevance,
+            reason: file.reason
+        }));
+    }
+
+    /**
+     * Calculate how many days back git commits were analyzed
+     */
+    private calculateDaysBack(commits: Array<{ hash: string; message: string; date: string }>): number {
+        if (commits.length === 0) return 0;
+
+        const oldest = commits[commits.length - 1].date;
+        const oldestDate = new Date(oldest);
+        const now = new Date();
+        const diffMs = now.getTime() - oldestDate.getTime();
+        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+        return diffDays;
+    }
+
+    /**
+     * Get current git branch
+     */
+    private getCurrentBranch(): string | undefined {
+        try {
+            const { execSync } = require('child_process');
+            const branch = execSync('git rev-parse --abbrev-ref HEAD', {
+                encoding: 'utf-8',
+                cwd: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+            }).trim();
+            return branch;
+        } catch {
+            return undefined;
+        }
+    }
+
+    /**
+     * Estimate directory count (approximate)
+     */
+    private estimateDirectoryCount(rootPath: string): number {
+        // Simple heuristic: count subdirectories in workspace root
+        try {
+            const fs = require('fs');
+            const entries = fs.readdirSync(rootPath, { withFileTypes: true });
+            return entries.filter((e: any) => e.isDirectory()).length;
+        } catch {
+            return 0;
+        }
     }
 }
