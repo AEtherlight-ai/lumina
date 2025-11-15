@@ -21,8 +21,11 @@ import { IPCClient } from '../ipc/client';
 
 /**
  * Registers the Capture Voice Global command (Shift+` hotkey)
+ *
+ * BUG-016 FIX: Accept tierGate as parameter instead of reading from context
+ * WHY: Extension context is sealed - cannot add arbitrary properties
  */
-export function registerCaptureVoiceGlobalCommand(context: vscode.ExtensionContext): void {
+export function registerCaptureVoiceGlobalCommand(context: vscode.ExtensionContext, tierGate: any): void {
     const disposable = vscode.commands.registerCommand('aetherlight.captureVoiceGlobal', async () => {
         try {
             /**
@@ -38,7 +41,7 @@ export function registerCaptureVoiceGlobalCommand(context: vscode.ExtensionConte
              * PATTERN: Pattern-FEATURE-GATING-001
              * RELATED: tierGate.ts (feature gate configuration), extension.ts (tier setup)
              */
-            const tierGate = (context as any).tierGate;
+            // BUG-016 FIX: tierGate passed as parameter (closure scope)
             if (!tierGate || !tierGate.canUseFeature('voiceCapture')) {
                 const action = await vscode.window.showWarningMessage(
                     'Voice capture requires a paid subscription (uses OpenAI Whisper API).',
