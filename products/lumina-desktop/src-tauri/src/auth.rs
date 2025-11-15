@@ -104,7 +104,7 @@ pub struct LicenseValidationResponse {
 ///
 /// # Arguments
 /// - `license_key`: License key from dashboard (format: XXXX-XXXX-XXXX-XXXX)
-/// - `api_url`: API base URL (e.g., "https://api.aetherlight.ai")
+/// - `api_url`: API base URL (e.g., "https://www.aetherlight.ai")
 ///
 /// # Returns
 /// - `Ok(LicenseValidationResponse)`: License is valid, device activated
@@ -119,7 +119,7 @@ pub struct LicenseValidationResponse {
 ///
 /// # Example
 /// ```no_run
-/// let response = validate_license_key("CD7W-AJDK-RLQT-LUFA", "https://api.aetherlight.ai").await?;
+/// let response = validate_license_key("CD7W-AJDK-RLQT-LUFA", "https://www.aetherlight.ai").await?;
 /// println!("Activated! User: {}, Tier: {}", response.user_name, response.tier);
 /// ```
 pub async fn validate_license_key(
@@ -220,7 +220,7 @@ mod tests {
     #[tokio::test]
     async fn test_empty_license_key() {
         let license_key = "";
-        let api_url = "https://api.aetherlight.ai";
+        let api_url = "https://www.aetherlight.ai";
 
         let result = validate_license_key(license_key, api_url).await;
         assert!(result.is_err(), "Empty license key should fail validation");
@@ -233,7 +233,7 @@ mod tests {
     #[tokio::test]
     async fn test_whitespace_license_key() {
         let license_key = "   ";
-        let api_url = "https://api.aetherlight.ai";
+        let api_url = "https://www.aetherlight.ai";
 
         let result = validate_license_key(license_key, api_url).await;
         assert!(result.is_err(), "Whitespace-only license key should fail validation");
@@ -247,7 +247,7 @@ mod tests {
     #[ignore] // Requires live API and may exhaust license activations
     async fn test_valid_license_key_free_tier() {
         let license_key = "CD7W-AJDK-RLQT-LUFA"; // Free tier test key
-        let api_url = "https://api.aetherlight.ai";
+        let api_url = "https://www.aetherlight.ai";
 
         let result = validate_license_key(license_key, api_url).await;
 
@@ -269,7 +269,7 @@ mod tests {
     #[ignore] // Requires live API
     async fn test_invalid_license_key() {
         let license_key = "INVALID-0000-0000-0000";
-        let api_url = "https://api.aetherlight.ai";
+        let api_url = "https://www.aetherlight.ai";
 
         let result = validate_license_key(license_key, api_url).await;
         assert!(result.is_err(), "Invalid license key should fail validation");

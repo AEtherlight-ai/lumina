@@ -114,7 +114,7 @@ impl Default for AppSettings {
             user_id: None,          // Set after license activation
             device_id: None,        // Set after license activation
             tier: None,             // Set after license activation ("free" or "pro")
-            global_network_api_endpoint: "https://api.aetherlight.ai".to_string(), // ÆtherLight global network
+            global_network_api_endpoint: "https://www.aetherlight.ai".to_string(), // ÆtherLight global network
             hosted_node_url: None,  // Optional: user's own cloud backup
             selected_domains: vec![], // User selects in Settings UI
         }

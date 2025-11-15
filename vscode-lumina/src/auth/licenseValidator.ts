@@ -18,7 +18,7 @@
  *
  * PATTERN: Pattern-AUTH-001 (Bearer token authentication)
  * RELATED: tierGate.ts (feature gating), extension.ts (activation flow)
- * API: GET https://aetherlight.ai/api/tokens/balance
+ * API: GET https://www.aetherlight.ai/api/tokens/balance
  *
  * Test Keys (from BUG-011_QUESTIONS.md):
  * - Free: CD7W-AJDK-RLQT-LUFA
@@ -54,7 +54,7 @@ export interface ValidationOptions {
  * Chain of Thought:
  * - Why: Extension needs live license validation (not just local check)
  * - Pattern: Bearer token authentication with GET /api/tokens/balance
- * - Integration: Calls GET https://aetherlight.ai/api/tokens/balance with Authorization: Bearer {key}
+ * - Integration: Calls GET https://www.aetherlight.ai/api/tokens/balance with Authorization: Bearer {key}
  * - Error handling: Graceful degradation (offline mode, timeouts, rate limits)
  * - Caching: 24-hour cache to avoid repeated API calls on every activation
  *
@@ -65,7 +65,7 @@ export interface ValidationOptions {
  */
 export class LicenseValidator {
   private cache: Map<string, { result: LicenseValidationResult; timestamp: number }> = new Map();
-  private readonly API_BASE_URL = 'https://aetherlight.ai'; // Production API
+  private readonly API_BASE_URL = 'https://www.aetherlight.ai'; // Production API
   private readonly CACHE_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
 
   /**
