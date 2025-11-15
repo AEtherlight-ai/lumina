@@ -14,7 +14,7 @@ updated = "2025-01-14"
   tertiary = "Fix prompt enhancement regressions"
 
   [metadata.priority_order]
-  phase_0_critical_blockers = "BUG-015, BUG-016 (MUST fix TOML syntax first - blocks all features)"
+  phase_0_critical_blockers = "BUG-017 (FIXED - recompile done), BUG-018 (CRITICAL - panel won't open), BUG-015, BUG-016 (TOML syntax blocks features)"
   phase_1 = "HIGH - Modal regression fixes (Code Analyzer, Sprint Planner)"
   phase_2 = "HIGH - Prompt enhancement regression fixes"
   phase_3 = "MEDIUM - Desktop app connection warnings (expected after app removal)"
@@ -22,10 +22,10 @@ updated = "2025-01-14"
   phase_5 = "Documentation - CHANGELOG & completion reports"
 
   [metadata.audit_context]
-  audit_trigger = "User report: All features broken after Sprint 17.1 deployment"
-  critical_bugs_found = 7
-  severity = "CRITICAL - TOML syntax errors cascade to all modal features"
-  root_cause = "Markdown code blocks in TOML multi-line strings + template literal escapes"
+  audit_trigger = "User report: All features broken after Sprint 17.1 deployment + AetherLight panel won't open"
+  critical_bugs_found = 9
+  severity = "CRITICAL - Extension activation failure + Webview service worker mismatch + TOML syntax errors cascade to all modal features"
+  root_cause = "BUG-017: Non-extensible context object (FIXED - recompile needed) + BUG-018: Webview service worker mismatch + BUG-015/016: Markdown code blocks in TOML multi-line strings + template literal escapes"
 
   [metadata.team]
   team_size = 1
@@ -42,6 +42,87 @@ updated = "2025-01-14"
     ]
     max_parallel_tasks = 2
     daily_capacity_hours = 6
+
+[tasks.BUG-017]
+id = "BUG-017"
+name = "Fix extension activation failure (Cannot add property tierGate)"
+status = "completed"
+phase = "extension-activation"
+agent = "infrastructure-agent"
+why = """
+CRITICAL: Extension fails to activate completely with error 'Cannot add property tierGate, object is not extensible'.
+
+Root Cause: VS Code extension context is sealed - cannot add arbitrary properties.
+Impact: Extension doesn't load AT ALL - users see activation error, no features work.
+Severity: CRITICAL - Blocks 100% of extension (worse than TOML bugs).
+"""
+context = """
+Error Log:
+Activating extension 'aetherlight.aetherlight' failed: Cannot add property tierGate, object is not extensible.
+
+File: vscode-lumina/src/extension.ts:347
+Code: (context as any).tierGate = tierGate;
+
+VS Code seals extension context objects - cannot add properties dynamically.
+Similar to IPC client issue (lines 450-452 had warnings about this).
+"""
+reasoning_chain = [
+  "1. Extension activation starts",
+  "2. Line 289 creates tierGate instance: const tierGate = new TierGate()",
+  "3. Line 347 tries to add to context: (context as any).tierGate = tierGate",
+  "4. VS Code context is sealed (non-extensible)",
+  "5. Error: 'Cannot add property tierGate, object is not extensible'",
+  "6. Extension activation fails completely",
+  "7. No commands registered, no features work",
+  "8. User sees activation error in console"
+]
+success_impact = """
+After BUG-017 complete:
++ Extension activates successfully
++ All features available (voice panel, commands, etc.)
++ No activation errors in console
++ Users can use ÆtherLight
+"""
+files_to_modify = [
+  "vscode-lumina/src/extension.ts (use module-level variable instead of context property)",
+  "vscode-lumina/src/commands/captureVoiceGlobal.ts (accept tierGate as parameter)",
+  "vscode-lumina/src/commands/captureVoice.ts (accept tierGate as parameter)"
+]
+deliverables = [
+  "Add module-level tierGate variable (like desktopAppProcess)",
+  "Remove line 347 that adds tierGate to context",
+  "Update command signatures to accept tierGate as parameter",
+  "Compile and verify extension activates",
+  "Test in VS Code extension host (F5)"
+]
+estimated_time = "1 hour"
+estimated_lines = 30
+validation_criteria = [
+  "Extension activates without errors",
+  "No 'Cannot add property' errors",
+  "Commands can access tierGate via closure",
+  "Tier gating works correctly"
+]
+error_handling = """
+Prevention:
+- Never add properties to extension context (it's sealed)
+- Use module-level variables for shared state
+- Pass state as parameters to command register functions
+- Document this pattern in KNOWN_ISSUES.md
+"""
+patterns = [ "Pattern-CODE-001", "Pattern-ACTIVATION-001" ]
+completion_notes = """
+Fixed 2025-01-14:
+- Added module-level tierGate variable (extension.ts:91)
+- Removed context property assignment (extension.ts:347)
+- Updated captureVoiceGlobal.ts signature to accept tierGate parameter
+- Updated captureVoice.ts signature to accept tierGate parameter
+- Compiled successfully (npm run compile)
+- Extension now activates without errors
+
+Root cause: VS Code extension context is non-extensible (sealed object).
+Solution: Use module-level variables for shared state (same pattern as desktopAppProcess).
+"""
 
 [tasks.BUG-015]
 id = "BUG-015"
@@ -598,3 +679,70 @@ deliverables = [
 estimated_time = "1 hour"
 patterns = [ "Pattern-COMPLETION-001", "Pattern-DOCS-001" ]
 dependencies = [ "TEST-001" ]
+
+[tasks.BUG-018]
+id = "BUG-018"
+name = "Fix webview service worker mismatch (panel not opening)"
+status = "pending"
+phase = "extension-activation"
+agent = "infrastructure-agent"
+why = """
+CRITICAL: AetherLight webview panel fails to open due to service worker mismatch.
+
+Root Cause: Stale service worker from previous webview instance still active.
+Impact: Users cannot open AetherLight panel - panel appears to do nothing when clicked.
+Severity: CRITICAL - Main panel completely non-functional.
+"""
+context = """
+Error Log (from webview console):
+Found unexpected service worker controller.
+Found: vscode-webview://03lf9im2timscgnmtrfjeojtpile8avnfj1ehae4pvlofbnfa3a3/service-worker.js?v=4&...id=f70145fd-532f-4087-983e-e043401f3fcc
+Expected: service-worker.js?v=4&...id=191edc46-bb5c-4466-947f-9c98ca06117e
+Waiting for controllerchange.
+
+File: vscode-lumina/src/webviewPanel.ts or webview HTML
+Issue: VS Code webview has stale service worker from previous instance with different ID.
+Impact: Webview waits indefinitely for controllerchange event that never fires.
+"""
+reasoning_chain = [
+  "1. User clicks AetherLight panel button",
+  "2. Extension creates new webview with ID 191edc46-bb5c-4466-947f-9c98ca06117e",
+  "3. Webview tries to initialize with new service worker",
+  "4. Browser finds existing service worker with different ID f70145fd-532f-4087-983e-e043401f3fcc",
+  "5. Service worker mismatch detected",
+  "6. Webview waits for controllerchange event",
+  "7. Event never fires (stale worker not unregistered)",
+  "8. Panel appears blank or never loads"
+]
+success_impact = """
+After BUG-018 complete:
++ AetherLight panel opens successfully
++ Webview loads without service worker errors
++ Users can interact with panel
+"""
+files_to_modify = [
+  "vscode-lumina/src/services/AetherLightPanel.ts (check webview creation)",
+  "vscode-lumina/webview/index.html (check service worker registration)"
+]
+deliverables = [
+  "Find webview service worker registration code",
+  "Add service worker unregister on panel disposal",
+  "OR disable service workers for webview if not needed",
+  "Test panel opens without service worker mismatch errors"
+]
+estimated_time = "2 hours"
+estimated_lines = 20
+validation_criteria = [
+  "Panel opens successfully when clicked",
+  "No service worker mismatch errors in console",
+  "Webview loads and displays content",
+  "Panel can be closed and reopened without errors"
+]
+error_handling = """
+Prevention:
+- Unregister service workers when webview disposed
+- OR disable service workers if not needed for webview
+- Add error handling for service worker registration failures
+"""
+patterns = [ "Pattern-CODE-001", "Pattern-WEBVIEW-001" ]
+dependencies = [ "BUG-017" ]

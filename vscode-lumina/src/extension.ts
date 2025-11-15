@@ -71,6 +71,26 @@ import * as fs from 'fs';
 let desktopAppProcess: ChildProcess | null = null;
 
 /**
+ * Global variable to store tierGate for command access
+ *
+ * DESIGN DECISION: Store in module-level variable instead of context property
+ * WHY: VS Code extension context is sealed - cannot add arbitrary properties
+ *
+ * REASONING CHAIN (BUG-016 - Extension Activation Failure):
+ * 1. Attempted to add tierGate to context: (context as any).tierGate = tierGate
+ * 2. Extension context is non-extensible (sealed by VS Code)
+ * 3. Error: "Cannot add property tierGate, object is not extensible"
+ * 4. Extension fails to activate completely
+ * 5. Solution: Use module-level variable (same pattern as desktopAppProcess)
+ * 6. Commands access via closure scope when registered
+ * 7. Result: Extension activates successfully, commands can check tier gates
+ *
+ * PATTERN: Pattern-ACTIVATION-001 (Module-Level State)
+ * RELATED: Similar pattern used for desktopAppProcess above
+ */
+let tierGate: any = null;
+
+/**
  * Launch ÆtherLight desktop app in system tray mode
  *
  * DESIGN DECISION: Auto-launch desktop app on extension activation
@@ -286,7 +306,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	let licenseKey = config.get<string>('licenseKey', '');
 
 	const validator = new LicenseValidator();
-	const tierGate = new TierGate();
+	tierGate = new TierGate();
 
 	try {
 		if (!licenseKey) {
@@ -343,8 +363,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		await config.update('userTier', 'free', vscode.ConfigurationTarget.Global);
 	}
 
-	// Store tierGate in context for command access
-	(context as any).tierGate = tierGate;
+	// tierGate is now stored in module-level variable (accessible via closure)
+	// BUG-016 FIX: Don't try to add to context (object is sealed)
 
 	/**
 	 * BUG-011: Add status bar item to display user tier
@@ -672,7 +692,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		 * PATTERN: Pattern-FEATURE-GATING-001
 		 * RELATED: tierGate.ts (feature gate configuration), extension.ts (tier setup)
 		 */
-		const tierGate = (context as any).tierGate;
+		// BUG-016 FIX: Access module-level tierGate instead of context property
 		if (!tierGate || !tierGate.canUseFeature('voiceCapture')) {
 			const action = await vscode.window.showWarningMessage(
 				'Voice capture requires a paid subscription (uses OpenAI Whisper API).',

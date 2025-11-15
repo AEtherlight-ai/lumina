@@ -73,9 +73,13 @@ async function insertTextAtCursor(text: string): Promise<void> {
  * 4. Command uses client to send IPC messages
  * 5. Avoids multiple WebSocket connections
  *
+ * BUG-016 FIX: Accept tierGate as parameter instead of reading from context
+ * WHY: Extension context is sealed - cannot add arbitrary properties
+ *
  * @param context - VS Code extension context (provides IPC client access)
+ * @param tierGate - TierGate instance for feature gating
  */
-export function registerCaptureVoiceCommand(context: vscode.ExtensionContext): void {
+export function registerCaptureVoiceCommand(context: vscode.ExtensionContext, tierGate: any): void {
 	const disposable = vscode.commands.registerCommand('lumina.captureVoice', async () => {
 		try {
 			/**
@@ -91,7 +95,7 @@ export function registerCaptureVoiceCommand(context: vscode.ExtensionContext): v
 			 * PATTERN: Pattern-FEATURE-GATING-001
 			 * RELATED: tierGate.ts (feature gate configuration), extension.ts (tier setup)
 			 */
-			const tierGate = (context as any).tierGate;
+			// BUG-016 FIX: tierGate passed as parameter (closure scope)
 			if (!tierGate || !tierGate.canUseFeature('voiceCapture')) {
 				const action = await vscode.window.showWarningMessage(
 					'Voice capture requires a paid subscription (uses OpenAI Whisper API).',
