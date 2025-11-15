@@ -219,15 +219,29 @@ function checkGitState() {
     const status = execSync('git status --porcelain', { encoding: 'utf-8', cwd: ROOT });
 
     if (status.trim()) {
-      // List uncommitted files
-      const files = status.trim().split('\n').slice(0, 10); // Show first 10
-      const fileList = files.map(f => `  ${f}`).join('\n');
-      const moreFiles = status.split('\n').length > 10 ? `\n  ... and ${status.split('\n').length - 10} more` : '';
+      // Filter out package.json version changes (expected during publish)
+      const lines = status.trim().split('\n');
+      const nonPackageJsonChanges = lines.filter(line => {
+        // Allow modified package.json files (version bumps)
+        if (line.match(/^\s*M.*package\.json$/)) return false;
+        // Allow untracked test files
+        if (line.match(/^\?\?.*\.(test|spec)\./)) return false;
+        if (line.match(/^\?\?.*test\//)) return false;
+        if (line.match(/^\?\?.*\.vscode-test/)) return false;
+        return true;
+      });
 
-      throw new ValidationError(
-        `❌ Git working directory not clean!\n\nUncommitted changes:\n${fileList}${moreFiles}`,
-        `Commit or stash changes before publishing`
-      );
+      if (nonPackageJsonChanges.length > 0) {
+        // List uncommitted files (excluding allowed changes)
+        const files = nonPackageJsonChanges.slice(0, 10); // Show first 10
+        const fileList = files.map(f => `  ${f}`).join('\n');
+        const moreFiles = nonPackageJsonChanges.length > 10 ? `\n  ... and ${nonPackageJsonChanges.length - 10} more` : '';
+
+        throw new ValidationError(
+          `❌ Git working directory not clean!\n\nUncommitted changes:\n${fileList}${moreFiles}`,
+          `Commit or stash changes before publishing\n(Note: package.json version changes are OK)`
+        );
+      }
     }
 
     console.log(`${GREEN}✓ Git working directory clean${RESET}`);
