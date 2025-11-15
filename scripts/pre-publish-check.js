@@ -291,19 +291,20 @@ function checkImportPaths() {
   const { execSync } = require('child_process');
 
   try {
-    // Search for old scoped import paths (@aetherlight/*)
+    // Search for old scoped import paths (@aetherlight/*) in PUBLISHED code only
+    // Exclude examples/ and test files (not part of published packages)
     const result = execSync(
-      'git grep "@aetherlight/" -- "*.ts" "*.js" ":(exclude)node_modules" ":(exclude).git" ":(exclude)out" ":(exclude)dist"',
+      'git grep "@aetherlight/" -- "*.ts" "*.js" ":(exclude)node_modules" ":(exclude).git" ":(exclude)out" ":(exclude)dist" ":(exclude)examples" ":(exclude)**/test/**" ":(exclude)*.test.ts" ":(exclude)*.test.js"',
       { cwd: ROOT, encoding: 'utf-8' }
-    );
+    ).trim();
 
-    if (result.trim()) {
-      const lines = result.trim().split('\n').slice(0, 10); // Show first 10 matches
+    if (result) {
+      const lines = result.split('\n').slice(0, 10); // Show first 10 matches
       const matches = lines.map(l => `  ${l}`).join('\n');
       const more = result.split('\n').length > 10 ? `\n  ... and ${result.split('\n').length - 10} more` : '';
 
       throw new ValidationError(
-        `❌ Old scoped import paths found!\n\nMatches:\n${matches}${more}`,
+        `❌ Old scoped import paths found in published code!\n\nMatches:\n${matches}${more}`,
         `Replace @aetherlight/* with aetherlight-* in import statements:\n` +
         `  - @aetherlight/analyzer → aetherlight-analyzer\n` +
         `  - @aetherlight/sdk → aetherlight-sdk\n` +
@@ -311,7 +312,7 @@ function checkImportPaths() {
       );
     }
 
-    console.log(`${GREEN}✓ No legacy import paths found${RESET}`);
+    console.log(`${GREEN}✓ No legacy import paths in published code${RESET}`);
   } catch (error) {
     // git grep exits with code 1 when no matches found (which is what we want)
     if (error.status === 1 && !error.stdout) {
