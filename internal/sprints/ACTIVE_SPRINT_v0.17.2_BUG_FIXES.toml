@@ -14,7 +14,7 @@ updated = "2025-01-14"
   tertiary = "Fix prompt enhancement regressions"
 
   [metadata.priority_order]
-  phase_0_critical_blockers = "BUG-017 (FIXED - recompile done), BUG-018 (CRITICAL - panel won't open), BUG-015, BUG-016 (TOML syntax blocks features)"
+  phase_0_critical_blockers = "BUG-017 (FIXED - recompile done), BUG-018 (CRITICAL - panel won't open), BUG-019 (CRITICAL - desktop transcription broken), BUG-015, BUG-016 (TOML syntax blocks features)"
   phase_1 = "HIGH - Modal regression fixes (Code Analyzer, Sprint Planner)"
   phase_2 = "HIGH - Prompt enhancement regression fixes"
   phase_3 = "MEDIUM - Desktop app connection warnings (expected after app removal)"
@@ -22,10 +22,10 @@ updated = "2025-01-14"
   phase_5 = "Documentation - CHANGELOG & completion reports"
 
   [metadata.audit_context]
-  audit_trigger = "User report: All features broken after Sprint 17.1 deployment + AetherLight panel won't open"
-  critical_bugs_found = 9
-  severity = "CRITICAL - Extension activation failure + Webview service worker mismatch + TOML syntax errors cascade to all modal features"
-  root_cause = "BUG-017: Non-extensible context object (FIXED - recompile needed) + BUG-018: Webview service worker mismatch + BUG-015/016: Markdown code blocks in TOML multi-line strings + template literal escapes"
+  audit_trigger = "User report: All features broken after Sprint 17.1 deployment + AetherLight panel won't open + Desktop app transcription fails"
+  critical_bugs_found = 10
+  severity = "CRITICAL - Extension activation failure + Webview service worker mismatch + Desktop transcription API missing + TOML syntax errors cascade to all modal features"
+  root_cause = "BUG-017: Non-extensible context object (FIXED - recompile needed) + BUG-018: Webview service worker mismatch + BUG-019: Server API endpoint not deployed + BUG-015/016: Markdown code blocks in TOML multi-line strings + template literal escapes"
 
   [metadata.team]
   team_size = 1
@@ -746,3 +746,92 @@ Prevention:
 """
 patterns = [ "Pattern-CODE-001", "Pattern-WEBVIEW-001" ]
 dependencies = [ "BUG-017" ]
+
+[tasks.BUG-019]
+id = "BUG-019"
+name = "Deploy missing desktop transcription API endpoint"
+status = "pending"
+phase = "infrastructure"
+agent = "infrastructure-agent"
+enhanced_prompt = "internal/sprints/enhanced_prompts/v0.17.2_BUG_FIXES_BUG-019_API_SPEC.md"
+analysis_doc = "internal/sprints/analysis/v0.17.2_BUG_FIXES_BUG-019_ANALYSIS.md"
+why = """
+CRITICAL: Desktop app v0.17.4 transcription fails - needs collaborative debugging.
+
+ANALYSIS COMPLETE (2025-01-14): Desktop code is CORRECT (v0.17.2+). Code already calls ÆtherLight API correctly.
+Potential Root Causes: 1) Website team testing old version, 2) API endpoint not deployed, 3) Configuration mismatch.
+Impact: Desktop app voice transcription non-functional (if API missing).
+Severity: CRITICAL - Core desktop feature broken on release.
+
+Next Step: Website team verifies API endpoint deployment + Desktop team provides test logs.
+"""
+context = """
+Desktop App Behavior:
+1. User presses recording hotkey (`)
+2. Desktop app captures audio successfully (progress bar shows)
+3. Audio sent to POST https://api.aetherlight.ai/api/desktop/transcribe
+4. Network error: DNS resolution fails
+5. Transcription fails silently (no output)
+
+Expected API Behavior:
+1. Desktop app sends audio + license_key to server
+2. Server authenticates device via Supabase
+3. Server checks token balance
+4. Server proxies to OpenAI Whisper API
+5. Server tracks usage and deducts tokens
+6. Server returns transcript + balance
+
+Current Status: API endpoint doesn't exist (website deployed but API missing)
+"""
+reasoning_chain = [
+  "1. Desktop app v0.17.4 released (2025-01-14)",
+  "2. Desktop app expects server API for transcription (Pattern-MONETIZATION-001)",
+  "3. Desktop app tries to connect to https://api.aetherlight.ai/api/desktop/transcribe",
+  "4. DNS lookup fails - domain or endpoint not configured",
+  "5. Network error returned to desktop app",
+  "6. Transcription fails completely",
+  "7. User sees progress bar but no transcript output"
+]
+success_impact = """
+After BUG-019 complete:
++ Desktop app transcription works end-to-end
++ Users can record voice and see transcript typed
++ Server tracks credit usage correctly
++ Desktop app shows balance updates
+"""
+files_to_modify = [
+  "website/app/api/desktop/transcribe/route.ts (CREATE - new API endpoint)",
+  "website/lib/supabase.ts (verify devices, users, transactions tables exist)",
+  "website/.env (add OPENAI_API_KEY if missing)"
+]
+deliverables = [
+  "Deploy API endpoint: POST /api/desktop/transcribe",
+  "Implement authentication (validate license_key via Supabase)",
+  "Implement credit tracking (check balance, deduct tokens)",
+  "Proxy to OpenAI Whisper API",
+  "Return success response with transcript + balance",
+  "Handle all error cases (401/402/403/400/500)",
+  "Test with desktop app v0.17.4"
+]
+estimated_time = "4-6 hours"
+estimated_lines = 200
+validation_criteria = [
+  "curl https://api.aetherlight.ai/api/desktop/transcribe returns 401 (no auth)",
+  "curl with valid license returns 200 with transcript",
+  "curl with insufficient credits returns 402",
+  "Desktop app v0.17.4 transcription works end-to-end",
+  "Transaction recorded in Supabase",
+  "User balance updated correctly"
+]
+error_handling = """
+Error Response Requirements:
+- 401: Invalid/missing license_key (JSON with error field)
+- 402: Insufficient credits (JSON with balance_tokens, required_tokens)
+- 403: Device not active (JSON with error field)
+- 400: Invalid audio file (JSON with error field)
+- 500: Server error (JSON with error field)
+
+All errors must match spec in BUG-019 API_SPEC.md
+"""
+patterns = [ "Pattern-MONETIZATION-001", "Pattern-WHISPER-001" ]
+dependencies = []

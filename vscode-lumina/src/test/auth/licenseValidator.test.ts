@@ -52,7 +52,7 @@ describe('LicenseValidator', () => {
 
       // Verify correct endpoint called
       const fetchArgs = fetchStub.firstCall.args;
-      expect(fetchArgs[0]).to.equal('https://aetherlight.ai/api/tokens/balance');
+      expect(fetchArgs[0]).to.equal('https://www.aetherlight.ai/api/tokens/balance');
 
       // Verify Bearer token auth
       const headers = fetchArgs[1].headers;
@@ -187,7 +187,7 @@ describe('LicenseValidator', () => {
 
       // Assert
       const fetchArgs = fetchStub.firstCall.args;
-      expect(fetchArgs[0]).to.equal('https://aetherlight.ai/api/tokens/balance');
+      expect(fetchArgs[0]).to.equal('https://www.aetherlight.ai/api/tokens/balance');
     });
 
     it('should handle 429 rate limit error gracefully', async () => {
