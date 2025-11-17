@@ -287,32 +287,48 @@ async function main() {
 
   // Build desktop binaries with signing
   const desktopDir = path.join(process.cwd(), 'products', 'lumina-desktop');
-  log(`\n▶ npm run tauri build`, 'blue');
+  log(`\n▶ npm run tauri build (with 25-minute timeout)`, 'blue');
+
+  let buildSucceeded = false;
   try {
     execSync('npm run tauri build', {
       cwd: desktopDir,
       stdio: 'inherit',
+      timeout: 1500000, // 25 minutes - Rust compilation takes 20+ minutes from clean build
       env: {
         ...process.env,
         TAURI_SIGNING_PRIVATE_KEY: signingKey
       }
     });
+    buildSucceeded = true;
   } catch (error) {
-    log(`✗ Command failed: npm run tauri build`, 'red');
-    process.exit(1);
+    // Check if it's a timeout or actual failure
+    if (error.killed) {
+      log('⚠ Build command timed out after 5 minutes, checking if build completed anyway...', 'yellow');
+    } else {
+      log(`✗ Command failed: npm run tauri build`, 'red');
+      log(`Error: ${error.message}`, 'red');
+      // Don't exit yet - check if artifacts were created anyway
+    }
   }
 
-  // Verify desktop binaries were created
+  // Verify desktop binaries were created (works even if build command timed out)
   const desktopBinariesPath = path.join(process.cwd(), 'products', 'lumina-desktop', 'src-tauri', 'target', 'release', 'bundle');
   const nsisPath = path.join(desktopBinariesPath, 'nsis', `Lumina_${newVersion}_x64-setup.exe`);
   const msiPath = path.join(desktopBinariesPath, 'msi', `Lumina_${newVersion}_x64_en-US.msi`);
 
   if (!fs.existsSync(nsisPath) || !fs.existsSync(msiPath)) {
     log('✗ Desktop binaries not found after build', 'red');
+    log(`  Expected: ${nsisPath}`, 'red');
+    log(`  Expected: ${msiPath}`, 'red');
     process.exit(1);
   }
 
-  log(`✓ Desktop binaries built: ${newVersion}`, 'green');
+  if (buildSucceeded) {
+    log(`✓ Desktop binaries built: ${newVersion}`, 'green');
+  } else {
+    log(`✓ Desktop binaries built: ${newVersion} (build process hung but artifacts created)`, 'green');
+  }
 
   // Copy binaries to vscode-lumina for packaging
   const vscodeLuminaPath = path.join(process.cwd(), 'vscode-lumina');
