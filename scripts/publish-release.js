@@ -285,11 +285,52 @@ async function main() {
     log('⚠ .env.local not found - building without signing', 'yellow');
   }
 
-  // Build desktop binaries with signing
+  // Check if binaries already exist and are up-to-date
   const desktopDir = path.join(process.cwd(), 'products', 'lumina-desktop');
-  log(`\n▶ npm run tauri build (with 25-minute timeout)`, 'blue');
+  const desktopBinariesPath = path.join(process.cwd(), 'products', 'lumina-desktop', 'src-tauri', 'target', 'release', 'bundle');
+  const nsisPath = path.join(desktopBinariesPath, 'nsis', `Lumina_${newVersion}_x64-setup.exe`);
+  const msiPath = path.join(desktopBinariesPath, 'msi', `Lumina_${newVersion}_x64_en-US.msi`);
 
+  let skipBuild = false;
+  if (fs.existsSync(nsisPath) && fs.existsSync(msiPath)) {
+    // Binaries exist, check if they're up-to-date with source code
+    const binaryModTime = Math.min(
+      fs.statSync(nsisPath).mtimeMs,
+      fs.statSync(msiPath).mtimeMs
+    );
+
+    // Get last modification time of Rust source files
+    let lastRustModTime = 0;
+    try {
+      const rustSourceOutput = execSync('git log -1 --format=%ct --all -- "products/lumina-desktop/src-tauri/src/**/*.rs" "crates/**/*.rs"', {
+        cwd: process.cwd(),
+        encoding: 'utf8'
+      }).trim();
+
+      if (rustSourceOutput) {
+        lastRustModTime = parseInt(rustSourceOutput) * 1000; // Convert to milliseconds
+      }
+    } catch (error) {
+      // If git command fails, assume we need to rebuild
+      log('⚠ Could not determine Rust source modification time, will rebuild', 'yellow');
+    }
+
+    if (lastRustModTime > 0 && binaryModTime > lastRustModTime) {
+      skipBuild = true;
+      log('✓ Desktop binaries already exist and are up-to-date with source code', 'green');
+      log(`  Binary modified: ${new Date(binaryModTime).toISOString()}`, 'blue');
+      log(`  Last Rust commit: ${new Date(lastRustModTime).toISOString()}`, 'blue');
+    } else {
+      log('⚠ Desktop binaries exist but source code has changed, rebuilding...', 'yellow');
+    }
+  } else {
+    log('⚠ Desktop binaries not found, building...', 'yellow');
+  }
+
+  // Build desktop binaries with signing
   let buildSucceeded = false;
+  if (!skipBuild) {
+    log(`\n▶ npm run tauri build (with 25-minute timeout)`, 'blue');
   try {
     execSync('npm run tauri build', {
       cwd: desktopDir,
@@ -311,11 +352,12 @@ async function main() {
       // Don't exit yet - check if artifacts were created anyway
     }
   }
+  } else {
+    // Binaries already exist and are up-to-date, mark as successful
+    buildSucceeded = true;
+  }
 
-  // Verify desktop binaries were created (works even if build command timed out)
-  const desktopBinariesPath = path.join(process.cwd(), 'products', 'lumina-desktop', 'src-tauri', 'target', 'release', 'bundle');
-  const nsisPath = path.join(desktopBinariesPath, 'nsis', `Lumina_${newVersion}_x64-setup.exe`);
-  const msiPath = path.join(desktopBinariesPath, 'msi', `Lumina_${newVersion}_x64_en-US.msi`);
+  // Verify desktop binaries exist (whether newly built or skipped)
 
   if (!fs.existsSync(nsisPath) || !fs.existsSync(msiPath)) {
     log('✗ Desktop binaries not found after build', 'red');
@@ -324,7 +366,9 @@ async function main() {
     process.exit(1);
   }
 
-  if (buildSucceeded) {
+  if (skipBuild) {
+    log(`✓ Desktop binaries ready: ${newVersion} (up-to-date, skipped rebuild)`, 'green');
+  } else if (buildSucceeded) {
     log(`✓ Desktop binaries built: ${newVersion}`, 'green');
   } else {
     log(`✓ Desktop binaries built: ${newVersion} (build process hung but artifacts created)`, 'green');
