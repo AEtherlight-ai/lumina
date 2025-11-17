@@ -184,15 +184,33 @@ async function installDesktopApp(filePath, osType) {
 
   try {
     if (osType === 'windows') {
-      // Wait for Windows Defender scan and file system to settle
-      log('   Waiting for Windows Defender scan...', 'blue');
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      // Wait longer for Windows Defender scan and file system to settle
+      // BUG-020: 3 seconds was insufficient, increased to 10 seconds
+      log('   Waiting for Windows Defender scan (10 seconds)...', 'blue');
+      await new Promise(resolve => setTimeout(resolve, 10000));
 
-      // Run Windows installer (.exe)
+      // Try launching with retry mechanism (up to 3 attempts)
+      // BUG-020: File may still be locked by antivirus, retry with backoff
       log('   Launching Windows installer...', 'blue');
-      execSync(`start "" "${filePath}"`, { stdio: 'inherit' });
-      log('   Follow installer prompts to complete setup.', 'yellow');
-      return true;
+      let attempts = 0;
+      const maxAttempts = 3;
+
+      while (attempts < maxAttempts) {
+        try {
+          execSync(`start "" "${filePath}"`, { stdio: 'inherit' });
+          log('   Installer launched successfully! Follow prompts to complete setup.', 'green');
+          return true;
+        } catch (err) {
+          attempts++;
+          if (attempts < maxAttempts) {
+            log(`   File still locked, retry ${attempts}/${maxAttempts} in 5 seconds...`, 'yellow');
+            await new Promise(resolve => setTimeout(resolve, 5000));
+          } else {
+            // Final attempt failed
+            throw err;
+          }
+        }
+      }
     } else if (osType === 'mac') {
       // Install Mac app to /Applications
       const appName = path.basename(filePath);
