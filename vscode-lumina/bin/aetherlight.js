@@ -179,11 +179,15 @@ function installCursorExtension(vsixPath) {
   }
 }
 
-function installDesktopApp(filePath, osType) {
+async function installDesktopApp(filePath, osType) {
   log('\n🖥️  Installing Desktop app...', 'blue');
 
   try {
     if (osType === 'windows') {
+      // Wait for Windows Defender scan and file system to settle
+      log('   Waiting for Windows Defender scan...', 'blue');
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
       // Run Windows installer (.exe)
       log('   Launching Windows installer...', 'blue');
       execSync(`start "" "${filePath}"`, { stdio: 'inherit' });
@@ -263,14 +267,17 @@ async function main() {
 
   // Install Desktop app (if available)
   if (desktopPath) {
-    installDesktopApp(desktopPath, osType);
+    await installDesktopApp(desktopPath, osType);
   }
 
   // Cleanup
   log('\n🧹 Cleaning up temporary files...', 'blue');
   try {
     fs.unlinkSync(vsixPath);
-    if (desktopPath) fs.unlinkSync(desktopPath);
+    // Don't delete Windows installer - it may still be in use by Windows Installer service
+    if (desktopPath && osType !== 'windows') {
+      fs.unlinkSync(desktopPath);
+    }
   } catch (err) {
     // Ignore cleanup errors
   }
