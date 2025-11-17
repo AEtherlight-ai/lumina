@@ -7715,7 +7715,7 @@ Conduct Sprint 3 retrospective:
 3. Improvements for Sprint 4
 4. Action items (if needed)
 
-Save to: internal/sprints/retrospectives/SPRINT-3-retrospective.md
+Save to: internal/sprints/retrospectives/v3-UNIFIED-BACKUP_RETRO-001_RETROSPECTIVE.md
 """
 estimated_lines = 200
 estimated_time = "1.5 hours"
@@ -7729,7 +7729,7 @@ deliverables = [
 ]
 performance_target = "Complete within 1.5 hours"
 patterns = ["Pattern-IMPROVEMENT-001"]
-files_to_modify = ["internal/sprints/retrospectives/SPRINT-3-retrospective.md"]
+files_to_modify = ["internal/sprints/retrospectives/v3-UNIFIED-BACKUP_RETRO-001_RETROSPECTIVE.md"]
 validation_criteria = [
   "Check: Retrospective complete",
   "Check: All sections filled",

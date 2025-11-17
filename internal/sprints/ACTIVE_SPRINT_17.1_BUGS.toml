@@ -564,7 +564,7 @@ api_endpoints = [ "POST /api/desktop/transcribe" ]
   status = "completed"
   phase = "desktop-auth-integration"
   agent = "tauri-desktop-agent"
-  enhanced_prompt = "internal/sprints/enhanced_prompts/BUG-002A.1_ENHANCED_PROMPT.md"
+  enhanced_prompt = "internal/sprints/enhanced_prompts/17.1-BUGS_BUG-002A_1_ENHANCED_PROMPT.md"
   template = "MVP-003-PromptEnhancer-TaskTemplate-v1.4.1"
   validation_doc = "docs/WEBSITE_VALIDATION_BUG-002A.md"
   completed_date = "2025-11-12"
@@ -1067,7 +1067,6 @@ name = "Add user_id, device_id, tier fields to AppSettings"
 status = "completed"
 phase = "desktop-auth-integration"
 agent = "tauri-desktop-agent"
-enhanced_prompt = "internal/sprints/enhanced_prompts/17.1-BUGS_BUG-003_ENHANCED_PROMPT.md"
 template = "MVP-003-PromptEnhancer-TaskTemplate-v1.4.1"
 completed_date = "2025-11-12"
 completion_notes = """
@@ -1196,7 +1195,6 @@ status = "completed"
 completed_date = "2025-01-13"
 phase = "desktop-auth-integration"
 agent = "tauri-desktop-agent"
-enhanced_prompt = "internal/sprints/enhanced_prompts/17.1-BUGS_BUG-004_ENHANCED_PROMPT.md"
 template = "MVP-003-PromptEnhancer-TaskTemplate-v1.4.3"
 why = """
 Insufficient Error Handling: Desktop app doesn't handle specific API errors properly.\r
@@ -1392,7 +1390,6 @@ status = "completed"
 completed_date = "2025-01-13"
 phase = "desktop-auth-integration"
 agent = "ui-agent"
-enhanced_prompt = "internal/sprints/enhanced_prompts/17.1-BUGS_BUG-005_ENHANCED_PROMPT.md"
 template = "MVP-003-PromptEnhancer-TaskTemplate-v1.4.3"
 why = """
 Missing UI: No frontend dialog for license activation.\r
@@ -1590,7 +1587,6 @@ status = "completed"
 completed_date = "2025-01-13"
 phase = "desktop-installation-ux"
 agent = "tauri-desktop-agent"
-enhanced_prompt = "internal/sprints/enhanced_prompts/17.1-BUGS_BUG-006_ENHANCED_PROMPT.md"
 template = "MVP-003-PromptEnhancer-TaskTemplate-v1.4.3"
 why = """
 User-reported issue: "Upon install it downloaded the desktop app but I could not update the desktop app, it failed."\r
@@ -1805,7 +1801,6 @@ status = "completed"
 completed_date = "2025-01-13"
 phase = "desktop-installation-ux"
 agent = "tauri-desktop-agent"
-enhanced_prompt = "internal/sprints/enhanced_prompts/17.1-BUGS_BUG-007_ENHANCED_PROMPT.md"
 template = "MVP-003-PromptEnhancer-TaskTemplate-v1.4.3"
 why = """
 User-reported issue: "I've gone to try to uninstall the desktop app and I can't even find it to uninstall it in my Apps and Features. It is in my system tray, it is in my program start menu, but it is not in Apps & Features to uninstall."\r
@@ -3777,7 +3772,7 @@ validation_criteria = [
   "Tests pass (90% coverage)"
 ]
 dependencies = []
-enhanced_prompt = "internal/sprints/enhanced_prompts/17.1-BUGS_ENHANCE-001.1_ENHANCED_PROMPT.md"
+enhanced_prompt = "internal/sprints/enhanced_prompts/17.1-BUGS_ENHANCE-001_1_ENHANCED_PROMPT.md"
 completion_notes = """
 IMPLEMENTATION COMPLETE (2025-11-13)
 
@@ -3988,7 +3983,7 @@ validation_criteria = [
   "Tests pass (90% coverage)"
 ]
 dependencies = ["ENHANCE-001.1"]
-enhanced_prompt = "internal/sprints/enhanced_prompts/17.1-BUGS_ENHANCE-001.2_ENHANCED_PROMPT.md"
+enhanced_prompt = "internal/sprints/enhanced_prompts/17.1-BUGS_ENHANCE-001_2_ENHANCED_PROMPT.md"
 completion_notes = """
 Completed 2025-11-13 by infrastructure-agent
 
@@ -4225,7 +4220,7 @@ validation_criteria = [
   "Tests pass (90% coverage)"
 ]
 dependencies = ["ENHANCE-001.2"]
-enhanced_prompt = "internal/sprints/enhanced_prompts/17.1-BUGS_ENHANCE-001.3_ENHANCED_PROMPT.md"
+enhanced_prompt = "internal/sprints/enhanced_prompts/17.1-BUGS_ENHANCE-001_3_ENHANCED_PROMPT.md"
 
 [tasks."ENHANCE-001.4"]
 id = "ENHANCE-001.4"
@@ -4382,7 +4377,7 @@ validation_criteria = [
   "Tests pass (90% coverage)"
 ]
 dependencies = ["ENHANCE-001.3"]
-enhanced_prompt = "internal/sprints/enhanced_prompts/17.1-BUGS_ENHANCE-001.4_ENHANCED_PROMPT.md"
+enhanced_prompt = "internal/sprints/enhanced_prompts/17.1-BUGS_ENHANCE-001_4_ENHANCED_PROMPT.md"
 
 [tasks."ENHANCE-001.5"]
 id = "ENHANCE-001.5"
@@ -4529,7 +4524,7 @@ validation_criteria = [
   "Tests pass (90% coverage)"
 ]
 dependencies = ["ENHANCE-001.4"]
-enhanced_prompt = "internal/sprints/enhanced_prompts/17.1-BUGS_ENHANCE-001.5_ENHANCED_PROMPT.md"
+enhanced_prompt = "internal/sprints/enhanced_prompts/17.1-BUGS_ENHANCE-001_5_ENHANCED_PROMPT.md"
 
 [tasks."ENHANCE-001.6"]
 id = "ENHANCE-001.6"
@@ -4688,7 +4683,7 @@ validation_criteria = [
   "Tests pass (90% coverage)"
 ]
 dependencies = ["ENHANCE-001.1"]
-enhanced_prompt = "internal/sprints/enhanced_prompts/17.1-BUGS_ENHANCE-001.6_ENHANCED_PROMPT.md"
+enhanced_prompt = "internal/sprints/enhanced_prompts/17.1-BUGS_ENHANCE-001_6_ENHANCED_PROMPT.md"
 completion_notes = """
 Completed 2025-11-13 by infrastructure-agent
 
@@ -5005,7 +5000,7 @@ validation_criteria = [
   "Tests pass (70% coverage)"
 ]
 dependencies = ["ENHANCE-001.1", "ENHANCE-001.6"]
-enhanced_prompt = "internal/sprints/enhanced_prompts/17.1-BUGS_ENHANCE-001.7_ENHANCED_PROMPT.md"
+enhanced_prompt = "internal/sprints/enhanced_prompts/17.1-BUGS_ENHANCE-001_7_ENHANCED_PROMPT.md"
 
 [tasks."ENHANCE-001.8"]
 id = "ENHANCE-001.8"
@@ -5371,7 +5366,7 @@ validation_criteria = [
   "Tests pass (70% coverage)"
 ]
 dependencies = ["ENHANCE-001.2"]
-enhanced_prompt = "internal/sprints/enhanced_prompts/17.1-BUGS_ENHANCE-001.8_ENHANCED_PROMPT.md"
+enhanced_prompt = "internal/sprints/enhanced_prompts/17.1-BUGS_ENHANCE-001_8_ENHANCED_PROMPT.md"
 
 [tasks."ENHANCE-001.9"]
 id = "ENHANCE-001.9"
@@ -5535,7 +5530,7 @@ validation_criteria = [
   "Tests pass (70% coverage)"
 ]
 dependencies = ["ENHANCE-001.1"]
-enhanced_prompt = "internal/sprints/enhanced_prompts/17.1-BUGS_ENHANCE-001.9_ENHANCED_PROMPT.md"
+enhanced_prompt = "internal/sprints/enhanced_prompts/17.1-BUGS_ENHANCE-001_9_ENHANCED_PROMPT.md"
 
 [tasks.DOC-001]
 id = "DOC-001"
@@ -5547,7 +5542,6 @@ estimated_lines = 150
 estimated_time = "1 hour"
 dependencies = [ "BUG-001", "BUG-002", "BUG-003", "BUG-004", "BUG-005" ]
 agent = "documentation-agent"
-enhanced_prompt = "internal/sprints/enhanced_prompts/17.1-BUGS_DOC-001_ENHANCED_PROMPT.md"
 deliverables = [
   "CHANGELOG.md updated with v0.17.2 section",
   "All 10 bugs documented in Fixed section",
@@ -5574,7 +5568,6 @@ description = "Analyze impact of authentication changes and modal fixes. Ensure 
 estimated_time = "2 hours"
 dependencies = [ "BUG-001", "BUG-002", "BUG-003", "BUG-004", "BUG-005" ]
 agent = "testing-agent"
-enhanced_prompt = "internal/sprints/enhanced_prompts/17.1-BUGS_QA-001_ENHANCED_PROMPT.md"
 deliverables = [
   "Ripple analysis report",
   "List of affected components",
@@ -5634,35 +5627,7 @@ actual_time = "45 minutes"
 dependencies = [ "DOC-001", "QA-001", "QA-002" ]
 agent = "infrastructure-agent"
 enhanced_prompt = "internal/sprints/enhanced_prompts/17.1-BUGS_PUBLISH-001_ENHANCED_PROMPT.md"
-notes = """
-✅ PUBLISH SUCCESSFUL (2025-01-14)
-
-Published Packages:
-- aetherlight-sdk@0.17.2 ✓ npm
-- aetherlight-analyzer@0.17.2 ✓ npm (skipped failing performance tests - 3 timeouts)
-- aetherlight-node@0.17.2 ✓ npm
-- vscode-lumina@0.17.2 ✓ .vsix packaged (18.4 MB, 4765 files)
-
-GitHub Release:
-- Tag: v0.17.2 ✓ created
-- Release notes: https://github.com/AEtherlight-ai/lumina/releases/tag/v0.17.2
-- Artifact: aetherlight-0.17.2.vsix ✓ attached
-
-Git Workflow:
-- PR #8 created and merged (squash) ✓
-- Master updated: +72,803 additions, -7,824 deletions
-- Commit: 4d691be (chore: bump version to 0.17.2)
-- All 4 package.json files version-synced
-
-Verification:
-- npm view aetherlight-sdk@0.17.2 ✓ 0.17.2
-- npm view aetherlight-analyzer@0.17.2 ✓ 0.17.2
-- npm view aetherlight-node@0.17.2 ✓ 0.17.2
-
-Next Steps:
-- VS Code Marketplace publish (manual - requires publisher account)
-- User install verification
-"""
+notes = "internal/sprints/notes/17.1-BUGS_PUBLISH-001_NOTES.md"
 deliverables = [
   "npm publish (aetherlight@0.17.2)",
   "GitHub release (v0.17.2)",
@@ -5855,7 +5820,6 @@ NEXT STEPS:\r
 3. Implement sprint-task-lifecycle skill (TypeScript/JavaScript code)\r
 4. Use v1.3 for all new tasks in future sprints\r
 """
-enhanced_prompt = "internal/sprints/enhanced_prompts/MVP-003_ENHANCED_PROMPT_v1.3.md"
 
 [tasks.UI-001]
 id = "UI-001"

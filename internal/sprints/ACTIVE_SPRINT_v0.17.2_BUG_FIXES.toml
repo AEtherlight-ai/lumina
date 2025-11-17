@@ -130,7 +130,7 @@ name = "Fix TOML syntax error at row 442 (markdown code blocks)"
 status = "completed"
 phase = "toml-syntax-fixes"
 agent = "infrastructure-agent"
-enhanced_prompt = "internal/sprints/enhanced_prompts/v0.17.2_BUG-015_ENHANCED_PROMPT.md"
+enhanced_prompt = "internal/sprints/enhanced_prompts/v0.17.2-BUG-FIXES_BUG-015_ENHANCED_PROMPT.md"
 why = """
 CRITICAL: TOML parser fails at row 442 with duplicate key error.
 
@@ -351,6 +351,7 @@ Safety checks:
 """
 patterns = [ "Pattern-CODE-001", "Pattern-TDD-001" ]
 dependencies = [ "BUG-015", "BUG-016", "BUG-021" ]
+enhanced_prompt = "internal/sprints/enhanced_prompts/v0.17.2-BUG-FIXES_BUG-003_ENHANCED_PROMPT.md"
 completion_notes = """
 Root Cause Identified 2025-01-17:
 - BUG-003 was NOT a modal issue
@@ -427,6 +428,7 @@ Safety checks:
 """
 patterns = [ "Pattern-CODE-001", "Pattern-TDD-001" ]
 dependencies = [ "BUG-015", "BUG-016", "BUG-021" ]
+enhanced_prompt = "internal/sprints/enhanced_prompts/v0.17.2-BUG-FIXES_BUG-004_ENHANCED_PROMPT.md"
 completion_notes = """
 Root Cause Identified 2025-01-17:
 - Same root cause as BUG-003: BUG-021 (WebSocket crash)
@@ -504,6 +506,7 @@ Fallback strategy:
 """
 patterns = [ "Pattern-CODE-001", "Pattern-TDD-001" ]
 dependencies = [ "BUG-015", "BUG-016", "BUG-021" ]
+enhanced_prompt = "internal/sprints/enhanced_prompts/v0.17.2-BUG-FIXES_BUG-005_ENHANCED_PROMPT.md"
 completion_notes = """
 Root Cause Identified 2025-01-17:
 - Same root cause as BUG-003/BUG-004: BUG-021 (WebSocket crash)
@@ -569,6 +572,7 @@ validation_criteria = [
   "Instructions to suppress warnings (if desired)"
 ]
 patterns = [ "Pattern-DOCS-001" ]
+enhanced_prompt = "internal/sprints/enhanced_prompts/v0.17.2-BUG-FIXES_BUG-006_ENHANCED_PROMPT.md"
 
 [tasks.BUG-007]
 id = "BUG-007"
@@ -635,6 +639,7 @@ Defensive checks:
 """
 patterns = [ "Pattern-CODE-001" ]
 dependencies = [ "BUG-015", "BUG-016" ]
+enhanced_prompt = "internal/sprints/enhanced_prompts/v0.17.2-BUG-FIXES_BUG-007_ENHANCED_PROMPT.md"
 completion_notes = """
 Verified 2025-01-17:
 - TOML parsing now works (BUG-015/016 verified)
@@ -818,7 +823,7 @@ name = "Deploy missing desktop transcription API endpoint"
 status = "pending"
 phase = "infrastructure"
 agent = "infrastructure-agent"
-enhanced_prompt = "internal/sprints/enhanced_prompts/v0.17.2_BUG_FIXES_BUG-019_API_SPEC.md"
+enhanced_prompt = "internal/sprints/enhanced_prompts/v0.17.2-BUG-FIXES_BUG-019_API_SPEC.md"
 analysis_doc = "internal/sprints/analysis/v0.17.2_BUG_FIXES_BUG-019_ANALYSIS.md"
 why = """
 CRITICAL: Desktop app v0.17.4 transcription fails - needs collaborative debugging.
