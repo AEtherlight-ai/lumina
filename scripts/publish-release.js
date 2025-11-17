@@ -269,8 +269,38 @@ async function main() {
 
   log(`✓ Desktop app version updated to ${newVersion}`, 'green');
 
-  // Build desktop binaries
-  exec('npm run tauri build', path.join(process.cwd(), 'products', 'lumina-desktop'));
+  // Load Tauri signing key from .env.local
+  const envLocalPath = path.join(process.cwd(), '.env.local');
+  let signingKey = '';
+  if (fs.existsSync(envLocalPath)) {
+    const envContent = fs.readFileSync(envLocalPath, 'utf8');
+    const keyMatch = envContent.match(/TAURI_SIGNING_PRIVATE_KEY=(.+)/);
+    if (keyMatch) {
+      signingKey = keyMatch[1].trim();
+      log('✓ Loaded Tauri signing key from .env.local', 'green');
+    } else {
+      log('⚠ No TAURI_SIGNING_PRIVATE_KEY found in .env.local', 'yellow');
+    }
+  } else {
+    log('⚠ .env.local not found - building without signing', 'yellow');
+  }
+
+  // Build desktop binaries with signing
+  const desktopDir = path.join(process.cwd(), 'products', 'lumina-desktop');
+  log(`\n▶ npm run tauri build`, 'blue');
+  try {
+    execSync('npm run tauri build', {
+      cwd: desktopDir,
+      stdio: 'inherit',
+      env: {
+        ...process.env,
+        TAURI_SIGNING_PRIVATE_KEY: signingKey
+      }
+    });
+  } catch (error) {
+    log(`✗ Command failed: npm run tauri build`, 'red');
+    process.exit(1);
+  }
 
   // Verify desktop binaries were created
   const desktopBinariesPath = path.join(process.cwd(), 'products', 'lumina-desktop', 'src-tauri', 'target', 'release', 'bundle');
