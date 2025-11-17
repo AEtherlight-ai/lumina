@@ -79,6 +79,11 @@ export function useLicenseActivation(
     setHasActivated(true);
     setShowDialog(false); // Close dialog on success
 
+    // Wait a bit to ensure settings file is fully written to disk before reload
+    // This prevents the activation dialog from reappearing due to race condition
+    console.log('[useLicenseActivation] Waiting for settings to persist...');
+    await new Promise(resolve => setTimeout(resolve, 500)); // 500ms delay
+
     // Reload page to refresh settings (license_key, user_id, device_id, tier)
     console.log('[useLicenseActivation] Reloading page to refresh settings');
     window.location.reload();

@@ -257,7 +257,10 @@ export function VoiceCapture() {
         <div
           style={{
             height: '48px',
-            backgroundColor: isRecording ? '#10b981' : '#3b82f6', // green when recording, blue otherwise
+            backgroundColor:
+              isRecording ? '#10b981'                    // GREEN - actively recording
+              : state === 'processing' ? '#ef4444'       // RED - transcribing (high visibility)
+              : '#3b82f6',                               // BLUE - complete/idle
             display: 'flex',
             alignItems: 'center',
             padding: '0 16px',
@@ -502,7 +505,7 @@ export function VoiceCapture() {
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
               <button
                 onClick={() => {
-                  window.open('https://aetherlight-aelors-projects.vercel.app/dashboard?action=upgrade', '_blank');
+                  window.open('https://www.aetherlight.ai/dashboard?action=upgrade', '_blank');
                   setShowInsufficientTokens(false);
                 }}
                 style={{

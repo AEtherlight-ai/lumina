@@ -16,6 +16,7 @@
  * PERFORMANCE: <1s reconnect, <5MB memory
  */
 
+import WebSocket from 'ws';
 import {
     SyncEvent,
     SyncEventType,
@@ -118,7 +119,11 @@ export class RealtimeSyncClient {
 
                 // Message received
                 this.ws.onmessage = (event) => {
-                    this.handleMessage(event.data);
+                    // Convert Buffer/ArrayBuffer to string for handleMessage
+                    const data = typeof event.data === 'string'
+                        ? event.data
+                        : event.data.toString();
+                    this.handleMessage(data);
                 };
 
                 // Connection closed

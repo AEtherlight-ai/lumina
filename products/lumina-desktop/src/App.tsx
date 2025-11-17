@@ -48,7 +48,7 @@ function App() {
     license_key: '',
   });
 
-  const [activeTab, setActiveTab] = useState<'general' | 'hotkeys' | 'api'>('general');
+  // Tab state removed - showing only hotkeys tab (BUG-020)
   const [isRecordingHotkey, setIsRecordingHotkey] = useState(false);
   const [isPasteHotkey, setIsPasteHotkey] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
@@ -452,40 +452,17 @@ function App() {
           </button>
           <div style={{ flex: 1 }}>
             <h1 style={{ margin: 0, color: 'white', fontSize: '28px', fontWeight: 600 }}>
-              Lumina Settings
+              Hotkey Settings
             </h1>
             <p style={{ margin: '8px 0 0 0', color: 'rgba(255, 255, 255, 0.8)', fontSize: '14px' }}>
-              Voice-to-Intelligence Platform
+              Configure your voice capture shortcuts
             </p>
           </div>
         </div>
 
-        {/* Tab Navigation */}
-        <div style={{
-          display: 'flex',
-          gap: '4px',
-          padding: '16px 32px',
-          background: 'rgba(255, 255, 255, 0.05)'
-        }}>
-          {(['general', 'hotkeys', 'api'] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              style={{
-                padding: '12px 24px',
-                background: activeTab === tab ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.1)',
-                border: 'none',
-                borderRadius: '8px',
-                color: 'white',
-                fontSize: '14px',
-                fontWeight: 500,
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-              }}
-            >
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
-            </button>
-          ))}
+        {/* Tab Navigation - Hidden per user request (only hotkeys needed) */}
+        <div style={{ display: 'none' }}>
+          {/* Tabs hidden - Settings defaults to hotkeys only */}
         </div>
 
         {/* Content */}
@@ -504,63 +481,8 @@ function App() {
             padding: '24px',
             boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)'
           }}>
-            {activeTab === 'general' && (
-              <div>
-                <h2 style={{ marginTop: 0, color: '#1f2937' }}>General Settings</h2>
-
-                <div style={{ marginBottom: '24px' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={settings.offline_mode}
-                      onChange={(e) => setSettings({ ...settings, offline_mode: e.target.checked })}
-                      style={{ width: '20px', height: '20px' }}
-                    />
-                    <span style={{ color: '#374151', fontSize: '15px' }}>
-                      <strong>Offline Mode</strong> (Local transcription with Whisper.cpp)
-                    </span>
-                  </label>
-                </div>
-
-                <div style={{ marginBottom: '24px' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={settings.auto_paste}
-                      onChange={(e) => setSettings({ ...settings, auto_paste: e.target.checked })}
-                      style={{ width: '20px', height: '20px' }}
-                    />
-                    <span style={{ color: '#374151', fontSize: '15px' }}>
-                      <strong>Auto-paste after transcription</strong>
-                    </span>
-                  </label>
-                </div>
-
-                <div style={{ marginBottom: '24px' }}>
-                  <label style={{ display: 'block', marginBottom: '8px', color: '#374151', fontWeight: 500 }}>
-                    Whisper Model
-                  </label>
-                  <select
-                    value={settings.whisper_model}
-                    onChange={(e) => setSettings({ ...settings, whisper_model: e.target.value })}
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      border: '2px solid #e5e7eb',
-                      borderRadius: '8px',
-                      fontSize: '14px'
-                    }}
-                  >
-                    <option value="tiny.en">Tiny (Fastest, least accurate)</option>
-                    <option value="base.en">Base (Recommended)</option>
-                    <option value="small.en">Small (Slower, more accurate)</option>
-                    <option value="medium.en">Medium (Slow, very accurate)</option>
-                  </select>
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'hotkeys' && (
+            {/* Only show hotkeys tab - per user request */}
+            {(
               <div>
                 <h2 style={{ marginTop: 0, color: '#1f2937' }}>Hotkey Configuration</h2>
                 <p style={{ color: '#6b7280', fontSize: '14px', marginBottom: '8px' }}>
@@ -642,42 +564,6 @@ function App() {
                       {isPasteHotkey ? '⏺' : '+'}
                     </button>
                   </div>
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'api' && (
-              <div>
-                <h2 style={{ marginTop: 0, color: '#1f2937' }}>API Configuration</h2>
-
-                <div style={{ marginBottom: '24px' }}>
-                  <label style={{ display: 'block', marginBottom: '8px', color: '#374151', fontWeight: 500 }}>
-                    License Key
-                  </label>
-                  <input
-                    type="password"
-                    value={settings.license_key}
-                    onChange={(e) => setSettings({ ...settings, license_key: e.target.value })}
-                    placeholder="Enter your license key"
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      border: '2px solid #e5e7eb',
-                      borderRadius: '8px',
-                      fontSize: '14px'
-                    }}
-                  />
-                  <p style={{ color: '#6b7280', fontSize: '12px', marginTop: '8px' }}>
-                    Get your license key from{' '}
-                    <a
-                      href="https://aetherlight.ai/dashboard/download"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ color: '#3b82f6', textDecoration: 'none' }}
-                    >
-                      aetherlight.ai/dashboard/download
-                    </a>
-                  </p>
                 </div>
               </div>
             )}
