@@ -42,63 +42,68 @@ export async function checkAndSetupUserDocumentation(context: vscode.ExtensionCo
         const vscodeDir = path.join(workspaceRoot, '.vscode');
         const aetherlightDocPath = path.join(vscodeDir, 'aetherlight.md');
 
-        // If aetherlight.md already exists, skip setup
-        if (fs.existsSync(aetherlightDocPath)) {
-            console.log('[ÆtherLight First-Run] Documentation already exists - skipping setup');
-            return;
-        }
+        // Check if this is first-run or upgrade
+        const isFirstRun = !fs.existsSync(aetherlightDocPath);
 
-        console.log('[ÆtherLight First-Run] Setting up documentation for new workspace...');
+        if (isFirstRun) {
+            console.log('[ÆtherLight First-Run] New workspace detected - running first-run setup');
 
-        // Create .vscode/ directory if needed
-        if (!fs.existsSync(vscodeDir)) {
-            fs.mkdirSync(vscodeDir, { recursive: true });
-        }
-
-        // Copy template to .vscode/aetherlight.md
-        const templatePath = path.join(context.extensionPath, 'templates', 'USER_SETUP.md');
-
-        if (!fs.existsSync(templatePath)) {
-            console.error('[ÆtherLight First-Run] Template not found:', templatePath);
-            vscode.window.showErrorMessage('ÆtherLight: Setup template not found. Please reinstall extension.');
-            return;
-        }
-
-        const templateContent = fs.readFileSync(templatePath, 'utf-8');
-        fs.writeFileSync(aetherlightDocPath, templateContent, 'utf-8');
-        console.log('[ÆtherLight First-Run] Created .vscode/aetherlight.md');
-
-        // Add reference in settings.json
-        await addToSettings(vscodeDir);
-
-        // Append to existing CLAUDE.md if exists
-        await appendToClaude(workspaceRoot, aetherlightDocPath);
-
-        // Create example sprint
-        await createExampleSprint(workspaceRoot);
-
-        // Copy bundled skills, agents, and patterns to workspace
-        await copyBundledResources(workspaceRoot, context.extensionPath);
-
-        // Show welcome notification
-        const result = await vscode.window.showInformationMessage(
-            '🚀 ÆtherLight installed! Documentation: .vscode/aetherlight.md',
-            'View Documentation',
-            'Create Sprint'
-        );
-
-        if (result === 'View Documentation') {
-            const docUri = vscode.Uri.file(aetherlightDocPath);
-            await vscode.window.showTextDocument(docUri);
-        } else if (result === 'Create Sprint') {
-            const sprintPath = path.join(workspaceRoot, 'sprints', 'ACTIVE_SPRINT.toml');
-            if (fs.existsSync(sprintPath)) {
-                const sprintUri = vscode.Uri.file(sprintPath);
-                await vscode.window.showTextDocument(sprintUri);
+            // Create .vscode/ directory if needed
+            if (!fs.existsSync(vscodeDir)) {
+                fs.mkdirSync(vscodeDir, { recursive: true });
             }
+
+            // Copy template to .vscode/aetherlight.md
+            const templatePath = path.join(context.extensionPath, 'templates', 'USER_SETUP.md');
+
+            if (!fs.existsSync(templatePath)) {
+                console.error('[ÆtherLight First-Run] Template not found:', templatePath);
+                vscode.window.showErrorMessage('ÆtherLight: Setup template not found. Please reinstall extension.');
+                return;
+            }
+
+            const templateContent = fs.readFileSync(templatePath, 'utf-8');
+            fs.writeFileSync(aetherlightDocPath, templateContent, 'utf-8');
+            console.log('[ÆtherLight First-Run] Created .vscode/aetherlight.md');
+
+            // Add reference in settings.json
+            await addToSettings(vscodeDir);
+
+            // Append to existing CLAUDE.md if exists
+            await appendToClaude(workspaceRoot, aetherlightDocPath);
+
+            // Create example sprint
+            await createExampleSprint(workspaceRoot);
+        } else {
+            console.log('[ÆtherLight First-Run] Existing workspace detected - skipping first-run setup');
         }
 
-        console.log('[ÆtherLight First-Run] Setup complete ✅');
+        // ALWAYS copy bundled resources (even on upgrade)
+        console.log('[ÆtherLight First-Run] Syncing bundled resources...');
+        await copyBundledResources(workspaceRoot, context.extensionPath);
+        console.log('[ÆtherLight First-Run] Resource sync complete');
+
+        if (isFirstRun) {
+            // Show welcome notification (first-run only)
+            const result = await vscode.window.showInformationMessage(
+                '🚀 ÆtherLight installed! Documentation: .vscode/aetherlight.md',
+                'View Documentation',
+                'Create Sprint'
+            );
+
+            if (result === 'View Documentation') {
+                const docUri = vscode.Uri.file(aetherlightDocPath);
+                await vscode.window.showTextDocument(docUri);
+            } else if (result === 'Create Sprint') {
+                const sprintPath = path.join(workspaceRoot, 'sprints', 'ACTIVE_SPRINT.toml');
+                if (fs.existsSync(sprintPath)) {
+                    const sprintUri = vscode.Uri.file(sprintPath);
+                    await vscode.window.showTextDocument(sprintUri);
+                }
+            }
+
+            console.log('[ÆtherLight First-Run] Setup complete ✅');
+        }
 
     } catch (error) {
         console.error('[ÆtherLight First-Run] Setup failed:', error);
