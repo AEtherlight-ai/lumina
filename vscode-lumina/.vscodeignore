@@ -52,6 +52,10 @@ Thumbs.db
 !internal/agents/**
 !docs/patterns/**
 
+# Desktop installers - only include current version
+# Pattern: Keep Lumina_*.exe and Lumina_*.msi (current version only)
+# Old versions should be cleaned up before packaging
+
 # Test and development
 *.test.js
 *.spec.js
