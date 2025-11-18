@@ -1,18 +1,17 @@
 #!/usr/bin/env node
 
 /**
- * ÆtherLight Full Suite Installer
+ * ÆtherLight Full Suite Installer (FIXED v0.18.3)
  *
- * DESIGN DECISION: Single command installs VS Code extension + Desktop app
- * WHY: User requested simple npm install that handles everything
+ * FIXES (BUG-007):
+ * - Issue #1: Proper file.close() callback - wait for file handle to close
+ * - Issue #2: Don't delete installer file - Windows handles cleanup
+ * - Issue #3: Windows-style path handling - avoid quoting issues
+ * - Issue #4: Antivirus lock retry mechanism - detect and retry up to 3 times
+ * - Issue #5: Close file stream on redirect - prevent file handle leak
  *
- * REASONING CHAIN:
- * 1. Detect OS (Windows, Mac, Linux)
- * 2. Download latest release from GitHub
- * 3. Install VS Code extension (.vsix)
- * 4. Install desktop app (.exe/.app) if available
- * 5. Install Cursor extension if Cursor detected
- * 6. Result: Complete setup with one command
+ * WHY: Users were getting "file is being used by another process" errors
+ * when running 'aetherlight' CLI installer on Windows.
  *
  * USAGE:
  *   npm install -g @aetherlight/lumina
@@ -65,14 +64,18 @@ function downloadFile(url, dest) {
     const file = fs.createWriteStream(dest);
 
     https.get(url, { headers: { 'User-Agent': 'aetherlight-installer' } }, (response) => {
-      // Handle redirects
+      // FIX: Issue #5 - Close file stream on redirect
       if (response.statusCode === 302 || response.statusCode === 301) {
-        downloadFile(response.headers.location, dest).then(resolve).catch(reject);
+        file.close(() => {
+          downloadFile(response.headers.location, dest).then(resolve).catch(reject);
+        });
         return;
       }
 
       if (response.statusCode !== 200) {
-        reject(new Error(`Failed to download: HTTP ${response.statusCode}`));
+        file.close(() => {
+          reject(new Error(`Failed to download: HTTP ${response.statusCode}`));
+        });
         return;
       }
 
@@ -88,13 +91,25 @@ function downloadFile(url, dest) {
       response.pipe(file);
 
       file.on('finish', () => {
-        file.close();
-        process.stdout.write('\n');
-        resolve();
+        // FIX: Issue #1 - Wait for file handle to actually close
+        file.close((err) => {
+          if (err) {
+            reject(err);
+          } else {
+            process.stdout.write('\n');
+
+            // Give antivirus 1 second to scan
+            setTimeout(() => {
+              resolve();
+            }, 1000);
+          }
+        });
       });
     }).on('error', (err) => {
-      fs.unlinkSync(dest);
-      reject(err);
+      file.close(() => {
+        fs.unlinkSync(dest);
+        reject(err);
+      });
     });
   });
 }
@@ -179,38 +194,51 @@ function installCursorExtension(vsixPath) {
   }
 }
 
+// FIX: Issue #3 + #4 - Windows path handling + retry logic
+function launchInstaller(filePath, maxRetries = 3) {
+  // Convert to Windows-style path
+  const windowsPath = filePath.replace(/\//g, '\\');
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      log(`   Launching installer (attempt ${attempt}/${maxRetries})...`, 'blue');
+      execSync(`start "" "${windowsPath}"`, {
+        stdio: 'inherit',
+        shell: 'cmd.exe'
+      });
+      return true;
+    } catch (err) {
+      // FIX: Issue #4 - Detect antivirus lock
+      if (err.message.includes('being used by another process')) {
+        if (attempt < maxRetries) {
+          log('   ⚠️  Installer file is locked (antivirus scanning)', 'yellow');
+          log(`   Retrying in 3 seconds...`, 'yellow');
+          execSync('timeout /t 3 /nobreak > nul', { stdio: 'ignore' });
+        } else {
+          log('   ❌ Installer still locked after retries', 'red');
+          log('   Try running installer manually from:', 'yellow');
+          log(`   ${filePath}`, 'yellow');
+          return false;
+        }
+      } else {
+        throw err;
+      }
+    }
+  }
+  return false;
+}
+
 async function installDesktopApp(filePath, osType) {
   log('\n🖥️  Installing Desktop app...', 'blue');
 
   try {
     if (osType === 'windows') {
-      // Wait longer for Windows Defender scan and file system to settle
-      // BUG-020: 3 seconds was insufficient, increased to 10 seconds
-      log('   Waiting for Windows Defender scan (10 seconds)...', 'blue');
-      await new Promise(resolve => setTimeout(resolve, 10000));
-
-      // Try launching with retry mechanism (up to 3 attempts)
-      // BUG-020: File may still be locked by antivirus, retry with backoff
-      log('   Launching Windows installer...', 'blue');
-      let attempts = 0;
-      const maxAttempts = 3;
-
-      while (attempts < maxAttempts) {
-        try {
-          execSync(`start "" "${filePath}"`, { stdio: 'inherit' });
-          log('   Installer launched successfully! Follow prompts to complete setup.', 'green');
-          return true;
-        } catch (err) {
-          attempts++;
-          if (attempts < maxAttempts) {
-            log(`   File still locked, retry ${attempts}/${maxAttempts} in 5 seconds...`, 'yellow');
-            await new Promise(resolve => setTimeout(resolve, 5000));
-          } else {
-            // Final attempt failed
-            throw err;
-          }
-        }
+      // FIX: Use new launch function with retry logic
+      const success = launchInstaller(filePath);
+      if (success) {
+        log('   Follow installer prompts to complete setup.', 'yellow');
       }
+      return success;
     } else if (osType === 'mac') {
       // Install Mac app to /Applications
       const appName = path.basename(filePath);
@@ -292,10 +320,9 @@ async function main() {
   log('\n🧹 Cleaning up temporary files...', 'blue');
   try {
     fs.unlinkSync(vsixPath);
-    // Don't delete Windows installer - it may still be in use by Windows Installer service
-    if (desktopPath && osType !== 'windows') {
-      fs.unlinkSync(desktopPath);
-    }
+    // FIX: Issue #2 - DON'T delete desktop installer
+    // Windows installer process still needs it
+    // It will clean up temp files itself
   } catch (err) {
     // Ignore cleanup errors
   }
