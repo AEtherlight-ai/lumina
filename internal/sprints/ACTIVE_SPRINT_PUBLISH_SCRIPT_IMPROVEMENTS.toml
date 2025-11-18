@@ -1,0 +1,703 @@
+# ÆtherLight Sprint: Publish Script Process Improvements
+# Version: 0.17.13 (next release after v0.17.12)
+# Created: 2025-11-17
+# Status: Active
+
+[metadata]
+version = "0.17.13"
+sprint_number = "PUBLISH-SCRIPT"
+start_date = "2025-11-17"
+target_completion = "2025-11-18"
+status = "active"
+
+[metadata.focus]
+primary = "Fix publish script architectural flaws discovered during v0.17.12 release"
+secondary = "Make publish process resilient to failures and resume-friendly"
+tertiary = "Prevent manual workarounds by improving automation"
+
+[metadata.context]
+incident_date = "2025-11-17"
+incident_version = "v0.17.12"
+incident_summary = """
+During v0.17.12 release, the automated publish script failed at Step 2 (uncommitted changes).
+Instead of fixing and retrying the script, we manually completed all 7 publishing steps.
+This violates Pattern-PUBLISH-002 and took 4+ hours with multiple issues:
+- Version bumped early → Dirty state on build failure
+- Desktop build took 20+ minutes → Had to rebuild multiple times
+- No resume capability → Started from scratch each time
+- Manual steps error-prone → Missed publishing main `aetherlight` package initially
+Total time wasted: 4+ hours (should have been 30 minutes with working automation)
+"""
+
+[metadata.issues_discovered]
+issue_1 = "Version bump timing: Bumps before build, leaves dirty state on failure"
+issue_2 = "No resume capability: Can't pick up where it left off after fixes"
+issue_3 = "Fails fast on uncommitted changes: Doesn't offer to commit automatically"
+issue_4 = "Unnecessary rebuilds: Rebuilds even when binaries exist and are up-to-date"
+issue_5 = "Package bloat: .vscodeignore doesn't exclude test data (16+ MB wasted)"
+issue_6 = "No rollback: If npm publish fails midway, no way to rollback git tag/release"
+
+[metadata.user_insights]
+version_bump_timing = """
+User observation: 'should we do it once everything is correct and right before we
+publish to github and then to npm that way if there is issues we can fix them before bumping'
+
+This is CORRECT. Current flow:
+1. Bump version (0.17.11 → 0.17.12)
+2. Build (with new version in binaries)
+3. If build fails → Working directory dirty (version already bumped)
+
+Better flow:
+1. Build with CURRENT version (0.17.11)
+2. Only bump version when everything succeeds
+3. Rename binaries (Lumina_0.17.11 → Lumina_0.17.12)
+4. If anything fails before step 2 → Clean state, easy retry
+"""
+
+# ==============================================================================
+# FEATURE TASKS (Publish Script Improvements)
+# ==============================================================================
+
+[tasks.PUBLISH-001]
+id = "PUBLISH-001"
+name = "Defer version bump until after successful build"
+status = "pending"
+phase = "architecture"
+agent = "infrastructure-agent"
+
+description = """
+CRITICAL ARCHITECTURAL FLAW: Version bump happens at line 177-181 (Step 3),
+before desktop build (Step 5.5). If build fails, package.json files show 0.17.12
+but nothing published → dirty state, confusing retry.
+
+User's insight: Bump version AFTER everything succeeds, not before.
+"""
+
+why = """
+Current flow leaves dirty state on failure:
+- package.json files: 0.17.12
+- Git working directory: Modified
+- Binaries: Not built or failed
+- Next retry: Would bump to 0.17.13 (WRONG!)
+
+Historical incident (v0.17.12):
+- Script failed at Step 2 (uncommitted changes)
+- Version already bumped to 0.17.12
+- Had to manually complete all steps
+- Confusion about whether 0.17.12 was published
+"""
+
+context = """
+Current version bump location: scripts/publish-release.js:177-181
+
+Current flow:
+Step 1: Verify npm auth
+Step 2: Verify git workflow
+Step 3: Bump version (package.json files → 0.17.12)  ← TOO EARLY
+Step 4: Build VS Code extension
+Step 5: Compile TypeScript
+Step 5.5: Build desktop binaries (20+ minutes)
+Step 6: Verify .vsix package
+Step 7: Pre-publish validation
+Step 8: Summary and confirmation
+Step 9: Commit and tag
+Step 10: Push to GitHub
+Step 11: Create GitHub release
+Step 15: Publish to npm
+
+If failure at Step 5.5 → Version already bumped (dirty state)
+"""
+
+reasoning_chain = [
+  "1. User requests patch release (0.17.11 → 0.17.12)",
+  "2. Script builds everything with CURRENT version (0.17.11)",
+  "3. Desktop binaries: Lumina_0.17.11_x64-setup.exe",
+  "4. VS Code extension: aetherlight-0.17.11.vsix",
+  "5. All builds succeed → Ready to publish",
+  "6. NOW bump version (0.17.11 → 0.17.12)",
+  "7. Rename binaries: Lumina_0.17.11 → Lumina_0.17.12",
+  "8. Repackage .vsix with new version",
+  "9. Commit version bump + push to GitHub",
+  "10. Create GitHub release + publish to npm",
+  "BENEFIT: If step 2-5 fail → Working directory clean (no version bump happened)"
+]
+
+estimated_time = "3-4 hours"
+estimated_lines = 200
+
+files_to_modify = [
+  "scripts/publish-release.js (lines 177-181 - move version bump to end)",
+  "scripts/publish-release.js (lines 288-328 - build with current version)",
+  "scripts/publish-release.js (lines 468-474 - bump version after build succeeds)"
+]
+
+deliverables = [
+  "Version bump moved from Step 3 to Step 8.5 (after build, before commit)",
+  "Build uses CURRENT version from package.json",
+  "Binary rename function implemented (Lumina_X.Y.Z-1 → Lumina_X.Y.Z)",
+  ".vsix repackaging with new version",
+  "Validation: Retry after build failure leaves clean state"
+]
+
+validation_criteria = [
+  "Test: Fail desktop build → Check package.json still shows old version",
+  "Test: Succeed build → Check version bumped only after success",
+  "Test: Binaries named correctly before and after rename",
+  "Test: .vsix contains correct version after repackaging",
+  "Verify: No version confusion on retry"
+]
+
+error_handling = """
+- If build fails before version bump → No rollback needed (clean state)
+- If version bump succeeds but git commit fails → Rollback package.json files
+- If binary rename fails → Abort (don't commit/publish with wrong names)
+- Always preserve original binaries as backup before rename
+"""
+
+patterns = ["Pattern-PUBLISH-001", "Pattern-PUBLISH-002"]
+dependencies = []
+
+[tasks.PUBLISH-002]
+id = "PUBLISH-002"
+name = "Add resume capability (checkpoint system)"
+status = "pending"
+phase = "reliability"
+agent = "infrastructure-agent"
+
+description = """
+Script has no resume capability. If it fails at Step 5 (desktop build),
+you must start from Step 1 again. With 20+ minute builds, this wastes hours.
+
+Add checkpoint system: Save progress after each major step, allow resume from checkpoint.
+"""
+
+why = """
+Historical incident (v0.17.12):
+- Script failed at Step 2 (uncommitted changes)
+- Fixed uncommitted changes manually
+- Ran script again → Started from Step 1 (re-verified npm auth, git workflow, etc.)
+- Desktop build takes 20+ minutes
+- Build failed again (locked file)
+- Had to start from Step 1 AGAIN
+Total retries: 5+ times, always starting from Step 1
+Total time wasted: 2+ hours of redundant checks
+"""
+
+context = """
+Checkpoint system design:
+1. After each major step, save checkpoint to .release-checkpoint.json
+2. On script start, check if checkpoint exists
+3. If exists, offer to resume from last checkpoint
+4. Checkpoints: npm auth ✓, git workflow ✓, extension build ✓, desktop build ✓, etc.
+
+Example checkpoint file:
+{
+  "version": "0.17.12",
+  "startTime": "2025-11-17T14:00:00Z",
+  "lastCheckpoint": "desktop-build-complete",
+  "completedSteps": ["npm-auth", "git-workflow", "extension-build", "desktop-build"],
+  "nextStep": "github-release"
+}
+"""
+
+reasoning_chain = [
+  "1. Script fails at Step 5 (desktop build - 20 minutes wasted)",
+  "2. User fixes issue (removes locked file)",
+  "3. Run script again with --resume flag",
+  "4. Script reads checkpoint: 'desktop-build-complete'",
+  "5. Skips Steps 1-5 (already done)",
+  "6. Continues from Step 6 (verify .vsix package)",
+  "7. Completes in 5 minutes instead of 25 minutes",
+  "BENEFIT: Saves 20 minutes on every retry"
+]
+
+estimated_time = "2-3 hours"
+estimated_lines = 150
+
+files_to_modify = [
+  "scripts/publish-release.js (add checkpoint save/load functions)",
+  "scripts/publish-release.js (add --resume flag support)",
+  "scripts/publish-release.js (wrap each step with checkpoint save)"
+]
+
+files_to_create = [
+  ".release-checkpoint.json (created automatically by script, git-ignored)"
+]
+
+deliverables = [
+  "Checkpoint save/load functions implemented",
+  "--resume flag support added",
+  "Each major step saves checkpoint after completion",
+  "Script offers resume if checkpoint exists",
+  "Cleanup checkpoint on successful completion"
+]
+
+validation_criteria = [
+  "Test: Fail at desktop build → Checkpoint saved",
+  "Test: Resume from checkpoint → Skips completed steps",
+  "Test: Complete successfully → Checkpoint cleaned up",
+  "Verify: Checkpoint file git-ignored (.gitignore entry)"
+]
+
+error_handling = """
+- If checkpoint corrupted → Warn user, offer fresh start
+- If checkpoint too old (>24 hours) → Warn user (stale state)
+- If version in checkpoint doesn't match current → Abort (version confusion)
+- If script completes successfully → Delete checkpoint file
+"""
+
+patterns = ["Pattern-PUBLISH-001"]
+dependencies = []
+
+[tasks.PUBLISH-003]
+id = "PUBLISH-003"
+name = "Handle uncommitted changes gracefully"
+status = "pending"
+phase = "user-experience"
+agent = "infrastructure-agent"
+
+description = """
+Script fails fast on uncommitted changes (Step 2). Doesn't offer to commit automatically.
+During v0.17.12, we had sprint validation fixes pending → Script aborted, forced manual commit.
+
+Improve: Detect uncommitted changes, show diff, offer to commit with auto-generated message.
+"""
+
+why = """
+Historical incident (v0.17.12):
+- Sprint validation errors (19 errors) required fixes
+- Fixed all errors, ready to publish
+- Ran publish script → Aborted: 'uncommitted changes'
+- Had to manually: git add, git commit -m '...', re-run script
+- Script started from Step 1 again (no resume)
+Total extra steps: 3 manual git commands + full script restart
+"""
+
+context = """
+Current behavior (scripts/publish-release.js:93-98):
+if (uncommittedChanges) {
+  log('✗ Git working directory has uncommitted changes', 'red');
+  log('Commit or stash your changes before publishing', 'yellow');
+  process.exit(1);  // FAILS FAST - NO RECOVERY OPTION
+}
+
+Better behavior:
+1. Detect uncommitted changes
+2. Show git diff (preview changes)
+3. Offer options:
+   a. Auto-commit with message 'chore: pre-release fixes'
+   b. Let user commit manually (pause script)
+   c. Abort (current behavior)
+4. If auto-commit → Continue from current step
+"""
+
+estimated_time = "1-2 hours"
+estimated_lines = 100
+
+files_to_modify = [
+  "scripts/publish-release.js (lines 93-98 - replace fast fail with interactive prompt)"
+]
+
+deliverables = [
+  "Uncommitted changes detection (existing)",
+  "Show git diff preview",
+  "Interactive prompt: Auto-commit / Manual commit / Abort",
+  "Auto-commit uses message: 'chore: pre-release fixes'",
+  "Script continues after commit (doesn't restart)"
+]
+
+validation_criteria = [
+  "Test: Uncommitted changes → Shows diff",
+  "Test: Choose auto-commit → Commits and continues",
+  "Test: Choose manual commit → Pauses, waits for user commit",
+  "Test: Choose abort → Exits cleanly",
+  "Verify: Auto-commit message follows conventional commits"
+]
+
+error_handling = """
+- If git commit fails → Show error, offer retry or abort
+- If user chooses manual commit but doesn't commit → Timeout after 5 minutes
+- If diff too large (>1000 lines) → Warn user, recommend manual review
+"""
+
+patterns = ["Pattern-GIT-001"]
+dependencies = []
+
+[tasks.PUBLISH-004]
+id = "PUBLISH-004"
+name = "Fix .vscodeignore to exclude test data"
+status = "pending"
+phase = "package-optimization"
+agent = "infrastructure-agent"
+
+description = """
+During npm publish of aetherlight@0.17.12, package included 16+ MB of test data:
+- .vscode-test-user-data/ (16 MB cache, logs, etc.)
+- .vscode-test-workspace/
+- .vscode-test-extensions/
+
+These should be excluded via .vscodeignore. Currently missing entries.
+"""
+
+why = """
+Historical incident (v0.17.12 npm publish):
+Package size: 63.4 MB (should be ~10 MB)
+Bloat: 16+ MB of test data included
+Impact: Slower npm install, wasted bandwidth, unprofessional
+
+npm notice output showed hundreds of test files:
+- .vscode-test-user-data/Cache/Cache_Data/data_0 (45.1 KB)
+- .vscode-test-user-data/logs/20251116T181343/window1/renderer.log (3.4 KB)
+- ... (200+ test files)
+"""
+
+context = """
+Current .vscodeignore (vscode-lumina/.vscodeignore):
+Likely missing entries:
+- .vscode-test-user-data/
+- .vscode-test-workspace/
+- .vscode-test-extensions/
+- *.log
+- out/test/ (compiled test files)
+
+VS Code packaging: vsce package reads .vscodeignore and excludes matching files.
+npm packaging: Uses .npmignore OR files field in package.json (currently using files field)
+
+Issue: package.json "files" field may be too broad, or .vscodeignore not respected by npm.
+"""
+
+estimated_time = "30 minutes"
+estimated_lines = 20
+
+files_to_modify = [
+  "vscode-lumina/.vscodeignore (add test data exclusions)",
+  "vscode-lumina/.npmignore (create if needed)",
+  "vscode-lumina/package.json (review files field)"
+]
+
+deliverables = [
+  ".vscodeignore updated with test data exclusions",
+  "Package size reduced from 63 MB to ~10 MB",
+  "Verify .vsix and npm tarball exclude test data",
+  "Documentation: Why each exclusion is needed"
+]
+
+validation_criteria = [
+  "Test: vsce package → Check .vsix size < 50 MB",
+  "Test: npm pack → Check tarball size < 15 MB",
+  "Verify: No .vscode-test-* directories in package",
+  "Verify: No *.log files in package"
+]
+
+error_handling = """
+- If .vscodeignore doesn't work for npm → Create .npmignore
+- If package still bloated → Review package.json files field
+- Always test with: npm pack --dry-run (shows what will be included)
+"""
+
+patterns = ["Pattern-PUBLISH-004"]
+dependencies = []
+
+[tasks.PUBLISH-005]
+id = "PUBLISH-005"
+name = "Add rollback capability"
+status = "pending"
+phase = "reliability"
+agent = "infrastructure-agent"
+
+description = """
+If npm publish fails midway (e.g., aetherlight-sdk succeeds, but aetherlight fails),
+there's no rollback mechanism. Git tag and GitHub release already created.
+
+Add rollback: If npm publish fails, offer to delete git tag + GitHub release.
+"""
+
+why = """
+Publishing is a 7-step process:
+1. Build .vsix + desktop binaries ✓
+2. Bump version ✓
+3. Commit version bump ✓
+4. Create git tag ✓
+5. Push to GitHub ✓
+6. Create GitHub release ✓
+7. Publish to npm ← If this fails, steps 4-6 are orphaned
+
+Historical risk (hasn't happened yet, but could):
+- Git tag v0.17.12 exists
+- GitHub release v0.17.12 exists with .vsix
+- npm publish fails (network error, auth issue)
+- Result: v0.17.12 "released" on GitHub but NOT on npm
+- Users confused: Version exists but not installable via npm
+"""
+
+context = """
+Rollback strategy:
+1. If npm publish fails for ANY package:
+   a. Detect failure immediately
+   b. Offer rollback prompt: 'Delete git tag + GitHub release? (yes/no)'
+   c. If yes:
+      - Delete git tag: git tag -d v0.17.12 && git push origin :refs/tags/v0.17.12
+      - Delete GitHub release: gh release delete v0.17.12 --yes
+      - Reset version bump: git reset --hard HEAD~1
+   d. Exit with error message
+2. User can fix issue (auth, network) and retry from clean state
+"""
+
+estimated_time = "1-2 hours"
+estimated_lines = 100
+
+files_to_modify = [
+  "scripts/publish-release.js (lines 641-668 - wrap npm publish in try-catch with rollback)"
+]
+
+deliverables = [
+  "npm publish wrapped in try-catch",
+  "Rollback prompt on npm publish failure",
+  "Rollback deletes: git tag, GitHub release, version bump commit",
+  "Clear error message: 'npm publish failed, rolled back to clean state'",
+  "Validation: Retry after rollback works correctly"
+]
+
+validation_criteria = [
+  "Test: Fail npm publish → Rollback offered",
+  "Test: Accept rollback → Git tag deleted",
+  "Test: Accept rollback → GitHub release deleted",
+  "Test: Accept rollback → Version bump commit undone",
+  "Test: Retry after rollback → Works correctly"
+]
+
+error_handling = """
+- If git tag delete fails → Warn user, continue with GitHub release delete
+- If GitHub release delete fails → Warn user, provide manual command
+- If version bump reset fails → Abort (don't publish in dirty state)
+- Always log rollback actions for debugging
+"""
+
+patterns = ["Pattern-PUBLISH-001"]
+dependencies = []
+
+# ==============================================================================
+# TEMPLATE TASKS (Automatically injected - 14 required + 2 retrospective)
+# ==============================================================================
+
+[tasks.DOC-001]
+id = "DOC-001"
+name = "Update CHANGELOG.md with sprint changes"
+phase = "documentation"
+status = "pending"
+agent = "documentation-agent"
+estimated_time = "30 minutes"
+dependencies = []
+deliverables = [
+  "CHANGELOG.md updated with v0.17.13 section",
+  "All publish script improvements documented",
+  "Breaking changes clearly marked (if any)"
+]
+
+[tasks.DOC-002]
+id = "DOC-002"
+name = "Update README.md if user-facing changes"
+phase = "documentation"
+status = "pending"
+agent = "documentation-agent"
+estimated_time = "15 minutes"
+dependencies = []
+deliverables = [
+  "README.md updated if publish script changes affect users",
+  "Skip if no user-facing changes (script is internal)"
+]
+
+[tasks.DOC-003]
+id = "DOC-003"
+name = "Extract reusable patterns to docs/patterns/"
+phase = "documentation"
+status = "pending"
+agent = "documentation-agent"
+estimated_time = "1-2 hours"
+dependencies = []
+deliverables = [
+  "Pattern-PUBLISH-006: Defer State Changes Until Success",
+  "Pattern-PUBLISH-007: Checkpoint-Based Resumability",
+  "Pattern-PUBLISH-008: Graceful Failure Handling with Rollback"
+]
+
+[tasks.DOC-004]
+id = "DOC-004"
+name = "Update CLAUDE.md if workflow changes"
+phase = "documentation"
+status = "pending"
+agent = "documentation-agent"
+estimated_time = "30 minutes"
+dependencies = ["DOC-003"]
+deliverables = [
+  "CLAUDE.md updated with new publish script capabilities",
+  "Pre-flight checklist updated if needed"
+]
+
+[tasks.DOC-005]
+id = "DOC-005"
+name = "Refactor documentation for context optimization"
+phase = "documentation"
+status = "pending"
+agent = "documentation-agent"
+estimated_time = "1 hour"
+dependencies = ["DOC-003", "DOC-004"]
+deliverables = [
+  "scripts/publish-release.js comments optimized (remove verbose explanations)",
+  "Extract detailed publishing docs to Pattern-PUBLISH-* files"
+]
+
+[tasks.QA-001]
+id = "QA-001"
+name = "Run ripple analysis for breaking changes"
+phase = "quality-assurance"
+status = "pending"
+agent = "testing-agent"
+estimated_time = "30 minutes"
+dependencies = []
+deliverables = [
+  "Ripple analysis: Does version bump timing affect other scripts?",
+  "Breaking changes documented if any"
+]
+
+[tasks.QA-002]
+id = "QA-002"
+name = "Verify test coverage meets targets"
+phase = "quality-assurance"
+status = "pending"
+agent = "testing-agent"
+estimated_time = "2 hours"
+dependencies = []
+deliverables = [
+  "Unit tests for checkpoint save/load",
+  "Unit tests for binary rename",
+  "Unit tests for rollback",
+  "Integration test: Full publish cycle with retry"
+]
+
+[tasks.QA-003]
+id = "QA-003"
+name = "Run dependency audit for vulnerabilities"
+phase = "quality-assurance"
+status = "pending"
+agent = "infrastructure-agent"
+estimated_time = "30 minutes"
+dependencies = []
+deliverables = [
+  "npm audit run on all packages",
+  "No critical/high vulnerabilities"
+]
+
+[tasks.QA-004]
+id = "QA-004"
+name = "Validate TypeScript compilation (zero errors)"
+phase = "quality-assurance"
+status = "pending"
+agent = "infrastructure-agent"
+estimated_time = "15 minutes"
+dependencies = []
+deliverables = [
+  "TypeScript compiles with zero errors",
+  "No type suppressions"
+]
+
+[tasks.AGENT-001]
+id = "AGENT-001"
+name = "Update agent context files with learnings"
+phase = "agent-sync"
+status = "pending"
+agent = "documentation-agent"
+estimated_time = "30 minutes"
+dependencies = ["DOC-003"]
+deliverables = [
+  "infrastructure-agent-context.md updated with publish script learnings",
+  "Pitfall added: 'Don't bump version before build succeeds'"
+]
+
+[tasks.AGENT-002]
+id = "AGENT-002"
+name = "Update KNOWN_ISSUES.md with pitfalls"
+phase = "agent-sync"
+status = "pending"
+agent = "documentation-agent"
+estimated_time = "30 minutes"
+dependencies = []
+deliverables = [
+  "KNOWN_ISSUES.md updated with v0.17.12 incident",
+  "Prevention: Use improved publish script with resume/rollback"
+]
+
+[tasks.INFRA-001]
+id = "INFRA-001"
+name = "Verify git hooks functioning"
+phase = "infrastructure"
+status = "pending"
+agent = "infrastructure-agent"
+estimated_time = "15 minutes"
+dependencies = []
+deliverables = [
+  "Pre-commit hooks tested and working",
+  "Sprint validation hook blocked invalid commits"
+]
+
+[tasks.INFRA-002]
+id = "INFRA-002"
+name = "Run sprint schema validation script"
+phase = "infrastructure"
+status = "pending"
+agent = "infrastructure-agent"
+estimated_time = "15 minutes"
+dependencies = []
+deliverables = [
+  "Sprint validation script run successfully",
+  "This sprint file validates with zero errors"
+]
+
+[tasks.CONFIG-001]
+id = "CONFIG-001"
+name = "Validate settings schema if changed"
+phase = "infrastructure"
+status = "pending"
+agent = "infrastructure-agent"
+estimated_time = "15 minutes"
+dependencies = []
+deliverables = [
+  "No settings changes this sprint",
+  "Skip this task"
+]
+
+[tasks.RETRO-001]
+id = "RETRO-001"
+name = "Sprint retrospective"
+phase = "retrospective"
+status = "pending"
+agent = "documentation-agent"
+estimated_time = "1 hour"
+dependencies = []
+deliverables = [
+  "Sprint retrospective document created",
+  "What went well: User caught architectural flaw before it got worse",
+  "What didn't go well: Took 4+ hours to manually publish v0.17.12",
+  "Improvements: Automated script now resilient to failures"
+]
+
+[tasks.RETRO-002]
+id = "RETRO-002"
+name = "Extract patterns from sprint learnings"
+phase = "retrospective"
+status = "pending"
+agent = "documentation-agent"
+estimated_time = "1 hour"
+dependencies = ["RETRO-001"]
+deliverables = [
+  "Pattern-PUBLISH-006 extracted (defer state changes)",
+  "Pattern-PUBLISH-007 extracted (checkpoint resumability)",
+  "Pattern-PUBLISH-008 extracted (graceful rollback)"
+]
+
+[progress]
+total_tasks = 21
+completed_tasks = 0
+in_progress_tasks = 0
+pending_tasks = 21
+completion_percentage = 0

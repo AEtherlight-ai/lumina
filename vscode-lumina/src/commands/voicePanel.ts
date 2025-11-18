@@ -24,6 +24,7 @@ import { GeneralContextBuilder } from '../services/enhancement/GeneralContextBui
 import { TaskContextBuilder } from '../services/enhancement/TaskContextBuilder'; // ENHANCE-001.3: Task context builder (TOML, dependencies, temporal drift)
 import { CodeAnalyzerContextBuilder } from '../services/enhancement/CodeAnalyzerContextBuilder'; // ENHANCE-001.3: Code analyzer context builder (workspace analysis, git history, complexity)
 import { SprintPlannerContextBuilder } from '../services/enhancement/SprintPlannerContextBuilder'; // ENHANCE-001.4: Sprint planner context builder (5-component orchestration)
+import { PromptTerminalManager } from '../services/PromptTerminalManager'; // PROMPT-TERM-001: Dedicated terminal for prompt enhancement
 
 /**
  * @protected - Partial protection for passing sections only
@@ -768,34 +769,41 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
              * WHY: Generate comprehensive task prompt with current project state
              * FLOW: Find next task → Generate AI-enhanced prompt → Insert into Voice text area → User reviews + sends to terminal
              */
-            case 'startNextTask':
-                /**
-                 * ENHANCE-001.3: Start Next Task with v3.0 Context Builder
-                 * WHY: Use TaskContextBuilder → handleEnhancement() → AIEnhancementService
-                 * PATTERN: Next Task → TaskContextBuilder → EnhancementContext → Universal Handler → Enhanced Prompt
-                 * ARCHITECTURE: v3.0 (dependency-aware task selection, comprehensive validation)
-                 */
-                {
-                    const nextTask = this.taskStarter.findNextReadyTask(this.sprintTasks);
-                    if (!nextTask) {
-                        vscode.window.showWarningMessage('No ready tasks available. All tasks are either completed, in progress, or blocked by dependencies.');
-                        break;
-                    }
-
-                    try {
-                        const taskBuilder = new TaskContextBuilder(this._context);
-                        await this.handleEnhancement(
-                            'start_task',
-                            { taskId: nextTask.id },
-                            taskBuilder,
-                            webview
-                        );
-                    } catch (error) {
-                        console.error('[ÆtherLight] Start next task enhancement failed:', error);
-                        vscode.window.showErrorMessage(`Failed to start next task: ${(error as Error).message}`);
-                    }
-                }
-                break;
+            // ==================================================================================
+            // REMOVED: Start Next Task button removed per user request (2025-11-17)
+            // REASON: Simplified workflow - users manually select tasks from sprint panel
+            // UI CHANGE: Button removed from sprint header (next to file selector)
+            // ALTERNATIVE: Users click individual task "Start" buttons instead
+            // ==================================================================================
+            // case 'startNextTask':
+            //     /**
+            //      * ENHANCE-001.3: Start Next Task with v3.0 Context Builder
+            //      * WHY: Use TaskContextBuilder → handleEnhancement() → AIEnhancementService
+            //      * PATTERN: Next Task → TaskContextBuilder → EnhancementContext → Universal Handler → Enhanced Prompt
+            //      * ARCHITECTURE: v3.0 (dependency-aware task selection, comprehensive validation)
+            //      */
+            //     {
+            //         const nextTask = this.taskStarter.findNextReadyTask(this.sprintTasks);
+            //         if (!nextTask) {
+            //             vscode.window.showWarningMessage('No ready tasks available. All tasks are either completed, in progress, or blocked by dependencies.');
+            //             break;
+            //         }
+            //
+            //         try {
+            //             // BUG-018 FIX: Pass sprintLoader to preserve currentSprintPath
+            //             const taskBuilder = new TaskContextBuilder(this._context, this.sprintLoader);
+            //             await this.handleEnhancement(
+            //                 'start_task',
+            //                 { taskId: nextTask.id },
+            //                 taskBuilder,
+            //                 webview
+            //             );
+            //         } catch (error) {
+            //             console.error('[ÆtherLight] Start next task enhancement failed:', error);
+            //             vscode.window.showErrorMessage(`Failed to start next task: ${(error as Error).message}`);
+            //         }
+            //     }
+            //     break;
 
                 // ==================================================================================
                 // DEPRECATED: OLD IMPLEMENTATION (Pre-ENHANCE-001.3)
@@ -842,22 +850,39 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
              */
             case 'startTask':
                 /**
-                 * ENHANCE-001.3: Start Task with v3.0 Context Builder
-                 * WHY: Use TaskContextBuilder → handleEnhancement() → AIEnhancementService
-                 * PATTERN: Task → TaskContextBuilder → EnhancementContext → Universal Handler → Enhanced Prompt
-                 * ARCHITECTURE: v3.0 (TOML loading, dependency validation, temporal drift detection)
+                 * PROMPT-TERM-001: Start Task with Prompt Terminal
+                 * WHY: Simple template → Prompt Terminal → User enhances with Claude Code
+                 * PATTERN: Sprint Panel → Template → Text Area + Prompt Terminal
+                 * ARCHITECTURE: Simplified workflow (pulls task data from sprint TOML)
                  */
                 try {
-                    const taskBuilder = new TaskContextBuilder(this._context);
-                    await this.handleEnhancement(
-                        'start_task',
-                        { taskId: message.taskId },
-                        taskBuilder,
-                        webview
+                    // Find task in sprint
+                    const task = this.sprintTasks.find(t => t.id === message.taskId);
+                    if (!task) {
+                        vscode.window.showErrorMessage(`Task ${message.taskId} not found`);
+                        break;
+                    }
+
+                    // Generate start task template
+                    const taskTemplate = this.generateStartTaskTemplate(task);
+
+                    // Populate text area with template
+                    webview.postMessage({
+                        type: 'populateTextArea',
+                        text: taskTemplate
+                    });
+
+                    // Show Prompt Terminal with instructions
+                    PromptTerminalManager.showPromptTerminal();
+                    PromptTerminalManager.sendWelcomeMessage('start-task');
+
+                    // Notify user
+                    vscode.window.showInformationMessage(
+                        `📋 Task ${task.id} template loaded - Review and press Ctrl+Enter to enhance`
                     );
                 } catch (error) {
-                    console.error('[ÆtherLight] Start task enhancement failed:', error);
-                    vscode.window.showErrorMessage(`Failed to start task: ${(error as Error).message}`);
+                    console.error('[ÆtherLight] Start task generation failed:', error);
+                    vscode.window.showErrorMessage(`Failed to generate start task: ${(error as Error).message}`);
                 }
                 break;
 
@@ -1158,22 +1183,32 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
             case 'enhanceBugReport':
                 /**
-                 * ENHANCE-001.2: Bug Report Enhancement with v3.0 Context Builder
-                 * WHY: Use BugReportContextBuilder → handleEnhancement() → AIEnhancementService
-                 * PATTERN: Form → BugReportContextBuilder → EnhancementContext → Universal Handler → Enhanced Prompt
-                 * ARCHITECTURE: v3.0 (strategy pattern, git history search, file discovery)
+                 * PROMPT-TERM-001: Bug Report with Prompt Terminal
+                 * WHY: Simple template → Prompt Terminal → User enhances with Claude Code
+                 * PATTERN: Form → Template → Text Area + Prompt Terminal
+                 * ARCHITECTURE: Simplified workflow (removed complex AI context builders)
                  */
                 try {
-                    const bugBuilder = new BugReportContextBuilder(this._context);
-                    await this.handleEnhancement(
-                        'bug_report',
-                        message.data,
-                        bugBuilder,
-                        webview
+                    // Generate simple bug report template
+                    const bugTemplate = this.generateBugReportTemplate(message.data);
+
+                    // Populate text area with template
+                    webview.postMessage({
+                        type: 'populateTextArea',
+                        text: bugTemplate
+                    });
+
+                    // Show Prompt Terminal with instructions
+                    PromptTerminalManager.showPromptTerminal();
+                    PromptTerminalManager.sendWelcomeMessage('bug-report');
+
+                    // Notify user
+                    vscode.window.showInformationMessage(
+                        '📋 Bug report template loaded - Review and press Ctrl+Enter to enhance'
                     );
                 } catch (error) {
-                    console.error('[ÆtherLight] Bug report enhancement failed:', error);
-                    vscode.window.showErrorMessage(`Failed to enhance bug report: ${(error as Error).message}`);
+                    console.error('[ÆtherLight] Bug report generation failed:', error);
+                    vscode.window.showErrorMessage(`Failed to generate bug report: ${(error as Error).message}`);
                 }
                 break;
 
@@ -1221,22 +1256,32 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
             case 'enhanceFeatureRequest':
                 /**
-                 * ENHANCE-001.2: Feature Request Enhancement with v3.0 Context Builder
-                 * WHY: Use FeatureRequestContextBuilder → handleEnhancement() → AIEnhancementService
-                 * PATTERN: Form → FeatureRequestContextBuilder → EnhancementContext → Universal Handler → Enhanced Prompt
-                 * ARCHITECTURE: v3.0 (strategy pattern, git history search, use case pattern mapping)
+                 * PROMPT-TERM-001: Feature Request with Prompt Terminal
+                 * WHY: Simple template → Prompt Terminal → User enhances with Claude Code
+                 * PATTERN: Form → Template → Text Area + Prompt Terminal
+                 * ARCHITECTURE: Simplified workflow (removed complex AI context builders)
                  */
                 try {
-                    const featureBuilder = new FeatureRequestContextBuilder(this._context);
-                    await this.handleEnhancement(
-                        'feature_request',
-                        message.data,
-                        featureBuilder,
-                        webview
+                    // Generate feature request template
+                    const featureTemplate = this.generateFeatureRequestTemplate(message.data);
+
+                    // Populate text area with template
+                    webview.postMessage({
+                        type: 'populateTextArea',
+                        text: featureTemplate
+                    });
+
+                    // Show Prompt Terminal with instructions
+                    PromptTerminalManager.showPromptTerminal();
+                    PromptTerminalManager.sendWelcomeMessage('feature-request');
+
+                    // Notify user
+                    vscode.window.showInformationMessage(
+                        '📋 Feature request template loaded - Review and press Ctrl+Enter to enhance'
                     );
                 } catch (error) {
-                    console.error('[ÆtherLight] Feature request enhancement failed:', error);
-                    vscode.window.showErrorMessage(`Failed to enhance feature request: ${(error as Error).message}`);
+                    console.error('[ÆtherLight] Feature request generation failed:', error);
+                    vscode.window.showErrorMessage(`Failed to generate feature request: ${(error as Error).message}`);
                 }
                 break;
 
@@ -1311,22 +1356,32 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
             case 'analyzeCodeEnhance':
                 /**
-                 * ENHANCE-001.3: Code Analyzer with v3.0 Context Builder
-                 * WHY: Use CodeAnalyzerContextBuilder → handleEnhancement() → AIEnhancementService
-                 * PATTERN: Focus Area → CodeAnalyzerContextBuilder → EnhancementContext → Universal Handler → Enhanced Prompt
-                 * ARCHITECTURE: v3.0 (workspace analysis, git history, complexity metrics, semantic pattern search)
+                 * PROMPT-TERM-001: Code Analyzer with Prompt Terminal
+                 * WHY: Simple template → Prompt Terminal → User enhances with Claude Code
+                 * PATTERN: Form → Template → Text Area + Prompt Terminal
+                 * ARCHITECTURE: Simplified workflow (removed complex AI context builders)
                  */
                 try {
-                    const codeAnalyzerBuilder = new CodeAnalyzerContextBuilder(this._context);
-                    await this.handleEnhancement(
-                        'analyze_code',
-                        { focusArea: message.focusArea || 'general' },
-                        codeAnalyzerBuilder,
-                        webview
+                    // Generate code analyzer template
+                    const codeTemplate = this.generateCodeAnalyzerTemplate(message.data);
+
+                    // Populate text area with template
+                    webview.postMessage({
+                        type: 'populateTextArea',
+                        text: codeTemplate
+                    });
+
+                    // Show Prompt Terminal with instructions
+                    PromptTerminalManager.showPromptTerminal();
+                    PromptTerminalManager.sendWelcomeMessage('code-analyzer');
+
+                    // Notify user
+                    vscode.window.showInformationMessage(
+                        '📋 Code analyzer template loaded - Review and press Ctrl+Enter to enhance'
                     );
                 } catch (error) {
-                    console.error('[ÆtherLight] Code analyzer enhancement failed:', error);
-                    vscode.window.showErrorMessage(`Failed to analyze code: ${(error as Error).message}`);
+                    console.error('[ÆtherLight] Code analyzer generation failed:', error);
+                    vscode.window.showErrorMessage(`Failed to generate code analyzer: ${(error as Error).message}`);
                 }
                 break;
 
@@ -1370,32 +1425,32 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
 
             case 'sprintPlannerEnhance':
                 /**
-                 * PROTECT-000F: Sprint Planner Enhancement with MVP-003 Intelligence
-                 * WHY: Generate comprehensive sprint planning prompt using MVP-003 system
-                 * PATTERN: TemplateTaskBuilder → TaskPromptExporter.generateEnhancedPromptFromTemplate() → Gap detection + Q&A → Enhanced prompt
-                 * UPGRADE: Was basic PromptEnhancer → Now full MVP-003 (27 normalized tasks, gap detection, Pattern-SPRINT-PLAN-001)
+                 * PROMPT-TERM-001: Sprint Planner with Prompt Terminal
+                 * WHY: Simple template → Prompt Terminal → User enhances with Claude Code
+                 * PATTERN: Form → Template → Text Area + Prompt Terminal
+                 * ARCHITECTURE: Simplified workflow (removed complex AI context builders)
                  */
                 try {
-                    // Detect languages and frameworks from workspace
-                    const languages = ['TypeScript']; // TODO: Use DiscoveryService
-                    const frameworks = ['VS Code']; // TODO: Use DiscoveryService
+                    // Generate sprint planner template
+                    const sprintTemplate = this.generateSprintPlannerTemplate(message.data);
 
-                    // Build template task using TemplateTaskBuilder
-                    const sprintPlannerTemplate = this.templateTaskBuilder.buildSprintPlannerTemplate(languages, frameworks);
-
-                    // Generate enhanced prompt using MVP-003 system
-                    const enhancedPrompt = await this.taskPromptExporter.generateEnhancedPromptFromTemplate(sprintPlannerTemplate);
-
-                    // Send to webview to populate main text area
+                    // Populate text area with template
                     webview.postMessage({
                         type: 'populateTextArea',
-                        text: enhancedPrompt
+                        text: sprintTemplate
                     });
 
-                    vscode.window.showInformationMessage('✨ Sprint planning prompt enhanced (MVP-003) - review in text area and click Send');
+                    // Show Prompt Terminal with instructions
+                    PromptTerminalManager.showPromptTerminal();
+                    PromptTerminalManager.sendWelcomeMessage('sprint-planner');
+
+                    // Notify user
+                    vscode.window.showInformationMessage(
+                        '📋 Sprint planner template loaded - Review and press Ctrl+Enter to enhance'
+                    );
                 } catch (error) {
-                    console.error('[ÆtherLight] Sprint planner enhancement failed:', error);
-                    vscode.window.showErrorMessage(`Failed to enhance sprint planner: ${(error as Error).message}`);
+                    console.error('[ÆtherLight] Sprint planner generation failed:', error);
+                    vscode.window.showErrorMessage(`Failed to generate sprint planner: ${(error as Error).message}`);
                 }
                 break;
 
@@ -1900,11 +1955,6 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
         // DEBUG-004: Load available sprint files into dropdown
         window.loadAvailableSprints = function() {
             vscode.postMessage({ type: 'getAvailableSprints' });
-        };
-
-        // REFACTOR-000-UI: Start Next Task (smart task selection)
-        window.startNextTask = function() {
-            vscode.postMessage({ type: 'startNextTask' });
         };
 
         // UNLINK-001: Toggle panel link state
@@ -2679,9 +2729,6 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 <select id="sprintFileDropdown" class="sprint-file-dropdown" title="Select sprint file to view" onchange="switchSprint(this.value)">
                     <option>Loading sprint files...</option>
                 </select>
-                <button class="icon-btn" onclick="startNextTask()" title="Start the next ready task (with all dependencies met)">
-                    ▶️
-                </button>
                 <div class="sprint-header-actions">
                     <button class="icon-btn" onclick="reloadSprint()" title="Refresh Sprint Data">
                         🔄
@@ -5680,6 +5727,463 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
     private isPanelLinked(panel: vscode.WebviewPanel): boolean {
         // If panel not in Map → default to linked (backward compatible)
         return this.panelLinkStates.get(panel) ?? true;
+    }
+
+    /**
+     * PROMPT-TERM-001: Generate Bug Report Template
+     * WHY: Simple, structured template for bug reports
+     * PATTERN: Similar to existing template generation, but simplified
+     */
+    private generateBugReportTemplate(data: any): string {
+        const timestamp = new Date().toISOString();
+        const fileName = `bug-report_enhanced_${Date.now()}.md`;
+
+        return `# Bug Report: ${data.title}
+
+**Severity**: ${data.severity || 'Not specified'}
+**Component**: ${data.component || 'Not specified'}
+**Reported**: ${timestamp}
+
+## Description
+
+${data.description || 'No description provided'}
+
+## Steps to Reproduce
+
+${data.stepsToReproduce || 'Not provided'}
+
+## Expected Behavior
+
+${data.expectedBehavior || 'Not provided'}
+
+## Actual Behavior
+
+${data.actualBehavior || 'Not provided'}
+
+## Additional Context
+
+${data.context || 'No additional context'}
+
+---
+
+## Investigation Steps
+
+1. [ ] Read the error message and stack trace
+2. [ ] Check recent changes (\`git log\` for related commits)
+3. [ ] Add logging to narrow down the issue
+4. [ ] Identify root cause
+5. [ ] Write a failing test that reproduces the bug
+6. [ ] Fix the bug
+7. [ ] Verify the test passes
+8. [ ] Check for similar bugs elsewhere in codebase
+
+## Testing Checklist
+
+- [ ] Unit tests added for the fix
+- [ ] Integration tests pass
+- [ ] Manual testing completed
+- [ ] Edge cases considered
+- [ ] Regression testing done
+
+## Patterns to Apply
+
+- **Pattern-TDD-001**: Write test first to reproduce bug
+- **Pattern-BUG-FIX-001**: Root cause analysis workflow
+- **Pattern-GIT-001**: Check git history for context
+
+---
+
+💡 **TO ENHANCE THIS PROMPT**:
+1. Review the template above (in text area)
+2. Press Ctrl+Enter to send to Claude Code
+3. Ask Claude: "Please enhance this bug report with more details, specific investigation steps, and save to \`.aetherlight/prompts/${fileName}\`"
+4. ÆtherLight will auto-load the enhanced prompt when created
+
+🤖 Generated with ÆtherLight Bug Report Template
+`;
+    }
+
+    /**
+     * PROMPT-TERM-001: Generate Feature Request Template
+     * WHY: Structured template for feature implementation workflow
+     * PATTERN: Similar to Bug Report, but focused on feature development
+     */
+    private generateFeatureRequestTemplate(data: any): string {
+        const timestamp = new Date().toISOString();
+        const fileName = `feature-request_enhanced_${Date.now()}.md`;
+
+        return `# Feature Request: ${data.title}
+
+**Priority**: ${data.priority || 'Medium'}
+**Category**: ${data.category || 'Not specified'}
+**Requested**: ${timestamp}
+
+## User Story
+
+${data.userStory || 'Not provided'}
+
+## Description
+
+${data.description || 'No description provided'}
+
+## Acceptance Criteria
+
+${data.acceptanceCriteria || 'Not provided'}
+
+## Technical Notes
+
+${data.technicalNotes || 'No technical notes'}
+
+---
+
+## Implementation Plan
+
+### Phase 1: Analysis & Design
+1. [ ] Review similar features in codebase
+2. [ ] Identify affected components/files
+3. [ ] Check for architectural impacts
+4. [ ] Design API/interface contracts
+5. [ ] Identify potential breaking changes
+
+### Phase 2: Development
+1. [ ] Write failing tests (TDD)
+2. [ ] Implement core functionality
+3. [ ] Add error handling
+4. [ ] Update documentation
+5. [ ] Add integration tests
+
+### Phase 3: Testing & Validation
+1. [ ] Unit test coverage (≥85%)
+2. [ ] Integration tests pass
+3. [ ] Manual testing (happy path + edge cases)
+4. [ ] Performance testing (if applicable)
+5. [ ] Accessibility check (if UI changes)
+
+### Phase 4: Documentation
+1. [ ] Update CHANGELOG.md
+2. [ ] Update API documentation
+3. [ ] Add code comments (Chain of Thought)
+4. [ ] Create user-facing docs (if needed)
+
+## Patterns to Apply
+- **Pattern-TDD-001**: Test-driven development
+- **Pattern-CODE-001**: Code development workflow
+- **Pattern-TASK-ANALYSIS-001**: Pre-task analysis
+- **Pattern-GIT-001**: Git workflow integration
+
+## Questions to Consider
+- How does this integrate with existing features?
+- What are the performance implications?
+- Are there backwards compatibility concerns?
+- What happens if this fails gracefully?
+
+---
+
+💡 **TO ENHANCE THIS PROMPT**:
+1. Review the template above (in text area)
+2. Press Ctrl+Enter to send to Claude Code
+3. Ask Claude: "Please enhance this feature request with architecture details, specific implementation steps, and save to \`.aetherlight/prompts/${fileName}\`"
+4. ÆtherLight will auto-load the enhanced prompt when created
+
+🤖 Generated with ÆtherLight Feature Request Template
+`;
+    }
+
+    /**
+     * PROMPT-TERM-001: Generate Code Analyzer Template
+     * WHY: Structured template for codebase analysis workflow
+     * PATTERN: Similar to Bug Report, but focused on analysis checklists
+     */
+    private generateCodeAnalyzerTemplate(data: any): string {
+        const timestamp = new Date().toISOString();
+        const fileName = `code-analyzer_enhanced_${Date.now()}.md`;
+        const languages = Array.isArray(data.languages) ? data.languages.join(', ') : (data.languages || 'TypeScript, JavaScript');
+        const frameworks = Array.isArray(data.frameworks) ? data.frameworks.join(', ') : (data.frameworks || 'Not specified');
+
+        return `# Code Analysis Request
+
+**Languages**: ${languages}
+**Frameworks**: ${frameworks}
+**Complexity**: ${data.complexity || 'Moderate'}
+**Requested**: ${timestamp}
+
+## Focus Area
+
+${data.focus || 'General code analysis'}
+
+## Specific Concerns
+
+${data.concerns || 'No specific concerns provided'}
+
+---
+
+## Analysis Checklist
+
+### Architecture Review
+1. [ ] Identify main components and their responsibilities
+2. [ ] Map dependencies between modules
+3. [ ] Check for circular dependencies
+4. [ ] Review architectural patterns used
+5. [ ] Identify potential architectural improvements
+
+### Code Quality
+1. [ ] Check for code smells (long functions, duplicated code)
+2. [ ] Review error handling patterns
+3. [ ] Assess test coverage
+4. [ ] Check for security vulnerabilities (OWASP Top 10)
+5. [ ] Review performance bottlenecks
+
+### Best Practices
+1. [ ] Naming conventions consistency
+2. [ ] Documentation completeness
+3. [ ] Type safety (if TypeScript/Rust)
+4. [ ] Dead code detection
+5. [ ] Technical debt identification
+
+### Git History Analysis
+1. [ ] Check recent changes (\`git log --since="2 weeks ago"\`)
+2. [ ] Identify frequently changed files (hotspots)
+3. [ ] Review commit message quality
+4. [ ] Check for large commits (potential refactoring candidates)
+
+### ÆtherLight-Specific Context (if available)
+1. [ ] Check for relevant patterns in \`docs/patterns/\` (if missing: note that patterns could improve code quality)
+2. [ ] Review agent context files in \`internal/agents/\` (if missing: skip this step)
+3. [ ] Check sprint files in \`internal/sprints/\` for related tasks (if missing: skip this step)
+4. [ ] Verify \`.claude/\` configuration (skills, commands, settings) (if missing: suggest creating it)
+5. [ ] Check CLAUDE.md for project-specific rules (if missing: ask user if they want one created)
+
+## Patterns to Apply
+- **Pattern-CODE-001**: Code development workflow
+- **Pattern-TASK-ANALYSIS-001**: Pre-task analysis
+- **Pattern-GIT-001**: Git history integration
+
+## Output Format
+- Summary of findings (2-3 paragraphs)
+- Top 5 issues/improvements (prioritized)
+- Code examples (before/after)
+- Action items with estimated effort
+
+---
+
+💡 **TO ENHANCE THIS PROMPT**:
+1. Review the template above (in text area)
+2. Press Ctrl+Enter to send to Claude Code
+3. Ask Claude: "Please enhance this code analysis with specific findings, code examples, and save to \`.aetherlight/prompts/${fileName}\`"
+4. ÆtherLight will auto-load the enhanced prompt when created
+
+📋 **INSTRUCTIONS FOR CLAUDE CODE**:
+When directories are missing, take these actions:
+- **Missing \`docs/patterns/\`**: Recommend creating it if code quality issues are found
+- **Missing \`internal/agents/\`**: Skip agent analysis (project may not use agent system)
+- **Missing \`internal/sprints/\`**: Skip sprint analysis (project may not use sprint system)
+- **Missing \`.claude/\`**: Use \`AskUserQuestion\` tool to ask if they want to initialize ÆtherLight structure
+- **Missing \`CLAUDE.md\`**: Use \`AskUserQuestion\` tool to ask if they want a project instructions file created
+- If user says yes to any missing files, CREATE TEMPLATES based on project needs using Write tool
+
+🤖 Generated with ÆtherLight Code Analyzer Template
+`;
+    }
+
+    /**
+     * PROMPT-TERM-001: Generate Sprint Planner Template
+     * WHY: Structured template for sprint planning workflow
+     * PATTERN: Similar to Bug Report, but focused on sprint structure
+     */
+    private generateSprintPlannerTemplate(data: any): string {
+        const timestamp = new Date().toISOString();
+        const fileName = `sprint-planner_enhanced_${Date.now()}.md`;
+
+        return `# Sprint Planning Session
+
+**Duration**: ${data.duration || 'Not specified'}
+**Team Size**: ${data.teamSize || 'Not specified'}
+**Start Date**: ${timestamp.split('T')[0]}
+
+## Sprint Goals
+
+${data.goals || 'No goals provided'}
+
+## Priority Areas
+
+${data.priorities || 'No priorities specified'}
+
+## Context & Constraints
+
+${data.context || 'No additional context'}
+
+---
+
+## Sprint Planning Checklist
+
+### Phase 1: Backlog Refinement
+1. [ ] Review existing backlog items
+2. [ ] Prioritize by value and effort
+3. [ ] Break down large tasks into smaller ones
+4. [ ] Estimate effort (story points or hours)
+5. [ ] Identify dependencies
+
+### Phase 2: Sprint Structure
+1. [ ] Define sprint goals (clear, measurable)
+2. [ ] Allocate tasks to phases (Setup, Development, Testing, Documentation)
+3. [ ] Assign agents (full-stack, backend, frontend, test, docs)
+4. [ ] Set milestones and checkpoints
+5. [ ] Plan buffer time (15-20% for unknowns)
+
+### Phase 3: Task Creation
+Use Pattern-SPRINT-TEMPLATE-001 (27 normalized tasks):
+- **REQUIRED** (13 tasks): Documentation, QA, agent sync, infrastructure
+- **SUGGESTED** (4 tasks): Performance, security, compatibility
+- **CONDITIONAL** (0-8 tasks): Publishing tasks if releasing, UX tasks if user-facing
+- **RETROSPECTIVE** (2 tasks): Sprint retrospective, pattern extraction
+
+### Phase 4: Risk Assessment
+1. [ ] Identify technical risks
+2. [ ] Identify resource risks
+3. [ ] Plan mitigation strategies
+4. [ ] Define success criteria
+5. [ ] Set up monitoring/tracking
+
+## TOML Sprint File Structure
+
+\`\`\`toml
+[metadata]
+version = "1.0.0"
+sprint_number = 1
+start_date = "${timestamp.split('T')[0]}"
+status = "active"
+
+[tasks.TASK-001]
+id = "TASK-001"
+name = "Task name"
+status = "pending"
+phase = "setup"
+agent = "full-stack"
+estimated_time = "30 min"
+dependencies = []
+\`\`\`
+
+## Patterns to Apply
+- **Pattern-SPRINT-PLAN-001**: Sprint planning process
+- **Pattern-SPRINT-TEMPLATE-001**: 27 normalized tasks
+- **Pattern-TASK-ANALYSIS-001**: Pre-task analysis
+- **Pattern-TRACKING-001**: Task tracking & pre-commit
+
+---
+
+💡 **TO ENHANCE THIS PROMPT**:
+1. Review the template above (in text area)
+2. Press Ctrl+Enter to send to Claude Code
+3. Ask Claude: "Please enhance this sprint plan with specific tasks, TOML structure, and save to \`.aetherlight/prompts/${fileName}\`"
+4. ÆtherLight will auto-load the enhanced prompt when created
+
+🤖 Generated with ÆtherLight Sprint Planner Template
+`;
+    }
+
+    /**
+     * PROMPT-TERM-001: Generate Start Task Template
+     * WHY: Structured template pulling ALL context from sprint TOML
+     * PATTERN: Similar to Bug Report, but pulls task data from SprintLoader
+     */
+    private generateStartTaskTemplate(task: any): string {
+        const timestamp = new Date().toISOString();
+        const fileName = `task_${task.id}_enhanced_${Date.now()}.md`;
+
+        // Build dependency list with status
+        let dependencyList = 'None';
+        if (task.dependencies && Array.isArray(task.dependencies) && task.dependencies.length > 0) {
+            dependencyList = task.dependencies.map((depId: string) => {
+                const depTask = this.sprintTasks.find(t => t.id === depId);
+                const statusIcon = depTask?.status === 'completed' ? '✅' :
+                                 depTask?.status === 'in_progress' ? '🔄' : '⏳';
+                return `- ${depId} (${statusIcon} ${depTask?.status || 'unknown'})`;
+            }).join('\n');
+        }
+
+        // Build tags list
+        const tagsList = task.tags && Array.isArray(task.tags) ? task.tags.join(', ') : 'None';
+
+        return `# Task: ${task.id} - ${task.name}
+
+**Phase**: ${task.phase || 'Not specified'}
+**Agent**: ${task.agent || 'Not specified'}
+**Estimated Time**: ${task.estimated_time || 'Not specified'}
+**Status**: ${task.status || 'pending'}
+**Started**: ${timestamp}
+
+## Task Description
+
+${task.description || 'No description provided'}
+
+## Dependencies
+
+${dependencyList}
+
+## Tags
+
+${tagsList}
+
+---
+
+## Pre-Task Analysis (Pattern-TASK-ANALYSIS-001)
+
+### 1. What files/components are affected?
+- [ ] List affected files
+- [ ] Identify component boundaries
+- [ ] Check for shared dependencies
+
+### 2. What are the acceptance criteria?
+- [ ] Define clear success criteria
+- [ ] Identify edge cases
+- [ ] Plan testing strategy
+
+### 3. Are there related tasks or dependencies?
+- [ ] Check dependency status
+- [ ] Review related tasks in sprint
+- [ ] Identify potential blockers
+
+### 4. What patterns apply?
+- **Pattern-CODE-001**: Code development workflow
+- **Pattern-TDD-001**: Test-driven development
+- **Pattern-GIT-001**: Git workflow integration
+- **Pattern-TRACKING-001**: Task tracking
+
+## Development Workflow (Pattern-CODE-001)
+
+### Phase 1: Setup
+1. [ ] Check git status
+2. [ ] Create feature branch (if needed)
+3. [ ] Read existing code
+4. [ ] Identify test files
+
+### Phase 2: Test-Driven Development
+1. [ ] Write failing test (RED)
+2. [ ] Implement minimal code to pass (GREEN)
+3. [ ] Refactor for quality (REFACTOR)
+4. [ ] Repeat until feature complete
+
+### Phase 3: Documentation
+1. [ ] Add Chain of Thought comments
+2. [ ] Update CHANGELOG.md
+3. [ ] Update related docs
+
+### Phase 4: Validation
+1. [ ] Run all tests
+2. [ ] Manual testing
+3. [ ] Code review (self-review)
+4. [ ] Mark task as completed in sprint TOML
+
+---
+
+💡 **TO ENHANCE THIS PROMPT**:
+1. Review the template above (in text area)
+2. Press Ctrl+Enter to send to Claude Code
+3. Ask Claude: "Please enhance this task with specific implementation steps, test cases, and save to \`.aetherlight/prompts/${fileName}\`"
+4. ÆtherLight will auto-load the enhanced prompt when created
+
+🤖 Generated with ÆtherLight Start Task Template
+`;
     }
 }
 
