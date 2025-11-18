@@ -1,4 +1,11 @@
 {
+  "CLAUDE.12.5.2": [
+    {
+      "content": "let address = \"@CLAUDE.12.5.2\";",
+      "file": "examples\\knowledge_agent_with_content_addressing.rs",
+      "line": 266
+    }
+  ],
   "CLAUDE.2.5.1": [
     {
       "content": "/// EXAMPLE: @CLAUDE.2.5.1",
@@ -29,13 +36,6 @@
       "content": "line_content: \"// Implements @CLAUDE.2.5.1 pattern\".to_string(),",
       "file": "src\\content_addressing.rs",
       "line": 521
-    }
-  ],
-  "CLAUDE.12.5.2": [
-    {
-      "content": "let address = \"@CLAUDE.12.5.2\";",
-      "file": "examples\\knowledge_agent_with_content_addressing.rs",
-      "line": 266
     }
   ]
 }
