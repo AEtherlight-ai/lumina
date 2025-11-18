@@ -1261,7 +1261,7 @@ Technical Details:
 - Lines Modified: -1 line (removed sendWelcomeMessage call)
 - Breaking Change: NO (improves UX, user controls timing)
 - Test Coverage: Manual testing required (3 scenarios: start task, manual send, terminal already open)
-- Commit: [will add after commit]
+- Commit: 2815c00
 
 Implementation Approach:
 - Pattern-UX-001: User controls timing, not automation
