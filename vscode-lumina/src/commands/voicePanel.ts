@@ -872,13 +872,13 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                         text: taskTemplate
                     });
 
-                    // Show Prompt Terminal with instructions
+                    // Show Prompt Terminal with actual task template
                     PromptTerminalManager.showPromptTerminal();
-                    PromptTerminalManager.sendWelcomeMessage('start-task');
+                    PromptTerminalManager.sendWelcomeMessage(`Start Task: ${task.id}`, taskTemplate);
 
                     // Notify user
                     vscode.window.showInformationMessage(
-                        `📋 Task ${task.id} template loaded - Review and press Ctrl+Enter to enhance`
+                        `📋 Task ${task.id} template loaded - Review and press Ctrl+Enter to send`
                     );
                 } catch (error) {
                     console.error('[ÆtherLight] Start task generation failed:', error);
@@ -1198,13 +1198,13 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                         text: bugTemplate
                     });
 
-                    // Show Prompt Terminal with instructions
+                    // Show Prompt Terminal with actual bug template
                     PromptTerminalManager.showPromptTerminal();
-                    PromptTerminalManager.sendWelcomeMessage('bug-report');
+                    PromptTerminalManager.sendWelcomeMessage('Bug Report', bugTemplate);
 
                     // Notify user
                     vscode.window.showInformationMessage(
-                        '📋 Bug report template loaded - Review and press Ctrl+Enter to enhance'
+                        '📋 Bug report template loaded - Review and press Ctrl+Enter to send'
                     );
                 } catch (error) {
                     console.error('[ÆtherLight] Bug report generation failed:', error);
@@ -1271,13 +1271,13 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                         text: featureTemplate
                     });
 
-                    // Show Prompt Terminal with instructions
+                    // Show Prompt Terminal with actual feature template
                     PromptTerminalManager.showPromptTerminal();
-                    PromptTerminalManager.sendWelcomeMessage('feature-request');
+                    PromptTerminalManager.sendWelcomeMessage('Feature Request', featureTemplate);
 
                     // Notify user
                     vscode.window.showInformationMessage(
-                        '📋 Feature request template loaded - Review and press Ctrl+Enter to enhance'
+                        '📋 Feature request template loaded - Review and press Ctrl+Enter to send'
                     );
                 } catch (error) {
                     console.error('[ÆtherLight] Feature request generation failed:', error);
@@ -1371,13 +1371,13 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                         text: codeTemplate
                     });
 
-                    // Show Prompt Terminal with instructions
+                    // Show Prompt Terminal with actual code template
                     PromptTerminalManager.showPromptTerminal();
-                    PromptTerminalManager.sendWelcomeMessage('code-analyzer');
+                    PromptTerminalManager.sendWelcomeMessage('Code Analyzer', codeTemplate);
 
                     // Notify user
                     vscode.window.showInformationMessage(
-                        '📋 Code analyzer template loaded - Review and press Ctrl+Enter to enhance'
+                        '📋 Code analyzer template loaded - Review and press Ctrl+Enter to send'
                     );
                 } catch (error) {
                     console.error('[ÆtherLight] Code analyzer generation failed:', error);
@@ -1440,13 +1440,13 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                         text: sprintTemplate
                     });
 
-                    // Show Prompt Terminal with instructions
+                    // Show Prompt Terminal with actual sprint template
                     PromptTerminalManager.showPromptTerminal();
-                    PromptTerminalManager.sendWelcomeMessage('sprint-planner');
+                    PromptTerminalManager.sendWelcomeMessage('Sprint Planner', sprintTemplate);
 
                     // Notify user
                     vscode.window.showInformationMessage(
-                        '📋 Sprint planner template loaded - Review and press Ctrl+Enter to enhance'
+                        '📋 Sprint planner template loaded - Review and press Ctrl+Enter to send'
                     );
                 } catch (error) {
                     console.error('[ÆtherLight] Sprint planner generation failed:', error);

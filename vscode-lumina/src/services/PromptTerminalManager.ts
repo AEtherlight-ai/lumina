@@ -68,31 +68,46 @@ export class PromptTerminalManager {
      * WHY: Guide user on what to do next
      *
      * @param templateType - Type of template (bug-report, feature-request, etc.)
+     * @param templateContent - Optional: The actual template content to display
      */
-    public static sendWelcomeMessage(templateType: string): void {
+    public static sendWelcomeMessage(templateType: string, templateContent?: string): void {
         const terminal = this.getOrCreatePromptTerminal();
 
         // Clear and show welcome
         const timestamp = new Date().toLocaleTimeString();
-        const fileName = `${templateType}_enhanced_${Date.now()}.md`;
 
         terminal.sendText(`# ════════════════════════════════════════════`, true);
         terminal.sendText(`# ÆtherLight Prompt Terminal 🎨`, true);
         terminal.sendText(`# ════════════════════════════════════════════`, true);
         terminal.sendText(`echo ""`, true);
-        terminal.sendText(`echo "📋 ${templateType.replace('-', ' ').toUpperCase()} template loaded in text area"`, true);
+        terminal.sendText(`echo "📋 ${templateType.replace('-', ' ').toUpperCase()}"`, true);
         terminal.sendText(`echo "⏰ ${timestamp}"`, true);
         terminal.sendText(`echo ""`, true);
-        terminal.sendText(`echo "👉 NEXT STEPS:"`, true);
-        terminal.sendText(`echo "   1. Review template above (in text area)"`, true);
-        terminal.sendText(`echo "   2. Press Ctrl+Enter to send to Claude Code"`, true);
-        terminal.sendText(`echo "   3. Ask Claude to enhance and save as .md file"`, true);
-        terminal.sendText(`echo ""`, true);
-        terminal.sendText(`echo "💡 Example prompt for Claude:"`, true);
-        terminal.sendText(`echo "   'Please enhance this template with more details"`, true);
-        terminal.sendText(`echo "    and save to .aetherlight/prompts/${fileName}'"`, true);
-        terminal.sendText(`echo ""`, true);
-        terminal.sendText(`echo "📂 Enhanced prompts will auto-load when created"`, true);
+
+        // Show template content if provided
+        if (templateContent) {
+            terminal.sendText(`echo "════════════════════════════════════════════"`, true);
+            // Display template content line by line
+            const lines = templateContent.split('\n');
+            for (const line of lines) {
+                // Escape special characters for echo
+                const escapedLine = line
+                    .replace(/\\/g, '\\\\')
+                    .replace(/"/g, '\\"')
+                    .replace(/`/g, '\\`')
+                    .replace(/\$/g, '\\$');
+                terminal.sendText(`echo "${escapedLine}"`, true);
+            }
+            terminal.sendText(`echo "════════════════════════════════════════════"`, true);
+            terminal.sendText(`echo ""`, true);
+            terminal.sendText(`echo "👉 Template loaded in text area above"`, true);
+            terminal.sendText(`echo "   Review and press Ctrl+Enter to send"`, true);
+        } else {
+            terminal.sendText(`echo "👉 NEXT STEPS:"`, true);
+            terminal.sendText(`echo "   1. Review template above (in text area)"`, true);
+            terminal.sendText(`echo "   2. Press Ctrl+Enter to send to Claude Code"`, true);
+        }
+
         terminal.sendText(`echo ""`, true);
     }
 
