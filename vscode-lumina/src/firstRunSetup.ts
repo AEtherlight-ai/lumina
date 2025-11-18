@@ -389,55 +389,96 @@ dependencies = ["SETUP-001"]
 /**
  * Copy bundled skills, agents, and patterns to workspace
  *
- * DESIGN DECISION: Bundle generic/reusable resources with extension
- * WHY: Users need these for full ÆtherLight functionality
+ * DESIGN DECISION: File-by-file smart merge (preserve existing, copy missing)
+ * WHY: Users with partial resources need incremental updates without losing customizations
  *
  * REASONING CHAIN:
- * 1. Extension ships with 14+ skills, 12+ agents, 77+ patterns
- * 2. User installs extension in new workspace
- * 3. Copy bundled resources to workspace .claude/ and internal/ directories
- * 4. User gets full ÆtherLight experience immediately
- * 5. Skills are discoverable by Claude Code via .claude/skills/
+ * 1. Extension ships with 16+ skills, 14+ agents, 86+ patterns
+ * 2. User may have old workspace with partial resources or customizations
+ * 3. Check each file/directory individually (not directory-level)
+ * 4. Skip existing files (preserve user customizations)
+ * 5. Copy missing files (incremental upgrade)
+ * 6. Track counts (show what was copied vs preserved)
  *
  * PATTERN: Pattern-WORKSPACE-002 (Bundled resource distribution)
+ * BUG-002 FIX: Changed from directory-level to file-level checking
  */
 async function copyBundledResources(workspaceRoot: string, extensionPath: string): Promise<void> {
     try {
-        console.log('[ÆtherLight First-Run] Copying bundled resources...');
+        console.log('[ÆtherLight First-Run] Syncing bundled resources...');
 
-        // Define source and destination paths
-        const sourcePaths = [
-            { src: path.join(extensionPath, '.claude'), dest: path.join(workspaceRoot, '.claude') },
-            { src: path.join(extensionPath, 'internal', 'agents'), dest: path.join(workspaceRoot, 'internal', 'agents') },
-            { src: path.join(extensionPath, 'docs', 'patterns'), dest: path.join(workspaceRoot, 'docs', 'patterns') }
+        // Define resource mappings (granular, not root-level)
+        const resourceMappings = [
+            {
+                src: path.join(extensionPath, '.claude', 'skills'),
+                dest: path.join(workspaceRoot, '.claude', 'skills'),
+                type: 'skills'
+            },
+            {
+                src: path.join(extensionPath, 'internal', 'agents'),
+                dest: path.join(workspaceRoot, 'internal', 'agents'),
+                type: 'agents'
+            },
+            {
+                src: path.join(extensionPath, 'docs', 'patterns'),
+                dest: path.join(workspaceRoot, 'docs', 'patterns'),
+                type: 'patterns'
+            }
         ];
 
-        for (const { src, dest } of sourcePaths) {
+        // Track copied vs skipped resources
+        const copiedCount: any = { skills: 0, agents: 0, patterns: 0 };
+        const skippedCount: any = { skills: 0, agents: 0, patterns: 0 };
+
+        for (const { src, dest, type } of resourceMappings) {
+            // Check if bundled resources exist in extension
             if (!fs.existsSync(src)) {
-                console.warn(`[ÆtherLight First-Run] Source not found: ${src} - skipping`);
+                console.warn(`[ÆtherLight] Bundled ${type} not found: ${src}`);
                 continue;
             }
 
-            // Skip if destination already exists (don't overwrite user customizations)
-            if (fs.existsSync(dest)) {
-                console.log(`[ÆtherLight First-Run] ${dest} already exists - skipping`);
-                continue;
+            // Create destination directory if needed
+            if (!fs.existsSync(dest)) {
+                fs.mkdirSync(dest, { recursive: true });
+                console.log(`[ÆtherLight] Created directory: ${dest}`);
             }
 
-            // Create parent directory if needed
-            const parentDir = path.dirname(dest);
-            if (!fs.existsSync(parentDir)) {
-                fs.mkdirSync(parentDir, { recursive: true });
-            }
+            // Copy files/directories within (merge, don't replace)
+            const entries = fs.readdirSync(src, { withFileTypes: true });
+            for (const entry of entries) {
+                const srcPath = path.join(src, entry.name);
+                const destPath = path.join(dest, entry.name);
 
-            // Copy directory recursively
-            copyRecursive(src, dest);
-            console.log(`[ÆtherLight First-Run] Copied ${src} → ${dest}`);
+                // Skip if user has customized this file/directory
+                if (fs.existsSync(destPath)) {
+                    console.log(`[ÆtherLight] ${type}/${entry.name} already exists - preserving user version`);
+                    skippedCount[type]++;
+                    continue;
+                }
+
+                // Copy new file/directory
+                try {
+                    if (entry.isDirectory()) {
+                        copyRecursive(srcPath, destPath);
+                        console.log(`[ÆtherLight] Copied directory: ${type}/${entry.name}`);
+                    } else {
+                        fs.copyFileSync(srcPath, destPath);
+                        console.log(`[ÆtherLight] Copied file: ${type}/${entry.name}`);
+                    }
+                    copiedCount[type]++;
+                } catch (error) {
+                    console.error(`[ÆtherLight] Failed to copy ${type}/${entry.name}:`, error);
+                }
+            }
         }
 
-        console.log('[ÆtherLight First-Run] Bundled resources copied ✅');
+        // Summary log
+        console.log(`[ÆtherLight] Sync complete: ` +
+            `${copiedCount.skills} skills, ${copiedCount.agents} agents, ${copiedCount.patterns} patterns copied. ` +
+            `${skippedCount.skills + skippedCount.agents + skippedCount.patterns} user files preserved.`);
+
     } catch (error) {
-        console.error('[ÆtherLight First-Run] Failed to copy bundled resources:', error);
+        console.error('[ÆtherLight] Failed to sync bundled resources:', error);
         // Don't throw - setup can continue without bundled resources
     }
 }
