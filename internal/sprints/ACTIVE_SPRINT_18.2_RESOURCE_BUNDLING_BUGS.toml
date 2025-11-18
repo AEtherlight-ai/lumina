@@ -1,0 +1,1964 @@
+[metadata]
+version = "0.18.2"
+sprint_number = "18.2"
+sprint_name = "v0.18.2 Bug Fixes - Resource Bundling & Desktop Installer"
+start_date = "2025-11-18"
+target_completion = "2025-11-20"
+status = "active"
+created = "2025-11-18"
+updated = "2025-11-18 (BUG-006, BUG-008 added from v17.3 regression)"
+
+  [metadata.focus]
+  primary = "Fix resource bundling system so users get skills/agents/patterns on install"
+  secondary = "Fix desktop installer file lock issues + RTC/activation regressions from v17.3"
+  tertiary = "Add discovery features for resource sync"
+
+  [metadata.priority_order]
+  phase_1_critical = "BUG-001, BUG-002, BUG-003, BUG-008, BUG-009 (Blocking resource access + activation + UX)"
+  phase_2_installer = "BUG-007 (5 sub-issues), BUG-004, BUG-005, BUG-006 (Desktop installer + RTC removal)"
+  phase_3_discovery = "FEATURE-001, FEATURE-002 (Auto-detection + command)"
+  phase_4_testing = "TEST-001, TEST-002, TEST-003"
+  phase_5_publishing = "PUBLISH-001, PUBLISH-002, PUBLISH-003"
+  phase_6_polish = "FEATURE-003, FEATURE-004 (Settings tab + first-launch, optional)"
+
+  [metadata.root_cause]
+  issue_reported = "User installed v0.18.2 via 'aetherlight' CLI, got no skills/agents/patterns"
+  bundling_bug = "First-run setup exits early if .vscode/aetherlight.md exists"
+  installer_bug = "Desktop installer fails with 'file is being used by another process'"
+  discovery_gap = "No UI/notification to tell users about bundled resources"
+  rtc_regression = "RTC/WebSocket code still active (claimed fixed in v17.3), spams console errors"
+  activation_regression = "License activation not persisting between reloads (user reports prompt every time)"
+
+  [metadata.team]
+  lead = "Claude Code"
+  reviewer = "Brett (user)"
+  focus_agent = "infrastructure-agent (resource bundling), test-agent (validation)"
+
+[tasks.BUG-001]
+id = "BUG-001"
+name = "Fix First-Run Setup Early Exit"
+phase = "phase_1_critical"
+agent = "infrastructure-agent"
+status = "completed"
+completed_date = "2025-11-18"
+priority = "critical"
+estimated_time = "1 hour"
+dependencies = [ ]
+description = """
+DESIGN DECISION: Always run copyBundledResources(), even if aetherlight.md exists\r
+WHY: Existing workspaces upgrading from v0.18.1 → v0.18.2 never get bundled resources\r
+\r
+ROOT CAUSE:\r
+- File: vscode-lumina/src/firstRunSetup.ts:46-48\r
+- If `.vscode/aetherlight.md` exists, entire setup exits\r
+- `copyBundledResources()` never runs (line 81)\r
+- User gets NO skills/agents/patterns\r
+\r
+REASONING CHAIN:\r
+1. User has repo with ÆtherLight v0.18.1 installed\r
+2. `.vscode/aetherlight.md` already exists from v0.18.1\r
+3. User upgrades to v0.18.2\r
+4. Extension activates, calls checkAndSetupUserDocumentation()\r
+5. Line 46: if (fs.existsSync(aetherlightDocPath)) → TRUE\r
+6. Line 47-48: Log message, return early\r
+7. Line 81: copyBundledResources() NEVER CALLED\r
+8. User missing 16 skills, 14 agents, 86 patterns\r
+\r
+CURRENT CODE (BROKEN):\r
+```typescript\r
+if (fs.existsSync(aetherlightDocPath)) {\r
+    console.log('[ÆtherLight First-Run] Documentation already exists - skipping setup');\r
+    return; // ← Exits entire function!\r
+}\r
+```\r
+\r
+FIX:\r
+```typescript\r
+const isFirstRun = !fs.existsSync(aetherlightDocPath);\r
+\r
+if (isFirstRun) {\r
+    // Create .vscode/ directory\r
+    if (!fs.existsSync(vscodeDir)) {\r
+        fs.mkdirSync(vscodeDir, { recursive: true });\r
+    }\r
+\r
+    // Copy template to .vscode/aetherlight.md\r
+    const templatePath = path.join(context.extensionPath, 'templates', 'USER_SETUP.md');\r
+    if (fs.existsSync(templatePath)) {\r
+        const templateContent = fs.readFileSync(templatePath, 'utf-8');\r
+        fs.writeFileSync(aetherlightDocPath, templateContent, 'utf-8');\r
+        console.log('[ÆtherLight First-Run] Created .vscode/aetherlight.md');\r
+    }\r
+\r
+    // Add reference in settings.json\r
+    await addToSettings(vscodeDir);\r
+\r
+    // Append to existing CLAUDE.md\r
+    await appendToClaude(workspaceRoot, aetherlightDocPath);\r
+\r
+    // Create example sprint\r
+    await createExampleSprint(workspaceRoot);\r
+}\r
+\r
+// ALWAYS copy bundled resources (even on upgrade)\r
+await copyBundledResources(workspaceRoot, context.extensionPath);\r
+\r
+if (isFirstRun) {\r
+    // Show welcome notification\r
+    const result = await vscode.window.showInformationMessage(\r
+        '🚀 ÆtherLight installed! Documentation: .vscode/aetherlight.md',\r
+        'View Documentation',\r
+        'Create Sprint'\r
+    );\r
+    // ... handle buttons\r
+}\r
+```\r
+\r
+TESTING:\r
+1. Test fresh workspace (no prior ÆtherLight) → All resources copied\r
+2. Test existing workspace (has aetherlight.md) → Resources still copied\r
+3. Test upgrade from v0.18.1 → v0.18.2 → Resources synced\r
+\r
+SUCCESS CRITERIA:\r
+- copyBundledResources() runs on EVERY activation\r
+- Existing workspaces get resources on upgrade\r
+- No duplicate aetherlight.md files created\r
+- Log messages indicate first-run vs upgrade\r
+\r
+FILES:\r
+- vscode-lumina/src/firstRunSetup.ts:34-107\r
+"""
+completion_notes = """
+Completed 2025-11-18 by AI agent (infrastructure-agent)\r
+\r
+Changes Made:\r
+- Introduced isFirstRun boolean to separate first-run tasks from always-run tasks\r
+- Moved copyBundledResources() outside isFirstRun block (now always runs)\r
+- Wrapped first-run-only tasks in if (isFirstRun) block\r
+- Added clear log messages distinguishing first-run vs upgrade scenarios\r
+- Preserved all existing first-run behavior for new workspaces\r
+\r
+Technical Details:\r
+- File(s):\r
+  - vscode-lumina/src/firstRunSetup.ts (MODIFIED, lines 42-106 restructured)\r
+- Lines Modified: ~70 lines (control flow restructure + improved logging)\r
+- Breaking Change: NO (first-run behavior preserved, upgrade scenario fixed)\r
+- Test Coverage: Manual testing required (3 scenarios: fresh workspace, existing workspace, upgrade)\r
+- Commit: [will add after commit]\r
+\r
+Implementation Approach:\r
+- Guard clause + always-run section pattern\r
+- isFirstRun = !fs.existsSync(aetherlightDocPath)\r
+- First-run-only tasks: aetherlight.md creation, settings.json update, CLAUDE.md append, notification\r
+- Always-run tasks: copyBundledResources() (resource sync)\r
+\r
+Testing Strategy:\r
+- Manual testing in Extension Development Host required:\r
+  - Test 1: Fresh workspace → All resources + aetherlight.md created\r
+  - Test 2: Existing workspace → Resources synced, no duplicate files\r
+  - Test 3: Upgrade from v0.18.1 → Resources synced successfully\r
+  - Test 4: Dynamic workspace addition → Setup runs for new folders\r
+- All test scenarios documented in: internal/sprints/SPRINT_18.2_MANUAL_TEST_CHECKLIST.md\r
+- User will test before publishing v0.18.3\r
+\r
+Historical Context:\r
+- Users upgrading from v0.18.1 → v0.18.2 were missing 16 skills, 14 agents, 86 patterns\r
+- Early return at line 46-48 caused copyBundledResources() to be unreachable\r
+- Fix enables upgrade scenario while preserving first-run experience\r
+- Critical bug affecting 100% of upgrading users\r
+\r
+Impact:\r
+- Unblocks: BUG-002 (Resource Copying), BUG-003 (Version Tracking), FEATURE-001 (Auto-Detection)\r
+- Fixes: 100% of users upgrading missing resources\r
+- Enables: Resource bundling system works as designed\r
+\r
+Dependencies:\r
+- Blocked by: None\r
+- Blocks: BUG-002, BUG-003, FEATURE-001\r
+\r
+Next Steps:\r
+- BUG-002 will improve copyBundledResources() with file-level checking\r
+- BUG-003 will add version tracking to detect resource updates\r
+- FEATURE-001 will add user-facing notification for resource sync\r
+- User will perform manual testing using SPRINT_18.2_MANUAL_TEST_CHECKLIST.md\r
+"""
+
+[tasks.BUG-002]
+id = "BUG-002"
+name = "Fix Resource Copying Directory-Level Skipping"
+phase = "phase_1_critical"
+agent = "infrastructure-agent"
+status = "completed"
+priority = "critical"
+estimated_time = "1.5 hours"
+dependencies = [ "BUG-001" ]
+description = """
+DESIGN DECISION: Check file-by-file, not directory-level, and merge intelligently\r
+WHY: Users with old `.claude/` directory never get new skills\r
+\r
+ROOT CAUSE:\r
+- File: vscode-lumina/src/firstRunSetup.ts:417-420\r
+- If destination directory exists → Skip entire copy\r
+- User has `.claude/agents/` from old install → Skips all of `.claude/`\r
+- New `.claude/skills/` never copied\r
+\r
+REASONING CHAIN:\r
+1. User has old ÆtherLight with `.claude/agents/` only\r
+2. v0.18.2 bundles `.claude/skills/` + `.claude/agents/`\r
+3. copyBundledResources() checks: does `.claude/` exist?\r
+4. YES → Skip entire directory (line 418)\r
+5. User never gets `.claude/skills/`\r
+\r
+CURRENT CODE (BROKEN):\r
+```typescript\r
+// Skip if destination already exists (don't overwrite user customizations)\r
+if (fs.existsSync(dest)) {\r
+    console.log(`[ÆtherLight First-Run] ${dest} already exists - skipping`);\r
+    continue;\r
+}\r
+```\r
+\r
+FIX - Smart Merge Strategy:\r
+```typescript\r
+async function copyBundledResources(workspaceRoot: string, extensionPath: string): Promise<void> {\r
+    try {\r
+        console.log('[ÆtherLight First-Run] Syncing bundled resources...');\r
+\r
+        // Copy with smart merge (file-by-file, not directory-level)\r
+        const resourceMappings = [\r
+            {\r
+                src: path.join(extensionPath, '.claude', 'skills'),\r
+                dest: path.join(workspaceRoot, '.claude', 'skills'),\r
+                type: 'skills'\r
+            },\r
+            {\r
+                src: path.join(extensionPath, 'internal', 'agents'),\r
+                dest: path.join(workspaceRoot, 'internal', 'agents'),\r
+                type: 'agents'\r
+            },\r
+            {\r
+                src: path.join(extensionPath, 'docs', 'patterns'),\r
+                dest: path.join(workspaceRoot, 'docs', 'patterns'),\r
+                type: 'patterns'\r
+            }\r
+        ];\r
+\r
+        let copiedCount = { skills: 0, agents: 0, patterns: 0 };\r
+        let skippedCount = { skills: 0, agents: 0, patterns: 0 };\r
+\r
+        for (const { src, dest, type } of resourceMappings) {\r
+            if (!fs.existsSync(src)) {\r
+                console.warn(`[ÆtherLight] Bundled ${type} not found: ${src}`);\r
+                continue;\r
+            }\r
+\r
+            // Create destination directory if needed\r
+            if (!fs.existsSync(dest)) {\r
+                fs.mkdirSync(dest, { recursive: true });\r
+            }\r
+\r
+            // Copy files/directories within (merge, don't replace)\r
+            const entries = fs.readdirSync(src, { withFileTypes: true });\r
+            for (const entry of entries) {\r
+                const srcPath = path.join(src, entry.name);\r
+                const destPath = path.join(dest, entry.name);\r
+\r
+                // Skip if user has customized this file/directory\r
+                if (fs.existsSync(destPath)) {\r
+                    console.log(`[ÆtherLight] ${type}/${entry.name} already exists - preserving user version`);\r
+                    skippedCount[type]++;\r
+                    continue;\r
+                }\r
+\r
+                // Copy new file/directory\r
+                if (entry.isDirectory()) {\r
+                    copyRecursive(srcPath, destPath);\r
+                } else {\r
+                    fs.copyFileSync(srcPath, destPath);\r
+                }\r
+                copiedCount[type]++;\r
+            }\r
+        }\r
+\r
+        console.log(`[ÆtherLight] Sync complete: ` +\r
+            `${copiedCount.skills} skills, ${copiedCount.agents} agents, ${copiedCount.patterns} patterns copied. ` +\r
+            `${skippedCount.skills + skippedCount.agents + skippedCount.patterns} user files preserved.`);\r
+\r
+    } catch (error) {\r
+        console.error('[ÆtherLight] Failed to sync bundled resources:', error);\r
+        // Don't throw - setup can continue\r
+    }\r
+}\r
+```\r
+\r
+TESTING:\r
+1. Test workspace with old `.claude/agents/` → Gets new `.claude/skills/`\r
+2. Test workspace with user-modified skill → Preserves user version\r
+3. Test fresh workspace → Gets all resources\r
+4. Verify counts in console logs\r
+\r
+SUCCESS CRITERIA:\r
+- File-by-file checking, not directory-level\r
+- User customizations preserved\r
+- New resources added automatically\r
+- Clear log output showing what was copied/skipped\r
+\r
+FILES:\r
+- vscode-lumina/src/firstRunSetup.ts:399-461\r
+"""
+completed_date = "2025-11-18"
+
+[tasks.BUG-003]
+id = "BUG-003"
+name = "Add Version Tracking for Resource Sync"
+phase = "phase_1_critical"
+agent = "infrastructure-agent"
+status = "completed"
+priority = "high"
+estimated_time = "1 hour"
+dependencies = [ "BUG-001" ]
+description = """
+DESIGN DECISION: Track last synced version in settings.json to detect updates\r
+WHY: Can't trigger auto-update notifications without version tracking\r
+\r
+ROOT CAUSE:\r
+- No persistence of what version resources were last synced\r
+- Can't detect if user needs resource update\r
+- Can't show "New resources available in v0.18.3" notification\r
+\r
+REASONING CHAIN:\r
+1. User has v0.18.2 with resources synced\r
+2. Upgrades to v0.18.3 (new skills added)\r
+3. Extension activates - how to know if resources are stale?\r
+4. Need version comparison: lastSyncedVersion vs currentVersion\r
+\r
+IMPLEMENTATION:\r
+\r
+```typescript\r
+// vscode-lumina/src/firstRunSetup.ts\r
+\r
+async function checkAndSetupUserDocumentation(context: vscode.ExtensionContext): Promise<void> {\r
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;\r
+    if (!workspaceRoot) return;\r
+\r
+    // Get current extension version\r
+    const currentVersion = context.extension.packageJSON.version;\r
+\r
+    // Get last synced version from settings\r
+    const config = vscode.workspace.getConfiguration('aetherlight');\r
+    const lastSyncedVersion = config.get<string>('lastSyncedVersion');\r
+\r
+    const vscodeDir = path.join(workspaceRoot, '.vscode');\r
+    const aetherlightDocPath = path.join(vscodeDir, 'aetherlight.md');\r
+    const isFirstRun = !fs.existsSync(aetherlightDocPath);\r
+\r
+    // Determine if we need to sync resources\r
+    const needsSync = !lastSyncedVersion || lastSyncedVersion !== currentVersion;\r
+\r
+    if (isFirstRun) {\r
+        // First-run setup logic here\r
+        // ...\r
+    }\r
+\r
+    // Always copy resources if version mismatch or first run\r
+    if (needsSync) {\r
+        console.log(`[ÆtherLight] Resource sync needed (v${lastSyncedVersion || 'none'} → v${currentVersion})`);\r
+        await copyBundledResources(workspaceRoot, context.extensionPath);\r
+\r
+        // Update version in settings\r
+        await config.update('lastSyncedVersion', currentVersion, vscode.ConfigurationTarget.Workspace);\r
+\r
+        // Show notification if this is an upgrade (not first run)\r
+        if (lastSyncedVersion && !isFirstRun) {\r
+            const result = await vscode.window.showInformationMessage(\r
+                `🎨 ÆtherLight v${currentVersion} resources synced!`,\r
+                'View Changes',\r
+                'Dismiss'\r
+            );\r
+            if (result === 'View Changes') {\r
+                // Open CHANGELOG or show what's new\r
+                vscode.env.openExternal(vscode.Uri.parse('https://github.com/AEtherlight-ai/lumina/releases/latest'));\r
+            }\r
+        }\r
+    } else {\r
+        console.log(`[ÆtherLight] Resources up to date (v${currentVersion})`);\r
+    }\r
+\r
+    // Rest of setup logic\r
+    // ...\r
+}\r
+```\r
+\r
+SETTINGS STORAGE:\r
+- Add to .vscode/settings.json: `"aetherlight.lastSyncedVersion": "0.18.2"`\r
+- Workspace-scoped (each repo tracks independently)\r
+- Updated after every successful sync\r
+\r
+TESTING:\r
+1. Install v0.18.2 → lastSyncedVersion = "0.18.2"\r
+2. Simulate upgrade to v0.18.3 → Detects mismatch, syncs, updates version\r
+3. Reopen same workspace → No sync (versions match)\r
+4. Test across multiple workspaces → Each tracks independently\r
+\r
+SUCCESS CRITERIA:\r
+- Version stored in workspace settings.json\r
+- Auto-detects when resources are stale\r
+- Shows upgrade notification on version mismatch\r
+- Logs show version comparison logic\r
+\r
+FILES:\r
+- vscode-lumina/src/firstRunSetup.ts:34-107\r
+- vscode-lumina/package.json (add aetherlight.lastSyncedVersion config)\r
+"""
+completed_date = "2025-11-18"
+
+[tasks.BUG-007]
+id = "BUG-007"
+name = "Fix Desktop Installer File Lock Issues (5 Sub-Issues)"
+phase = "phase_2_installer"
+agent = "infrastructure-agent"
+status = "pending"
+priority = "critical"
+estimated_time = "3 hours"
+dependencies = [ ]
+description = """
+DESIGN DECISION: Fix all 5 file lock issues in aetherlight installer\r
+WHY: Users get "file is being used by another process" when running 'aetherlight' CLI\r
+\r
+ROOT CAUSE ANALYSIS:\r
+\r
+**Issue #1: File Handle Not Closed Properly**\r
+- Location: Line 90-93 in downloadFile()\r
+- Problem: file.close() is async, but Promise resolves immediately\r
+- Effect: File handle still open when installer tries to run\r
+\r
+**Issue #2: File Deleted While Installer Running**\r
+- Location: Line 327 in main()\r
+- Problem: start "" spawns installer and returns immediately, script deletes file\r
+- Effect: Windows installer crashes "file not found"\r
+\r
+**Issue #3: Shell Quoting Problem**\r
+- Location: Line 237 in installDesktopApp()\r
+- Problem: Temp path with spaces breaks quoting\r
+- Effect: start command fails to parse path\r
+\r
+**Issue #4: No Error Handling for File Lock**\r
+- Location: Line 256-260 in installDesktopApp()\r
+- Problem: Generic error, doesn't detect antivirus lock\r
+- Effect: User sees "Failed" instead of "Retrying..."\r
+\r
+**Issue #5: Redirect File Not Closed**\r
+- Location: Lines 69-71 in downloadFile()\r
+- Problem: On HTTP redirect, original stream never closed\r
+- Effect: File handle leaked, causes lock on retry\r
+\r
+FULL FIXED CODE:\r
+\r
+```javascript\r
+#!/usr/bin/env node\r
+\r
+/**\r
+ * ÆtherLight Full Suite Installer (FIXED v0.18.3)\r
+ *\r
+ * FIXES:\r
+ * - Issue #1: Proper file.close() callback\r
+ * - Issue #2: Don't delete installer file (let Windows handle it)\r
+ * - Issue #3: Windows-style path handling\r
+ * - Issue #4: Antivirus lock retry mechanism\r
+ * - Issue #5: Close file stream on redirect\r
+ */\r
+\r
+const https = require('https');\r
+const fs = require('fs');\r
+const path = require('path');\r
+const os = require('os');\r
+const { execSync } = require('child_process');\r
+\r
+const GITHUB_REPO = 'AEtherlight-ai/lumina';\r
+const GITHUB_API = 'https://api.github.com';\r
+\r
+// Colors for terminal output\r
+const colors = {\r
+  reset: '\\x1b[0m',\r
+  bright: '\\x1b[1m',\r
+  green: '\\x1b[32m',\r
+  yellow: '\\x1b[33m',\r
+  blue: '\\x1b[34m',\r
+  red: '\\x1b[31m',\r
+};\r
+\r
+function log(message, color = 'reset') {\r
+  console.log(`${colors[color]}${message}${colors.reset}`);\r
+}\r
+\r
+// FIX: Issue #1 - Proper file.close() callback\r
+function downloadFile(url, dest) {\r
+  return new Promise((resolve, reject) => {\r
+    const file = fs.createWriteStream(dest);\r
+\r
+    https.get(url, { headers: { 'User-Agent': 'aetherlight-installer' } }, (response) => {\r
+      // FIX: Issue #5 - Close file stream on redirect\r
+      if (response.statusCode === 302 || response.statusCode === 301) {\r
+        file.close(() => {\r
+          downloadFile(response.headers.location, dest).then(resolve).catch(reject);\r
+        });\r
+        return;\r
+      }\r
+\r
+      if (response.statusCode !== 200) {\r
+        file.close(() => {\r
+          reject(new Error(`Failed to download: HTTP ${response.statusCode}`));\r
+        });\r
+        return;\r
+      }\r
+\r
+      const totalSize = parseInt(response.headers['content-length'], 10);\r
+      let downloaded = 0;\r
+\r
+      response.on('data', (chunk) => {\r
+        downloaded += chunk.length;\r
+        const percent = ((downloaded / totalSize) * 100).toFixed(1);\r
+        process.stdout.write(`\\r  Downloading... ${percent}%`);\r
+      });\r
+\r
+      response.pipe(file);\r
+\r
+      file.on('finish', () => {\r
+        // FIX: Issue #1 - Wait for file handle to actually close\r
+        file.close((err) => {\r
+          if (err) {\r
+            reject(err);\r
+          } else {\r
+            process.stdout.write('\\n');\r
+\r
+            // Give antivirus 1 second to scan\r
+            setTimeout(() => {\r
+              resolve();\r
+            }, 1000);\r
+          }\r
+        });\r
+      });\r
+    }).on('error', (err) => {\r
+      file.close(() => {\r
+        fs.unlinkSync(dest);\r
+        reject(err);\r
+      });\r
+    });\r
+  });\r
+}\r
+\r
+// FIX: Issue #3 + #4 - Windows path handling + retry logic\r
+function launchInstaller(filePath, maxRetries = 3) {\r
+  // Convert to Windows-style path\r
+  const windowsPath = filePath.replace(/\\//g, '\\\\');\r
+\r
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {\r
+    try {\r
+      log(`   Launching installer (attempt ${attempt}/${maxRetries})...`, 'blue');\r
+      execSync(`start "" "${windowsPath}"`, {\r
+        stdio: 'inherit',\r
+        shell: 'cmd.exe'\r
+      });\r
+      return true;\r
+    } catch (err) {\r
+      // FIX: Issue #4 - Detect antivirus lock\r
+      if (err.message.includes('being used by another process')) {\r
+        if (attempt < maxRetries) {\r
+          log('   ⚠️  Installer file is locked (antivirus scanning)', 'yellow');\r
+          log(`   Retrying in 3 seconds...`, 'yellow');\r
+          execSync('timeout /t 3 /nobreak > nul', { stdio: 'ignore' });\r
+        } else {\r
+          log('   ❌ Installer still locked after retries', 'red');\r
+          log('   Try running installer manually from:', 'yellow');\r
+          log(`   ${filePath}`, 'yellow');\r
+          return false;\r
+        }\r
+      } else {\r
+        throw err;\r
+      }\r
+    }\r
+  }\r
+  return false;\r
+}\r
+\r
+function installDesktopApp(filePath, osType, releaseVersion) {\r
+  log('\\n🖥️  Checking Desktop app...', 'blue');\r
+\r
+  const installedVersion = getInstalledDesktopVersion(osType);\r
+\r
+  if (installedVersion) {\r
+    log(`   Found installed version: ${installedVersion}`, 'blue');\r
+    if (installedVersion === releaseVersion) {\r
+      log('✅ Desktop app is already up to date!', 'green');\r
+      return true;\r
+    } else {\r
+      log(`   Updating from ${installedVersion} to ${releaseVersion}...`, 'yellow');\r
+    }\r
+  } else {\r
+    log('   Desktop app not found, installing...', 'blue');\r
+  }\r
+\r
+  try {\r
+    if (osType === 'windows') {\r
+      // FIX: Use new launch function with retry logic\r
+      const success = launchInstaller(filePath);\r
+      if (success) {\r
+        log('   Follow installer prompts to complete setup.', 'yellow');\r
+      }\r
+      return success;\r
+    } else if (osType === 'mac') {\r
+      // Mac installation logic unchanged\r
+      const appName = path.basename(filePath).replace('.zip', '');\r
+      const targetPath = `/Applications/${appName}`;\r
+      if (fs.existsSync(targetPath)) {\r
+        log('   Removing old version...', 'blue');\r
+        execSync(`rm -rf "${targetPath}"`, { stdio: 'inherit' });\r
+      }\r
+      log('   Installing to /Applications...', 'blue');\r
+      execSync(`cp -R "${filePath}" "${targetPath}"`, { stdio: 'inherit' });\r
+      log('✅ Desktop app installed to /Applications!', 'green');\r
+      return true;\r
+    }\r
+  } catch (err) {\r
+    log('❌ Failed to install desktop app', 'red');\r
+    console.error(err.message);\r
+    return false;\r
+  }\r
+\r
+  return false;\r
+}\r
+\r
+async function main() {\r
+  log('\\n╔═══════════════════════════════════════╗', 'bright');\r
+  log('║   ÆtherLight Full Suite Installer    ║', 'bright');\r
+  log('╚═══════════════════════════════════════╝\\n', 'bright');\r
+\r
+  const osType = detectOS();\r
+  log(`✓ Detected OS: ${osType}`, 'green');\r
+\r
+  log('\\n🔍 Fetching latest release...', 'blue');\r
+  const release = await getLatestRelease();\r
+  log(`✓ Found version: ${release.tag_name}`, 'green');\r
+\r
+  const assets = release.assets;\r
+  const tmpDir = os.tmpdir();\r
+\r
+  // Find assets\r
+  const vsixAsset = assets.find(a => a.name.endsWith('.vsix'));\r
+  if (!vsixAsset) {\r
+    log('❌ VS Code extension not found in release', 'red');\r
+    process.exit(1);\r
+  }\r
+\r
+  let desktopAsset = null;\r
+  if (osType === 'windows') {\r
+    desktopAsset = assets.find(a => a.name.endsWith('.exe'));\r
+  } else if (osType === 'mac') {\r
+    desktopAsset = assets.find(a => a.name.endsWith('.app.zip') || a.name.endsWith('.dmg'));\r
+  }\r
+\r
+  // Download VS Code extension\r
+  log('\\n📥 Downloading VS Code extension...', 'blue');\r
+  const vsixPath = path.join(tmpDir, vsixAsset.name);\r
+  await downloadFile(vsixAsset.browser_download_url, vsixPath);\r
+  log('✓ Downloaded successfully', 'green');\r
+\r
+  // Download desktop app (if available)\r
+  let desktopPath = null;\r
+  if (desktopAsset) {\r
+    log('\\n📥 Downloading Desktop app...', 'blue');\r
+    desktopPath = path.join(tmpDir, desktopAsset.name);\r
+    await downloadFile(desktopAsset.browser_download_url, desktopPath);\r
+    log('✓ Downloaded successfully', 'green');\r
+  }\r
+\r
+  // Give antivirus extra time to scan while we do other work\r
+  log('\\n⏳ Preparing installation...', 'blue');\r
+  await new Promise(resolve => setTimeout(resolve, 2000));\r
+\r
+  // Install VS Code extension\r
+  const vsCodeInstalled = installVSCodeExtension(vsixPath);\r
+\r
+  // Install Cursor extension (optional)\r
+  installCursorExtension(vsixPath);\r
+\r
+  // Install Desktop app LAST (gives maximum scan time)\r
+  if (desktopPath) {\r
+    installDesktopApp(desktopPath, osType, release.tag_name.replace('v', ''));\r
+  }\r
+\r
+  // Cleanup\r
+  log('\\n🧹 Cleaning up temporary files...', 'blue');\r
+  try {\r
+    fs.unlinkSync(vsixPath);\r
+    // FIX: Issue #2 - DON'T delete desktop installer\r
+    // Windows installer process still needs it\r
+    // It will clean up temp files itself\r
+  } catch (err) {\r
+    // Ignore cleanup errors\r
+  }\r
+\r
+  // Summary\r
+  log('\\n╔═══════════════════════════════════════╗', 'bright');\r
+  log('║        Installation Complete!         ║', 'green');\r
+  log('╚═══════════════════════════════════════╝\\n', 'bright');\r
+\r
+  if (vsCodeInstalled) {\r
+    log('🎉 ÆtherLight is ready to use in VS Code!', 'green');\r
+    log('   Open VS Code and look for the ÆtherLight icon in the sidebar.', 'blue');\r
+  }\r
+\r
+  if (desktopPath && osType === 'windows') {\r
+    log('\\n📱 Desktop app installer is running.', 'blue');\r
+    log('   Follow the prompts to complete desktop setup.', 'blue');\r
+  } else if (desktopPath && osType === 'mac') {\r
+    log('\\n📱 Desktop app installed to /Applications', 'green');\r
+  }\r
+\r
+  log('\\n📚 Documentation: https://github.com/AEtherlight-ai/lumina', 'blue');\r
+  log('🐛 Issues: https://github.com/AEtherlight-ai/lumina/issues\\n', 'blue');\r
+}\r
+\r
+main().catch((err) => {\r
+  log('\\n❌ Installation failed:', 'red');\r
+  console.error(err);\r
+  process.exit(1);\r
+});\r
+```\r
+\r
+TESTING:\r
+1. Test on Windows with antivirus enabled → Installer waits and retries\r
+2. Test with file already locked → Shows retry messages\r
+3. Test rapid install/uninstall → No file lock errors\r
+4. Verify installer runs after temp file cleanup\r
+\r
+SUCCESS CRITERIA:\r
+- All 5 file lock issues fixed\r
+- Installer launches successfully 95%+ of the time\r
+- Clear retry messages when locked\r
+- No "file not found" or "access denied" errors\r
+\r
+FILES:\r
+- C:\\Users\\Brett\\AppData\\Roaming\\npm\\node_modules\\aetherlight\\bin\\aetherlight.js\r
+- (OR local development: packages/aetherlight-sdk/bin/aetherlight.js)\r
+"""
+
+[tasks.BUG-004]
+id = "BUG-004"
+name = "Add Version Check Before Running Installer"
+phase = "phase_2_installer"
+agent = "infrastructure-agent"
+status = "pending"
+priority = "medium"
+estimated_time = "1 hour"
+dependencies = [ "BUG-007" ]
+description = """
+DESIGN DECISION: Check installed version before attempting installation\r
+WHY: Avoid unnecessary installs, better UX ("Already up to date!")\r
+\r
+CURRENT BEHAVIOR:\r
+- Always downloads installer\r
+- Always tries to run it\r
+- Even if correct version already installed\r
+\r
+IMPROVED FLOW:\r
+\r
+```javascript\r
+function getInstalledDesktopVersion(osType) {\r
+  try {\r
+    if (osType === 'windows') {\r
+      // Check registry for installed version\r
+      const output = execSync(\r
+        'reg query "HKCU\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall" /s /f "Lumina"',\r
+        { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }\r
+      );\r
+\r
+      const versionMatch = output.match(/DisplayVersion\\s+REG_SZ\\s+(\\d+\\.\\d+\\.\\d+)/);\r
+      if (versionMatch) {\r
+        return versionMatch[1];\r
+      }\r
+\r
+      // Fallback: Check Program Files\r
+      const appPath = path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Lumina', 'Lumina.exe');\r
+      if (fs.existsSync(appPath)) {\r
+        // Try to get version from file properties (Windows only)\r
+        const versionOutput = execSync(`wmic datafile where name="${appPath.replace(/\\\\/g, '\\\\\\\\')}" get Version /value`, {\r
+          encoding: 'utf-8',\r
+          stdio: ['pipe', 'pipe', 'ignore']\r
+        });\r
+        const match = versionOutput.match(/Version=([\\d.]+)/);\r
+        if (match) return match[1];\r
+      }\r
+    }\r
+  } catch (err) {\r
+    // Can't determine version\r
+    return null;\r
+  }\r
+  return null;\r
+}\r
+\r
+function installDesktopApp(filePath, osType, releaseVersion) {\r
+  log('\\n🖥️  Checking Desktop app...', 'blue');\r
+\r
+  const installedVersion = getInstalledDesktopVersion(osType);\r
+\r
+  if (installedVersion) {\r
+    log(`   Found installed version: v${installedVersion}`, 'blue');\r
+\r
+    if (installedVersion === releaseVersion) {\r
+      log('✅ Desktop app is already up to date!', 'green');\r
+      log(`   Version ${installedVersion} is the latest version.`, 'green');\r
+      log('   No update needed.', 'green');\r
+      return true; // Skip installation\r
+    } else {\r
+      log(`   Updating from v${installedVersion} to v${releaseVersion}...`, 'yellow');\r
+    }\r
+  } else {\r
+    log('   Desktop app not found, installing v${releaseVersion}...', 'blue');\r
+  }\r
+\r
+  // Proceed with installation\r
+  // ...\r
+}\r
+```\r
+\r
+TESTING:\r
+1. Install Lumina v0.18.2 manually\r
+2. Run `aetherlight` → Should show "Already up to date!"\r
+3. Uninstall Lumina\r
+4. Run `aetherlight` → Should install\r
+\r
+SUCCESS CRITERIA:\r
+- Detects installed version via registry\r
+- Shows "Already up to date" if versions match\r
+- Only downloads/installs if needed\r
+- Saves bandwidth and time\r
+\r
+FILES:\r
+- C:\\Users\\Brett\\AppData\\Roaming\\npm\\node_modules\\aetherlight\\bin\\aetherlight.js\r
+"""
+
+[tasks.BUG-005]
+id = "BUG-005"
+name = "Improve Installer Error Messages"
+phase = "phase_2_installer"
+agent = "infrastructure-agent"
+status = "pending"
+priority = "low"
+estimated_time = "0.5 hours"
+dependencies = [ "BUG-007" ]
+description = """
+DESIGN DECISION: Show specific error messages instead of generic "Failed"\r
+WHY: Users need actionable feedback\r
+\r
+ERROR TYPES TO DETECT:\r
+1. File locked (antivirus) → "Retrying..."\r
+2. Already installed → "Already up to date"\r
+3. No internet → "Check connection"\r
+4. GitHub API rate limit → "Try again in X minutes"\r
+5. Installer crashes → "Run manually: <path>"\r
+\r
+IMPLEMENTATION:\r
+\r
+```javascript\r
+function handleInstallerError(err, filePath) {\r
+  if (err.message.includes('being used by another process')) {\r
+    log('⚠️  Installer file is locked (likely antivirus scanning)', 'yellow');\r
+    log('   Suggestion: Wait 30 seconds and try again', 'yellow');\r
+    log(`   Or run manually: ${filePath}`, 'yellow');\r
+  } else if (err.message.includes('ENOENT')) {\r
+    log('❌ Installer file not found', 'red');\r
+    log('   This is a bug. Please report at:', 'yellow');\r
+    log('   https://github.com/AEtherlight-ai/lumina/issues', 'yellow');\r
+  } else if (err.message.includes('EACCES')) {\r
+    log('❌ Permission denied', 'red');\r
+    log('   Try running as administrator', 'yellow');\r
+  } else {\r
+    log('❌ Unexpected installer error', 'red');\r
+    log('   Error details:', 'yellow');\r
+    console.error(err.message);\r
+    log(`\\n   You can install manually from: ${filePath}`, 'yellow');\r
+  }\r
+}\r
+```\r
+\r
+SUCCESS CRITERIA:\r
+- Specific messages for each error type\r
+- Actionable suggestions\r
+- Manual install path shown on failure\r
+\r
+FILES:\r
+- C:\\Users\\Brett\\AppData\\Roaming\\npm\\node_modules\\aetherlight\\bin\\aetherlight.js\r
+"""
+
+[tasks.BUG-006]
+id = "BUG-006"
+name = "Remove RTC/WebSocket Code from Extension (Claimed Fixed in v17.3 But Still Active)"
+phase = "phase_2_installer"
+agent = "infrastructure-agent"
+status = "pending"
+priority = "high"
+estimated_time = "1.5 hours"
+dependencies = [ ]
+description = """
+DESIGN DECISION: Remove real-time sync WebSocket code from extension\r
+WHY: Feature was deprecated in v17.3 but code still active, causing errors on every activation\r
+\r
+ROOT CAUSE:\r
+- RTC/WebSocket code was supposed to be removed in v17.3\r
+- Code still present and actively trying to connect on every activation\r
+- Failing connections spam console with errors\r
+- No users using this feature (deprecated)\r
+\r
+USER-REPORTED ERRORS:\r
+```\r
+[Extension Host] [RTC Client] WebSocket error: Object\r
+[RTC Client] Reconnect failed: Error: WebSocket connection failed\r
+[RTC Client] Connection timeout after 2s, cleaning up\r
+❌ Real-time sync connection failed: Error: WebSocket connection failed\r
+```\r
+\r
+CURRENT STATE (CONFIRMED BY CODEBASE EXPLORATION):\r
+1. **vscode-lumina/src/extension.ts:52** - Import still present:\r
+   ```typescript\r
+   import { RealtimeSyncManager } from './realtime_sync';\r
+   ```\r
+\r
+2. **vscode-lumina/src/extension.ts:932** - Initialization still runs on every activation:\r
+   ```typescript\r
+   try {\r
+       const realtimeSyncManager = await RealtimeSyncManager.initialize(context);\r
+       context.subscriptions.push({\r
+           dispose: () => realtimeSyncManager.dispose()\r
+       });\r
+       console.log('Real-time sync manager initialized');\r
+   } catch (error) {\r
+       console.log('Real-time sync disabled or failed to initialize:', error);\r
+       // Continue without real-time sync - not a critical failure\r
+   }\r
+   ```\r
+\r
+3. **vscode-lumina/src/realtime_sync/** - Entire directory still exists:\r
+   - `client.ts` - WebSocket client with auto-reconnect\r
+   - `index.ts` - RealtimeSyncManager\r
+   - `hooks.ts` - Event hooks\r
+   - `activity_feed.ts` - UI component\r
+   - `types.ts` - TypeScript types\r
+   - `__tests__/` - Test files\r
+\r
+4. **Connection Flow:**\r
+   - Extension activates\r
+   - Calls `RealtimeSyncManager.initialize(context)`\r
+   - Creates WebSocket to `ws://localhost:43216`\r
+   - Connection fails (no server running)\r
+   - Auto-reconnect with exponential backoff\r
+   - Spams console with errors every 1s, 2s, 4s, 8s, 16s, 30s\r
+\r
+REASONING CHAIN:\r
+1. User installs v0.18.2\r
+2. Extension activates\r
+3. Line 932: RealtimeSyncManager.initialize() called\r
+4. realtime_sync/client.ts:107: WebSocket connects to ws://localhost:43216\r
+5. No server running → Connection fails\r
+6. client.ts:170: "Connection timeout after 2s" error\r
+7. Auto-reconnect kicks in (exponential backoff)\r
+8. Errors repeat indefinitely\r
+9. User sees error spam in console\r
+10. No benefit - feature is deprecated\r
+\r
+FIX - Remove Entire RTC System:\r
+\r
+**Step 1: Comment out import and initialization in extension.ts**\r
+```typescript\r
+// Line 52 - Comment out import\r
+// import { RealtimeSyncManager } from './realtime_sync';\r
+\r
+// Lines 932-940 - Comment out initialization\r
+// try {\r
+//     const realtimeSyncManager = await RealtimeSyncManager.initialize(context);\r
+//     context.subscriptions.push({\r
+//         dispose: () => realtimeSyncManager.dispose()\r
+//     });\r
+//     console.log('Real-time sync manager initialized');\r
+// } catch (error) {\r
+//     console.log('Real-time sync disabled or failed to initialize:', error);\r
+//     // Continue without real-time sync - not a critical failure\r
+// }\r
+```\r
+\r
+**Step 2: Move realtime_sync/ directory to archive**\r
+```bash\r
+# Don't delete - move to archive in case we need reference later\r
+mkdir -p vscode-lumina/src/_archived\r
+mv vscode-lumina/src/realtime_sync vscode-lumina/src/_archived/realtime_sync_deprecated_v17.3\r
+```\r
+\r
+**Step 3: Remove package.json settings**\r
+```json\r
+// vscode-lumina/package.json - Remove these settings:\r
+// "aetherlight.sync.enabled": { ... }\r
+// "aetherlight.sync.serverUrl": { ... }\r
+// "aetherlight.sync.autoReconnect": { ... }\r
+// (Lines 244-383 in package.json)\r
+```\r
+\r
+**Step 4: Remove config types**\r
+```typescript\r
+// vscode-lumina/src/config/types.ts\r
+// Remove: SyncConfig interface and DEFAULT_SYNC_CONFIG\r
+```\r
+\r
+**Step 5: Test**\r
+1. Compile: `cd vscode-lumina && npm run compile`\r
+2. Launch Extension Development Host (F5)\r
+3. Open console (Help → Toggle Developer Tools)\r
+4. Verify NO RTC errors appear\r
+5. Verify extension still functions normally\r
+\r
+TESTING:\r
+1. Fresh install → No RTC errors\r
+2. Existing workspace → No RTC errors\r
+3. Check console logs → No WebSocket errors\r
+4. Extension activation → No "Real-time sync" messages\r
+5. All other features work (voice, sprint, etc.)\r
+\r
+SUCCESS CRITERIA:\r
+- No RTC/WebSocket imports in extension.ts\r
+- realtime_sync/ directory archived (not deleted)\r
+- No RTC errors in console\r
+- Extension compiles successfully\r
+- All other features work normally\r
+- package.json settings removed\r
+- TypeScript compilation SUCCESS\r
+\r
+HISTORICAL CONTEXT:\r
+- Feature was supposed to be removed in v17.3\r
+- Bug carried over to v18.2\r
+- User report: "WebSocket RTC connection was removed from desktop app but is still there"\r
+- Confirmed: Code is still active and trying to connect\r
+\r
+FILES TO MODIFY:\r
+- vscode-lumina/src/extension.ts (lines 52, 932-940)\r
+- vscode-lumina/src/realtime_sync/ (archive entire directory)\r
+- vscode-lumina/package.json (remove sync settings)\r
+- vscode-lumina/src/config/types.ts (remove SyncConfig)\r
+\r
+PATTERN: Pattern-DEPRECATION-001 (Archive, don't delete)\r
+RELATED: BUG-008 (activation issues might be related)\r
+"""
+
+[tasks.BUG-008]
+id = "BUG-008"
+name = "Fix License Activation Not Persisting Between Reloads"
+phase = "phase_1_critical"
+agent = "infrastructure-agent"
+status = "completed"
+priority = "high"
+estimated_time = "2 hours"
+dependencies = [ ]
+description = """
+DESIGN DECISION: Investigate and fix license key persistence issue\r
+WHY: User reports activation prompt shows every reload, license key not saving\r
+\r
+USER REPORT:\r
+"Activation is not saving and remains broken every time you reload"\r
+\r
+SYMPTOMS:\r
+1. User enters license key\r
+2. Extension activates successfully\r
+3. User reloads VS Code window\r
+4. Activation prompt shows again\r
+5. License key appears to not persist\r
+\r
+CURRENT IMPLEMENTATION (extension.ts:305-365):\r
+```typescript\r
+const config = vscode.workspace.getConfiguration('aetherlight');\r
+let licenseKey = config.get<string>('licenseKey', '');\r
+\r
+// ... user enters key ...\r
+\r
+if (licenseKey) {\r
+    await config.update('licenseKey', licenseKey, vscode.ConfigurationTarget.Global);\r
+}\r
+\r
+// ... validate key ...\r
+\r
+if (licenseKey) {\r
+    const result = await validator.validateLicenseKey(licenseKey, {\r
+        allowOffline: true,\r
+        timeout: 2000\r
+    });\r
+    tierGate.setUserTier(result.tier);\r
+    await config.update('userTier', result.tier, vscode.ConfigurationTarget.Global);\r
+}\r
+```\r
+\r
+POTENTIAL ROOT CAUSES TO INVESTIGATE:\r
+\r
+**Theory 1: ConfigurationTarget.Global Not Persisting**\r
+- Is Global target correct for workspace settings?\r
+- Should it be Workspace or WorkspaceFolder?\r
+- Verify settings.json actually updated\r
+\r
+**Theory 2: Config Object Stale**\r
+- Config fetched once at top of activate()\r
+- Updates might not flush to disk\r
+- Need to re-fetch after update?\r
+\r
+**Theory 3: Validation Failing Silently**\r
+- Key saves but validation fails on next load\r
+- Falls back to free tier\r
+- Prompt shows because tierGate has no cached tier\r
+\r
+**Theory 4: Settings.json Permissions**\r
+- File locked or read-only?\r
+- Antivirus blocking writes?\r
+- Check if settings.json actually modified\r
+\r
+**Theory 5: Race Condition**\r
+- Multiple activations happening?\r
+- First activation writes, second overwrites?\r
+- Workspace folders causing duplication?\r
+\r
+INVESTIGATION STEPS:\r
+\r
+1. **Add detailed logging:**\r
+```typescript\r
+const config = vscode.workspace.getConfiguration('aetherlight');\r
+let licenseKey = config.get<string>('licenseKey', '');\r
+console.log('[DEBUG] License key from config:', licenseKey ? licenseKey.substring(0, 4) + '...' : '(empty)');\r
+\r
+if (licenseKey) {\r
+    console.log('[DEBUG] Saving license key to Global settings...');\r
+    await config.update('licenseKey', licenseKey, vscode.ConfigurationTarget.Global);\r
+    console.log('[DEBUG] License key saved successfully');\r
+\r
+    // Verify it was saved\r
+    const configAfterSave = vscode.workspace.getConfiguration('aetherlight');\r
+    const savedKey = configAfterSave.get<string>('licenseKey', '');\r
+    console.log('[DEBUG] Verification - key after save:', savedKey ? savedKey.substring(0, 4) + '...' : '(empty)');\r
+}\r
+```\r
+\r
+2. **Check settings file location:**\r
+```typescript\r
+const settingsPath = vscode.workspace.getConfiguration().inspect('aetherlight.licenseKey');\r
+console.log('[DEBUG] Settings locations:', JSON.stringify(settingsPath, null, 2));\r
+```\r
+\r
+3. **Test with different targets:**\r
+```typescript\r
+// Try Workspace instead of Global\r
+await config.update('licenseKey', licenseKey, vscode.ConfigurationTarget.Workspace);\r
+```\r
+\r
+4. **Add error handling:**\r
+```typescript\r
+try {\r
+    await config.update('licenseKey', licenseKey, vscode.ConfigurationTarget.Global);\r
+} catch (err) {\r
+    console.error('[ERROR] Failed to save license key:', err);\r
+    vscode.window.showErrorMessage('Failed to save license key: ' + err.message);\r
+}\r
+```\r
+\r
+5. **Check validation cache:**\r
+```typescript\r
+// licenseValidator.ts - Check if cache is working\r
+console.log('[DEBUG] Cache status:', this.cache.has(licenseKey) ? 'HIT' : 'MISS');\r
+```\r
+\r
+TESTING PROTOCOL:\r
+\r
+1. **Fresh Install Test:**\r
+   - Install extension\r
+   - Enter license key\r
+   - Check: Does key appear in settings.json?\r
+   - Reload window (Cmd+R / Ctrl+R)\r
+   - Check: Does prompt show again?\r
+\r
+2. **Manual Settings Test:**\r
+   - Open Settings (Cmd+, / Ctrl+,)\r
+   - Search "aetherlight.licenseKey"\r
+   - Manually enter key\r
+   - Reload window\r
+   - Check: Does key persist?\r
+\r
+3. **Workspace vs Global Test:**\r
+   - Test with ConfigurationTarget.Workspace\r
+   - Test with ConfigurationTarget.Global\r
+   - Test with ConfigurationTarget.WorkspaceFolder\r
+   - Which one persists correctly?\r
+\r
+4. **Validation Failure Test:**\r
+   - Enter invalid key\r
+   - Check logs for validation errors\r
+   - Reload window\r
+   - Does it re-prompt or use cached tier?\r
+\r
+5. **Multiple Workspace Test:**\r
+   - Open multi-root workspace\r
+   - Does activation happen multiple times?\r
+   - Do settings conflict?\r
+\r
+SUCCESS CRITERIA:\r
+- License key entered once\r
+- Key persists after reload\r
+- No re-prompts on subsequent activations\r
+- Settings.json correctly updated\r
+- Tier correctly cached\r
+- Clear error messages if save fails\r
+- Works in single and multi-root workspaces\r
+\r
+DELIVERABLES:\r
+1. Root cause identified (with evidence)\r
+2. Fix implemented\r
+3. Detailed logging added\r
+4. Test cases pass\r
+5. Documentation updated (if behavior changes)\r
+\r
+HISTORICAL CONTEXT:\r
+- BUG-011 (v17.1) implemented license validation\r
+- User reports activation not persisting in v18.2\r
+- Might be related to BUG-006 (RTC errors on startup)\r
+- Console errors might be masking real issue\r
+\r
+FILES TO INVESTIGATE:\r
+- vscode-lumina/src/extension.ts (lines 305-365)\r
+- vscode-lumina/src/auth/licenseValidator.ts (caching logic)\r
+- vscode-lumina/src/auth/tierGate.ts (tier persistence)\r
+- User's settings.json (check if key is there)\r
+\r
+PATTERN: Pattern-DEBUG-001 (Systematic root cause analysis)\r
+RELATED: BUG-006 (RTC errors might be related), BUG-011 (original activation implementation)\r
+"""
+completed_date = "2025-11-18"
+
+[tasks.BUG-009]
+id = "BUG-009"
+name = "Fix 'Start This Task' Auto-Send to Terminal"
+phase = "phase_1_critical"
+agent = "ui-agent"
+status = "completed"
+completed_date = "2025-11-18"
+priority = "high"
+estimated_time = "30 minutes"
+dependencies = [ ]
+enhanced_prompt = "internal/sprints/enhanced_prompts/18.2-RESOURCE-BUNDLING-BUGS_BUG-009_ENHANCED_PROMPT.md"
+
+completion_notes = """
+Completed 2025-11-18 by AI agent (ui-agent)
+
+Changes Made:
+- Removed PromptTerminalManager.sendWelcomeMessage() auto-send call from line 877
+- User notification was already present (lines 879-881)
+- User now controls when to send content via Ctrl+Enter
+- No more race condition with Claude Code CLI startup
+
+Technical Details:
+- File(s):
+  - vscode-lumina/src/commands/voicePanel.ts (MODIFIED, line 877 removed)
+- Lines Modified: -1 line (removed sendWelcomeMessage call)
+- Breaking Change: NO (improves UX, user controls timing)
+- Test Coverage: Manual testing required (3 scenarios: start task, manual send, terminal already open)
+- Commit: [will add after commit]
+
+Implementation Approach:
+- Pattern-UX-001: User controls timing, not automation
+- Simple fix: Remove problematic auto-send behavior
+- Notification already present to guide user to press Ctrl+Enter
+
+Testing Strategy:
+- Manual testing in Extension Development Host required:
+  - "Start This Task" populates text area ✓
+  - Prompt Terminal opens (ready and waiting) ✓
+  - Content NOT auto-sent to terminal ✓
+  - Notification guides user to Ctrl+Enter ✓
+  - User presses Ctrl+Enter → Content sends correctly ✓
+  - Terminal already open → No issues ✓
+- All test scenarios documented in: internal/sprints/SPRINT_18.2_MANUAL_TEST_CHECKLIST.md
+- User will test before publishing v0.18.3
+
+Historical Context:
+- User report: "does not wait for Claude Code to open up"
+- Race condition: Content sent before CLI ready
+- Fix: Give user control, eliminate race condition
+- Critical bug affecting "Start This Task" workflow reliability
+
+Impact:
+- Fixes: Race condition with Claude Code CLI startup
+- Improves: User control over send timing
+- Enables: Reliable "Start This Task" workflow
+- User Experience: No more lost content, user controls when to send
+
+Dependencies:
+- Blocked by: None
+- Blocks: None
+
+Next Steps:
+- User testing: Verify "Start This Task" workflow works correctly
+- Monitor user feedback on UX change (auto → manual send)
+- Consider adding terminal ready indicator (visual feedback) in future sprint
+"""
+
+description = """
+DESIGN DECISION: Open terminal but don't auto-send content, let user control timing\r
+WHY: Claude Code CLI may not be ready when terminal opens, causes race condition\r
+\r
+USER REPORT:\r
+"When I select 'Start This Task' it opens the Aetherlight Prompt terminal but does not wait for Claude Code to open up"\r
+\r
+CURRENT BEHAVIOR (voicePanel.ts:851-887):\r
+1. User clicks "Start This Task" button on a sprint task\r
+2. Code generates task template (line 867)\r
+3. Code populates text area with template (line 870-873) ✓\r
+4. Code opens Prompt Terminal (line 876) ✓ (KEEP THIS)\r
+5. Code AUTO-SENDS template to terminal (line 877) ✗ (REMOVE THIS)\r
+6. Result: Content sent before Claude Code CLI is ready\r
+\r
+PROBLEM:\r
+- PromptTerminalManager.showPromptTerminal() opens terminal (line 876) ✓ GOOD\r
+- PromptTerminalManager.sendWelcomeMessage() sends content immediately (line 877) ✗ BAD\r
+- Claude Code CLI may not be ready to receive\r
+- Content gets lost or causes errors\r
+- User has no control over timing\r
+\r
+DESIRED BEHAVIOR:\r
+1. User clicks "Start This Task"\r
+2. Code generates task template ✓\r
+3. Code populates text area ✓\r
+4. Code opens Prompt Terminal (ready and waiting) ✓\r
+5. User reviews template in text area\r
+6. User manually sends when ready (Ctrl+Enter) ✓\r
+7. Result: Terminal is ready, user controls when Claude Code receives content\r
+\r
+FIX:\r
+```typescript\r
+// vscode-lumina/src/commands/voicePanel.ts:851-887\r
+\r
+case 'startTask':\r
+    try {\r
+        const task = this.sprintTasks.find(t => t.id === message.taskId);\r
+        if (!task) {\r
+            vscode.window.showErrorMessage(`Task ${message.taskId} not found`);\r
+            break;\r
+        }\r
+\r
+        // Generate start task template\r
+        const taskTemplate = this.generateStartTaskTemplate(task);\r
+\r
+        // Populate text area with template\r
+        webview.postMessage({\r
+            type: 'populateTextArea',\r
+            text: taskTemplate\r
+        });\r
+\r
+        // Open terminal (but don't send content yet)\r
+        PromptTerminalManager.showPromptTerminal();  // ✓ KEEP THIS\r
+\r
+        // REMOVE THIS LINE (auto-send):\r
+        // PromptTerminalManager.sendWelcomeMessage(`Start Task: ${task.id}`, taskTemplate);\r
+\r
+        // Notify user to review and send manually\r
+        vscode.window.showInformationMessage(\r
+            `📋 Task ${task.id} ready - Review in text area, then press Ctrl+Enter to send to Claude Code`\r
+        );\r
+    } catch (error) {\r
+        console.error('[ÆtherLight] Start task generation failed:', error);\r
+        vscode.window.showErrorMessage(`Failed to generate start task: ${(error as Error).message}`);\r
+    }\r
+    break;\r
+```\r
+\r
+TESTING:\r
+1. Click "Start This Task" on any sprint task\r
+2. Verify: Text area populates with template ✓\r
+3. Verify: Prompt Terminal opens automatically ✓\r
+4. Verify: Content is NOT sent to terminal yet ✓\r
+5. User reviews template in text area\r
+6. User presses Ctrl+Enter when ready ✓\r
+7. Verify: Content sends to terminal correctly ✓\r
+8. Verify: Claude Code CLI receives content successfully ✓\r
+\r
+SUCCESS CRITERIA:\r
+- "Start This Task" populates text area ✓\r
+- Prompt Terminal opens (if not already open) ✓\r
+- Content is NOT auto-sent to terminal ✓\r
+- User has full control over send timing ✓\r
+- Notification message updated to reflect manual send\r
+- No race condition with Claude Code CLI loading\r
+- User avoids "AI not launched" issues\r
+\r
+FILES:\r
+- vscode-lumina/src/commands/voicePanel.ts (line 877 ONLY - remove sendWelcomeMessage call)\r
+\r
+PATTERN: Pattern-UX-001 (User controls timing, not automation)\r
+"""
+
+[tasks.FEATURE-001]
+id = "FEATURE-001"
+name = "Add Auto-Detection Notification for Resource Sync"
+phase = "phase_3_discovery"
+agent = "infrastructure-agent"
+status = "pending"
+priority = "high"
+estimated_time = "2 hours"
+dependencies = [ "BUG-003" ]
+description = """
+DESIGN DECISION: Auto-detect missing/outdated resources and prompt user to sync\r
+WHY: Users have no idea bundled resources exist\r
+\r
+TRIGGER CONDITIONS:\r
+1. Extension activates in workspace\r
+2. Check: Are resources missing or outdated?\r
+3. If YES → Show notification\r
+\r
+IMPLEMENTATION:\r
+\r
+```typescript\r
+// vscode-lumina/src/services/ResourceSyncManager.ts\r
+\r
+import * as vscode from 'vscode';\r
+import * as fs from 'fs';\r
+import * as path from 'path';\r
+\r
+export class ResourceSyncManager {\r
+    private context: vscode.ExtensionContext;\r
+\r
+    constructor(context: vscode.ExtensionContext) {\r
+        this.context = context;\r
+    }\r
+\r
+    /**\r
+     * Check if resources need syncing\r
+     * Returns: { needed: boolean, reason: string }\r
+     */\r
+    public checkSyncNeeded(): { needed: boolean; reason: string } {\r
+        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;\r
+        if (!workspaceRoot) {\r
+            return { needed: false, reason: 'No workspace open' };\r
+        }\r
+\r
+        const currentVersion = this.context.extension.packageJSON.version;\r
+        const config = vscode.workspace.getConfiguration('aetherlight');\r
+        const lastSyncedVersion = config.get<string>('lastSyncedVersion');\r
+\r
+        // Check 1: Version mismatch\r
+        if (!lastSyncedVersion || lastSyncedVersion !== currentVersion) {\r
+            return {\r
+                needed: true,\r
+                reason: `Version upgrade (v${lastSyncedVersion || 'none'} → v${currentVersion})`\r
+            };\r
+        }\r
+\r
+        // Check 2: Missing directories\r
+        const requiredDirs = [\r
+            path.join(workspaceRoot, '.claude', 'skills'),\r
+            path.join(workspaceRoot, 'internal', 'agents'),\r
+            path.join(workspaceRoot, 'docs', 'patterns')\r
+        ];\r
+\r
+        for (const dir of requiredDirs) {\r
+            if (!fs.existsSync(dir)) {\r
+                return {\r
+                    needed: true,\r
+                    reason: `Missing directory: ${path.basename(path.dirname(dir))}/${path.basename(dir)}`\r
+                };\r
+            }\r
+        }\r
+\r
+        return { needed: false, reason: 'Resources up to date' };\r
+    }\r
+\r
+    /**\r
+     * Show notification prompting user to sync\r
+     */\r
+    public async promptSync(): Promise<boolean> {\r
+        const currentVersion = this.context.extension.packageJSON.version;\r
+\r
+        const result = await vscode.window.showInformationMessage(\r
+            `🎨 ÆtherLight v${currentVersion} Resources Available`,\r
+            {\r
+                modal: false,\r
+                detail: 'New skills, agents, and patterns are ready to sync to your workspace.'\r
+            },\r
+            'Sync Now',\r
+            'Later',\r
+            'Learn More'\r
+        );\r
+\r
+        if (result === 'Sync Now') {\r
+            // Trigger sync command\r
+            await vscode.commands.executeCommand('aetherlight.syncResources');\r
+            return true;\r
+        } else if (result === 'Learn More') {\r
+            vscode.env.openExternal(\r
+                vscode.Uri.parse('https://github.com/AEtherlight-ai/lumina#bundled-resources')\r
+            );\r
+        }\r
+\r
+        return false;\r
+    }\r
+\r
+    /**\r
+     * Called on extension activation\r
+     */\r
+    public static async checkAndPrompt(context: vscode.ExtensionContext): Promise<void> {\r
+        const manager = new ResourceSyncManager(context);\r
+        const check = manager.checkSyncNeeded();\r
+\r
+        if (check.needed) {\r
+            console.log(`[ÆtherLight] ${check.reason}`);\r
+\r
+            // Wait 2 seconds after activation to show notification\r
+            setTimeout(() => {\r
+                manager.promptSync();\r
+            }, 2000);\r
+        } else {\r
+            console.log(`[ÆtherLight] ${check.reason}`);\r
+        }\r
+    }\r
+}\r
+```\r
+\r
+INTEGRATION:\r
+\r
+```typescript\r
+// vscode-lumina/src/extension.ts\r
+\r
+import { ResourceSyncManager } from './services/ResourceSyncManager';\r
+\r
+export function activate(context: vscode.ExtensionContext) {\r
+    // ... existing activation code\r
+\r
+    // Check if resources need syncing (show notification if needed)\r
+    ResourceSyncManager.checkAndPrompt(context);\r
+\r
+    // ... rest of activation\r
+}\r
+```\r
+\r
+TESTING:\r
+1. Install v0.18.2 → No notification (first run syncs automatically)\r
+2. Delete `.claude/skills/` → Reactivate → Notification shows\r
+3. Upgrade to v0.18.3 → Notification shows "Version upgrade"\r
+4. Click "Sync Now" → Resources synced, notification disappears\r
+5. Reopen workspace → No notification (up to date)\r
+\r
+SUCCESS CRITERIA:\r
+- Notification shows within 2 seconds of activation\r
+- Clear message about what's available\r
+- "Sync Now" button triggers sync\r
+- "Later" dismisses notification\r
+- "Learn More" opens documentation\r
+\r
+FILES:\r
+- vscode-lumina/src/services/ResourceSyncManager.ts (NEW)\r
+- vscode-lumina/src/extension.ts (add checkAndPrompt call)\r
+"""
+
+[tasks.FEATURE-002]
+id = "FEATURE-002"
+name = "Add Command Palette Sync Command"
+phase = "phase_3_discovery"
+agent = "infrastructure-agent"
+status = "pending"
+priority = "high"
+estimated_time = "1.5 hours"
+dependencies = [ "BUG-002" ]
+description = """
+DESIGN DECISION: Manual command to sync resources on demand\r
+WHY: Power users need manual control, troubleshooting option\r
+\r
+COMMAND: "ÆtherLight: Sync Bundled Resources"\r
+\r
+IMPLEMENTATION:\r
+\r
+```typescript\r
+// vscode-lumina/src/commands/syncResources.ts\r
+\r
+import * as vscode from 'vscode';\r
+import { copyBundledResources } from './firstRunSetup';\r
+\r
+export async function syncResourcesCommand(context: vscode.ExtensionContext): Promise<void> {\r
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;\r
+    if (!workspaceRoot) {\r
+        vscode.window.showErrorMessage('No workspace folder open. Please open a folder first.');\r
+        return;\r
+    }\r
+\r
+    try {\r
+        // Show progress notification\r
+        await vscode.window.withProgress(\r
+            {\r
+                location: vscode.ProgressLocation.Notification,\r
+                title: 'ÆtherLight: Syncing Resources',\r
+                cancellable: false\r
+            },\r
+            async (progress) => {\r
+                progress.report({ message: 'Copying skills, agents, and patterns...' });\r
+\r
+                // Call the resource copy function\r
+                await copyBundledResources(workspaceRoot, context.extensionPath);\r
+\r
+                progress.report({ message: 'Updating version...' });\r
+\r
+                // Update version in settings\r
+                const currentVersion = context.extension.packageJSON.version;\r
+                const config = vscode.workspace.getConfiguration('aetherlight');\r
+                await config.update('lastSyncedVersion', currentVersion, vscode.ConfigurationTarget.Workspace);\r
+            }\r
+        );\r
+\r
+        // Show success message\r
+        vscode.window.showInformationMessage(\r
+            '✅ Resources synced successfully! 16 skills, 14 agents, 86 patterns ready.',\r
+            'View Skills',\r
+            'View Agents'\r
+        ).then(result => {\r
+            if (result === 'View Skills') {\r
+                const skillsPath = vscode.Uri.file(workspaceRoot + '/.claude/skills');\r
+                vscode.commands.executeCommand('revealInExplorer', skillsPath);\r
+            } else if (result === 'View Agents') {\r
+                const agentsPath = vscode.Uri.file(workspaceRoot + '/internal/agents');\r
+                vscode.commands.executeCommand('revealInExplorer', agentsPath);\r
+            }\r
+        });\r
+\r
+        console.log('[ÆtherLight] Manual resource sync completed');\r
+\r
+    } catch (error) {\r
+        console.error('[ÆtherLight] Resource sync failed:', error);\r
+        vscode.window.showErrorMessage(\r
+            `Failed to sync resources: ${error}`,\r
+            'Retry'\r
+        ).then(result => {\r
+            if (result === 'Retry') {\r
+                syncResourcesCommand(context);\r
+            }\r
+        });\r
+    }\r
+}\r
+```\r
+\r
+REGISTER COMMAND:\r
+\r
+```typescript\r
+// vscode-lumina/src/extension.ts\r
+\r
+import { syncResourcesCommand } from './commands/syncResources';\r
+\r
+export function activate(context: vscode.ExtensionContext) {\r
+    // ... existing code\r
+\r
+    // Register sync command\r
+    const syncCmd = vscode.commands.registerCommand(\r
+        'aetherlight.syncResources',\r
+        () => syncResourcesCommand(context)\r
+    );\r
+    context.subscriptions.push(syncCmd);\r
+\r
+    // ... rest of activation\r
+}\r
+```\r
+\r
+PACKAGE.JSON CONTRIBUTION:\r
+\r
+```json\r
+{\r
+  "contributes": {\r
+    "commands": [\r
+      {\r
+        "command": "aetherlight.syncResources",\r
+        "title": "Sync Bundled Resources",\r
+        "category": "ÆtherLight"\r
+      }\r
+    ]\r
+  }\r
+}\r
+```\r
+\r
+TESTING:\r
+1. Open Command Palette (Cmd+Shift+P)\r
+2. Type "sync" → See "ÆtherLight: Sync Bundled Resources"\r
+3. Run command → Progress notification shows\r
+4. Success → "✅ Resources synced successfully!"\r
+5. Verify files copied to workspace\r
+\r
+SUCCESS CRITERIA:\r
+- Command appears in Command Palette\r
+- Progress notification during sync\r
+- Success message with resource counts\r
+- Buttons to view synced directories\r
+- Retry on failure\r
+\r
+FILES:\r
+- vscode-lumina/src/commands/syncResources.ts (NEW)\r
+- vscode-lumina/src/extension.ts (register command)\r
+- vscode-lumina/package.json (add command contribution)\r
+"""
+
+[tasks.TEST-001]
+id = "TEST-001"
+name = "Test Fresh Install Workflow"
+phase = "phase_4_testing"
+agent = "test-agent"
+status = "pending"
+priority = "high"
+estimated_time = "1 hour"
+dependencies = [ "BUG-001", "BUG-002", "FEATURE-001", "FEATURE-002" ]
+description = """
+TEST SCENARIO: User installs v0.18.3 in brand new workspace\r
+\r
+SETUP:\r
+1. Create fresh directory (no prior ÆtherLight)\r
+2. Open in VS Code\r
+3. Install v0.18.3 extension\r
+\r
+TEST STEPS:\r
+1. Extension activates\r
+2. First-run setup creates `.vscode/aetherlight.md`\r
+3. Resources copied to workspace\r
+4. Notification shows (optional, since first run)\r
+5. Command works: "ÆtherLight: Sync Bundled Resources"\r
+\r
+VERIFICATION:\r
+✅ `.vscode/aetherlight.md` exists\r
+✅ `.claude/skills/` contains 16 skill directories\r
+✅ `internal/agents/` contains 14 agent .md files\r
+✅ `docs/patterns/` contains 86 pattern .md files\r
+✅ `.vscode/settings.json` has `aetherlight.lastSyncedVersion: "0.18.3"`\r
+✅ Console logs show successful sync\r
+✅ No errors in Developer Console\r
+\r
+SUCCESS CRITERIA:\r
+- All resources present on first activation\r
+- Version tracked correctly\r
+- No duplicate notifications\r
+- Command works\r
+"""
+
+[tasks.TEST-002]
+id = "TEST-002"
+name = "Test Upgrade Workflow"
+phase = "phase_4_testing"
+agent = "test-agent"
+status = "pending"
+priority = "high"
+estimated_time = "1 hour"
+dependencies = [ "BUG-001", "BUG-002", "BUG-003", "FEATURE-001" ]
+description = """
+TEST SCENARIO: User upgrades from v0.18.2 → v0.18.3\r
+\r
+SETUP:\r
+1. Install v0.18.2 in workspace\r
+2. Manually delete `.claude/skills/` (simulate missing resources)\r
+3. Upgrade to v0.18.3\r
+\r
+TEST STEPS:\r
+1. Extension activates v0.18.3\r
+2. Detects version mismatch (0.18.2 → 0.18.3)\r
+3. Notification shows: "🎨 ÆtherLight v0.18.3 Resources Available"\r
+4. User clicks "Sync Now"\r
+5. Resources copied\r
+6. Version updated in settings\r
+\r
+VERIFICATION:\r
+✅ Notification appears within 2 seconds\r
+✅ "Sync Now" triggers copyBundledResources()\r
+✅ Missing resources restored\r
+✅ Existing files preserved (no overwrite)\r
+✅ lastSyncedVersion updated to "0.18.3"\r
+✅ Re-activating extension → No notification (up to date)\r
+\r
+SUCCESS CRITERIA:\r
+- Auto-detection works on upgrade\r
+- Notification clear and actionable\r
+- Sync restores missing resources\r
+- User customizations preserved\r
+"""
+
+[tasks.TEST-003]
+id = "TEST-003"
+name = "Test Resource Sync with User Customizations"
+phase = "phase_4_testing"
+agent = "test-agent"
+status = "pending"
+priority = "medium"
+estimated_time = "0.5 hours"
+dependencies = [ "BUG-002", "FEATURE-002" ]
+description = """
+TEST SCENARIO: User has customized skills, sync should preserve them\r
+\r
+SETUP:\r
+1. Install v0.18.2\r
+2. Modify `.claude/skills/protect/skill.md` (add custom text)\r
+3. Run sync command manually\r
+\r
+TEST STEPS:\r
+1. Open Command Palette\r
+2. Run "ÆtherLight: Sync Bundled Resources"\r
+3. Check protect skill after sync\r
+\r
+VERIFICATION:\r
+✅ Custom text in protect/skill.md PRESERVED\r
+✅ New skills added (if any in v0.18.3)\r
+✅ Console logs show: "protecting user version" for modified files\r
+✅ Counts correct: "X copied, Y preserved"\r
+\r
+SUCCESS CRITERIA:\r
+- User customizations never overwritten\r
+- New resources added without conflict\r
+- Clear logging of what was skipped\r
+"""
+
+[tasks.PUBLISH-001]
+id = "PUBLISH-001"
+name = "Compile TypeScript and Run Tests"
+phase = "phase_5_publishing"
+agent = "infrastructure-agent"
+status = "pending"
+priority = "high"
+estimated_time = "0.5 hours"
+dependencies = [ "TEST-001", "TEST-002", "TEST-003" ]
+description = """
+STEPS:\r
+1. cd vscode-lumina && npm run compile\r
+2. npm test (if tests exist)\r
+3. Verify no compilation errors\r
+4. Test in Extension Development Host (F5)\r
+\r
+SUCCESS CRITERIA:\r
+- TypeScript compiles without errors\r
+- All tests pass\r
+- Extension loads in dev host\r
+- No console errors\r
+"""
+
+[tasks.PUBLISH-002]
+id = "PUBLISH-002"
+name = "Bump Version to v0.18.3"
+phase = "phase_5_publishing"
+agent = "infrastructure-agent"
+status = "pending"
+priority = "high"
+estimated_time = "0.25 hours"
+dependencies = [ "PUBLISH-001" ]
+description = """
+STEPS:\r
+1. node scripts/bump-version.js 0.18.3\r
+2. Verify all 4 package.json files updated\r
+3. Commit version bump\r
+\r
+SUCCESS CRITERIA:\r
+- vscode-lumina/package.json: "0.18.3"\r
+- packages/aetherlight-sdk/package.json: "0.18.3"\r
+- packages/aetherlight-analyzer/package.json: "0.18.3"\r
+- packages/aetherlight-node/package.json: "0.18.3"\r
+- Installer bin updated (if needed)\r
+"""
+
+[tasks.PUBLISH-003]
+id = "PUBLISH-003"
+name = "Publish v0.18.3 Release"
+phase = "phase_5_publishing"
+agent = "infrastructure-agent"
+status = "pending"
+priority = "high"
+estimated_time = "1 hour"
+dependencies = [ "PUBLISH-002" ]
+description = """
+USING AUTOMATED SCRIPT (Pattern-PUBLISH-002):\r
+```bash\r
+node scripts/publish-release.js patch\r
+```\r
+\r
+MANUAL STEPS (if automated fails):\r
+1. npm publish from vscode-lumina/\r
+2. git tag v0.18.3\r
+3. git push origin master --tags\r
+4. Create GitHub release with CHANGELOG\r
+5. Attach artifacts (vsix, exe, msi)\r
+\r
+SUCCESS CRITERIA:\r
+- npm shows aetherlight@0.18.3\r
+- GitHub release v0.18.3 exists\r
+- Desktop app binaries attached\r
+- Users can run: npm install -g aetherlight@latest\r
+"""
+
+[tasks.FEATURE-003]
+id = "FEATURE-003"
+name = "Add Settings Tab Sync Button (Optional)"
+phase = "phase_6_polish"
+agent = "infrastructure-agent"
+status = "pending"
+priority = "low"
+estimated_time = "2 hours"
+dependencies = [ "FEATURE-002" ]
+description = """
+DESIGN DECISION: Add UI in Voice Panel → Settings Tab for resource sync\r
+WHY: Persistent, discoverable location for manual sync\r
+\r
+UI MOCKUP:\r
+```\r
+┌───────────────────────────────────────┐\r
+│ Settings                              │\r
+├───────────────────────────────────────┤\r
+│                                       │\r
+│ 📦 Bundled Resources                  │\r
+│ ├─ Skills: 16 available              │\r
+│ ├─ Agents: 14 available              │\r
+│ └─ Patterns: 86 available            │\r
+│                                       │\r
+│ Last synced: v0.18.3 (Nov 18, 2025)  │\r
+│                                       │\r
+│ [🔄 Sync Latest Resources]            │\r
+│                                       │\r
+└───────────────────────────────────────┘\r
+```\r
+\r
+Can defer to next sprint if time-constrained.\r
+"""
+
+[tasks.FEATURE-004]
+id = "FEATURE-004"
+name = "Add First-Launch Highlight (Optional)"
+phase = "phase_6_polish"
+agent = "infrastructure-agent"
+status = "pending"
+priority = "low"
+estimated_time = "1 hour"
+dependencies = [ "FEATURE-001" ]
+description = """
+DESIGN DECISION: Show welcome message in text area on first launch\r
+WHY: Guide new users through resource sync\r
+\r
+CONTENT:\r
+```markdown\r
+# 🚀 Welcome to ÆtherLight v0.18.3!\r
+\r
+## ✨ What's New\r
+- 16 reusable skills (protect, publish, sprint-plan, etc.)\r
+- 14 agent contexts (planning, infrastructure, docs, etc.)\r
+- 86 patterns for consistent development\r
+\r
+## 📥 Getting Started\r
+Your workspace needs these resources to work properly.\r
+\r
+**👉 Run this command now:**\r
+1. Open Command Palette (Cmd+Shift+P / Ctrl+Shift+P)\r
+2. Type: "ÆtherLight: Sync Bundled Resources"\r
+3. Press Enter\r
+\r
+Or click the "Sync Now" button in the notification above.\r
+\r
+## 🔍 Verify Installation\r
+After syncing, you should see:\r
+- `.claude/skills/` - 16 skill directories\r
+- `internal/agents/` - 14 agent markdown files\r
+- `docs/patterns/` - 86 pattern markdown files\r
+```\r
+\r
+Can defer to next sprint if time-constrained.\r
+"""

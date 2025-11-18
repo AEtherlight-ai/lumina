@@ -872,11 +872,10 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                         text: taskTemplate
                     });
 
-                    // Show Prompt Terminal with actual task template
+                    // Show Prompt Terminal (but don't send content yet - user controls timing)
                     PromptTerminalManager.showPromptTerminal();
-                    PromptTerminalManager.sendWelcomeMessage(`Start Task: ${task.id}`, taskTemplate);
 
-                    // Notify user
+                    // Notify user to review and send manually
                     vscode.window.showInformationMessage(
                         `📋 Task ${task.id} template loaded - Review and press Ctrl+Enter to send`
                     );
