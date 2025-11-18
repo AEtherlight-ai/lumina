@@ -77,6 +77,9 @@ export async function checkAndSetupUserDocumentation(context: vscode.ExtensionCo
         // Create example sprint
         await createExampleSprint(workspaceRoot);
 
+        // Copy bundled skills, agents, and patterns to workspace
+        await copyBundledResources(workspaceRoot, context.extensionPath);
+
         // Show welcome notification
         const result = await vscode.window.showInformationMessage(
             '🚀 ÆtherLight installed! Documentation: .vscode/aetherlight.md',
@@ -376,6 +379,85 @@ dependencies = ["SETUP-001"]
 
     fs.writeFileSync(sprintPath, exampleSprint, 'utf-8');
     console.log('[ÆtherLight First-Run] Created sprints/ACTIVE_SPRINT.toml');
+}
+
+/**
+ * Copy bundled skills, agents, and patterns to workspace
+ *
+ * DESIGN DECISION: Bundle generic/reusable resources with extension
+ * WHY: Users need these for full ÆtherLight functionality
+ *
+ * REASONING CHAIN:
+ * 1. Extension ships with 14+ skills, 12+ agents, 77+ patterns
+ * 2. User installs extension in new workspace
+ * 3. Copy bundled resources to workspace .claude/ and internal/ directories
+ * 4. User gets full ÆtherLight experience immediately
+ * 5. Skills are discoverable by Claude Code via .claude/skills/
+ *
+ * PATTERN: Pattern-WORKSPACE-002 (Bundled resource distribution)
+ */
+async function copyBundledResources(workspaceRoot: string, extensionPath: string): Promise<void> {
+    try {
+        console.log('[ÆtherLight First-Run] Copying bundled resources...');
+
+        // Define source and destination paths
+        const sourcePaths = [
+            { src: path.join(extensionPath, '.claude'), dest: path.join(workspaceRoot, '.claude') },
+            { src: path.join(extensionPath, 'internal', 'agents'), dest: path.join(workspaceRoot, 'internal', 'agents') },
+            { src: path.join(extensionPath, 'docs', 'patterns'), dest: path.join(workspaceRoot, 'docs', 'patterns') }
+        ];
+
+        for (const { src, dest } of sourcePaths) {
+            if (!fs.existsSync(src)) {
+                console.warn(`[ÆtherLight First-Run] Source not found: ${src} - skipping`);
+                continue;
+            }
+
+            // Skip if destination already exists (don't overwrite user customizations)
+            if (fs.existsSync(dest)) {
+                console.log(`[ÆtherLight First-Run] ${dest} already exists - skipping`);
+                continue;
+            }
+
+            // Create parent directory if needed
+            const parentDir = path.dirname(dest);
+            if (!fs.existsSync(parentDir)) {
+                fs.mkdirSync(parentDir, { recursive: true });
+            }
+
+            // Copy directory recursively
+            copyRecursive(src, dest);
+            console.log(`[ÆtherLight First-Run] Copied ${src} → ${dest}`);
+        }
+
+        console.log('[ÆtherLight First-Run] Bundled resources copied ✅');
+    } catch (error) {
+        console.error('[ÆtherLight First-Run] Failed to copy bundled resources:', error);
+        // Don't throw - setup can continue without bundled resources
+    }
+}
+
+/**
+ * Recursively copy directory contents
+ * Simple implementation - no dependencies
+ */
+function copyRecursive(src: string, dest: string): void {
+    if (!fs.existsSync(dest)) {
+        fs.mkdirSync(dest, { recursive: true });
+    }
+
+    const entries = fs.readdirSync(src, { withFileTypes: true });
+
+    for (const entry of entries) {
+        const srcPath = path.join(src, entry.name);
+        const destPath = path.join(dest, entry.name);
+
+        if (entry.isDirectory()) {
+            copyRecursive(srcPath, destPath);
+        } else {
+            fs.copyFileSync(srcPath, destPath);
+        }
+    }
 }
 
 /**

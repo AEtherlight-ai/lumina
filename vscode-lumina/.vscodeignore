@@ -32,8 +32,8 @@ node_modules/@aetherlight/analyzer/tsconfig.json
 .gitignore
 .gitattributes
 
-# Documentation (keep only README)
-*.md
+# Documentation (keep only README at root, but include skills/agents/patterns)
+/*.md
 !README.md
 !NPM_README.md
 !LICENSE
@@ -46,8 +46,11 @@ coverage
 .DS_Store
 Thumbs.db
 
-# Internal directory (not for distribution)
-internal/**
+# INCLUDE bundled skills, agents, and patterns (generic/reusable)
+# These files are essential for ÆtherLight functionality
+!.claude/**
+!internal/agents/**
+!docs/patterns/**
 
 # Test and development
 *.test.js
