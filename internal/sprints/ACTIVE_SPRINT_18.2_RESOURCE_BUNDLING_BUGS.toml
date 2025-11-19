@@ -2233,7 +2233,7 @@ id = "FEATURE-004"
 name = "Add First-Launch Highlight (Optional)"
 phase = "phase_6_polish"
 agent = "infrastructure-agent"
-status = "pending"
+status = "completed"
 priority = "low"
 estimated_time = "1 hour"
 dependencies = [ "FEATURE-001" ]
@@ -2270,3 +2270,4 @@ After syncing, you should see:\r
 \r
 Can defer to next sprint if time-constrained.\r
 """
+completed_date = "2025-11-19"
