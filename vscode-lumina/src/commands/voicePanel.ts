@@ -572,6 +572,22 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
         }
     }
 
+    /**
+     * FEATURE-004: Post first-launch welcome message to voice panel
+     * WHY: Called by insertWelcomeText command to insert welcome content in text area
+     * HOW: Sends insertWelcomeText message to webview with markdown content
+     * SAFETY: Webview checks if text area is empty before inserting
+     * Pattern-UX-001: Non-intrusive, one-time guidance
+     */
+    public postWelcomeMessage(welcomeContent: string): void {
+        if (this._view) {
+            this._view.webview.postMessage({
+                type: 'insertWelcomeText',
+                content: welcomeContent
+            });
+        }
+    }
+
     private async _handleMessage(message: any, webview: vscode.Webview) {
         switch (message.type) {
             case 'selectTask':
@@ -2057,6 +2073,19 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
             const message = event.data;
 
             switch (message.type) {
+                case 'insertWelcomeText':
+                    // FEATURE-004: Insert first-launch welcome message into Voice text area
+                    // SAFETY: Only insert if text area is empty (don't overwrite user content)
+                    // Pattern-UX-001: Non-intrusive, one-time guidance
+                    const welcomeTextArea = document.getElementById('transcriptionText');
+                    if (welcomeTextArea && welcomeTextArea.value.trim() === '') {
+                        welcomeTextArea.value = message.content;
+                        console.log('[ÆtherLight] First-launch welcome message inserted');
+                    } else if (welcomeTextArea && welcomeTextArea.value.trim() !== '') {
+                        console.log('[ÆtherLight] Skipped welcome message (text area not empty)');
+                    }
+                    break;
+
                 case 'insertEnhancedPrompt':
                     // PROTECT-000: Insert AI-enhanced prompt into Voice text area
                     // User can then review, edit, select terminal, and send

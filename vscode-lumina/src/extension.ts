@@ -296,6 +296,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	await ResourceSyncManager.checkAndPrompt(context);
 
 	/**
+	 * FEATURE-004: Show first-launch welcome message in text area
+	 * WHY: Guide new users through resource sync process
+	 * WHEN: Once per workspace (hasSeenWelcome flag)
+	 * HOW: Inserts markdown template in voice panel text area if empty
+	 * PATTERN: Pattern-UX-001 (Non-modal, one-time guidance)
+	 */
+	await ResourceSyncManager.showFirstLaunchWelcome(context);
+
+	/**
 	 * DESIGN DECISION: Validate license key EARLY (before launching features)
 	 * WHY: Block paid features for invalid/free tier users before they see UI
 	 *
@@ -1062,11 +1071,27 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	 */
 	const { showHelpMenu, showAbout, openChangelog } = require('./commands/helpMenu');
 
+	/**
+	 * FEATURE-004: Insert welcome text command handler
+	 * WHY: Allow ResourceSyncManager to send first-launch welcome to voice panel
+	 * HOW: Command receives welcome content and sends to voice panel webview
+	 */
+	const insertWelcomeTextCommand = vscode.commands.registerCommand(
+		'aetherlight.insertWelcomeText',
+		async (welcomeContent: string) => {
+			// Send message to voice panel webview
+			if (voiceViewProvider && (voiceViewProvider as any).postWelcomeMessage) {
+				(voiceViewProvider as any).postWelcomeMessage(welcomeContent);
+			}
+		}
+	);
+
 	context.subscriptions.push(
 		vscode.commands.registerCommand('aetherlight.helpMenu', () => showHelpMenu(context)),
 		vscode.commands.registerCommand('aetherlight.showAbout', () => showAbout(context)),
 		vscode.commands.registerCommand('aetherlight.openChangelog', openChangelog),
-		vscode.commands.registerCommand('aetherlight.syncResources', () => syncResourcesCommand(context))
+		vscode.commands.registerCommand('aetherlight.syncResources', () => syncResourcesCommand(context)),
+		insertWelcomeTextCommand
 	);
 
 	console.log('Lumina extension activated successfully');

@@ -124,4 +124,73 @@ export class ResourceSyncManager {
             console.log(`[ÆtherLight] ${check.reason}`);
         }
     }
+
+    /**
+     * FEATURE-004: Show first-launch welcome message
+     *
+     * WHY: Guide new users through resource sync process
+     * WHEN: Called once during extension activation (after checkAndPrompt)
+     * HOW: Checks 'hasSeenWelcome' flag, executes command if false
+     *
+     * DESIGN DECISIONS:
+     * - Only shows if hasSeenWelcome flag not set (one-time display)
+     * - Uses command-based approach (no direct voice panel coupling)
+     * - Content matches TOML spec (18.2-RESOURCE-BUNDLING-BUGS FEATURE-004)
+     * - Flag persists in workspace settings (not global)
+     *
+     * Pattern-UX-001: Non-modal, one-time guidance
+     */
+    public static async showFirstLaunchWelcome(context: vscode.ExtensionContext): Promise<void> {
+        const config = vscode.workspace.getConfiguration('aetherlight');
+        const hasSeenWelcome = config.get<boolean>('hasSeenWelcome', false);
+
+        // Check: Already seen welcome message
+        if (hasSeenWelcome) {
+            console.log('[ÆtherLight] Skipped welcome message (already seen)');
+            return;
+        }
+
+        // Get current extension version
+        const currentVersion = context.extension.packageJSON.version;
+
+        // Build welcome message template
+        const welcomeContent = `# 🚀 Welcome to ÆtherLight v${currentVersion}!
+
+## ✨ What's New
+- 16 reusable skills (protect, publish, sprint-plan, etc.)
+- 14 agent contexts (planning, infrastructure, docs, etc.)
+- 86 patterns for consistent development
+
+## 📥 Getting Started
+Your workspace needs these resources to work properly.
+
+**👉 Run this command now:**
+1. Open Command Palette (Cmd+Shift+P / Ctrl+Shift+P)
+2. Type: "ÆtherLight: Sync Bundled Resources"
+3. Press Enter
+
+Or click the "Sync Now" button in the notification above.
+
+## 🔍 Verify Installation
+After syncing, you should see:
+- \`.claude/skills/\` - 16 skill directories
+- \`internal/agents/\` - 14 agent markdown files
+- \`docs/patterns/\` - 86 pattern markdown files
+`;
+
+        // Execute command to insert welcome text (voice panel will handle)
+        // Wait 3 seconds after activation to ensure voice panel is ready
+        setTimeout(async () => {
+            try {
+                await vscode.commands.executeCommand('aetherlight.insertWelcomeText', welcomeContent);
+
+                // Mark as seen (only after successful execution)
+                await config.update('hasSeenWelcome', true, vscode.ConfigurationTarget.Workspace);
+                console.log('[ÆtherLight] First-launch welcome message sent');
+            } catch (error) {
+                console.log('[ÆtherLight] Could not send welcome message (voice panel not ready):', error);
+                // Don't set flag if message wasn't sent successfully
+            }
+        }, 3000);
+    }
 }

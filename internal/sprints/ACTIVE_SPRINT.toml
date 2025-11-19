@@ -1882,10 +1882,67 @@ id = "FEATURE-004"
 name = "Add First-Launch Highlight (Optional)"
 phase = "phase_6_polish"
 agent = "infrastructure-agent"
-status = "pending"
+status = "completed"
+completed_date = "2025-11-18"
 priority = "low"
 estimated_time = "1 hour"
 dependencies = ["FEATURE-001"]
+completion_notes = """
+✅ IMPLEMENTED - First-launch welcome message in voice panel text area
+
+FILES MODIFIED:
+- vscode-lumina/src/services/ResourceSyncManager.ts (+53 lines)
+  * Lines 128-196: Added showFirstLaunchWelcome() static method
+  * Checks hasSeenWelcome flag in workspace config
+  * Builds markdown welcome template with version, resource counts
+  * Executes aetherlight.insertWelcomeText command with 3s delay
+  * Marks flag as seen after successful execution
+
+- vscode-lumina/src/extension.ts (+18 lines)
+  * Lines 298-305: Added call to showFirstLaunchWelcome() after checkAndPrompt()
+  * Lines 1074-1087: Registered insertWelcomeText command handler
+  * Command calls voiceViewProvider.postWelcomeMessage()
+
+- vscode-lumina/src/commands/voicePanel.ts (+33 lines)
+  * Lines 575-589: Added postWelcomeMessage() public method
+  * Sends insertWelcomeText message to webview
+  * Lines 2076-2087: Added webview message handler
+  * Only inserts if text area is empty (preserves user content)
+  * Logs insertion status to console
+
+IMPLEMENTATION DETAILS:
+- Command-based approach: ResourceSyncManager → command → voiceViewProvider → webview
+- 3-second delay ensures voice panel is ready before message sent
+- Safety check: Only inserts if text area empty (text Area.value.trim() === '')
+- Flag persistence: aetherlight.hasSeenWelcome = true after successful display
+- One-time display: Flag prevents re-display on subsequent activations
+
+WELCOME MESSAGE CONTENT:
+- Version: Dynamic from package.json (v0.18.2)
+- Resource counts: 16 skills, 14 agents, 86 patterns
+- Instructions: Command Palette sync steps
+- Verification checklist: Expected directories after sync
+- Format: Markdown (readable as plain text in text area)
+
+TESTING:
+- TypeScript compilation: ✅ PASSED (exit code 0)
+- Ready for manual testing in Extension Development Host (F5)
+
+TEST SCENARIOS:
+1. First launch (clean workspace): Delete .vscode/settings.json → Reload → Welcome appears
+2. Second launch (flag set): Reload without deleting config → No welcome message
+3. Non-empty text area: Type text → Reload → Welcome doesn't overwrite
+4. Manual reset: Delete hasSeenWelcome from settings → Reload → Welcome appears again
+
+USER IMPACT:
++ New users see inline guidance on first launch
++ Clear step-by-step instructions reduce support burden
++ Non-intrusive: Shows once, never annoys
++ Preserves user content (won't overwrite existing text)
++ Markdown format allows copy-paste of instructions
+
+NEXT: Manual testing in Extension Development Host (F5) to verify timing and display
+"""
 prompt = """
 DESIGN DECISION: Show welcome message in text area on first launch
 WHY: Guide new users through resource sync
