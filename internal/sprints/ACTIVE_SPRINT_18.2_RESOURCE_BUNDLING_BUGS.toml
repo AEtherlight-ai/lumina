@@ -991,7 +991,7 @@ AFTER:
    Suggestion: Try running as administrator
    Windows: Right-click terminal → "Run as administrator"
    Or run manually from:
-   C:\Users\...\Temp\lumina-setup.exe
+   C:\\Users\\...\\Temp\\lumina-setup.exe
 
 IMPACT:
 - Reduces support tickets: Users get self-service troubleshooting
@@ -1562,10 +1562,51 @@ id = "FEATURE-001"
 name = "Add Auto-Detection Notification for Resource Sync"
 phase = "phase_3_discovery"
 agent = "infrastructure-agent"
-status = "pending"
+status = "completed"
+completed_date = "2025-11-18"
 priority = "high"
 estimated_time = "2 hours"
 dependencies = [ "BUG-003" ]
+enhanced_prompt = "internal/sprints/enhanced_prompts/18.2-RESOURCE-BUNDLING-BUGS_FEATURE-001_ENHANCED_PROMPT.md"
+
+completion_notes = """
+Completed 2025-11-18 by AI agent (infrastructure-agent)
+
+Changes Made:
+- Created ResourceSyncManager service (NEW FILE)
+- Integrated into extension.ts activate() function
+- Auto-detection: version mismatch + missing directories
+- Notification: Sync Now, Later, Learn More buttons
+
+Technical Details:
+- File(s):
+  - vscode-lumina/src/services/ResourceSyncManager.ts (NEW, ~120 lines)
+  - vscode-lumina/src/extension.ts (MODIFIED, +1 import, +7 lines)
+- Breaking Change: NO (new feature, non-intrusive)
+- Test Coverage: Manual testing (4 scenarios)
+- Commit: [will add after commit]
+
+Implementation:
+- Check 1: Version mismatch (uses BUG-003's lastSyncedVersion)
+- Check 2: Missing directories (.claude/skills, internal/agents, docs/patterns)
+- 2-second delay for better UX
+- Non-modal notification
+- Handles FEATURE-002 command not existing yet
+
+User Experience:
+BEFORE: Silent sync, no awareness
+AFTER: Notification within 2 seconds with actionable buttons
+
+Impact:
+- Users now aware resources exist
+- Proactive discovery mechanism
+- Better onboarding experience
+
+Dependencies:
+- BUG-003 (completed) ✅
+- Related: FEATURE-002 ("Sync Now" command)
+"""
+
 description = """
 DESIGN DECISION: Auto-detect missing/outdated resources and prompt user to sync\r
 WHY: Users have no idea bundled resources exist\r
@@ -1728,6 +1769,7 @@ status = "pending"
 priority = "high"
 estimated_time = "1.5 hours"
 dependencies = [ "BUG-002" ]
+enhanced_prompt = "internal/sprints/enhanced_prompts/18.2-RESOURCE-BUNDLING-BUGS_FEATURE-002_ENHANCED_PROMPT.md"
 description = """
 DESIGN DECISION: Manual command to sync resources on demand\r
 WHY: Power users need manual control, troubleshooting option\r

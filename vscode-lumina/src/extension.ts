@@ -33,6 +33,7 @@ import * as path from 'path';
 import { IPCClient } from './ipc/client';
 import { registerCaptureVoiceCommand } from './commands/captureVoice';
 import { checkAndSetupUserDocumentation } from './firstRunSetup';
+import { ResourceSyncManager } from './services/ResourceSyncManager';
 import { LicenseValidator } from './auth/licenseValidator';
 import { TierGate } from './auth/tierGate';
 // REMOVED - These files don't exist (work-in-progress features):
@@ -49,7 +50,8 @@ import { registerVoiceView } from './commands/voicePanel';
 // import { registerSprintProgressPanel } from './sprint_progress_panel';
 // import { registerAgentCoordinationView } from './agent_coordination_view';
 import { registerStatusBarManager } from './status_bar_manager';
-import { RealtimeSyncManager } from './realtime_sync';
+// REMOVED v0.18.2 (BUG-006 from Sprint 17.2 - RTC/WebSocket deprecated)
+// import { RealtimeSyncManager } from './realtime_sync';
 // TEMPORARILY DISABLED FOR v0.13.1-beta - Phase 4 code has incomplete NAPI bindings
 // import { SprintLoader } from './commands/SprintLoader';
 import { registerAnalyzeWorkspaceCommands } from './commands/analyzeWorkspace';
@@ -285,6 +287,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	await checkAndSetupUserDocumentation(context);
 
 	/**
+	 * FEATURE-001: Auto-detect missing/outdated resources
+	 * Show notification if resources need syncing (version upgrade or missing directories)
+	 * WHY: Users have no idea bundled resources (skills, agents, patterns) exist
+	 * PATTERN: Pattern-UX-001 (User-centric notifications - non-intrusive, actionable)
+	 */
+	await ResourceSyncManager.checkAndPrompt(context);
+
+	/**
 	 * DESIGN DECISION: Validate license key EARLY (before launching features)
 	 * WHY: Block paid features for invalid/free tier users before they see UI
 	 *
@@ -302,8 +312,19 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	 * RELATED: auth/licenseValidator.ts, auth/tierGate.ts, package.json (settings)
 	 * TEST KEYS: CD7W-AJDK-RLQT-LUFA (free), W7HD-X79Q-CQJ9-XW13 (pro)
 	 */
+	console.log('[BUG-008 DEBUG] === License Activation Starting ===');
 	const config = vscode.workspace.getConfiguration('aetherlight');
 	let licenseKey = config.get<string>('licenseKey', '');
+	console.log('[BUG-008 DEBUG] License key from config:', licenseKey ? licenseKey.substring(0, 4) + '...' : '(empty)');
+
+	// Log settings file locations
+	const licenseKeyInspect = config.inspect('licenseKey');
+	console.log('[BUG-008 DEBUG] Settings locations:', JSON.stringify({
+		global: licenseKeyInspect?.globalValue,
+		workspace: licenseKeyInspect?.workspaceValue,
+		workspaceFolder: licenseKeyInspect?.workspaceFolderValue,
+		defaultValue: licenseKeyInspect?.defaultValue
+	}, null, 2));
 
 	const validator = new LicenseValidator();
 	tierGate = new TierGate();
@@ -325,26 +346,61 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 				}) || '';
 
 				if (licenseKey) {
-					await config.update('licenseKey', licenseKey, vscode.ConfigurationTarget.Global);
+					console.log('[BUG-008 DEBUG] User entered license key:', licenseKey.substring(0, 4) + '...');
+					console.log('[BUG-008 DEBUG] Saving license key to Global settings...');
+					try {
+						await config.update('licenseKey', licenseKey, vscode.ConfigurationTarget.Global);
+						console.log('[BUG-008 DEBUG] config.update() completed successfully');
+
+						// Verify save by re-fetching config
+						const configAfterSave = vscode.workspace.getConfiguration('aetherlight');
+						const savedKey = configAfterSave.get<string>('licenseKey', '');
+						console.log('[BUG-008 DEBUG] Verification - key after save:', savedKey ? savedKey.substring(0, 4) + '...' : '(empty)');
+						console.log('[BUG-008 DEBUG] Persistence check:', savedKey === licenseKey ? 'SUCCESS ✅' : 'FAILED ❌');
+					} catch (err: any) {
+						console.error('[BUG-008 DEBUG] ERROR saving license key:', err);
+						vscode.window.showErrorMessage('Failed to save license key: ' + err.message);
+					}
 				}
 			} else if (action === 'Get Free Tier') {
 				// Set free tier (no key required)
+				console.log('[BUG-008 DEBUG] User selected Get Free Tier');
 				tierGate.setUserTier('free');
-				await config.update('userTier', 'free', vscode.ConfigurationTarget.Global);
+				console.log('[BUG-008 DEBUG] Saving userTier=free to Global settings...');
+				try {
+					await config.update('userTier', 'free', vscode.ConfigurationTarget.Global);
+					console.log('[BUG-008 DEBUG] Free tier config.update() completed');
+				} catch (err: any) {
+					console.error('[BUG-008 DEBUG] ERROR saving free tier:', err);
+				}
 				vscode.window.showInformationMessage('ÆtherLight activated with Free tier. Voice capture disabled. Upgrade at aetherlight.ai');
 			}
 		}
 
 		if (licenseKey) {
 			// Validate license key (with offline support)
+			console.log('[BUG-008 DEBUG] Validating license key with server...');
 			const result = await validator.validateLicenseKey(licenseKey, {
 				allowOffline: true,
 				timeout: 2000
 			});
+			console.log('[BUG-008 DEBUG] Validation result:', { tier: result.tier, valid: result.valid, user_id: result.user_id });
 
 			// Update tier in settings
 			tierGate.setUserTier(result.tier);
-			await config.update('userTier', result.tier, vscode.ConfigurationTarget.Global);
+			console.log('[BUG-008 DEBUG] Saving userTier=' + result.tier + ' to Global settings...');
+			try {
+				await config.update('userTier', result.tier, vscode.ConfigurationTarget.Global);
+				console.log('[BUG-008 DEBUG] Tier config.update() completed');
+
+				// Verify save
+				const configAfterSave = vscode.workspace.getConfiguration('aetherlight');
+				const savedTier = configAfterSave.get<string>('userTier', '');
+				console.log('[BUG-008 DEBUG] Verification - tier after save:', savedTier);
+				console.log('[BUG-008 DEBUG] Tier persistence check:', savedTier === result.tier ? 'SUCCESS ✅' : 'FAILED ❌');
+			} catch (err: any) {
+				console.error('[BUG-008 DEBUG] ERROR saving tier:', err);
+			}
 
 			// Show status
 			if (result.tier === 'offline') {
@@ -356,12 +412,30 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	} catch (error: any) {
 		// License validation failed
 		console.error('[ÆtherLight] License validation failed:', error);
+		console.error('[BUG-008 DEBUG] ERROR during license validation:', error.message);
 		vscode.window.showErrorMessage(`ÆtherLight: License validation failed. ${error.message}`);
 
 		// Default to free tier (graceful degradation)
+		console.log('[BUG-008 DEBUG] Falling back to free tier due to error');
 		tierGate.setUserTier('free');
-		await config.update('userTier', 'free', vscode.ConfigurationTarget.Global);
+		console.log('[BUG-008 DEBUG] Saving fallback userTier=free to Global settings...');
+		try {
+			await config.update('userTier', 'free', vscode.ConfigurationTarget.Global);
+			console.log('[BUG-008 DEBUG] Fallback tier config.update() completed');
+		} catch (err: any) {
+			console.error('[BUG-008 DEBUG] ERROR saving fallback tier:', err);
+		}
 	}
+
+	// Final verification: Check what's actually persisted
+	console.log('[BUG-008 DEBUG] === License Activation Complete ===');
+	const finalConfig = vscode.workspace.getConfiguration('aetherlight');
+	const finalKey = finalConfig.get<string>('licenseKey', '');
+	const finalTier = finalConfig.get<string>('userTier', '');
+	console.log('[BUG-008 DEBUG] Final persisted state:');
+	console.log('[BUG-008 DEBUG]   - licenseKey:', finalKey ? finalKey.substring(0, 4) + '...' : '(empty)');
+	console.log('[BUG-008 DEBUG]   - userTier:', finalTier || '(empty)');
+	console.log('[BUG-008 DEBUG]   - tierGate tier:', tierGate.getUserTier());
 
 	// tierGate is now stored in module-level variable (accessible via closure)
 	// BUG-016 FIX: Don't try to add to context (object is sealed)
@@ -911,33 +985,21 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	// context.subscriptions.push(shellIntegration);
 
 	/**
-	 * DESIGN DECISION: Initialize Real-Time Context Sync Manager (Phase 3.9)
-	 * WHY: Enable real-time collaboration and context sharing across terminals
-	 *
-	 * REASONING CHAIN:
-	 * 1. RealtimeSyncManager connects to WebSocket server (ws://localhost:43216)
-	 * 2. Registers event hooks for TodoWrite, Bash, Pattern extraction
-	 * 3. Detects design decisions, blockers, discoveries automatically
-	 * 4. Broadcasts events to all connected terminals (<100ms latency)
-	 * 5. Activity Feed TreeView shows real-time updates
-	 * 6. Result: Team shares context BEFORE git commits (zero conflicts)
-	 *
-	 * PATTERN: Pattern-WEBSOCKET-001 (Real-Time Sync Server Architecture)
-	 * RELATED: Activity Feed (realtime_sync/activity_feed.ts)
-	 * PERFORMANCE: <10ms hook overhead, <50ms event broadcast
-	 *
-	 * NOTE: Real-time sync is optional - only initializes if enabled in settings
+	 * REMOVED v0.18.2 (BUG-006 from Sprint 17.2)
+	 * Real-time sync WebSocket code has been deprecated and removed.
+	 * Feature was never fully deployed and caused console errors on every activation.
+	 * Desktop app no longer uses RTC/WebSocket for communication.
 	 */
-	try {
-		const realtimeSyncManager = await RealtimeSyncManager.initialize(context);
-		context.subscriptions.push({
-			dispose: () => realtimeSyncManager.dispose()
-		});
-		console.log('Real-time sync manager initialized');
-	} catch (error) {
-		console.log('Real-time sync disabled or failed to initialize:', error);
-		// Continue without real-time sync - not a critical failure
-	}
+	// try {
+	// 	const realtimeSyncManager = await RealtimeSyncManager.initialize(context);
+	// 	context.subscriptions.push({
+	// 		dispose: () => realtimeSyncManager.dispose()
+	// 	});
+	// 	console.log('Real-time sync manager initialized');
+	// } catch (error) {
+	// 	console.log('Real-time sync disabled or failed to initialize:', error);
+	// 	// Continue without real-time sync - not a critical failure
+	// }
 
 	/**
 	 * DESIGN DECISION: Register workspace analyzer commands (integrates @aetherlight/analyzer)
