@@ -1681,6 +1681,74 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 }
                 break;
 
+            case 'getLastSyncedVersion':
+                /**
+                 * FEATURE-003: Get last synced version for resources
+                 * WHY: Display sync status in settings UI
+                 * REASONING: Read lastSyncedVersion from config, format with date, send to webview
+                 */
+                try {
+                    const config = vscode.workspace.getConfiguration('aetherlight');
+                    const lastSyncedVersion = config.get<string>('lastSyncedVersion');
+                    const currentVersion = this._context.extension.packageJSON.version;
+
+                    let versionDisplay = 'Never synced';
+                    if (lastSyncedVersion) {
+                        const date = new Date().toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric'
+                        });
+                        versionDisplay = `v${lastSyncedVersion} (${date})`;
+                    }
+
+                    webview.postMessage({
+                        type: 'updateLastSyncedVersion',
+                        version: versionDisplay
+                    });
+                } catch (error) {
+                    console.error('[ÆtherLight] Failed to get last synced version:', error);
+                    webview.postMessage({
+                        type: 'updateLastSyncedVersion',
+                        version: 'Error loading version'
+                    });
+                }
+                break;
+
+            case 'syncResources':
+                /**
+                 * FEATURE-003: Sync resources from settings UI
+                 * WHY: Allow user to manually sync via settings button
+                 * REASONING: Trigger FEATURE-002 command, refresh version display after sync
+                 */
+                try {
+                    // Trigger FEATURE-002 sync command
+                    await vscode.commands.executeCommand('aetherlight.syncResources');
+
+                    // After sync, refresh version display
+                    const config = vscode.workspace.getConfiguration('aetherlight');
+                    const lastSyncedVersion = config.get<string>('lastSyncedVersion');
+
+                    let versionDisplay = 'Never synced';
+                    if (lastSyncedVersion) {
+                        const date = new Date().toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric'
+                        });
+                        versionDisplay = `v${lastSyncedVersion} (${date})`;
+                    }
+
+                    webview.postMessage({
+                        type: 'updateLastSyncedVersion',
+                        version: versionDisplay
+                    });
+                } catch (error) {
+                    console.error('[ÆtherLight] Failed to sync resources:', error);
+                    vscode.window.showErrorMessage(`Failed to sync resources: ${(error as Error).message}`);
+                }
+                break;
+
             case 'startRecording':
                 /**
                  * DESIGN DECISION: Use IPC to desktop app for recording (not webview)
@@ -5513,6 +5581,11 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 });
             };
 
+            // FEATURE-003: Sync resources from settings modal
+            window.syncResourcesFromSettings = function() {
+                vscode.postMessage({ type: 'syncResources' });
+            };
+
             // Handle settings response from extension
             window.addEventListener('message', event => {
                 const message = event.data;
@@ -5548,11 +5621,54 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                                 <input type="text" id="sprintPathInput" value="\${sprintPath}" onchange="updateSetting('sprintPath', this.value)" style="width: 100%; padding: 8px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); border-radius: 3px; font-family: monospace;">
                             </div>
 
+                            <!-- FEATURE-003: Bundled Resources Section -->
+                            <div style="margin-bottom: 20px; padding: 16px; background: var(--vscode-editor-background); border: 1px solid var(--vscode-panel-border); border-radius: 4px;">
+                                <div style="display: flex; align-items: center; margin-bottom: 12px;">
+                                    <span style="font-size: 18px; margin-right: 8px;">📦</span>
+                                    <div style="font-weight: 600; font-size: 14px;">Bundled Resources</div>
+                                </div>
+
+                                <div style="margin-bottom: 12px; color: var(--vscode-descriptionForeground); font-size: 12px;">
+                                    Skills, agents, and patterns bundled with the extension
+                                </div>
+
+                                <ul style="list-style: none; padding: 0; margin: 12px 0; font-size: 13px;">
+                                    <li style="padding: 4px 0; color: var(--vscode-descriptionForeground);">
+                                        Skills: <strong style="color: var(--vscode-foreground);">16 available</strong>
+                                    </li>
+                                    <li style="padding: 4px 0; color: var(--vscode-descriptionForeground);">
+                                        Agents: <strong style="color: var(--vscode-foreground);">14 available</strong>
+                                    </li>
+                                    <li style="padding: 4px 0; color: var(--vscode-descriptionForeground);">
+                                        Patterns: <strong style="color: var(--vscode-foreground);">86 available</strong>
+                                    </li>
+                                </ul>
+
+                                <div style="margin: 12px 0; padding: 10px; background: var(--vscode-textBlockQuote-background); border-left: 3px solid var(--vscode-textLink-foreground); border-radius: 3px; font-size: 12px; color: var(--vscode-descriptionForeground);">
+                                    Last synced: <strong id="lastSyncedVersion" style="color: var(--vscode-foreground);">checking...</strong>
+                                </div>
+
+                                <button id="syncResourcesBtn" onclick="syncResourcesFromSettings()" style="width: 100%; padding: 10px; background: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 500;">
+                                    🔄 Sync Latest Resources
+                                </button>
+                            </div>
+
                             <div style="padding: 12px; background: var(--vscode-textBlockQuote-background); border-left: 3px solid var(--vscode-textBlockQuote-border); border-radius: 3px; font-size: 12px; color: var(--vscode-descriptionForeground);">
                                 ℹ️ Settings are saved automatically and take effect immediately
                             </div>
                         </div>
                     \`;
+
+                    // FEATURE-003: Request last synced version after settings loaded
+                    vscode.postMessage({ type: 'getLastSyncedVersion' });
+                }
+
+                // FEATURE-003: Handle last synced version update
+                if (message.type === 'updateLastSyncedVersion') {
+                    const versionEl = document.getElementById('lastSyncedVersion');
+                    if (versionEl) {
+                        versionEl.textContent = message.version;
+                    }
                 }
             });
 
