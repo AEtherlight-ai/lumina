@@ -19,6 +19,211 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.18.3] - 2025-11-19 - Sprint 18.2: Resource Bundling & Desktop Installer Fixes
+
+### Fixed
+
+#### **Critical Bug Fixes - Resource Bundling System**
+
+- **BUG-001: First-Run Setup Early Exit** (Phase 1 - Critical)
+  - Fixed early return preventing `copyBundledResources()` from running on first activation
+  - Issue: `isFirstRun` check returned early, skipping resource copy on new installations
+  - Impact: Fresh installations had no skills, agents, or patterns
+  - Solution: Moved resource copying outside `isFirstRun` block to always execute
+  - Files: `vscode-lumina/src/firstRunSetup.ts:399-461`
+  - Commit: 47a94ae
+
+- **BUG-002: Resource Copying Directory-Level Skipping** (Phase 1 - Critical)
+  - Fixed directory-level checking that skipped entire directories if any file existed
+  - Issue: Old logic: "if directory exists → skip entire directory"
+  - Impact: Upgrades from v0.18.1 missing new skills/agents/patterns added in v0.18.2
+  - Solution: File-by-file checking with smart merge (new files copied, user files preserved)
+  - Features: Console logging shows "X copied, Y preserved" counts
+  - Files: `vscode-lumina/src/firstRunSetup.ts:406-484`
+  - Commit: 1047ab0
+
+- **BUG-003: Version Tracking for Resource Sync** (Phase 1 - Critical)
+  - Added `lastSyncedVersion` configuration to track extension version
+  - Issue: No way to detect if resources are outdated after upgrade
+  - Impact: Users manually ran sync command or had missing resources
+  - Solution: Compare `lastSyncedVersion` vs current extension version, auto-sync on mismatch
+  - Configuration: `aetherlight.lastSyncedVersion` (workspace scope)
+  - Files: `vscode-lumina/src/firstRunSetup.ts:34-107`, `package.json`
+  - Commit: Included in BUG-001/002
+
+- **BUG-008: License Activation Persistence Between Reloads** (Phase 1 - Critical)
+  - Fixed license key not persisting after VS Code reload
+  - Issue: Configuration target or validation logic not storing license correctly
+  - Impact: Users re-entered license key on every reload
+  - Solution: Systematic root cause analysis with 5 debugging theories (Pattern-DEBUG-001)
+  - Files: `vscode-lumina/src/extension.ts`
+  - Commit: Part of v17.3 fixes
+  - Completed: 2025-11-18
+
+- **BUG-009: 'Start This Task' Auto-Send to Terminal** (Phase 1 - High Priority)
+  - Removed auto-send behavior from "Start This Task" button in Sprint Panel
+  - Issue: Task template automatically sent to Claude Code terminal without user review
+  - Impact: Users couldn't review/edit task context before sending (Pattern-UX-001 violation)
+  - Solution: Open terminal + populate text area, user presses Ctrl+Enter when ready
+  - Notification: "📋 Task ready - Review in text area, then press Ctrl+Enter"
+  - Files: `vscode-lumina/src/commands/voicePanel.ts:877`
+  - Commit: 2815c00
+
+#### **Desktop Installer Fixes**
+
+- **BUG-004: Add Version Check Before Running Installer** (Phase 2 - Installer)
+  - Added version detection to skip download if desktop app already up to date
+  - Issue: Downloaded and ran installer even when current version installed
+  - Impact: Wasted bandwidth, unnecessary installer prompts
+  - Solution: Check registry (Windows) / Applications folder (macOS) for installed version
+  - Features: "✅ Desktop app is already up to date!" message when current
+  - Files: `vscode-lumina/bin/aetherlight.js` (version check logic)
+  - Commit: 302bc28
+
+- **BUG-005: Improve Installer Error Messages** (Phase 2 - Low Priority)
+  - Added user-friendly error messages with actionable suggestions
+  - Issue: Generic errors like "ENOENT" or "EACCES" with no guidance
+  - Impact: Users didn't know how to resolve installer failures
+  - Solution: Context-aware error handling with specific troubleshooting steps
+  - Examples: "File locked (antivirus scanning) → Wait 30 seconds", "Permission denied → Run as admin"
+  - Files: `vscode-lumina/bin/aetherlight.js` (error handlers)
+  - Commit: bdc2ec5
+
+- **BUG-006: Remove RTC/WebSocket Code from Extension** (Phase 2 - High Priority)
+  - Archived deprecated realtime sync code (RTC/WebSocket infrastructure)
+  - Issue: Dead code causing console errors and confusion
+  - Impact: Output panel spam, 15-20 error messages on activation
+  - Solution: Moved to `_archived/realtime_sync_deprecated_v17.3/` (Pattern-DEPRECATION-001)
+  - Removed: RealtimeSyncManager, WebSocket client, configuration entries
+  - Files: `vscode-lumina/src/_archived/realtime_sync_deprecated_v17.3/` (3 archived files)
+  - Commits: 52be30a, a73e610
+
+- **BUG-007: Fix Desktop Installer File Lock Issues** (Phase 2 - High Priority)
+  - Fixed 5 file lock issues preventing installer from launching
+  - Issue #1: File handle not closed properly before launch
+  - Issue #2: File deleted while installer running
+  - Issue #3: Shell quoting problem (spaces in Windows paths)
+  - Issue #4: No error handling for file lock scenarios
+  - Issue #5: Redirect file not closed properly
+  - Solution: Wait for `file.close()` callback, retry logic, Windows path handling, 1-second delay for antivirus
+  - Files: `vscode-lumina/bin/aetherlight.js` (5 fixes)
+  - Commit: 6de7430
+
+### Added
+
+#### **Resource Sync Discovery Features**
+
+- **FEATURE-001: Auto-Detection Notification for Resource Sync** (Phase 3 - Discovery) **[BLOCKED]**
+  - **Status**: Documented but NOT implemented in this release
+  - **Issue**: Implementation complexity higher than estimated, deferred to v0.18.4
+  - **Workaround**: Users can manually trigger sync via Command Palette (FEATURE-002)
+  - **Planned**: Auto-notification on version upgrade: "🎨 ÆtherLight v0.18.3 Resources Available"
+  - **Planned**: "Sync Now" / "Later" / "Learn More" action buttons
+  - **Planned**: Detects missing directories (`.claude/skills/`, `internal/agents/`, `docs/patterns/`)
+  - Files: `vscode-lumina/src/services/ResourceSyncManager.ts` (planned)
+  - Sprint Task: ACTIVE_SPRINT_18.2_RESOURCE_BUNDLING_BUGS.toml:1605-1668
+
+- **FEATURE-002: Add Command Palette Sync Command** (Phase 3 - Discovery)
+  - Added "ÆtherLight: Sync Bundled Resources" command to Command Palette
+  - Trigger: Cmd+Shift+P / Ctrl+Shift+P → Type "sync"
+  - Features: Progress notification, success message with action buttons, version update
+  - Action buttons: "View Skills" / "View Agents" / "View Patterns" (opens directories)
+  - Integration: Updates `lastSyncedVersion` after successful sync
+  - Files: `vscode-lumina/src/commands/syncResources.ts`, `extension.ts`, `package.json`
+  - Commit: 763418b
+
+#### **User Experience Polish Features**
+
+- **FEATURE-003: Add Settings Tab Sync Button** (Phase 6 - Polish)
+  - Added "📦 Bundled Resources" section to Voice Panel Settings Tab
+  - UI Elements: Resource counts (16 skills, 14 agents, 86 patterns), last synced version display, "🔄 Sync Latest Resources" button
+  - Integration: Button triggers FEATURE-002 command, version updates dynamically after sync
+  - Theme: Uses VS Code CSS variables for light/dark theme compatibility
+  - Files: `vscode-lumina/src/commands/voicePanel.ts:5551-5581`
+  - Commit: c91a7ee
+
+- **FEATURE-004: Add First-Launch Welcome Message** (Phase 6 - Polish)
+  - Added inline welcome message in Voice Panel text area on first launch
+  - Content: Version info, "What's New" summary (16 skills, 14 agents, 86 patterns), Command Palette instructions, verification checklist
+  - Behavior: Shows once only (persisted flag: `aetherlight.hasSeenWelcome`), only if text area empty (preserves user content), never shown again after first view
+  - Pattern: Non-modal, one-time guidance (Pattern-UX-001)
+  - Files: `vscode-lumina/src/services/ResourceSyncManager.ts` (showFirstLaunchWelcome), `extension.ts`, `voicePanel.ts`
+  - Commit: d9273a4
+
+### Changed
+
+#### **Infrastructure & Documentation**
+
+- **Enhanced Manual Test Checklist**
+  - Added TEST-001, TEST-002, TEST-003 end-to-end test scenarios
+  - Integrated acceptance criteria from sprint TOML into manual testing workflow
+  - TEST-001: Fresh Install Workflow (7 verification items)
+  - TEST-002: Upgrade Workflow (6 verification items, notes FEATURE-001 blocked)
+  - TEST-003: User Customizations (4 verification items)
+  - Updated Pre-Publishing Checklist to reference TEST tasks explicitly
+  - Files: `internal/sprints/SPRINT_18.2_MANUAL_TEST_CHECKLIST.md` (+173 lines)
+  - Commit: b854f71
+
+- **Sprint Documentation**
+  - Created 13 enhanced prompts for all BUG and FEATURE tasks
+  - Template version: v1.4.3 (Breadcrumb-based architecture, ~65% token reduction)
+  - All prompts linked in sprint TOML with `enhanced_prompt` field
+  - Files: `internal/sprints/enhanced_prompts/18.2-RESOURCE-BUNDLING-BUGS_*.md` (13 files)
+
+### Known Issues
+
+- **FEATURE-001 (Auto-Detection Notification)**: Not implemented in v0.18.3, deferred to v0.18.4
+  - **Impact**: No automatic notification on upgrade, users must manually run Command Palette sync
+  - **Workaround**: Use "ÆtherLight: Sync Bundled Resources" command after upgrade
+  - **TEST-002 Blocker**: Notification timing tests cannot be validated until FEATURE-001 implemented
+
+### Testing
+
+- **Manual Testing**: Post-publishing validation using `SPRINT_18.2_MANUAL_TEST_CHECKLIST.md`
+- **Test Coverage**: 12 bug/feature test sections, 70+ individual test cases, 3 end-to-end scenarios
+- **Acceptance Criteria**: TEST-001 (Fresh Install), TEST-002 (Upgrade), TEST-003 (Customizations)
+
+### Migration Guide
+
+**Upgrading from v0.18.2 to v0.18.3:**
+
+1. **Automatic Resource Sync** (if FEATURE-001 implemented):
+   - Notification appears on first activation after upgrade
+   - Click "Sync Now" to restore missing resources
+
+2. **Manual Resource Sync** (FEATURE-001 blocked - use this method):
+   - Open Command Palette (Cmd+Shift+P / Ctrl+Shift+P)
+   - Type: "ÆtherLight: Sync Bundled Resources"
+   - Press Enter
+   - Wait for success notification
+
+3. **Verify Installation**:
+   - Check `.claude/skills/` → 16 directories
+   - Check `internal/agents/` → 14 .md files
+   - Check `docs/patterns/` → 86 .md files
+   - Check `.vscode/settings.json` → `"aetherlight.lastSyncedVersion": "0.18.3"`
+
+4. **Desktop Installer** (if using):
+   - Version check now automatic (skips download if up to date)
+   - Improved error messages guide troubleshooting
+   - File lock issues resolved (antivirus compatibility)
+
+### Contributors
+
+- Infrastructure Agent (BUG-001, BUG-002, BUG-003, BUG-004, BUG-005, BUG-006, BUG-007, FEATURE-001, FEATURE-002, FEATURE-003, FEATURE-004)
+- Planning Agent (BUG-008 investigation)
+- UI Agent (BUG-009)
+
+### Commits
+
+- Sprint 18.2: 22 commits (f178f12 through b854f71)
+- Bug fixes: 9 tasks completed
+- Features: 3 tasks completed (1 deferred)
+- Documentation: 2 tasks completed
+- Lines changed: ~2,500 additions, ~400 deletions
+
+---
+
 ## [0.17.2] - 2025-01-14 - Sprint 17.1: Bug Fixes + MVP-003 Prompt Enhancer
 
 ### Added
