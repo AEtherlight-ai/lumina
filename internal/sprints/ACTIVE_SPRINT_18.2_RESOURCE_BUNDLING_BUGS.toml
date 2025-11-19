@@ -2008,7 +2008,7 @@ id = "TEST-001"
 name = "Test Fresh Install Workflow"
 phase = "phase_4_testing"
 agent = "test-agent"
-status = "pending"
+status = "completed"
 priority = "high"
 estimated_time = "1 hour"
 dependencies = [ "BUG-001", "BUG-002", "FEATURE-001", "FEATURE-002" ]
@@ -2042,13 +2042,14 @@ SUCCESS CRITERIA:\r
 - No duplicate notifications\r
 - Command works\r
 """
+completed_date = "2025-11-19"
 
 [tasks.TEST-002]
 id = "TEST-002"
 name = "Test Upgrade Workflow"
 phase = "phase_4_testing"
 agent = "test-agent"
-status = "pending"
+status = "completed"
 priority = "high"
 estimated_time = "1 hour"
 dependencies = [ "BUG-001", "BUG-002", "BUG-003", "FEATURE-001" ]
@@ -2082,13 +2083,14 @@ SUCCESS CRITERIA:\r
 - Sync restores missing resources\r
 - User customizations preserved\r
 """
+completed_date = "2025-11-19"
 
 [tasks.TEST-003]
 id = "TEST-003"
 name = "Test Resource Sync with User Customizations"
 phase = "phase_4_testing"
 agent = "test-agent"
-status = "pending"
+status = "completed"
 priority = "medium"
 estimated_time = "0.5 hours"
 dependencies = [ "BUG-002", "FEATURE-002" ]
@@ -2116,6 +2118,7 @@ SUCCESS CRITERIA:\r
 - New resources added without conflict\r
 - Clear logging of what was skipped\r
 """
+completed_date = "2025-11-19"
 
 [tasks.PUBLISH-001]
 id = "PUBLISH-001"
