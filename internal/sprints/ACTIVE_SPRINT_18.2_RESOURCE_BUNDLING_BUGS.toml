@@ -782,7 +782,6 @@ priority = "medium"
 estimated_time = "1 hour"
 dependencies = [ "BUG-007" ]
 enhanced_prompt = "internal/sprints/enhanced_prompts/18.2-RESOURCE-BUNDLING-BUGS_BUG-004_ENHANCED_PROMPT.md"
-
 completion_notes = """
 Completed 2025-11-18 by AI agent (infrastructure-agent)
 
@@ -843,7 +842,6 @@ Next Steps:
 - Monitor user feedback on version check accuracy
 - Consider adding --force flag for reinstalls (future enhancement)
 """
-
 description = """
 DESIGN DECISION: Check installed version before attempting installation\r
 WHY: Avoid unnecessary installs, better UX ("Already up to date!")\r
@@ -1513,7 +1511,6 @@ priority = "high"
 estimated_time = "30 minutes"
 dependencies = [ ]
 enhanced_prompt = "internal/sprints/enhanced_prompts/18.2-RESOURCE-BUNDLING-BUGS_BUG-009_ENHANCED_PROMPT.md"
-
 completion_notes = """
 Completed 2025-11-18 by AI agent (ui-agent)
 
@@ -1568,7 +1565,6 @@ Next Steps:
 - Monitor user feedback on UX change (auto → manual send)
 - Consider adding terminal ready indicator (visual feedback) in future sprint
 """
-
 description = """
 DESIGN DECISION: Open terminal but don't auto-send content, let user control timing\r
 WHY: Claude Code CLI may not be ready when terminal opens, causes race condition\r
@@ -1674,7 +1670,6 @@ priority = "high"
 estimated_time = "2 hours"
 dependencies = [ "BUG-003" ]
 enhanced_prompt = "internal/sprints/enhanced_prompts/18.2-RESOURCE-BUNDLING-BUGS_FEATURE-001_ENHANCED_PROMPT.md"
-
 completion_notes = """
 Completed 2025-11-18 by AI agent (infrastructure-agent)
 
@@ -1712,7 +1707,6 @@ Dependencies:
 - BUG-003 (completed) ✅
 - Related: FEATURE-002 ("Sync Now" command)
 """
-
 description = """
 DESIGN DECISION: Auto-detect missing/outdated resources and prompt user to sync\r
 WHY: Users have no idea bundled resources exist\r
@@ -1871,7 +1865,7 @@ id = "FEATURE-002"
 name = "Add Command Palette Sync Command"
 phase = "phase_3_discovery"
 agent = "infrastructure-agent"
-status = "pending"
+status = "completed"
 priority = "high"
 estimated_time = "1.5 hours"
 dependencies = [ "BUG-002" ]
@@ -2007,6 +2001,7 @@ FILES:\r
 - vscode-lumina/src/extension.ts (register command)\r
 - vscode-lumina/package.json (add command contribution)\r
 """
+completed_date = "2025-11-19"
 
 [tasks.TEST-001]
 id = "TEST-001"
@@ -2202,10 +2197,11 @@ id = "FEATURE-003"
 name = "Add Settings Tab Sync Button (Optional)"
 phase = "phase_6_polish"
 agent = "infrastructure-agent"
-status = "pending"
+status = "completed"
 priority = "low"
 estimated_time = "2 hours"
 dependencies = [ "FEATURE-002" ]
+enhanced_prompt = "internal/sprints/enhanced_prompts/18.2-RESOURCE-BUNDLING-BUGS_FEATURE-003_ENHANCED_PROMPT.md"
 description = """
 DESIGN DECISION: Add UI in Voice Panel → Settings Tab for resource sync\r
 WHY: Persistent, discoverable location for manual sync\r
@@ -2230,6 +2226,7 @@ UI MOCKUP:\r
 \r
 Can defer to next sprint if time-constrained.\r
 """
+completed_date = "2025-11-19"
 
 [tasks.FEATURE-004]
 id = "FEATURE-004"

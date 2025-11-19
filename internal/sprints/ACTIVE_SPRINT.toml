@@ -1811,6 +1811,7 @@ completed_date = "2025-11-18"
 priority = "low"
 estimated_time = "2 hours"
 dependencies = ["FEATURE-002"]
+enhanced_prompt = "internal/sprints/enhanced_prompts/18.2-RESOURCE-BUNDLING-BUGS_FEATURE-003_ENHANCED_PROMPT.md"
 completion_notes = """
 ✅ IMPLEMENTED - Settings icon UI with resource sync section
 

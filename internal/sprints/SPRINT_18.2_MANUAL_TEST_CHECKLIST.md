@@ -456,9 +456,297 @@ Actually for this test, simulate:
 
 ## BUG-006: Remove RTC/WebSocket Code from Extension
 
-**Status**: 🔜 Not Yet Implemented
+**Status**: ✅ Implemented, Ready for Testing
+**Files Modified**:
+- `vscode-lumina/src/extension.ts` (commented out RTC imports/initialization)
+- `vscode-lumina/src/realtime_sync/` → ARCHIVED to `_archived/realtime_sync_deprecated_v17.3/`
+- `vscode-lumina/package.json` (removed Activity Feed view + all sync settings)
+- `vscode-lumina/src/config/types.ts` (removed SyncConfig, PrivacyMode, all related types)
+- `vscode-lumina/src/config/manager.ts` (removed all sync-related code)
+**Commits**: 52be30a, a73e610
 
-_[Tests will be added once BUG-006 is implemented]_
+### Overview
+
+This task removes deprecated RTC/WebSocket sync code that was causing console spam with connection errors on every extension activation. The feature was deprecated in v17.3 but code was still active, affecting 100% of users.
+
+**Issues Fixed:**
+- WebSocket connection errors spamming console on every activation
+- Auto-reconnect loop wasting CPU cycles
+- Misleading error messages confusing users
+- Code not matching documentation (claimed removed in v17.3)
+
+---
+
+### Test 1: Fresh Extension Launch (Console Verification)
+**Purpose**: Verify NO RTC/WebSocket errors appear in console after removal
+
+**Prerequisites**:
+- Extension compiled successfully (`cd vscode-lumina && npm run compile`)
+- No TypeScript compilation errors
+
+**Steps**:
+1. Press F5 to launch Extension Development Host
+2. File → Open Folder → Select any workspace (fresh or existing)
+3. Extension activates
+4. Help → Toggle Developer Tools
+5. Switch to Console tab
+6. Review all console output carefully
+
+**Verification Checklist**:
+- [ ] Extension activates successfully: "ÆtherLight activated successfully"
+- [ ] NO console error: "[RTC Client] WebSocket error: Object"
+- [ ] NO console error: "[RTC Client] Reconnect failed: Error: WebSocket connection failed"
+- [ ] NO console error: "[RTC Client] Connection timeout after 2s, cleaning up"
+- [ ] NO console error: "❌ Real-time sync connection failed"
+- [ ] NO console log: "Real-time sync manager initialized"
+- [ ] NO console log: "Real-time sync disabled or failed to initialize"
+- [ ] Console is clean (no RTC-related messages at all)
+- [ ] Extension activation time faster (no reconnect delays)
+
+**Expected Result**: ✅ Clean console, NO RTC/WebSocket errors whatsoever
+
+**Actual Result**: _[Fill in after testing]_
+
+**Pass/Fail**: _[Fill in after testing]_
+
+**CRITICAL**: This is the PRIMARY bug fix. If ANY RTC errors appear, the fix failed.
+
+---
+
+### Test 2: Extension Settings Verification (VS Code Settings UI)
+**Purpose**: Verify all `aetherlight.sync.*` settings removed from package.json
+
+**Setup**: Extension Development Host (F5) with any workspace open
+
+**Steps**:
+1. Press Ctrl+Shift+P (Windows/Linux) or Cmd+Shift+P (Mac)
+2. Type "Preferences: Open Settings (UI)"
+3. Search for "aetherlight.sync"
+4. Search for "sync.enabled"
+5. Search for "sync.serverUrl"
+6. Search for "privacy mode"
+7. Check View → Open View → ÆtherLight Activity Feed
+
+**Verification Checklist**:
+- [ ] NO results for "aetherlight.sync" in settings search
+- [ ] NO setting: "aetherlight.sync.enabled"
+- [ ] NO setting: "aetherlight.sync.serverUrl"
+- [ ] NO setting: "aetherlight.sync.privacyMode"
+- [ ] NO setting: "aetherlight.sync.autoReconnect"
+- [ ] NO setting: "aetherlight.sync.token"
+- [ ] NO setting: "aetherlight.sync.tlsEnabled"
+- [ ] NO View menu item: "ÆtherLight Activity Feed"
+- [ ] All other ÆtherLight settings still present (terminal.*, voice.*, etc.)
+
+**Expected Result**: ✅ All sync-related settings completely removed from extension
+
+**Actual Result**: _[Fill in after testing]_
+
+**Pass/Fail**: _[Fill in after testing]_
+
+---
+
+### Test 3: Code References Verification (Source Code Check)
+**Purpose**: Verify RTC code is archived, not deleted (Pattern-DEPRECATION-001)
+
+**Setup**: Project directory open in file explorer
+
+**Steps**:
+1. Navigate to `vscode-lumina/src/_archived/`
+2. Check for `realtime_sync_deprecated_v17.3/` directory
+3. Open `vscode-lumina/src/extension.ts` in editor
+4. Search for "RealtimeSyncManager" (Ctrl+F)
+5. Search for "realtime_sync" (Ctrl+F)
+6. Open `vscode-lumina/src/config/types.ts` in editor
+7. Search for "SyncConfig" (Ctrl+F)
+8. Search for "PrivacyMode" (Ctrl+F)
+
+**Verification Checklist**:
+- [ ] `_archived/realtime_sync_deprecated_v17.3/` directory EXISTS
+- [ ] `_archived/realtime_sync_deprecated_v17.3/client.ts` EXISTS (WebSocket client preserved)
+- [ ] `_archived/realtime_sync_deprecated_v17.3/index.ts` EXISTS (manager preserved)
+- [ ] `_archived/realtime_sync_deprecated_v17.3/__tests__/` EXISTS (tests preserved)
+- [ ] `extension.ts`: All RTC references are COMMENTED OUT (not deleted)
+- [ ] `extension.ts`: Comments explain WHY removed, WHEN removed (Sprint 18.2), WHERE archived
+- [ ] `config/types.ts`: NO active SyncConfig interface (removed)
+- [ ] `config/types.ts`: NO active PrivacyMode enum (removed)
+- [ ] `config/manager.ts`: NO active getSyncConfig() method (removed)
+- [ ] `config/manager.ts`: NO active updateSyncConfig() method (removed)
+- [ ] Git history preserved (check `git log --follow vscode-lumina/src/_archived/realtime_sync_deprecated_v17.3/`)
+
+**Expected Result**: ✅ Code archived (not deleted), comments document removal
+
+**Actual Result**: _[Fill in after testing]_
+
+**Pass/Fail**: _[Fill in after testing]_
+
+---
+
+### Test 4: TypeScript Compilation Verification
+**Purpose**: Verify no compilation errors after type removal
+
+**Setup**: Command line in project directory
+
+**Steps**:
+1. Open Terminal or Command Prompt
+2. Navigate to: `cd vscode-lumina`
+3. Run: `npm run compile`
+4. Watch for TypeScript compiler output
+
+**Verification Checklist**:
+- [ ] Compilation completes successfully
+- [ ] Exit code: 0 (no errors)
+- [ ] NO error: "Cannot find name 'SyncConfig'"
+- [ ] NO error: "Cannot find name 'PrivacyMode'"
+- [ ] NO error: "Property 'sync' does not exist on type 'AetherlightConfig'"
+- [ ] NO error: "Module has no exported member 'SyncConfig'"
+- [ ] `out/` directory generated successfully
+- [ ] All TypeScript files compile cleanly
+
+**Expected Result**: ✅ Clean TypeScript compilation with 0 errors
+
+**Actual Result**: _[Fill in after testing]_
+
+**Pass/Fail**: _[Fill in after testing]_
+
+---
+
+### Test 5: Regression Testing - All Features Still Work
+**Purpose**: Verify RTC removal didn't break other extension features
+
+**Setup**: Extension Development Host (F5) with workspace open
+
+**Steps**:
+1. Test Voice Capture:
+   - Press Ctrl+Shift+V (or configured hotkey)
+   - Verify Voice Panel opens
+   - Verify text area is ready for input
+
+2. Test Sprint Panel:
+   - View → Open View → ÆtherLight Sprint Panel
+   - Verify Sprint 18.2 loads correctly
+   - Verify task list displays
+
+3. Test Command Palette Commands:
+   - Ctrl+Shift+P → "ÆtherLight: Sync Bundled Resources"
+   - Verify command exists and works
+
+4. Test Status Bar:
+   - Check bottom status bar
+   - Verify ÆtherLight items present
+
+**Verification Checklist**:
+- [ ] Voice Panel opens successfully (Ctrl+Shift+V)
+- [ ] Sprint Panel loads Sprint 18.2 correctly
+- [ ] Task list displays all tasks (BUG-001 through QA-001)
+- [ ] "Start This Task" button works
+- [ ] Command Palette commands all present
+- [ ] "ÆtherLight: Sync Bundled Resources" command works
+- [ ] Status bar shows ÆtherLight items
+- [ ] NO console errors during feature testing
+- [ ] Extension remains stable after RTC removal
+
+**Expected Result**: ✅ All features work normally, no regressions introduced
+
+**Actual Result**: _[Fill in after testing]_
+
+**Pass/Fail**: _[Fill in after testing]_
+
+---
+
+### Test 6: Performance Verification (Activation Time)
+**Purpose**: Verify extension activates faster without RTC auto-reconnect delays
+
+**Setup**: Extension Development Host (F5)
+
+**Steps**:
+1. Close Extension Development Host if open
+2. Press F5 to launch fresh Extension Development Host
+3. Open Console (Help → Toggle Developer Tools)
+4. Note activation timestamp
+5. Look for activation complete message
+6. Calculate time difference
+
+**Verification Checklist**:
+- [ ] Activation completes in <2 seconds (fast startup)
+- [ ] NO 1-second delays (antivirus timeout removed)
+- [ ] NO 2-second delays (WebSocket connection timeout removed)
+- [ ] NO exponential backoff delays (1s, 2s, 4s, 8s, 16s, 30s)
+- [ ] Console shows smooth activation (no pauses)
+- [ ] Extension responsive immediately after activation
+- [ ] No CPU spikes from reconnect loop
+
+**Expected Result**: ✅ Faster activation, no reconnect delays
+
+**Actual Result**: _[Fill in after testing]_
+
+**Pass/Fail**: _[Fill in after testing]_
+
+**Performance Improvement**: Before: 2-30 seconds (reconnect delays). After: <2 seconds.
+
+---
+
+### Test 7: User Experience - Before vs. After
+**Purpose**: Document user experience improvement
+
+**Before BUG-006 Fix (v0.18.1 and earlier)**:
+```
+[Extension Host] ÆtherLight activated successfully
+[RTC Client] WebSocket error: Object
+[RTC Client] Connection timeout after 2s, cleaning up
+[RTC Client] Reconnect failed: Error: WebSocket connection failed
+❌ Real-time sync connection failed: Error: WebSocket connection failed
+[RTC Client] Retrying in 1s...
+[RTC Client] WebSocket error: Object
+[RTC Client] Retrying in 2s...
+[RTC Client] WebSocket error: Object
+[RTC Client] Retrying in 4s...
+[... errors repeat indefinitely ...]
+```
+
+**After BUG-006 Fix (v0.18.2+)**:
+```
+[Extension Host] ÆtherLight activated successfully
+[No RTC errors]
+[Clean console]
+```
+
+**Verification**:
+- [ ] Console output matches "After" example (clean)
+- [ ] NO errors matching "Before" example
+- [ ] User experience is clean and professional
+- [ ] No misleading error messages
+
+**Expected Result**: ✅ Clean console, professional user experience
+
+**Actual Result**: _[Fill in after testing]_
+
+**Pass/Fail**: _[Fill in after testing]_
+
+---
+
+### Overall Success Criteria
+
+**All tests must pass:**
+- ✅ Test 1: Fresh launch - NO RTC errors (CRITICAL)
+- ✅ Test 2: Settings removed - NO sync settings (CRITICAL)
+- ✅ Test 3: Code archived - Pattern-DEPRECATION-001 followed (IMPORTANT)
+- ✅ Test 4: TypeScript compiles - 0 errors (CRITICAL)
+- ✅ Test 5: Regression tests - All features work (CRITICAL)
+- ✅ Test 6: Performance - Faster activation (IMPORTANT)
+- ✅ Test 7: UX improvement - Clean console (CRITICAL)
+
+**Key Metrics:**
+- Console errors related to RTC: Target 0 (down from ~50+ per session)
+- Extension activation time: <2 seconds (down from 2-30 seconds)
+- CPU usage: Minimal (no reconnect loop)
+- User confusion: Eliminated (no misleading errors)
+
+**If ANY test fails:**
+1. Document the failure in "Issues Found During Testing" section
+2. Revert commits using: `git revert a73e610 52be30a`
+3. Re-investigate and fix
+4. Re-compile and re-test before marking BUG-006 as completed
 
 ---
 
@@ -1369,6 +1657,385 @@ _[Tests will be added once FEATURE-001 is implemented]_
 
 ---
 
+## FEATURE-003: Add Settings Icon Sync UI (Optional)
+
+**Status**: ✅ Implemented
+**Dependencies**: FEATURE-002 (Command Palette Sync)
+**Priority**: Low (Optional Polish Feature)
+**Architecture Note**: Settings Tab was removed in v0.16.2, adapted to use existing ⚙️ settings icon in Voice Panel toolbar
+
+**Implementation Files:**
+- `vscode-lumina/src/commands/voicePanel.ts` (+98 lines)
+  - Lines 5551-5581: Bundled Resources section HTML
+  - Lines 5517-5519: syncResourcesFromSettings() webview function
+  - Lines 1684-1716: getLastSyncedVersion backend handler
+  - Lines 1718-1750: syncResources backend handler
+  - Lines 5598-5604: updateLastSyncedVersion message handler
+
+**Commit**: c91a7ee (2025-11-18)
+
+---
+
+### Test 1: Settings Icon Exists in Voice Panel Toolbar
+
+**Purpose**: Verify ⚙️ settings icon is visible and accessible
+
+**Steps**:
+1. Open VS Code with ÆtherLight extension installed
+2. Open Voice Panel (status bar icon or command)
+3. Look at top-right toolbar in Voice Panel
+
+**Expected**:
+- ⚙️ settings icon visible in toolbar
+- Icon has tooltip on hover (e.g., "Settings")
+
+**Pass/Fail**: _[Fill in after testing]_
+
+---
+
+### Test 2: Settings Modal Opens with Bundled Resources Section
+
+**Purpose**: Verify settings modal displays resource sync UI
+
+**Steps**:
+1. Open Voice Panel
+2. Click ⚙️ settings icon in toolbar
+3. Scroll to "Bundled Resources" section
+
+**Expected**:
+- Modal opens with settings UI
+- "📦 Bundled Resources" section visible
+- Section has card-style design with border
+
+**Pass/Fail**: _[Fill in after testing]_
+
+---
+
+### Test 3: Resource Counts Display Correctly
+
+**Purpose**: Verify bundled resource statistics are accurate
+
+**Steps**:
+1. Open settings modal (⚙️ icon)
+2. Find "Bundled Resources" section
+3. Check resource counts listed
+
+**Expected**:
+- "Skills: **16 available**"
+- "Agents: **14 available**"
+- "Patterns: **86 available**"
+
+**Pass/Fail**: _[Fill in after testing]_
+
+---
+
+### Test 4: Last Synced Version Shows Correctly
+
+**Purpose**: Verify version tracking display in settings
+
+**Steps**:
+1. Open settings modal
+2. Check "Last synced:" field in Bundled Resources section
+3. Run sync (click "🔄 Sync Latest Resources")
+4. Close and reopen settings modal
+
+**Expected Before First Sync**:
+- "Last synced: **Never synced**"
+
+**Expected After Sync**:
+- "Last synced: **v0.18.3 (Nov 18, 2025)**" (or current version and date)
+
+**Pass/Fail**: _[Fill in after testing]_
+
+---
+
+### Test 5: Sync Button Triggers FEATURE-002 Command
+
+**Purpose**: Verify settings sync button executes Command Palette command
+
+**Steps**:
+1. Open settings modal
+2. Click "🔄 Sync Latest Resources" button
+3. Observe notification behavior
+
+**Expected**:
+- Progress notification appears: "ÆtherLight: Syncing Resources"
+- Success message: "✅ Resources synced successfully!"
+- Same behavior as Command Palette → "ÆtherLight: Sync Bundled Resources"
+
+**Pass/Fail**: _[Fill in after testing]_
+
+---
+
+### Test 6: Version Updates After Sync
+
+**Purpose**: Verify lastSyncedVersion updates dynamically in settings UI
+
+**Steps**:
+1. Open settings modal (before sync)
+2. Check "Last synced:" field → should say "Never synced" or old version
+3. Click "🔄 Sync Latest Resources"
+4. Wait for success notification
+5. **Without closing settings modal**, check "Last synced:" field again
+
+**Expected**:
+- Version updates automatically to current extension version
+- Format: "v0.18.3 (Nov 18, 2025)"
+- No need to close/reopen modal
+
+**Pass/Fail**: _[Fill in after testing]_
+
+---
+
+### Test 7: Theme-Aware Styling
+
+**Purpose**: Verify UI respects VS Code theme colors
+
+**Steps**:
+1. Switch to light theme (File → Preferences → Color Theme → "Light+")
+2. Open Voice Panel → Settings (⚙️ icon)
+3. Check Bundled Resources section appearance
+4. Switch to dark theme (e.g., "Dark+")
+5. Reopen settings modal
+
+**Expected**:
+- Light theme: Card background uses light colors, text readable
+- Dark theme: Card background uses dark colors, text readable
+- All colors use `var(--vscode-*)` variables (no hardcoded colors)
+
+**Pass/Fail**: _[Fill in after testing]_
+
+---
+
+### Test 8: No Workspace Open Behavior
+
+**Purpose**: Verify graceful handling when no workspace open
+
+**Steps**:
+1. Close all workspace folders (File → Close Folder)
+2. Ensure ÆtherLight extension is still active
+3. Open Voice Panel → Settings (⚙️ icon)
+4. Click "🔄 Sync Latest Resources"
+
+**Expected**:
+- Error message: "No workspace folder open. Please open a folder first."
+- Settings modal remains open
+- No crash or unexpected behavior
+
+**Pass/Fail**: _[Fill in after testing]_
+
+---
+
+## FEATURE-004: Add First-Launch Welcome Message (Optional)
+
+**Status**: ✅ Implemented
+**Dependencies**: BUG-001 (Resource Sync System), FEATURE-002 (Command Palette Sync)
+**Priority**: Low (Optional Polish Feature)
+**Pattern**: Pattern-UX-001 (Non-modal, one-time guidance)
+
+**Implementation Files:**
+- `vscode-lumina/src/services/ResourceSyncManager.ts` (+53 lines)
+  - Lines 128-196: showFirstLaunchWelcome() static method
+  - Checks hasSeenWelcome flag, builds markdown template, executes command
+- `vscode-lumina/src/extension.ts` (+18 lines)
+  - Lines 298-305: Calls showFirstLaunchWelcome() after checkAndPrompt()
+  - Lines 1074-1087: Registers insertWelcomeText command handler
+- `vscode-lumina/src/commands/voicePanel.ts` (+33 lines)
+  - Lines 575-589: postWelcomeMessage() public method
+  - Lines 2076-2087: insertWelcomeText webview message handler
+
+**Commit**: d9273a4 (2025-11-18)
+
+---
+
+### Test 1: First Launch Shows Welcome Message in Text Area
+
+**Purpose**: Verify welcome message appears on first extension activation
+
+**Steps**:
+1. Fresh VS Code install OR reset flag: Open Command Palette → "Preferences: Open Workspace Settings (JSON)"
+2. Remove `"aetherlight.hasSeenWelcome": true` if present
+3. Save and reload VS Code window (Cmd+R / Ctrl+R)
+4. Wait 3 seconds after extension activates
+5. Open Voice Panel → Check text area
+
+**Expected**:
+- Text area contains markdown welcome message starting with: `# 🚀 Welcome to ÆtherLight v0.18.3!`
+- Message includes 3 sections: "What's New", "Getting Started", "Verify Installation"
+- Message mentions: 16 skills, 14 agents, 86 patterns
+- Instructions include: Open Command Palette → "ÆtherLight: Sync Bundled Resources"
+
+**Pass/Fail**: _[Fill in after testing]_
+
+---
+
+### Test 2: Second Launch Does NOT Show Welcome (Flag Set)
+
+**Purpose**: Verify one-time display behavior via hasSeenWelcome flag
+
+**Steps**:
+1. Complete Test 1 (welcome message shown)
+2. Check workspace settings: `.vscode/settings.json` → `"aetherlight.hasSeenWelcome": true` should exist
+3. Reload VS Code window (Cmd+R / Ctrl+R)
+4. Wait 3 seconds after extension activates
+5. Open Voice Panel → Check text area
+
+**Expected**:
+- Text area is EMPTY (no welcome message)
+- Console log (if visible): "[ÆtherLight] Skipped welcome message (already seen)"
+- hasSeenWelcome flag remains true in settings
+
+**Pass/Fail**: _[Fill in after testing]_
+
+---
+
+### Test 3: Non-Empty Text Area Preserved (Safety Check)
+
+**Purpose**: Verify user content in text area is never overwritten
+
+**Steps**:
+1. Reset hasSeenWelcome flag: Open Workspace Settings (JSON) → Remove `"aetherlight.hasSeenWelcome": true`
+2. Open Voice Panel
+3. Type some text in the text area: "My important notes here"
+4. Reload VS Code window (Cmd+R / Ctrl+R)
+5. Wait 3 seconds after extension activates
+6. Check text area content
+
+**Expected**:
+- Text area still shows: "My important notes here"
+- Welcome message NOT inserted (safety check: only inserts if empty)
+- Console log: "[ÆtherLight] Skipped welcome message (text area not empty)"
+
+**Pass/Fail**: _[Fill in after testing]_
+
+---
+
+### Test 4: hasSeenWelcome Flag Persistence
+
+**Purpose**: Verify flag persists correctly in workspace configuration
+
+**Steps**:
+1. Reset flag: Remove `"aetherlight.hasSeenWelcome": true` from workspace settings
+2. Reload VS Code → Welcome message appears in text area
+3. Check `.vscode/settings.json` file in workspace root
+
+**Expected Before Welcome**:
+- No `aetherlight.hasSeenWelcome` key in settings.json
+
+**Expected After Welcome**:
+- `.vscode/settings.json` contains: `"aetherlight.hasSeenWelcome": true`
+- Flag uses `ConfigurationTarget.Workspace` (not global settings)
+
+**Pass/Fail**: _[Fill in after testing]_
+
+---
+
+### Test 5: Manual Flag Reset Allows Re-Display
+
+**Purpose**: Verify flag can be manually reset to re-show welcome message
+
+**Steps**:
+1. First launch complete (hasSeenWelcome = true, no message shown)
+2. Open Command Palette → "Preferences: Open Workspace Settings (JSON)"
+3. Find line: `"aetherlight.hasSeenWelcome": true`
+4. Change to: `"aetherlight.hasSeenWelcome": false`
+5. Save and reload VS Code window
+6. Wait 3 seconds → Check text area
+
+**Expected**:
+- Welcome message appears again in text area
+- Flag automatically resets to `true` after display
+- User can repeat this process if needed (e.g., onboarding new team member)
+
+**Pass/Fail**: _[Fill in after testing]_
+
+---
+
+### Test 6: 3-Second Delay Timing Verification
+
+**Purpose**: Verify welcome message waits for voice panel to be ready
+
+**Steps**:
+1. Reset hasSeenWelcome flag
+2. Open VS Code with Console (Help → Toggle Developer Tools)
+3. Switch to Console tab
+4. Reload window and watch for log messages
+5. Time the delay between "[ÆtherLight] Extension activated" and "[ÆtherLight] First-launch welcome message sent"
+
+**Expected**:
+- Delay is approximately 3 seconds (setTimeout configured for 3000ms)
+- Console shows: "[ÆtherLight] First-launch welcome message sent" after delay
+- Text area receives message only after 3-second wait
+- No errors about voice panel not ready
+
+**Pass/Fail**: _[Fill in after testing]_
+
+---
+
+### Test 7: Markdown Content Format Verification
+
+**Purpose**: Verify welcome message contains correct markdown format
+
+**Steps**:
+1. Reset hasSeenWelcome flag
+2. Reload VS Code → Welcome message appears
+3. Copy text from text area
+4. Paste into markdown preview tool or file
+
+**Expected Sections**:
+```markdown
+# 🚀 Welcome to ÆtherLight v0.18.3!
+
+## ✨ What's New
+- 16 reusable skills (protect, publish, sprint-plan, etc.)
+- 14 agent contexts (planning, infrastructure, docs, etc.)
+- 86 patterns for consistent development
+
+## 📥 Getting Started
+Your workspace needs these resources to work properly.
+
+**👉 Run this command now:**
+1. Open Command Palette (Cmd+Shift+P / Ctrl+Shift+P)
+2. Type: "ÆtherLight: Sync Bundled Resources"
+3. Press Enter
+
+Or click the "Sync Now" button in the notification above.
+
+## 🔍 Verify Installation
+After syncing, you should see:
+- `.claude/skills/` - 16 skill directories
+- `internal/agents/` - 14 agent markdown files
+- `docs/patterns/` - 86 pattern markdown files
+```
+
+**Pass/Fail**: _[Fill in after testing]_
+
+---
+
+### Test 8: Voice Panel Not Ready Error Handling
+
+**Purpose**: Verify graceful handling if voice panel fails to initialize
+
+**Steps**:
+1. Reset hasSeenWelcome flag
+2. Open VS Code with Console (Help → Toggle Developer Tools)
+3. Reload window
+4. If voice panel fails to initialize (rare edge case), check console
+
+**Expected if Voice Panel Ready**:
+- Console: "[ÆtherLight] First-launch welcome message sent"
+- hasSeenWelcome flag set to `true`
+
+**Expected if Voice Panel NOT Ready** (edge case):
+- Console: "[ÆtherLight] Could not send welcome message (voice panel not ready): [error details]"
+- hasSeenWelcome flag NOT set (remains `false`)
+- User will see welcome message on next reload (retry mechanism)
+- No extension crash or activation failure
+
+**Pass/Fail**: _[Fill in after testing]_
+
+---
+
 ## Pre-Publishing Checklist
 
 **Run these tests BEFORE publishing v0.18.3:**
@@ -1401,6 +2068,16 @@ _[Tests will be added once FEATURE-001 is implemented]_
 - [ ] FEATURE-002: Success message with action buttons works ✅
 - [ ] FEATURE-002: Resources actually synced to workspace ✅
 - [ ] FEATURE-002: Version updated after manual sync ✅
+- [ ] FEATURE-003: Settings icon exists in Voice Panel toolbar ✅
+- [ ] FEATURE-003: Settings modal shows Bundled Resources section ✅
+- [ ] FEATURE-003: Resource counts accurate (16 skills, 14 agents, 86 patterns) ✅
+- [ ] FEATURE-003: Last synced version displays correctly ✅
+- [ ] FEATURE-003: Sync button triggers FEATURE-002 command ✅
+- [ ] FEATURE-003: Version updates dynamically after sync ✅
+- [ ] FEATURE-004: First launch shows welcome in text area ✅
+- [ ] FEATURE-004: Second launch does NOT show welcome (flag set) ✅
+- [ ] FEATURE-004: Non-empty text area preserved (safety check) ✅
+- [ ] FEATURE-004: hasSeenWelcome flag persists in workspace settings ✅
 - [ ] All implemented bugs: Tests pass ✅
 
 ### Regression Testing
