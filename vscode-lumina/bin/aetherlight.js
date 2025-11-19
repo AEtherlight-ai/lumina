@@ -3,7 +3,7 @@
 /**
  * ÆtherLight Full Suite Installer (FIXED v0.18.3)
  *
- * FIXES (BUG-007):
+ * FIXES (BUG-007 - File Lock Issues):
  * - Issue #1: Proper file.close() callback - wait for file handle to close
  * - Issue #2: Don't delete installer file - Windows handles cleanup
  * - Issue #3: Windows-style path handling - avoid quoting issues
@@ -12,6 +12,17 @@
  *
  * WHY: Users were getting "file is being used by another process" errors
  * when running 'aetherlight' CLI installer on Windows.
+ *
+ * FIXES (BUG-005 - Error Message Improvements):
+ * - Added handleInstallerError() - Detects 5 installer-specific error types
+ * - Added handleDownloadError() - Detects 6 download-specific error types
+ * - Replaced generic "Failed" messages with actionable feedback
+ *
+ * WHY: Users received generic error messages with no guidance on resolution.
+ *
+ * ERROR TYPES DETECTED:
+ * Installer: file locked, permission denied, file not found, invalid path, disk full
+ * Download: no internet, rate limit, 404, timeout, connection refused, SSL errors
  *
  * USAGE:
  *   npm install -g @aetherlight/lumina
@@ -74,7 +85,10 @@ function downloadFile(url, dest) {
 
       if (response.statusCode !== 200) {
         file.close(() => {
-          reject(new Error(`Failed to download: HTTP ${response.statusCode}`));
+          const httpError = new Error(`Failed to download: HTTP ${response.statusCode}`);
+          // BUG-005: Show specific error message for HTTP errors
+          handleDownloadError(httpError, url);
+          reject(httpError);
         });
         return;
       }
@@ -107,7 +121,13 @@ function downloadFile(url, dest) {
       });
     }).on('error', (err) => {
       file.close(() => {
-        fs.unlinkSync(dest);
+        // BUG-005: Show specific error message before cleaning up
+        handleDownloadError(err, url);
+        try {
+          fs.unlinkSync(dest);
+        } catch (unlinkErr) {
+          // Ignore cleanup errors
+        }
         reject(err);
       });
     });
@@ -301,6 +321,149 @@ function launchInstaller(filePath, maxRetries = 3) {
   return false;
 }
 
+/**
+ * Handle installer errors with actionable feedback
+ * BUG-005: Detect specific error types and guide users
+ *
+ * @param {Error} err - The error object
+ * @param {string} filePath - Path to installer file
+ */
+function handleInstallerError(err, filePath) {
+  const errorMessage = err.message || '';
+
+  // Error Type 1: File locked (antivirus or another process)
+  if (errorMessage.includes('being used by another process') || errorMessage.includes('EBUSY')) {
+    log('⚠️  Installer file is locked (likely antivirus scanning)', 'yellow');
+    log('   Suggestion: Wait 30 seconds and try again', 'yellow');
+    log('   Or run manually from:', 'yellow');
+    log(`   ${filePath}`, 'blue');
+    return;
+  }
+
+  // Error Type 2: Permission denied
+  if (errorMessage.includes('EACCES') || errorMessage.includes('permission denied')) {
+    log('❌ Permission denied', 'red');
+    log('   Suggestion: Try running as administrator', 'yellow');
+    log('   Windows: Right-click terminal → "Run as administrator"', 'yellow');
+    log('   Or run manually from:', 'yellow');
+    log(`   ${filePath}`, 'blue');
+    return;
+  }
+
+  // Error Type 3: File not found
+  if (errorMessage.includes('ENOENT') || errorMessage.includes('cannot find')) {
+    log('❌ Installer file not found', 'red');
+    log('   This is a bug - the installer was downloaded but disappeared', 'yellow');
+    log('   Suggestion: Try running the installer again', 'yellow');
+    log('   If this persists, please report at:', 'yellow');
+    log('   https://github.com/AEtherlight-ai/lumina/issues', 'blue');
+    return;
+  }
+
+  // Error Type 4: Invalid path
+  if (errorMessage.includes('invalid') && errorMessage.includes('path')) {
+    log('❌ Invalid installer path', 'red');
+    log('   Suggestion: Check if temp directory exists', 'yellow');
+    log(`   Path: ${filePath}`, 'blue');
+    return;
+  }
+
+  // Error Type 5: Disk full
+  if (errorMessage.includes('ENOSPC') || errorMessage.includes('no space')) {
+    log('❌ Not enough disk space', 'red');
+    log('   Suggestion: Free up disk space and try again', 'yellow');
+    log('   Installer requires ~200MB free space', 'yellow');
+    return;
+  }
+
+  // Fallback: Generic error with details
+  log('❌ Unexpected installer error', 'red');
+  log('   Error details:', 'yellow');
+  console.error(err.message);
+  log('\n   You can install manually from:', 'yellow');
+  log(`   ${filePath}`, 'blue');
+}
+
+/**
+ * Handle download errors with actionable feedback
+ * BUG-005: Detect specific network/download error types
+ *
+ * @param {Error} err - The error object
+ * @param {string} url - The URL that failed
+ */
+function handleDownloadError(err, url) {
+  const errorMessage = err.message || '';
+  const errorCode = err.code || '';
+
+  // Error Type 1: No internet connection
+  if (errorCode === 'ENOTFOUND' || errorCode === 'EAI_AGAIN' || errorMessage.includes('getaddrinfo')) {
+    log('❌ No internet connection', 'red');
+    log('   Suggestion: Check your network connection', 'yellow');
+    log('   - Verify you can access the internet', 'yellow');
+    log('   - Check firewall/proxy settings', 'yellow');
+    log('   - Try again in a moment', 'yellow');
+    return;
+  }
+
+  // Error Type 2: GitHub API rate limit
+  if (errorMessage.includes('rate limit') || errorMessage.includes('403')) {
+    log('❌ GitHub API rate limit exceeded', 'red');
+    log('   Suggestion: Wait and try again', 'yellow');
+    log('   - Anonymous requests: 60 per hour', 'yellow');
+    log('   - Try again in 5-10 minutes', 'yellow');
+    return;
+  }
+
+  // Error Type 3: 404 Not Found
+  if (errorMessage.includes('404') || errorMessage.includes('Not Found')) {
+    log('❌ Release not found', 'red');
+    log('   The latest release may not be published yet', 'yellow');
+    log('   Suggestion:', 'yellow');
+    log('   - Check https://github.com/AEtherlight-ai/lumina/releases', 'blue');
+    log('   - Try again in a few minutes', 'yellow');
+    return;
+  }
+
+  // Error Type 4: Timeout
+  if (errorCode === 'ETIMEDOUT' || errorCode === 'ESOCKETTIMEDOUT' || errorMessage.includes('timeout')) {
+    log('❌ Download timed out', 'red');
+    log('   Suggestion: Your connection may be slow', 'yellow');
+    log('   - Try again (download is ~150MB)', 'yellow');
+    log('   - Check your internet speed', 'yellow');
+    log('   - Consider using a faster connection', 'yellow');
+    return;
+  }
+
+  // Error Type 5: Connection refused
+  if (errorCode === 'ECONNREFUSED' || errorMessage.includes('connection refused')) {
+    log('❌ Connection refused', 'red');
+    log('   Suggestion: GitHub may be temporarily unavailable', 'yellow');
+    log('   - Check https://www.githubstatus.com/', 'blue');
+    log('   - Try again in a few minutes', 'yellow');
+    return;
+  }
+
+  // Error Type 6: SSL/Certificate errors
+  if (errorMessage.includes('certificate') || errorMessage.includes('SSL') || errorMessage.includes('TLS')) {
+    log('❌ SSL certificate error', 'red');
+    log('   Suggestion: Your system may have certificate issues', 'yellow');
+    log('   - Check your system date/time is correct', 'yellow');
+    log('   - Update your operating system', 'yellow');
+    log('   - Check antivirus/firewall isn\'t blocking HTTPS', 'yellow');
+    return;
+  }
+
+  // Fallback: Generic download error
+  log('❌ Download failed', 'red');
+  log('   Error details:', 'yellow');
+  console.error(err.message);
+  log('\n   Suggestion:', 'yellow');
+  log('   - Check your internet connection', 'yellow');
+  log('   - Try again in a few minutes', 'yellow');
+  log('   - Or download manually from:', 'yellow');
+  log('   https://github.com/AEtherlight-ai/lumina/releases/latest', 'blue');
+}
+
 async function installDesktopApp(filePath, osType, releaseVersion) {
   log('\n🖥️  Checking Desktop app...', 'blue');
 
@@ -348,8 +511,8 @@ async function installDesktopApp(filePath, osType, releaseVersion) {
       return true;
     }
   } catch (err) {
-    log('❌ Failed to install desktop app', 'red');
-    console.error(err.message);
+    // BUG-005: Use specific error handler instead of generic message
+    handleInstallerError(err, filePath);
     return false;
   }
 
@@ -458,7 +621,12 @@ async function main() {
 
 // Run installer
 main().catch((err) => {
-  log('\n❌ Installation failed:', 'red');
-  console.error(err);
+  // BUG-005: Specific errors already shown by handlers above
+  // Just show summary and exit
+  log('\n╔═══════════════════════════════════════╗', 'bright');
+  log('║     Installation Failed               ║', 'red');
+  log('╚═══════════════════════════════════════╝\n', 'bright');
+  log('   See error details above for troubleshooting steps.', 'yellow');
+  log('   Need help? https://github.com/AEtherlight-ai/lumina/issues\n', 'blue');
   process.exit(1);
 });

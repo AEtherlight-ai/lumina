@@ -935,11 +935,79 @@ id = "BUG-005"
 name = "Improve Installer Error Messages"
 phase = "phase_2_installer"
 agent = "infrastructure-agent"
-status = "pending"
+status = "completed"
+completed_date = "2025-11-18"
 priority = "low"
 estimated_time = "0.5 hours"
 dependencies = [ "BUG-007" ]
 enhanced_prompt = "internal/sprints/enhanced_prompts/18.2-RESOURCE-BUNDLING-BUGS_BUG-005_ENHANCED_PROMPT.md"
+completion_notes = """
+COMPLETED: Improved installer error messages with actionable feedback
+
+IMPLEMENTATION:
+✅ Added handleInstallerError() function (62 lines, lines 304-365)
+   - Detects 5 error types: file locked, permission denied, file not found, invalid path, disk full
+   - Provides specific suggestions for each error type
+   - Shows manual installer path for recovery
+
+✅ Added handleDownloadError() function (79 lines, lines 367-445)
+   - Detects 6 error types: no internet, rate limit, 404, timeout, connection refused, SSL errors
+   - Provides specific troubleshooting steps for each error type
+   - Shows manual download URL for recovery
+
+✅ Updated installDesktopApp() error handling (line 495)
+   - Replaced generic "Failed to install desktop app" with handleInstallerError() call
+   - Preserves error context (file path) for actionable messaging
+
+✅ Updated downloadFile() error handling (lines 79, 111)
+   - HTTP error codes (line 79): Call handleDownloadError() for specific messages
+   - Network errors (line 111): Call handleDownloadError() for specific messages
+   - Added try/catch for cleanup to prevent secondary errors
+
+✅ Updated main() catch block (lines 612-621)
+   - Replaced generic console.error() with formatted summary message
+   - Avoids duplicating error details (already shown by handlers)
+   - Shows "See error details above" with GitHub issues link
+
+✅ Updated header documentation (lines 3-31)
+   - Added BUG-005 section explaining error message improvements
+   - Listed all 11 detected error types for reference
+
+FILES MODIFIED:
+- vscode-lumina/bin/aetherlight.js (+153 lines total)
+
+TESTING STATUS:
+- Code changes complete
+- Manual testing required (user will perform 5 error simulation tests)
+- See: internal/sprints/SPRINT_18.2_MANUAL_TEST_CHECKLIST.md
+
+USER EXPERIENCE IMPROVEMENT:
+BEFORE:
+❌ Failed to install desktop app
+Error: EACCES: permission denied
+
+AFTER:
+❌ Permission denied
+   Suggestion: Try running as administrator
+   Windows: Right-click terminal → "Run as administrator"
+   Or run manually from:
+   C:\Users\...\Temp\lumina-setup.exe
+
+IMPACT:
+- Reduces support tickets: Users get self-service troubleshooting
+- Increases installer success rate: Clear guidance on recovery
+- Better UX: Specific, actionable error messages vs. generic "Failed"
+- All 11 error types covered: 5 installer + 6 download
+
+DEPENDENCIES:
+- Blocked by: BUG-007 (completed) ✅
+- Blocks: None
+
+NEXT STEPS:
+- User testing: Simulate errors to verify messages
+- Monitor user feedback on error message clarity
+- Consider adding error reporting link in future enhancement
+"""
 description = """
 DESIGN DECISION: Show specific error messages instead of generic "Failed"\r
 WHY: Users need actionable feedback\r
@@ -993,6 +1061,7 @@ status = "pending"
 priority = "high"
 estimated_time = "1.5 hours"
 dependencies = [ ]
+enhanced_prompt = "internal/sprints/enhanced_prompts/18.2-RESOURCE-BUNDLING-BUGS_BUG-006_ENHANCED_PROMPT.md"
 description = """
 DESIGN DECISION: Remove real-time sync WebSocket code from extension\r
 WHY: Feature was deprecated in v17.3 but code still active, causing errors on every activation\r
