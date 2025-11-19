@@ -194,6 +194,79 @@ function installCursorExtension(vsixPath) {
   }
 }
 
+/**
+ * Get installed desktop app version
+ * Returns version string (e.g., "0.18.2") or null if not installed
+ *
+ * BUG-004: Add version check before downloading/installing
+ * WHY: Avoid unnecessary downloads if already up to date
+ */
+function getInstalledDesktopVersion(osType) {
+  try {
+    if (osType === 'windows') {
+      // Method 1: Check Windows Registry
+      try {
+        const output = execSync(
+          'reg query "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall" /s /f "Lumina"',
+          { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }
+        );
+
+        const versionMatch = output.match(/DisplayVersion\s+REG_SZ\s+(\d+\.\d+\.\d+)/);
+        if (versionMatch) {
+          return versionMatch[1];
+        }
+      } catch (regErr) {
+        // Registry query failed, try fallback
+      }
+
+      // Method 2: Fallback - Check Program Files directly
+      const appPath = path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Lumina', 'Lumina.exe');
+      if (fs.existsSync(appPath)) {
+        try {
+          // Try WMIC (Windows Management Instrumentation Command-line)
+          const escapedPath = appPath.replace(/\\/g, '\\\\');
+          const versionOutput = execSync(
+            `wmic datafile where name="${escapedPath}" get Version /value`,
+            { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }
+          );
+          const match = versionOutput.match(/Version=([\d.]+)/);
+          if (match) {
+            return match[1];
+          }
+        } catch (wmicErr) {
+          // WMIC not available (Windows 11), try PowerShell
+          try {
+            const psOutput = execSync(
+              `powershell -command "(Get-Item '${appPath}').VersionInfo.ProductVersion"`,
+              { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }
+            );
+            const version = psOutput.trim();
+            if (version && /^\d+\.\d+\.\d+/.test(version)) {
+              return version.match(/^(\d+\.\d+\.\d+)/)[1];
+            }
+          } catch (psErr) {
+            // PowerShell also failed
+          }
+        }
+      }
+    } else if (osType === 'mac') {
+      // Check /Applications/Lumina.app/Contents/Info.plist
+      const appPath = '/Applications/Lumina.app/Contents/Info.plist';
+      if (fs.existsSync(appPath)) {
+        const plistContent = fs.readFileSync(appPath, 'utf-8');
+        const match = plistContent.match(/<key>CFBundleShortVersionString<\/key>\s*<string>([\d.]+)<\/string>/);
+        if (match) {
+          return match[1];
+        }
+      }
+    }
+  } catch (err) {
+    // Can't determine version - treat as not installed
+    return null;
+  }
+  return null;
+}
+
 // FIX: Issue #3 + #4 - Windows path handling + retry logic
 function launchInstaller(filePath, maxRetries = 3) {
   // Convert to Windows-style path
@@ -228,8 +301,33 @@ function launchInstaller(filePath, maxRetries = 3) {
   return false;
 }
 
-async function installDesktopApp(filePath, osType) {
-  log('\n🖥️  Installing Desktop app...', 'blue');
+async function installDesktopApp(filePath, osType, releaseVersion) {
+  log('\n🖥️  Checking Desktop app...', 'blue');
+
+  // BUG-004: Check installed version FIRST
+  const installedVersion = getInstalledDesktopVersion(osType);
+
+  if (installedVersion) {
+    log(`   Found installed version: ${installedVersion}`, 'blue');
+
+    // Compare versions (normalize format - remove "v" prefix)
+    const installedNormalized = installedVersion.replace(/^v/, '');
+    const releaseNormalized = releaseVersion.replace(/^v/, '');
+
+    if (installedNormalized === releaseNormalized) {
+      log('✅ Desktop app is already up to date!', 'green');
+      log(`   Version ${installedVersion} is the latest version.`, 'green');
+      log('   No update needed.', 'green');
+      return true; // Skip installation
+    } else {
+      log(`   Updating from ${installedVersion} to ${releaseVersion}...`, 'yellow');
+    }
+  } else {
+    log(`   Desktop app not found, installing ${releaseVersion}...`, 'blue');
+  }
+
+  // Proceed with installation only if needed
+  log('   Installing Desktop app...', 'blue');
 
   try {
     if (osType === 'windows') {
@@ -272,6 +370,7 @@ async function main() {
 
   const assets = release.assets;
   const tmpDir = os.tmpdir();
+  const releaseVersion = release.tag_name.replace('v', '');
 
   // Find VS Code extension (.vsix)
   const vsixAsset = assets.find(a => a.name.endsWith('.vsix'));
@@ -288,20 +387,29 @@ async function main() {
     desktopAsset = assets.find(a => a.name.endsWith('.app.zip') || a.name.endsWith('.dmg'));
   }
 
-  // Download VS Code extension
+  // BUG-004: Check desktop version BEFORE downloading
+  let needsDesktopUpdate = false;
+  let desktopPath = null;
+
+  if (desktopAsset) {
+    const installedVersion = getInstalledDesktopVersion(osType);
+    const installedNormalized = installedVersion ? installedVersion.replace(/^v/, '') : null;
+    needsDesktopUpdate = !installedNormalized || installedNormalized !== releaseVersion;
+  }
+
+  // Download VS Code extension (always needed)
   log('\n📥 Downloading VS Code extension...', 'blue');
   const vsixPath = path.join(tmpDir, vsixAsset.name);
   await downloadFile(vsixAsset.browser_download_url, vsixPath);
   log('✓ Downloaded successfully', 'green');
 
-  // Download desktop app (if available)
-  let desktopPath = null;
-  if (desktopAsset) {
+  // BUG-004: Only download desktop app if needed
+  if (desktopAsset && needsDesktopUpdate) {
     log('\n📥 Downloading Desktop app...', 'blue');
     desktopPath = path.join(tmpDir, desktopAsset.name);
     await downloadFile(desktopAsset.browser_download_url, desktopPath);
     log('✓ Downloaded successfully', 'green');
-  } else {
+  } else if (!desktopAsset) {
     log('\n⚠️  Desktop app not available for this platform yet', 'yellow');
   }
 
@@ -311,9 +419,9 @@ async function main() {
   // Install Cursor extension (optional)
   installCursorExtension(vsixPath);
 
-  // Install Desktop app (if available)
-  if (desktopPath) {
-    await installDesktopApp(desktopPath, osType);
+  // Install Desktop app (BUG-004: will show "Already up to date" if skipped download)
+  if (desktopAsset) {
+    await installDesktopApp(desktopPath, osType, releaseVersion);
   }
 
   // Cleanup
