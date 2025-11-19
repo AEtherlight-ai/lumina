@@ -171,6 +171,156 @@
 
 ---
 
+## TEST-001: End-to-End Fresh Install Workflow
+
+**Purpose**: Comprehensive validation of fresh install user experience
+**Dependencies**: BUG-001, BUG-002, FEATURE-001 (blocked), FEATURE-002
+**Status**: Ready for Testing (FEATURE-001 blocked)
+**Sprint Task**: ACTIVE_SPRINT_18.2_RESOURCE_BUNDLING_BUGS.toml:1854-1903
+
+### Fresh Install Complete Workflow
+**Setup**: Brand new workspace, no prior ÆtherLight
+
+**Steps**:
+1. Create fresh directory (no prior ÆtherLight)
+2. Open in VS Code
+3. Install v0.18.3 extension (F5 for development)
+4. Extension activates automatically
+
+**Verification Checklist** (from TOML):
+- [ ] `.vscode/aetherlight.md` exists
+- [ ] `.claude/skills/` contains 16 skill directories
+- [ ] `internal/agents/` contains 14 agent .md files
+- [ ] `docs/patterns/` contains 86 pattern .md files
+- [ ] `.vscode/settings.json` has `aetherlight.lastSyncedVersion: "0.18.3"`
+- [ ] Console logs show successful sync
+- [ ] No errors in Developer Console
+
+**Command Verification**:
+- [ ] Open Command Palette (Ctrl+Shift+P)
+- [ ] Run "ÆtherLight: Sync Bundled Resources"
+- [ ] Command executes successfully (no errors)
+- [ ] Resources remain intact (no duplication)
+
+**Success Criteria**:
+- All resources present on first activation
+- Version tracked correctly
+- No duplicate notifications
+- Command works without errors
+
+**Expected Result**: Complete fresh install experience works end-to-end
+
+**Actual Result**: _[Fill in after testing]_
+
+**Pass/Fail**: _[Fill in after testing]_
+
+**Cross-Reference**: See BUG-001 Test 1, BUG-002 Test 1, BUG-003 Test 1, FEATURE-002 Test 4 for detailed verification
+
+---
+
+## TEST-002: End-to-End Upgrade Workflow
+
+**Purpose**: Comprehensive validation of upgrade detection and sync
+**Dependencies**: BUG-001, BUG-002, BUG-003, FEATURE-001 (blocked)
+**Status**: Ready for Testing (FEATURE-001 blocked - notification timing)
+**Sprint Task**: ACTIVE_SPRINT_18.2_RESOURCE_BUNDLING_BUGS.toml:1905-1955
+
+### Upgrade Complete Workflow
+**Setup**:
+1. Install v0.18.2 in workspace (or simulate with settings)
+2. Manually edit `.vscode/settings.json`: `"aetherlight.lastSyncedVersion": "0.18.2"`
+3. Delete `.claude/skills/` (simulate missing resources from v0.18.2 bug)
+4. Upgrade to v0.18.3
+
+**Steps**:
+1. Extension activates v0.18.3
+2. Detects version mismatch (0.18.2 → 0.18.3)
+3. **[BLOCKED - FEATURE-001]** Notification should appear: "🎨 ÆtherLight v0.18.3 Resources Available"
+4. **[BLOCKED - FEATURE-001]** User clicks "Sync Now"
+5. Resources copied automatically
+6. Version updated in settings
+
+**Verification Checklist** (from TOML):
+- [ ] **[BLOCKED]** Notification appears within 2 seconds of activation
+- [ ] **[BLOCKED]** "Sync Now" button triggers copyBundledResources()
+- [ ] Missing resources restored (`.claude/skills/` recreated)
+- [ ] Existing files preserved (no overwrite of user-modified files)
+- [ ] `lastSyncedVersion` updated to "0.18.3"
+- [ ] Re-activating extension → No notification (up to date)
+
+**Manual Sync Fallback** (while FEATURE-001 blocked):
+- [ ] Open Command Palette (Ctrl+Shift+P)
+- [ ] Run "ÆtherLight: Sync Bundled Resources"
+- [ ] Resources synced successfully
+- [ ] Version updated to "0.18.3"
+
+**Success Criteria**:
+- Auto-detection works on upgrade (FEATURE-001)
+- Notification clear and actionable (FEATURE-001)
+- Sync restores missing resources
+- User customizations preserved
+
+**Expected Result**: Upgrade detection and sync work seamlessly
+
+**Actual Result**: _[Fill in after testing]_
+
+**Pass/Fail**: _[Fill in after testing]_
+
+**Cross-Reference**: See BUG-001 Test 3, BUG-002 Test 4, BUG-003 Test 3 for detailed verification
+
+---
+
+## TEST-003: Resource Sync with User Customizations
+
+**Purpose**: Verify user-modified files are never overwritten during sync
+**Dependencies**: BUG-002, FEATURE-002
+**Status**: Ready for Testing
+**Sprint Task**: ACTIVE_SPRINT_18.2_RESOURCE_BUNDLING_BUGS.toml:1957-1998
+
+### User Customization Preservation Workflow
+**Setup**:
+1. Install v0.18.2 (or use existing workspace)
+2. Modify `.claude/skills/protect/skill.md`:
+   - Add custom text at top: `# MY CUSTOM PROTECTION LOGIC`
+   - Add custom text at bottom: `<!-- Custom note: Test preservation -->`
+3. Delete 2-3 other skill directories (e.g., publish, sprint-plan)
+4. Run sync command
+
+**Steps**:
+1. Open Command Palette (Ctrl+Shift+P)
+2. Run "ÆtherLight: Sync Bundled Resources"
+3. Wait for completion notification
+4. Open Console (Help → Toggle Developer Tools)
+5. Check protect/skill.md contents
+
+**Verification Checklist** (from TOML):
+- [ ] Custom text in `protect/skill.md` PRESERVED (both header and footer)
+- [ ] New skills added (publish, sprint-plan directories recreated)
+- [ ] Console logs show: "protect already exists - preserving user version" (or similar)
+- [ ] Console logs show counts: "X skills copied, Y user files preserved"
+
+**Detailed Checks**:
+- [ ] Open `.claude/skills/protect/skill.md`
+- [ ] Verify custom header text present: `# MY CUSTOM PROTECTION LOGIC`
+- [ ] Verify custom footer comment present: `<!-- Custom note: Test preservation -->`
+- [ ] File modification timestamp unchanged (not overwritten)
+
+**Success Criteria**:
+- User customizations never overwritten
+- New resources added without conflict
+- Clear logging of what was skipped
+- Counts accurate and informative
+
+**Expected Result**: User-modified files preserved, missing files restored
+
+**Actual Result**: _[Fill in after testing]_
+
+**Pass/Fail**: _[Fill in after testing]_
+
+**Cross-Reference**: See BUG-002 Test 3, FEATURE-002 Test 8 for detailed verification
+
+---
+
 ## BUG-002: Fix Resource Copying Directory-Level Skipping
 
 **Status**: ⏳ Ready for Testing
@@ -2054,6 +2204,29 @@ After syncing, you should see:
 - [ ] Status bar items appear
 
 ### Critical Path Testing
+
+**End-to-End Test Scenarios (Phase 4):**
+- [ ] **TEST-001: Fresh Install Workflow** - All acceptance criteria pass ✅
+  - [ ] Resources copied on first activation
+  - [ ] Version tracking initialized correctly
+  - [ ] No duplicate notifications
+  - [ ] Command works: "ÆtherLight: Sync Bundled Resources"
+
+- [ ] **TEST-002: Upgrade Workflow** - All acceptance criteria pass ✅
+  - [ ] Version mismatch detected (0.18.2 → 0.18.3)
+  - [ ] **[BLOCKED - FEATURE-001]** Notification appears within 2 seconds
+  - [ ] **[BLOCKED - FEATURE-001]** "Sync Now" triggers sync
+  - [ ] **[FALLBACK]** Manual Command Palette sync works
+  - [ ] Missing resources restored
+  - [ ] Re-activation shows no notification (up to date)
+
+- [ ] **TEST-003: User Customizations** - All acceptance criteria pass ✅
+  - [ ] User-modified files preserved during sync
+  - [ ] New resources added without overwrite
+  - [ ] Console logs show preservation messages
+  - [ ] Counts accurate: "X copied, Y preserved"
+
+**Detailed Bug/Feature Verification:**
 - [ ] BUG-001: Fresh workspace gets all resources ✅
 - [ ] BUG-001: Existing workspace gets missing resources ✅
 - [ ] BUG-003: Version tracking detects upgrades and skips unnecessary syncs ✅
