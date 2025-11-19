@@ -1584,7 +1584,7 @@ Technical Details:
   - vscode-lumina/src/extension.ts (MODIFIED, +1 import, +7 lines)
 - Breaking Change: NO (new feature, non-intrusive)
 - Test Coverage: Manual testing (4 scenarios)
-- Commit: [will add after commit]
+- Commit: 720b19a
 
 Implementation:
 - Check 1: Version mismatch (uses BUG-003's lastSyncedVersion)
