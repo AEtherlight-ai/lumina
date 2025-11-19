@@ -34,6 +34,7 @@ import { IPCClient } from './ipc/client';
 import { registerCaptureVoiceCommand } from './commands/captureVoice';
 import { checkAndSetupUserDocumentation } from './firstRunSetup';
 import { ResourceSyncManager } from './services/ResourceSyncManager';
+import { syncResourcesCommand } from './commands/syncResources';
 import { LicenseValidator } from './auth/licenseValidator';
 import { TierGate } from './auth/tierGate';
 // REMOVED - These files don't exist (work-in-progress features):
@@ -50,7 +51,7 @@ import { registerVoiceView } from './commands/voicePanel';
 // import { registerSprintProgressPanel } from './sprint_progress_panel';
 // import { registerAgentCoordinationView } from './agent_coordination_view';
 import { registerStatusBarManager } from './status_bar_manager';
-// REMOVED v0.18.2 (BUG-006 from Sprint 17.2 - RTC/WebSocket deprecated)
+// REMOVED in BUG-006 (Sprint 18.2): Real-time sync feature deprecated in v17.3
 // import { RealtimeSyncManager } from './realtime_sync';
 // TEMPORARILY DISABLED FOR v0.13.1-beta - Phase 4 code has incomplete NAPI bindings
 // import { SprintLoader } from './commands/SprintLoader';
@@ -985,10 +986,17 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	// context.subscriptions.push(shellIntegration);
 
 	/**
-	 * REMOVED v0.18.2 (BUG-006 from Sprint 17.2)
-	 * Real-time sync WebSocket code has been deprecated and removed.
-	 * Feature was never fully deployed and caused console errors on every activation.
-	 * Desktop app no longer uses RTC/WebSocket for communication.
+	 * REMOVED in BUG-006 (Sprint 18.2): Real-time sync feature deprecated in v17.3
+	 *
+	 * Real-time WebSocket sync caused console spam with connection errors on every activation.
+	 * Feature was never used by users and had no server running.
+	 * Code archived to: vscode-lumina/src/_archived/realtime_sync_deprecated_v17.3/
+	 *
+	 * WHY REMOVED:
+	 * - Console spam: WebSocket connection errors on every activation
+	 * - Wasted CPU: Auto-reconnect loop with exponential backoff
+	 * - No benefit: Feature deprecated, no server running, no users
+	 * - Code matches docs: Completes removal started in v17.3
 	 */
 	// try {
 	// 	const realtimeSyncManager = await RealtimeSyncManager.initialize(context);
@@ -1057,7 +1065,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('aetherlight.helpMenu', () => showHelpMenu(context)),
 		vscode.commands.registerCommand('aetherlight.showAbout', () => showAbout(context)),
-		vscode.commands.registerCommand('aetherlight.openChangelog', openChangelog)
+		vscode.commands.registerCommand('aetherlight.openChangelog', openChangelog),
+		vscode.commands.registerCommand('aetherlight.syncResources', () => syncResourcesCommand(context))
 	);
 
 	console.log('Lumina extension activated successfully');

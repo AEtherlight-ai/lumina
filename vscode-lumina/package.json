@@ -2,7 +2,7 @@
   "name": "aetherlight",
   "displayName": "ÆtherLight",
   "description": "Voice-to-intelligence platform for developers. Voice capture, sprint planning with AI, bug/feature forms, pattern matching to prevent AI hallucinations.",
-  "version": "0.18.1",
+  "version": "0.18.2",
   "publisher": "aetherlight",
   "repository": {
     "type": "git",
@@ -173,6 +173,10 @@
       {
         "command": "aetherlight.openChangelog",
         "title": "ÆtherLight: Open Changelog"
+      },
+      {
+        "command": "aetherlight.syncResources",
+        "title": "ÆtherLight: Sync Bundled Resources"
       }
     ],
     "keybindings": [
@@ -237,11 +241,6 @@
           "id": "luminaAgentCoordination",
           "name": "Agent Coordination",
           "when": "lumina.sprintActive"
-        },
-        {
-          "id": "luminaActivityFeed",
-          "name": "Activity Feed",
-          "when": "aetherlight.sync.enabled"
         }
       ]
     },
@@ -282,108 +281,11 @@
           "markdownDescription": "Your subscription tier (set automatically after license validation). **Free tier**: All features except voice capture. **Paid tiers**: All features including voice capture.",
           "order": 2
         },
-        "aetherlight.sync.enabled": {
-          "type": "boolean",
-          "default": true,
-          "description": "Enable real-time context sync"
-        },
-        "aetherlight.sync.serverUrl": {
-          "type": "string",
-          "default": "ws://localhost:43216",
-          "description": "WebSocket server URL"
-        },
-        "aetherlight.sync.privacyMode": {
-          "type": "string",
-          "enum": [
-            "full_sync",
-            "decisions_only",
-            "blockers_only",
-            "disabled"
-          ],
-          "default": "decisions_only",
-          "description": "Privacy mode for context sharing",
-          "enumDescriptions": [
-            "Share all context (design decisions, code snippets, blockers)",
-            "Share design decisions only (no code snippets)",
-            "Share blockers only (minimal context)",
-            "No sync (local-only mode)"
-          ]
-        },
-        "aetherlight.sync.autoReconnect": {
-          "type": "boolean",
-          "default": true,
-          "description": "Automatically reconnect on disconnect"
-        },
-        "aetherlight.sync.reconnectDelayMs": {
-          "type": "number",
-          "default": 1000,
-          "minimum": 100,
-          "description": "Initial reconnect delay in milliseconds"
-        },
-        "aetherlight.sync.token": {
-          "type": "string",
-          "default": "",
-          "description": "Authentication token for real-time sync (optional for local development)"
-        },
-        "aetherlight.sync.user": {
-          "type": "string",
-          "default": "",
-          "description": "User identifier for real-time sync (defaults to system username)"
-        },
-        "aetherlight.sync.terminalId": {
-          "type": "string",
-          "default": "",
-          "description": "Terminal identifier for real-time sync (auto-generated if empty)"
-        },
-        "aetherlight.sync.maxReconnectAttempts": {
-          "type": "number",
-          "default": 0,
-          "description": "Maximum reconnect attempts (0 = infinite)"
-        },
         "aetherlight.openaiApiKey": {
           "type": "string",
           "default": "",
           "description": "[DEPRECATED Sprint 4] BYOK model removed. Use desktop app hotkey (Shift+~ or `) for voice transcription instead. Server-side key management enables credit tracking.",
           "deprecationMessage": "Direct OpenAI API access removed. Use desktop app for transcription (Pattern-MONETIZATION-001)."
-        },
-        "aetherlight.sync.maxReconnectDelayMs": {
-          "type": "number",
-          "default": 30000,
-          "minimum": 1000,
-          "maximum": 300000,
-          "description": "Maximum reconnect delay in milliseconds (5 minutes max)"
-        },
-        "aetherlight.sync.showNotifications": {
-          "type": "boolean",
-          "default": true,
-          "description": "Show desktop notifications for sync events"
-        },
-        "aetherlight.sync.notificationSound": {
-          "type": "boolean",
-          "default": false,
-          "description": "Play sound on notifications"
-        },
-        "aetherlight.sync.eventTypes": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "enum": [
-              "design_decision",
-              "blocker",
-              "discovery"
-            ]
-          },
-          "default": [
-            "design_decision",
-            "blocker",
-            "discovery"
-          ],
-          "description": "Event types to subscribe to"
-        },
-        "aetherlight.sync.tlsEnabled": {
-          "type": "boolean",
-          "default": false,
-          "description": "Enable TLS for secure connections (required for production)"
         },
         "aetherlight.terminal.enabled": {
           "type": "boolean",
@@ -620,6 +522,12 @@
           "type": "boolean",
           "default": false,
           "description": "Enable enforcement of ÆtherLight patterns and guidelines",
+          "scope": "window"
+        },
+        "aetherlight.lastSyncedVersion": {
+          "type": "string",
+          "default": "",
+          "description": "Last version of bundled resources that were synced to this workspace (managed automatically)",
           "scope": "window"
         }
       }

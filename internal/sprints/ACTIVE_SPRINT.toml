@@ -1072,6 +1072,7 @@ status = "pending"
 priority = "high"
 estimated_time = "2 hours"
 dependencies = []
+enhanced_prompt = "internal/sprints/enhanced_prompts/18.2-RESOURCE-BUNDLING-BUGS_BUG-008_ENHANCED_PROMPT.md"
 prompt = """
 DESIGN DECISION: Investigate and fix license key persistence issue
 WHY: User reports activation prompt shows every reload, license key not saving
@@ -1420,10 +1421,53 @@ id = "FEATURE-002"
 name = "Add Command Palette Sync Command"
 phase = "phase_3_discovery"
 agent = "infrastructure-agent"
-status = "pending"
+status = "completed"
+completed_date = "2025-11-18"
 priority = "high"
 estimated_time = "1.5 hours"
 dependencies = ["BUG-002"]
+completion_notes = """
+✅ IMPLEMENTED - Command Palette sync command with progress notifications
+
+FILES CREATED:
+- vscode-lumina/src/commands/syncResources.ts (NEW, 97 lines)
+  * Command handler for aetherlight.syncResources
+  * Progress notification with withProgress API
+  * Success message with "View Skills/Agents/Patterns" buttons
+  * Error handling with Retry button
+  * Uses copyBundledResources from firstRunSetup.ts
+
+FILES MODIFIED:
+- vscode-lumina/src/firstRunSetup.ts:436
+  * Exported copyBundledResources function (was private)
+
+- vscode-lumina/src/extension.ts:37
+  * Added import for syncResourcesCommand
+  * Registered command at line 1069: context.subscriptions.push()
+
+- vscode-lumina/package.json:177-180
+  * Added command contribution to Command Palette
+  * Title: "ÆtherLight: Sync Bundled Resources"
+
+IMPLEMENTATION DETAILS:
+- Progress notification shows 2 steps: "Copying..." and "Updating version..."
+- Success message includes 3 action buttons to open synced directories
+- Error handling with recursive retry on failure
+- Updates lastSyncedVersion config after successful sync
+- No workspace check prevents errors when no folder open
+
+TESTING:
+- TypeScript compilation: ✅ PASSED (exit code 0)
+- Ready for manual testing in Extension Development Host
+
+USER IMPACT:
++ Power users can manually trigger resource sync via Command Palette
++ Progress visibility during sync operation
++ Quick access to synced directories via action buttons
++ Troubleshooting option if auto-sync fails
+
+NEXT: Add to manual testing document (SPRINT_18.2_MANUAL_TEST_CHECKLIST.md)
+"""
 prompt = """
 DESIGN DECISION: Manual command to sync resources on demand
 WHY: Power users need manual control, troubleshooting option

@@ -39,11 +39,21 @@ export async function checkAndSetupUserDocumentation(context: vscode.ExtensionCo
             return;
         }
 
+        // Get current extension version
+        const currentVersion = context.extension.packageJSON.version;
+
+        // Get last synced version from workspace settings
+        const config = vscode.workspace.getConfiguration('aetherlight');
+        const lastSyncedVersion = config.get<string>('lastSyncedVersion');
+
         const vscodeDir = path.join(workspaceRoot, '.vscode');
         const aetherlightDocPath = path.join(vscodeDir, 'aetherlight.md');
 
         // Check if this is first-run or upgrade
         const isFirstRun = !fs.existsSync(aetherlightDocPath);
+
+        // Determine if we need to sync resources
+        const needsSync = !lastSyncedVersion || lastSyncedVersion !== currentVersion;
 
         if (isFirstRun) {
             console.log('[ÆtherLight First-Run] New workspace detected - running first-run setup');
@@ -78,10 +88,30 @@ export async function checkAndSetupUserDocumentation(context: vscode.ExtensionCo
             console.log('[ÆtherLight First-Run] Existing workspace detected - skipping first-run setup');
         }
 
-        // ALWAYS copy bundled resources (even on upgrade)
-        console.log('[ÆtherLight First-Run] Syncing bundled resources...');
-        await copyBundledResources(workspaceRoot, context.extensionPath);
-        console.log('[ÆtherLight First-Run] Resource sync complete');
+        // Copy bundled resources if version mismatch or first run
+        if (needsSync) {
+            console.log(`[ÆtherLight] Resource sync needed (v${lastSyncedVersion || 'none'} → v${currentVersion})`);
+            await copyBundledResources(workspaceRoot, context.extensionPath);
+
+            // Update version in workspace settings
+            await config.update('lastSyncedVersion', currentVersion, vscode.ConfigurationTarget.Workspace);
+            console.log(`[ÆtherLight] Updated lastSyncedVersion to v${currentVersion}`);
+
+            // Show notification if this is an upgrade (not first run)
+            if (lastSyncedVersion && !isFirstRun) {
+                const result = await vscode.window.showInformationMessage(
+                    `🎨 ÆtherLight v${currentVersion} resources synced!`,
+                    'View Changes',
+                    'Dismiss'
+                );
+                if (result === 'View Changes') {
+                    // Open CHANGELOG or show what's new
+                    vscode.env.openExternal(vscode.Uri.parse('https://github.com/AEtherlight-ai/lumina/releases/latest'));
+                }
+            }
+        } else {
+            console.log(`[ÆtherLight] Resources up to date (v${currentVersion})`);
+        }
 
         if (isFirstRun) {
             // Show welcome notification (first-run only)
@@ -403,7 +433,7 @@ dependencies = ["SETUP-001"]
  * PATTERN: Pattern-WORKSPACE-002 (Bundled resource distribution)
  * BUG-002 FIX: Changed from directory-level to file-level checking
  */
-async function copyBundledResources(workspaceRoot: string, extensionPath: string): Promise<void> {
+export async function copyBundledResources(workspaceRoot: string, extensionPath: string): Promise<void> {
     try {
         console.log('[ÆtherLight First-Run] Syncing bundled resources...');
 
