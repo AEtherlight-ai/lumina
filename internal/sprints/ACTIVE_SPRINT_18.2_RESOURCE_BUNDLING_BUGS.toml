@@ -797,7 +797,7 @@ Technical Details:
   - vscode-lumina/bin/aetherlight.js (MODIFIED, +75 lines, 3 functions updated)
 - Breaking Change: NO (enhanced behavior, backwards compatible)
 - Test Coverage: Manual testing required (3 scenarios: fresh, up-to-date, upgrade)
-- Commit: [will add after commit]
+- Commit: 302bc28
 
 Implementation Approach:
 - Windows version detection: 3 fallback methods (Registry, WMIC, PowerShell)
