@@ -27,33 +27,6 @@ export enum ConfigLevel {
 }
 
 /**
- * Privacy mode for real-time context sync
- */
-export enum PrivacyMode {
-    FullSync = "full_sync",           // Share all context
-    DecisionsOnly = "decisions_only", // Share design decisions only
-    BlockersOnly = "blockers_only",   // Share blockers only
-    Disabled = "disabled"             // No sync (local-only)
-}
-
-/**
- * Real-time sync configuration
- */
-export interface SyncConfig {
-    enabled: boolean;
-    server_url: string;
-    privacy_mode: PrivacyMode;
-    auto_reconnect: boolean;
-    reconnect_delay_ms: number;
-    max_reconnect_delay_ms: number;
-    show_notifications: boolean;
-    notification_sound: boolean;
-    event_types: string[];
-    jwt_token?: string;
-    tls_enabled: boolean;
-}
-
-/**
  * Voice configuration
  */
 export interface VoiceConfig {
@@ -121,13 +94,11 @@ export interface TerminalConfig {
  * Complete ÆtherLight configuration (v2.0 with Phase 1 enhancements)
  */
 export interface AetherlightConfig {
-    sync: SyncConfig;
     terminal: TerminalConfig;
 
     // Phase 1 Enhancements (2025-10-17)
     code_analysis?: CodeAnalysisConfig;
     pattern_library?: PatternLibraryConfig;
-    realtime_sync?: RealtimeSyncExtendedConfig;
     terminal_enhancement?: TerminalEnhancementConfig;
 
     level?: ConfigLevel;
@@ -197,38 +168,6 @@ export interface PatternValidationConfig {
 }
 
 // ============================================
-// PHASE 1 ENHANCEMENTS - REALTIME SYNC EXTENDED
-// ============================================
-
-export interface RealtimeSyncExtendedConfig {
-    events: RealtimeSyncEventsConfig;
-    deduplication: RealtimeSyncDeduplicationConfig;
-    ui: RealtimeSyncUiConfig;
-}
-
-export interface RealtimeSyncEventsConfig {
-    broadcast_todo_updates: boolean;
-    broadcast_bash_errors: boolean;
-    broadcast_pattern_extractions: boolean;
-    broadcast_file_changes: boolean;
-    broadcast_test_results: boolean;
-}
-
-export interface RealtimeSyncDeduplicationConfig {
-    enabled: boolean;
-    window_minutes: number;
-    hash_algorithm: string;
-}
-
-export interface RealtimeSyncUiConfig {
-    show_activity_feed: boolean;
-    show_notifications: boolean;
-    notification_duration_ms: number;
-    group_by_type: boolean;
-    max_events_displayed: number;
-}
-
-// ============================================
 // PHASE 1 ENHANCEMENTS - TERMINAL ENHANCEMENT
 // ============================================
 
@@ -267,22 +206,6 @@ export interface TerminalOutcomesConfig {
     request_feedback: string;
     update_pattern_scores: boolean;
 }
-
-/**
- * Default sync configuration
- */
-export const DEFAULT_SYNC_CONFIG: SyncConfig = {
-    enabled: true,
-    server_url: "ws://localhost:43216",
-    privacy_mode: PrivacyMode.DecisionsOnly,
-    auto_reconnect: true,
-    reconnect_delay_ms: 1000,
-    max_reconnect_delay_ms: 30000,
-    show_notifications: true,
-    notification_sound: false,
-    event_types: ["design_decision", "blocker", "discovery"],
-    tls_enabled: false
-};
 
 /**
  * Default terminal configuration
@@ -327,7 +250,6 @@ export const DEFAULT_TERMINAL_CONFIG: TerminalConfig = {
  * Default configuration
  */
 export const DEFAULT_CONFIG: AetherlightConfig = {
-    sync: DEFAULT_SYNC_CONFIG,
     terminal: DEFAULT_TERMINAL_CONFIG,
     level: ConfigLevel.System
 };
@@ -338,31 +260,4 @@ export const DEFAULT_CONFIG: AetherlightConfig = {
 export interface ValidationResult {
     valid: boolean;
     errors: string[];
-}
-
-/**
- * Validate privacy mode allows specific sharing
- */
-export function privacyModeAllowsDecisions(mode: PrivacyMode): boolean {
-    return mode === PrivacyMode.FullSync || mode === PrivacyMode.DecisionsOnly;
-}
-
-export function privacyModeAllowsCodeSnippets(mode: PrivacyMode): boolean {
-    return mode === PrivacyMode.FullSync;
-}
-
-export function privacyModeAllowsBlockers(mode: PrivacyMode): boolean {
-    return mode !== PrivacyMode.Disabled;
-}
-
-export function privacyModeIsDisabled(mode: PrivacyMode): boolean {
-    return mode === PrivacyMode.Disabled;
-}
-
-/**
- * Get reconnect delay with exponential backoff
- */
-export function getReconnectDelay(config: SyncConfig, attempt: number): number {
-    const delay = config.reconnect_delay_ms * Math.pow(2, attempt);
-    return Math.min(delay, config.max_reconnect_delay_ms);
 }

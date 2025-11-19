@@ -22,9 +22,7 @@ import * as fs from 'fs';
 import {
     AetherlightConfig,
     ConfigLevel,
-    SyncConfig,
     TerminalConfig,
-    PrivacyMode,
     DEFAULT_CONFIG,
     ValidationResult
 } from './types';
@@ -79,21 +77,6 @@ export class ConfigManager {
     private loadConfiguration(): void {
         const vsConfig = vscode.workspace.getConfiguration('aetherlight');
 
-        // Load sync configuration
-        const sync: SyncConfig = {
-            enabled: vsConfig.get('sync.enabled', DEFAULT_CONFIG.sync.enabled),
-            server_url: vsConfig.get('sync.serverUrl', DEFAULT_CONFIG.sync.server_url),
-            privacy_mode: vsConfig.get('sync.privacyMode', DEFAULT_CONFIG.sync.privacy_mode) as PrivacyMode,
-            auto_reconnect: vsConfig.get('sync.autoReconnect', DEFAULT_CONFIG.sync.auto_reconnect),
-            reconnect_delay_ms: vsConfig.get('sync.reconnectDelayMs', DEFAULT_CONFIG.sync.reconnect_delay_ms),
-            max_reconnect_delay_ms: vsConfig.get('sync.maxReconnectDelayMs', DEFAULT_CONFIG.sync.max_reconnect_delay_ms),
-            show_notifications: vsConfig.get('sync.showNotifications', DEFAULT_CONFIG.sync.show_notifications),
-            notification_sound: vsConfig.get('sync.notificationSound', DEFAULT_CONFIG.sync.notification_sound),
-            event_types: vsConfig.get('sync.eventTypes', DEFAULT_CONFIG.sync.event_types),
-            jwt_token: vsConfig.get('sync.jwtToken'),
-            tls_enabled: vsConfig.get('sync.tlsEnabled', DEFAULT_CONFIG.sync.tls_enabled)
-        };
-
         // Load terminal configuration
         const terminal: TerminalConfig = {
             enabled: vsConfig.get('terminal.enabled', DEFAULT_CONFIG.terminal.enabled),
@@ -134,7 +117,6 @@ export class ConfigManager {
         // Update configuration
         const oldConfig = this.config;
         this.config = {
-            sync,
             terminal,
             level: ConfigLevel.User
         };
@@ -153,31 +135,10 @@ export class ConfigManager {
     }
 
     /**
-     * Get sync configuration
-     */
-    public getSyncConfig(): SyncConfig {
-        return { ...this.config.sync };
-    }
-
-    /**
      * Get terminal configuration
      */
     public getTerminalConfig(): TerminalConfig {
         return { ...this.config.terminal };
-    }
-
-    /**
-     * Update sync configuration
-     */
-    public async updateSyncConfig(updates: Partial<SyncConfig>): Promise<void> {
-        const vsConfig = vscode.workspace.getConfiguration('aetherlight.sync');
-
-        for (const [key, value] of Object.entries(updates)) {
-            await vsConfig.update(this.toVSCodeKey(key), value, vscode.ConfigurationTarget.Global);
-        }
-
-        // Reload configuration
-        this.loadConfiguration();
     }
 
     /**
@@ -210,28 +171,6 @@ export class ConfigManager {
      */
     public validate(): ValidationResult {
         const errors: string[] = [];
-
-        // Validate sync config
-        if (this.config.sync.enabled) {
-            if (!this.config.sync.server_url) {
-                errors.push('Sync server URL cannot be empty when sync is enabled');
-            } else if (!this.config.sync.server_url.startsWith('ws://') &&
-                       !this.config.sync.server_url.startsWith('wss://')) {
-                errors.push('Sync server URL must start with ws:// or wss://');
-            }
-
-            if (this.config.sync.reconnect_delay_ms <= 0) {
-                errors.push('Reconnect delay must be greater than 0');
-            }
-
-            if (this.config.sync.max_reconnect_delay_ms < this.config.sync.reconnect_delay_ms) {
-                errors.push('Max reconnect delay must be >= reconnect delay');
-            }
-
-            if (this.config.sync.event_types.length === 0) {
-                errors.push('Event types cannot be empty when sync is enabled');
-            }
-        }
 
         // Validate terminal config
         if (this.config.terminal.patterns.confidence_threshold < 0 ||
@@ -267,10 +206,6 @@ export class ConfigManager {
         // Reset all aetherlight settings to undefined (removes them, triggers defaults)
         const vsConfig = vscode.workspace.getConfiguration('aetherlight');
         const keys = [
-            'sync', 'sync.enabled', 'sync.serverUrl', 'sync.privacyMode',
-            'sync.autoReconnect', 'sync.reconnectDelayMs', 'sync.maxReconnectDelayMs',
-            'sync.showNotifications', 'sync.notificationSound', 'sync.eventTypes',
-            'sync.jwtToken', 'sync.tlsEnabled',
             'terminal', 'terminal.enabled', 'terminal.voice', 'terminal.voice.enabled',
             'terminal.voice.hotkey', 'terminal.voice.autoTranscribe', 'terminal.voice.whisperModel',
             'terminal.voice.language', 'terminal.typing', 'terminal.typing.autoEnhance',
@@ -299,11 +234,6 @@ export class ConfigManager {
     public async importFromFile(filePath: string): Promise<void> {
         const content = await fs.promises.readFile(filePath, 'utf-8');
         const imported = JSON.parse(content) as AetherlightConfig;
-
-        // Update sync config
-        if (imported.sync) {
-            await this.updateSyncConfig(imported.sync);
-        }
 
         // Update terminal config
         if (imported.terminal) {
