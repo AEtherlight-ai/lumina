@@ -20,12 +20,14 @@ quaternary = "Research JEPA for pattern prediction (PoC)"
 
 [metadata.priority_order]
 phase_1 = "Critical Bug Fixes - BUG-001, BUG-002 (blocks features)"
-phase_2 = "UX Bug Fixes - BUG-003, BUG-004 (improves experience)"
-phase_3 = "Quality Assurance - QA tasks (stability)"
-phase_4 = "Documentation - DOC tasks (completeness)"
-phase_5 = "Publishing - PUB tasks (release v0.18.5)"
-phase_6 = "Retrospective - RETRO tasks (learning)"
-phase_7 = "Research - JEPA tasks (pattern prediction PoC, parallel work)"
+phase_2 = "Mac Compatibility - MAC-001 (terminal fix, parallel work)"
+phase_3 = "UX Bug Fixes - BUG-003, BUG-004 (improves experience)"
+phase_4 = "Build Tasks - BUILD-001 (Mac desktop app binaries)"
+phase_5 = "Quality Assurance - QA tasks (stability)"
+phase_6 = "Documentation - DOC tasks (completeness)"
+phase_7 = "Publishing - PUB tasks (release v0.18.5)"
+phase_8 = "Retrospective - RETRO tasks (learning)"
+phase_9 = "Research - JEPA tasks (pattern prediction PoC, parallel work)"
 
 [metadata.progression]
 previous_sprint = "internal/sprints/SPRINT_18.2_MANUAL_TEST_CHECKLIST.md"
@@ -51,10 +53,10 @@ max_parallel_tasks = 2
 daily_capacity_hours = 8
 
 [progress]
-total_tasks = 35
+total_tasks = 38
 completed_tasks = 0
 in_progress_tasks = 0
-pending_tasks = 35
+pending_tasks = 38
 completion_percentage = 0
 
 # ==============================================================================
@@ -70,32 +72,61 @@ agent = "infrastructure-agent"
 
 why = """
 Issue 4 from Sprint 18.2 testing: Sprint TOML parsing fails with brackets in prompt templates.
-User expectation: Sprint panel shows task list, enhanced prompts load correctly.
-Current state: Extension crashes when loading sprint, Sprint panel broken.
-Root cause: Brackets like {Your text here} in prompt strings interpreted as TOML table headers.
-Users cannot use Sprint features until fixed.
+DISCOVERED DURING ANALYSIS: 10 fields silently dropped by parser, breaking 7 UI features.
+User expectation: Sprint panel shows task list, all fields display, enhanced prompts load correctly.
+Current state: Extension crashes when loading sprint + missing fields break document links.
+Root cause 1: Brackets like <Your text here> in prompt strings interpreted as TOML table headers.
+Root cause 2: parseTomlTasks manually assigns only 27 of 40+ fields, dropping skill, enhanced_prompt, questions_doc, etc.
+Users cannot use Sprint features OR document features until fixed.
 """
 
 context = """
-TOML parser (@iarna/toml) interprets {text} as table header definition.
+ISSUE 1 - Bracket Parsing:
+TOML parser (@iarna/toml) interprets <text> as table header definition.
 Sprint files use enhanced prompt templates with placeholder text.
 Example causing crash: prompt = "Enter {Your task details here}"
 Parser sees {Your task details here} as new table section.
+FIX: Change delimiter from {text} to <text> in all sprint files.
+
+ISSUE 2 - Missing Fields (CRITICAL DISCOVERY):
+SprintLoader.ts parseTomlTasks() manually assigns only 27 fields.
+TOML schema defines 40+ fields. 10 fields are silently dropped:
+1. skill (MVP-001 workflow automation)
+2. enhanced_prompt (MVP-003 document path)
+3. template (MVP-003 template version)
+4. questions_doc (UI-001 questions path)
+5. test_plan (UI-001 test plan path)
+6. design_doc (UI-001 design path)
+7. pattern_reference (pattern doc path)
+8. completion_notes (completion details)
+9. subtask_progress (progress tracking)
+10. condition (conditional execution)
+
+UI references 7 of these fields (enhanced_prompt, template, questions_doc, test_plan, design_doc, pattern_reference, completion_notes) → broken features.
+FIX: Implement TOML passthrough using spread operator (...task) for future-proof parsing.
+
+BACKWARDS COMPATIBILITY REQUIREMENTS:
+- Old sprint files with {text} syntax must still work (auto-convert with warning)
+- New <text> syntax must work on old extension versions (forward compatible)
+- New fields ignored by old parsers (graceful degradation)
+- Provide migration script: scripts/migrate-sprint-syntax.js
+- Non-breaking: Core fields (id, name, status) unchanged
 
 Integration points:
-- SprintLoader.ts:292-333 (TOML parsing logic)
-- All sprint TOML files with {text} placeholders
-- scripts/validate-sprint-schema.js (needs validation rule)
+- SprintLoader.ts:513-557 (parseTomlTasks - add 10 fields + spread operator)
+- SprintRenderer.ts (add generic field renderer for unknown fields)
+- All sprint TOML files with {text} placeholders (~10 files)
+- scripts/validate-sprint-schema.js (add <text> detection + migration helper)
 
 Historical: 2025-11-03 bug (2 hours) - Wrong TOML format broke sprint panel
-Prevention: Add validation before commit (VAL-001)
+Prevention: Flexible parsing + validation before commit (VAL-001)
 """
 
 reasoning_chain = [
     "1. User opens workspace with ÆtherLight installed",
     "2. Extension activates, loads ACTIVE_SPRINT.toml",
     "3. SprintLoader.parse() calls @iarna/toml parser",
-    "4. Parser encounters {Your text} in prompt field",
+    "4. Parser encounters <Your text> in prompt field",
     "5. Parser throws error: unexpected table header at row X",
     "6. Extension catches error, logs to console",
     "7. Sprint Panel shows empty or error state",
@@ -106,11 +137,16 @@ pattern_context = "Pattern-SPRINT-PLAN-001: Sprint file format, Pattern-TASK-ANA
 
 success_impact = """
 After BUG-001 complete:
-✅ Sprint TOML files parse without errors
+✅ Sprint TOML files parse without errors (bracket issue fixed)
+✅ All 10 missing fields now parsed (skill, enhanced_prompt, questions_doc, etc.)
 ✅ Sprint Panel loads task list correctly
-✅ Enhanced prompts display properly
+✅ Document links work (enhanced_prompt, questions_doc, test_plan buttons functional)
+✅ UI displays all task metadata (no data loss)
 ✅ Validation prevents future bracket issues
-✅ Users can use Sprint features
+✅ Future fields automatically parsed (TOML passthrough implemented)
+✅ Old sprint files still work (backwards compatible)
+✅ Migration script available for bulk updates
+✅ Users can use ALL Sprint features (7 broken features restored)
 """
 
 test_requirements = """
@@ -125,7 +161,7 @@ RED Phase - Write tests FIRST:
 
 GREEN Phase - Implement fix:
 Option A: Escape brackets (\\{text\\})
-Option B: Change delimiter ({text} → {{text}} or <text>)
+Option B: Change delimiter ({text} → <<text>> or <text>)
 Option C: Use different TOML structure (multi-line strings)
 
 REFACTOR Phase - Optimize performance, add comprehensive tests
@@ -157,11 +193,18 @@ files_to_modify = [
 ]
 
 deliverables = [
-    "Fix TOML parsing to handle template placeholders",
-    "Update all sprint files with safe placeholder syntax",
-    "Add validation rule to prevent future issues",
+    "Fix TOML parsing to handle template placeholders (change <text> to <text>)",
+    "Add 10 missing fields to parseTomlTasks (skill, enhanced_prompt, questions_doc, etc.)",
+    "Implement flexible TOML passthrough using spread operator (future-proof)",
+    "Add backwards compatibility layer (auto-convert <text> with warning)",
+    "Create migration script: scripts/migrate-sprint-syntax.js",
+    "Update all sprint files with safe placeholder syntax (~10 files)",
+    "Add generic field renderer in UI for unknown fields",
+    "Add validation rule to detect <text> and suggest <text>",
     "Test all existing sprint files parse correctly",
-    "Document safe placeholder syntax in SPRINT_TEMPLATE_GUIDE.md"
+    "Verify all 7 broken UI features now work (document links functional)",
+    "Document safe placeholder syntax in SPRINT_TEMPLATE_GUIDE.md",
+    "Update CLAUDE.md pre-flight checklist with <text> → <text> rule"
 ]
 
 error_handling = """
@@ -200,7 +243,7 @@ BUG-009 fix (Sprint 18.2) partially working:
 
 Message flow:
 1. Sprint Panel webview: User clicks "Start This Task" button
-2. Sprint Panel sends message to Voice Panel: {type: "loadTaskTemplate", taskId: "TASK-001", template: "..."}
+2. Sprint Panel sends message to Voice Panel: <type: "loadTaskTemplate", taskId: "TASK-001", template: "...">
 3. Voice Panel webview receives message
 4. Voice Panel should call insertTaskTemplate(template) to populate text area
 5. FAILURE POINT: Text area remains empty
@@ -527,6 +570,139 @@ performance_target = "Investigation complete within 2 hours"
 patterns = ["Pattern-CODE-001", "Pattern-IMPROVEMENT-001"]
 dependencies = []
 
+[tasks.BUILD-001]
+id = "BUILD-001"
+name = "Build Mac desktop app binaries (.dmg for Intel and Apple Silicon)"
+status = "pending"
+phase = "build"
+agent = "infrastructure-agent"
+
+why = """
+Current state: Only Windows desktop app binaries exist in releases (.exe and .msi).
+User expectation: Mac users need desktop app for voice transcription functionality.
+Gap: No .dmg or .app files have ever been built or published for macOS.
+Impact: Mac users cannot use voice capture feature (requires desktop app + Tauri).
+Without this: Mac users limited to VS Code extension only (no voice transcription).
+With this: Full feature parity between Windows and Mac users.
+"""
+
+context = """
+Desktop app location: products/lumina-desktop/
+Tauri config: src-tauri/tauri.conf.json (line 33: "targets": "all")
+Build outputs expected:
+- target/release/bundle/dmg/Lumina_0.18.5_x64.dmg (Intel)
+- target/release/bundle/dmg/Lumina_0.18.5_aarch64.dmg (Apple Silicon)
+
+Requirements:
+- Mac build environment (macOS with Xcode)
+- Rust toolchain installed
+- Tauri CLI installed
+- Code signing certificates (optional but recommended)
+
+Integration points:
+- VS Code extension expects desktop app at standard paths
+- Extension activates voice capture via IPC with desktop app
+- Desktop app provides: Voice capture, Whisper transcription, global hotkeys
+
+Historical context:
+- Tauri 2.0 supports macOS (CoreAudio for voice)
+- Mac-specific setup guide exists: vscode-lumina/MAC_SETUP.md
+- Extension works on Mac, but voice features require desktop app
+- Current releases: Only Windows binaries (v0.18.4, v0.18.2, v0.18.0, v0.17.12, v0.17.10)
+"""
+
+reasoning_chain = [
+    "1. Set up Mac build environment (macOS machine or CI runner)",
+    "2. Install dependencies: Rust, Node.js, Tauri CLI",
+    "3. Clone repository, navigate to products/lumina-desktop/",
+    "4. Run: npm install (install frontend dependencies)",
+    "5. Run: npm run tauri build (build for macOS)",
+    "6. Verify .dmg files created in target/release/bundle/dmg/",
+    "7. Test installation on Intel Mac (if available)",
+    "8. Test installation on Apple Silicon Mac (if available)",
+    "9. Code sign binaries (optional, for distribution)",
+    "10. Update release workflow to include Mac builds",
+    "11. Publish .dmg files to GitHub releases"
+]
+
+pattern_context = "Pattern-PUBLISH-001: Automated release pipeline, Pattern-CODE-001: Code workflow"
+
+success_impact = """
+After BUILD-001 complete:
+✅ Mac desktop app binaries available (.dmg for Intel and Apple Silicon)
+✅ Mac users can install and use voice capture feature
+✅ Feature parity between Windows and Mac
+✅ Expanded user base (Mac developers)
+✅ Professional release artifacts (all major platforms)
+✅ Future releases automatically include Mac builds
+"""
+
+test_requirements = """
+Build Validation (Infrastructure Task):
+
+Build Phase:
+1. Rust compilation succeeds on macOS
+2. Tauri bundling creates .dmg files
+3. .dmg files contain correct app structure
+4. App binary is executable
+
+Installation Testing:
+1. .dmg mounts correctly on macOS
+2. Drag-to-Applications works
+3. App launches without errors
+4. Extension detects desktop app (IPC connection)
+5. Voice capture works (microphone access)
+6. Transcription works (Whisper integration)
+
+Platform Testing:
+- Intel Mac (x64): App launches, voice works
+- Apple Silicon Mac (aarch64): App launches, voice works (native or Rosetta)
+"""
+
+test_files = []
+
+validation_criteria = [
+    "Mac build environment set up (macOS + Rust + Tauri CLI)",
+    ".dmg files created successfully",
+    "Intel .dmg tested on Intel Mac (or Rosetta on Apple Silicon)",
+    "Apple Silicon .dmg tested on Apple Silicon Mac",
+    "Desktop app launches without errors",
+    "Voice capture functional on Mac",
+    "Extension detects desktop app via IPC",
+    "Release workflow updated to include Mac builds"
+]
+
+estimated_lines = 0
+estimated_time = "4-6 hours (includes setup, build, testing)"
+
+files_to_modify = [
+    ".github/workflows/publish.yml (add macOS build job if CI used)",
+    "scripts/publish-release.js (add Mac build step if automated)",
+    "PUBLISHING.md (document Mac build process)"
+]
+
+deliverables = [
+    "Lumina_0.18.5_x64.dmg (Intel Mac binary)",
+    "Lumina_0.18.5_aarch64.dmg (Apple Silicon binary)",
+    "Installation tested on both Mac architectures",
+    "Voice capture verified working on Mac",
+    "Documentation updated with Mac build steps",
+    "GitHub release includes Mac binaries"
+]
+
+error_handling = """
+- Handle missing dependencies (Rust, Xcode, Tauri CLI)
+- Handle build failures (Rust compilation, Tauri bundling)
+- Handle code signing issues (optional, can skip for first release)
+- Handle platform-specific issues (CoreAudio, permissions)
+- Document build errors and solutions in KNOWN_ISSUES.md
+- Provide fallback: Unsigned .dmg if code signing fails
+"""
+
+performance_target = "Build time < 10 minutes on Mac (release build)"
+patterns = ["Pattern-PUBLISH-001", "Pattern-CODE-001"]
+dependencies = []
+
 # ==============================================================================
 # TEMPLATE TASKS - Quality Assurance & Documentation
 # Injected from SPRINT_TEMPLATE.toml v1.1.0
@@ -773,6 +949,90 @@ validation_criteria = [
   "Run: npm run build --workspaces",
   "Zero TypeScript errors",
   "All packages compile"
+]
+
+[tasks.QA-005]
+id = "QA-005"
+name = "Run protection audit on working code"
+phase = "quality-assurance"
+status = "pending"
+description = "Run protection-audit skill to verify code protection system. Generate protection reports, verify consistency with CODE_PROTECTION_POLICY.md, identify unprotected passing features from Sprint 18.2 testing."
+estimated_lines = 0
+estimated_time = "1-2 hours"
+dependencies = []
+agent = "infrastructure-agent"
+skill = "protection-audit"
+why = """
+Sprint 18.2 manual testing identified working features (PASS) and broken features (FAIL).
+Current state: 12 files have protection annotations, but no audit has been run to verify consistency.
+User expectation: Protection system verified, CODE_PROTECTION_POLICY.md matches code, unprotected passing features identified.
+Without audit: Cannot verify protection coverage, may have inconsistencies between policy and code.
+With audit: Clear visibility into what's protected, what needs protection, system health verified.
+"""
+context = """
+Protection system implemented in PROTECT-001 and PROTECT-002:
+- 12 files annotated with @protected/@maintainable
+- CODE_PROTECTION_POLICY.md documents 5 core protected files
+- Pre-commit hook enforces protection approval
+- scripts/validate-protection.js validates protected file changes
+
+Audit needs:
+1. Scan codebase for all protection annotations
+2. Generate summary report (counts by protection level)
+3. Verify consistency with CODE_PROTECTION_POLICY.md
+4. Show coverage metrics (X files protected out of Y total)
+5. Identify passing features from Sprint 18.2 that lack protection
+
+Integration points:
+- scripts/audit-protection.js (to be created by skill)
+- CODE_PROTECTION_POLICY.md (reference document)
+- SPRINT_18.2_MANUAL_TEST_CHECKLIST.md (passing features reference)
+
+Historical: Protection system built but never audited - need baseline metrics.
+"""
+reasoning_chain = [
+    "1. User completes Sprint 18.2 manual testing",
+    "2. Some features PASS, some FAIL (documented in checklist)",
+    "3. User wants to protect passing features to prevent regression",
+    "4. Protection-audit skill creates audit script",
+    "5. Script scans codebase for protection annotations",
+    "6. Script generates summary report showing coverage",
+    "7. Script verifies CODE_PROTECTION_POLICY.md consistency",
+    "8. Script identifies unprotected passing features",
+    "9. User reviews report, decides which features need protection",
+    "10. User runs protect skill to annotate critical passing features"
+]
+pattern_context = "Pattern-IMPROVEMENT-001: Gap detection, Pattern-CODE-001: Code workflow"
+success_impact = """
+After QA-005 complete:
+✅ Protection audit script created (scripts/audit-protection.js)
+✅ Summary report generated (protection counts, coverage metrics)
+✅ Consistency verified with CODE_PROTECTION_POLICY.md
+✅ Unprotected passing features identified
+✅ Baseline protection metrics established
+✅ User visibility into protection system health
+✅ Foundation for future protection maintenance
+"""
+deliverables = [
+  "scripts/audit-protection.js created",
+  "Protection summary report generated",
+  "Consistency check completed (CODE_PROTECTION_POLICY.md vs code)",
+  "Unprotected passing features identified (from Sprint 18.2)",
+  "Coverage metrics documented (X% of files protected)",
+  "Baseline audit report saved for future comparison"
+]
+performance_target = "Audit execution < 5 seconds"
+patterns = ["Pattern-IMPROVEMENT-001", "Pattern-CODE-001"]
+files_to_create = [
+    "scripts/audit-protection.js"
+]
+validation_criteria = [
+  "scripts/audit-protection.js exists and is executable",
+  "Run: node scripts/audit-protection.js (summary report generated)",
+  "Run: node scripts/audit-protection.js --verify (consistency check)",
+  "Run: node scripts/audit-protection.js --coverage (metrics shown)",
+  "Unprotected passing features documented",
+  "Audit completes in < 5 seconds"
 ]
 
 # ------------------------------------------------------------------------------
@@ -1621,6 +1881,146 @@ error_handling = """
 performance_target = "Complete within 2 hours"
 patterns = ["Pattern-DOCS-001", "Pattern-IMPROVEMENT-001"]
 dependencies = ["JEPA-001"]
+
+# ------------------------------------------------------------------------------
+# Mac Compatibility Tasks (1 task - Fix terminal hardcoding)
+# ------------------------------------------------------------------------------
+
+[tasks.MAC-001]
+id = "MAC-001"
+name = "Fix terminal creation - Remove PowerShell hardcoding for Mac compatibility"
+status = "pending"
+phase = "mac-compatibility"
+agent = "ui-agent"
+
+why = """
+User-reported issue: Extension failing on macOS.
+Current state: voicePanel.ts hardcodes 'powershell.exe' for terminal creation (line 1063).
+Impact: Mac users get errors because PowerShell doesn't exist on Mac by default.
+Root cause: Windows-only shell path hardcoded, not platform-agnostic.
+Without this: Extension unusable on Mac (cannot create ÆtherLight terminal).
+With this: Cross-platform terminal creation, works on Windows, Mac, Linux.
+"""
+
+context = """
+Problem Location: vscode-lumina/src/commands/voicePanel.ts:1063
+
+Current code:
+```typescript
+aetherlightTerminal = vscode.window.createTerminal(<
+    name: 'ÆtherLight Claude',
+    shellPath: 'powershell.exe',  // ❌ Windows-only, breaks on Mac
+    shellArgs: [
+        '-NoExit',
+        '-Command',
+        '& < Write-Host "ÆtherLight Terminal Ready 🎤" -ForegroundColor Cyan >'
+    ],
+    location: vscode.TerminalLocation.Editor
+>);
+```
+
+Issue: On Mac, 'powershell.exe' doesn't exist → Terminal creation fails
+
+Solution: Remove shellPath, let VS Code use default shell (cross-platform)
+
+Correct approach (used elsewhere in codebase):
+- spawner.ts:74 ✅ No shellPath specified
+- PromptTerminalManager.ts:47 ✅ No shellPath specified
+- updateChecker.ts:211 ✅ No shellPath specified
+
+VS Code automatically selects correct shell:
+- Windows: PowerShell, CMD, or user's configured shell
+- Mac: zsh, bash, or user's configured shell
+- Linux: bash, zsh, or user's configured shell
+
+Historical context:
+- Line 4707: Code already detects /^powershell$/i pattern for terminal name
+- Detection works regardless of shellPath hardcoding
+- Hardcoding adds no value, only breaks cross-platform compatibility
+"""
+
+reasoning_chain = [
+    "1. User tries to open ÆtherLight on Mac",
+    "2. Extension tries to create terminal with shellPath: 'powershell.exe'",
+    "3. Mac doesn't have powershell.exe → Terminal creation fails",
+    "4. Extension shows error or blank terminal",
+    "5. User cannot use voice-to-terminal features",
+    "6. Fix: Remove shellPath, let VS Code pick correct shell",
+    "7. VS Code selects zsh/bash on Mac, PowerShell on Windows automatically",
+    "8. Terminal works correctly on all platforms"
+]
+
+pattern_context = "Pattern-CODE-001: Code workflow, Pattern-COMPAT-001: Cross-platform compatibility"
+
+success_impact = """
+After MAC-001 complete:
+✅ ÆtherLight terminal works on macOS (zsh/bash)
+✅ ÆtherLight terminal still works on Windows (PowerShell/CMD)
+✅ ÆtherLight terminal works on Linux (bash/zsh)
+✅ Respects user's configured default shell
+✅ Cross-platform compatible extension
+✅ Mac users can use voice-to-terminal features
+"""
+
+test_requirements = """
+TDD Requirements (UI Task - 70% coverage):
+
+Manual Testing Required (Cross-platform verification):
+1. Windows: Verify terminal creates with PowerShell (default)
+2. Mac: Verify terminal creates with zsh/bash (default)
+3. Linux: Verify terminal creates with bash/zsh (default)
+4. Custom shell: Verify respects user's configured shell
+5. Terminal name: Verify 'ÆtherLight Claude' appears correctly
+6. Terminal location: Verify appears in Editor area (not Panel)
+
+Automated Testing (if possible):
+1. Mock vscode.window.createTerminal() in test
+2. Verify shellPath is undefined (not hardcoded)
+3. Verify name and location are correct
+"""
+
+test_files = [
+    "vscode-lumina/test/commands/voicePanel.test.ts"
+]
+
+test_coverage_requirement = 0.7
+
+validation_criteria = [
+    "shellPath removed from createTerminal() call",
+    "Terminal creation works on Mac (zsh/bash)",
+    "Terminal creation still works on Windows (PowerShell)",
+    "Terminal name 'ÆtherLight Claude' correct",
+    "Terminal appears in Editor location",
+    "No platform-specific shell hardcoding",
+    "Code follows pattern from spawner.ts and PromptTerminalManager.ts"
+]
+
+estimated_lines = -10
+estimated_time = "15-30 minutes"
+
+files_to_modify = [
+    "vscode-lumina/src/commands/voicePanel.ts (lines 1061-1070 - remove shellPath and shellArgs)"
+]
+
+deliverables = [
+    "Platform-agnostic terminal creation",
+    "shellPath removed (let VS Code auto-select)",
+    "shellArgs removed (platform-specific PowerShell command)",
+    "Terminal works on Windows, Mac, Linux",
+    "Manual testing on Mac confirmed working"
+]
+
+error_handling = """
+- Remove shellPath entirely (don't set to undefined, just omit)
+- Remove shellArgs entirely (platform-specific)
+- Let VS Code handle shell selection (cross-platform)
+- If terminal creation fails: VS Code handles error messaging
+- Fallback: User can manually create terminal if needed
+"""
+
+performance_target = "Terminal creation < 100ms (no change from current)"
+patterns = ["Pattern-CODE-001", "Pattern-COMPAT-001"]
+dependencies = []
 
 # ==============================================================================
 # END OF SPRINT
