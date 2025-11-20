@@ -191,13 +191,13 @@ Checkpoint system design:
 4. Checkpoints: npm auth ✓, git workflow ✓, extension build ✓, desktop build ✓, etc.
 
 Example checkpoint file:
-{
+<
   "version": "0.17.12",
   "startTime": "2025-11-17T14:00:00Z",
   "lastCheckpoint": "desktop-build-complete",
   "completedSteps": ["npm-auth", "git-workflow", "extension-build", "desktop-build"],
   "nextStep": "github-release"
-}
+>
 """
 
 reasoning_chain = [
@@ -275,11 +275,11 @@ Total extra steps: 3 manual git commands + full script restart
 
 context = """
 Current behavior (scripts/publish-release.js:93-98):
-if (uncommittedChanges) {
+if (uncommittedChanges) <
   log('✗ Git working directory has uncommitted changes', 'red');
   log('Commit or stash your changes before publishing', 'yellow');
   process.exit(1);  // FAILS FAST - NO RECOVERY OPTION
-}
+>
 
 Better behavior:
 1. Detect uncommitted changes

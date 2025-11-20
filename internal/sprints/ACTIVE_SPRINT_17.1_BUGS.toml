@@ -323,7 +323,7 @@ Frontend Implementation (React/TypeScript):\r
 API Integration:\r
 - Endpoint: POST /api/license/validate\r
 - Request: { license_key, device_fingerprint }\r
-- Response: { valid, user_id, device_id, tier, storage_limit_mb, user_name, message }\r
+- Response: < valid, user_id, device_id, tier, storage_limit_mb, user_name, message >\r
 - Error Handling:\r
   - 400: Invalid request → "Check license key format (XXXX-XXXX-XXXX-XXXX)"\r
   - 404: Invalid key → "Key not found in database. Check dashboard."\r
@@ -440,25 +440,25 @@ Current State:\r
 \r
 Website API Response (ACTUAL - from website/app/api/desktop/transcribe/route.ts:338-345):\r
 ```json\r
-{\r
+<\r
   "success": true,\r
   "text": "...",\r
   "duration_seconds": 600,\r
   "tokens_used": 3750,\r
   "tokens_balance": 996250,\r
   "transaction_id": "uuid"\r
-}\r
+>\r
 ```\r
 \r
 Desktop App Struct (OUTDATED - from products/lumina-desktop/src-tauri/src/transcription.rs:33-40):\r
 ```rust\r
-struct TranscriptionResponse {\r
+struct TranscriptionResponse <\r
     text: String,\r
     cost_usd: f64,              // ❌ API doesn't return this\r
     balance_remaining_usd: f64, // ❌ API doesn't return this\r
     duration_seconds: u64,\r
     message: String,            // ❌ API doesn't return this\r
-}\r
+>\r
 ```\r
 \r
 Impact: All transcription API calls will fail with deserialization error.\r
@@ -477,14 +477,14 @@ Desktop app has BOTH old and new structs:\r
 \r
 TokenBalanceResponse is CORRECT (lines 52-61):\r
 ```rust\r
-pub struct TokenBalanceResponse {\r
+pub struct TokenBalanceResponse <\r
     pub success: bool,\r
     pub tokens_balance: u64,\r
     pub tokens_used_this_month: u64,\r
     pub subscription_tier: String,\r
     pub minutes_remaining: u64,\r
     pub warnings: Vec<TokenWarning>,\r
-}\r
+>\r
 ```\r
 \r
 Need to align TranscriptionResponse with API contract.\r
@@ -493,7 +493,7 @@ reasoning_chain = [
   "1. User activates license key (BUG-002)",
   "2. User presses voice capture hotkey",
   "3. Desktop app calls POST /api/desktop/transcribe",
-  "4. API returns: { tokens_used: 3750, tokens_balance: 996250, ... }",
+  "4. API returns: < tokens_used: 3750, tokens_balance: 996250, ... >",
   "5. Desktop tries to deserialize into TranscriptionResponse",
   "6. FAILS: cost_usd field missing from JSON",
   "7. Transcription fails, user sees deserialization error",
@@ -648,9 +648,9 @@ struct TranscriptionError {\r
 \r
 Error Handling (transcription.rs:269-276):\r
 ```rust\r
-if status == 402 {\r
+if status == 402 <\r
     anyhow::bail!(\r
-        "Insufficient credits: ${:.4} balance, ${:.4} required. {}",\r
+        "Insufficient credits: ${:.4> balance, ${:.4} required. {}",\r
         error_response.balance_usd,  // Uses USD\r
         error_response.required_usd,\r
         error_response.message\r
@@ -671,12 +671,12 @@ Option A (Token-based 402 - RECOMMENDED):\r
 \r
 Option B (USD-based 402 - Current):\r
 ```json\r
-{\r
+<\r
   "error": "Insufficient credits",\r
   "balance_usd": 0.00,\r
   "required_usd": 0.02,\r
   "message": "Please add credits to continue."\r
-}\r
+>\r
 ```\r
 """
   reasoning_chain = [
@@ -708,7 +708,7 @@ If USD-based (no code change):\r
   deliverables = [
   "Update TranscriptionError: balance_usd → balance_tokens (u64)",
   "Update TranscriptionError: required_usd → required_tokens (u64)",
-  "Update error message format: 'Insufficient tokens: {balance} balance, {required} required'",
+  "Update error message format: 'Insufficient tokens: {balance} balance, <required> required'",
   "Add unit tests for token-based 402 error deserialization",
   "Update validation doc with website team confirmation",
   "Test with real API 402 response (Test Case 3)"
@@ -766,7 +766,7 @@ URGENT - Need website team to answer:\r
 Q1: What format does POST /api/desktop/transcribe return for 402 errors?\r
   A) Token-based: { balance_tokens: 0, required_tokens: 31 }\r
   B) USD-based: { balance_usd: 0.00, required_usd: 0.02 }\r
-  C) Both: { balance_tokens: 0, required_tokens: 31, balance_usd: 0.00, required_usd: 0.02 }\r
+  C) Both: < balance_tokens: 0, required_tokens: 31, balance_usd: 0.00, required_usd: 0.02 >\r
 \r
 Q2: If token-based (A or C), should desktop display tokens or USD to user?\r
   - Tokens: "Insufficient tokens: 0 balance, 31 required"\r
@@ -818,11 +818,11 @@ CRITICAL CORRECTION #2 from consensus validation:\r
 \r
 Current Desktop Implementation (WRONG):\r
 - Token balance API uses query parameter: ?license_key=XXX\r
-- Sends: GET /api/tokens/balance?license_key={key}\r
+- Sends: GET /api/tokens/balance?license_key=<key>\r
 \r
 Actual Website API (CORRECT):\r
 - Token balance API requires Bearer token in Authorization header\r
-- Expects: Authorization: Bearer {license_key}\r
+- Expects: Authorization: Bearer <license_key>\r
 \r
 Impact: Token balance API calls will fail with 401 (unauthorized).\r
 Severity: HIGH - Required for desktop app token display.\r
@@ -838,7 +838,7 @@ CORRECTION #2 from VALIDATED_CONSENSUS_FINAL.md (Part 2):\r
 context = """
 Website API Response (from website/app/api/tokens/balance/route.ts:49-90):\r
 - Checks: request.headers.get('authorization')\r
-- Expects: 'Bearer {license_key}'\r
+- Expects: 'Bearer <license_key>'\r
 - Returns 401 if header missing or malformed\r
 \r
 Desktop App Current State (WRONG):\r
@@ -869,7 +869,7 @@ files_to_modify = [
 deliverables = [
   "Update token balance fetch to use Authorization header",
   "Remove license_key query parameter",
-  "Add Authorization: Bearer {license_key} header",
+  "Add Authorization: Bearer <license_key> header",
   "Update TokenBalanceResponse to include warnings[] array",
   "Test with free tier: CD7W-AJDK-RLQT-LUFA",
   "Verify successful balance retrieval"
@@ -933,7 +933,7 @@ Technical Details:\r
   - products/lumina-desktop/src-tauri/src/main.rs (lines 364, 431, 540)\r
   - products/lumina-desktop/src/components/InstallationWizard.tsx (lines 276-306)\r
 - Validation logic: Only checks `license_key.is_empty()` (no format validation)\r
-- API integration: transcription.rs:177, 267 uses `Authorization: Bearer {license_key}`\r
+- API integration: transcription.rs:177, 267 uses `Authorization: Bearer <license_key>`\r
 - Format shown to user: "XXXX-XXXX-XXXX-XXXX" placeholder (correct format)\r
 \r
 Root Cause of False Bug Report:\r
@@ -982,7 +982,7 @@ Database shows 10 active license keys in production:\r
 """
 context = """
 License Key Format (from production database):\r
-- Pattern: [A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}\r
+- Pattern: [A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]<4>-[A-Z0-9]<4>\r
 - Length: 19 characters (16 alphanumeric + 3 hyphens)\r
 - No prefix, no suffix\r
 - Case: Uppercase only\r
@@ -1016,7 +1016,7 @@ files_to_modify = [
 ]
 deliverables = [
   "Update license key regex validation",
-  "Pattern: ^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$",
+  "Pattern: ^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]<4>-[A-Z0-9]<4>$",
   "Reject keys with 'lic_' prefix",
   "Reject keys without hyphens",
   "Update user-facing error messages",
@@ -1125,7 +1125,7 @@ Severity: HIGH - Required for complete authentication integration.\r
 context = """
 Validation API response (from /api/license/validate):\r
 ```json\r
-{\r
+<\r
   "valid": true,\r
   "user_id": "550e8400-e29b-41d4-a716-446655440000",\r
   "device_id": "660e8400-e29b-41d4-a716-446655440001",\r
@@ -1133,7 +1133,7 @@ Validation API response (from /api/license/validate):\r
   "storage_limit_mb": 10000,\r
   "user_name": "John Doe",\r
   "message": "Device activated successfully"\r
-}\r
+>\r
 ```\r
 \r
 Desktop app needs to store these fields for:\r
@@ -1227,9 +1227,9 @@ Missing:\r
 - Frontend event emission\r
 \r
 API Error Responses:\r
-- 401: { "error": "Invalid license key" }\r
-- 402: { "error": "Insufficient tokens", "balance_tokens": 100, "required_tokens": 32 }\r
-- 403: { "error": "Device is not active" }\r
+- 401: < "error": "Invalid license key" >\r
+- 402: < "error": "Insufficient tokens", "balance_tokens": 100, "required_tokens": 32 >\r
+- 403: < "error": "Device is not active" >\r
 """
 reasoning_chain = [
   "1. User presses voice capture hotkey",
@@ -1741,7 +1741,7 @@ CI/CD Integration (JavaScript):
 
 Configuration:
 - tauri.conf.json: createUpdaterArtifacts = true, GitHub Releases endpoint
-- Endpoint format: https://github.com/aetherlight-ai/lumina/releases/latest/download/{{target}}-{{arch}}.json
+- Endpoint format: https://github.com/aetherlight-ai/lumina/releases/latest/download/{{target}}-<<arch>>.json
 - Public key: PLACEHOLDER (real keys needed for production)
 
 Testing:
@@ -1940,7 +1940,7 @@ Technical Details:
 Key Discovery:
 Tauri v2 MSI bundler (enabled by "targets": "all") automatically creates:
 1. Windows Installer database (.msi file)
-2. Registry entries in HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{GUID}
+2. Registry entries in HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\<GUID>
 3. Standard uninstall entry in Windows Apps & Features
 4. DisplayName, DisplayVersion, Publisher, UninstallString, InstallLocation, DisplayIcon
 
@@ -2401,9 +2401,9 @@ Code analyzer and sprint planner modals both use:\r
 \r
 BUG-001 fix added safety check in TaskAnalyzer.detectMissingTestStrategy():\r
 ```typescript\r
-if (!config.agents) {\r
+if (!config.agents) <\r
     return gaps;\r
-}\r
+>\r
 ```\r
 \r
 Need to verify:\r
@@ -2578,7 +2578,7 @@ agent = "infrastructure-agent"
 enhanced_prompt = "internal/sprints/enhanced_prompts/17.1-BUGS_BUG-011_ENHANCED_PROMPT.md"
 questions_doc = "internal/sprints/questions/17.1-BUGS_BUG-011_QUESTIONS.md"
 implementation_approach = "Bearer token pattern using /api/tokens/balance (no device fingerprint required)"
-api_endpoint = "GET https://aetherlight.ai/api/tokens/balance (Authorization: Bearer {license_key})"
+api_endpoint = "GET https://aetherlight.ai/api/tokens/balance (Authorization: Bearer <license_key>)"
 test_keys = "Free: CD7W-AJDK-RLQT-LUFA | Pro: W7HD-X79Q-CQJ9-XW13"
 estimated_time_actual = "6 hours"
 answers_received = "2025-11-13"
@@ -3146,7 +3146,7 @@ validation_criteria = [
   "Sprint panel displays correct tasks"
 ]
 error_handling = """
-- Improved error message: "Task {id} not found in {file}. Is this the correct active sprint?"\r
+- Improved error message: "Task {id} not found in <file>. Is this the correct active sprint?"\r
 - Suggest checking config.activeSprint setting\r
 - List available sprint files in internal/sprints/\r
 """
@@ -3190,7 +3190,7 @@ Successfully fixed "Start This Task" feature for bug sprint tasks by updating co
 
 **Before**:
 ```typescript
-throw new Error(`Task ${taskId} not found in sprint TOML`);
+throw new Error(`Task $<taskId> not found in sprint TOML`);
 ```
 
 **After**:
@@ -3204,7 +3204,7 @@ const availableSprints = fs.existsSync(sprintDir)
 
 throw new Error(
     `Task ${taskId} not found in ${sprintFileName}.\n\n` +
-    `Available sprint files:\n${availableSprints.map(f => `  - ${f}`).join('\n')}\n\n` +
+    `Available sprint files:\n$<availableSprints.map(f => `  - $<f>`).join('\n')>\n\n` +
     `Update config.structure.activeSprint in .aetherlight/config.json to the correct file.`
 );
 ```
@@ -3228,9 +3228,9 @@ throw new Error(
 
 **Hardcoded Path Issue** (TaskPromptExporter.ts:39):
 ```typescript
-constructor() {
+constructor() <
     this.sprintFilePath = path.join(this.workspaceRoot, 'internal', 'sprints', 'ACTIVE_SPRINT.toml'); // HARDCODED!
-}
+>
 ```
 
 **Config Mismatch**:
@@ -3428,7 +3428,7 @@ description = """
 Implement 100% automated enforcement system for task document linking:
 
 1. Sprint-Aware Naming Convention Enforcement
-   - All task docs MUST use: {SPRINT_ID}_{TASK_ID}_{TYPE}.md
+   - All task docs MUST use: <SPRINT_ID>_<TASK_ID>_<TYPE>.md
    - Example: 17.1-BUGS_BUG-013_ENHANCED_PROMPT.md
    - Example: 17.1-BUGS_BUG-013_QUESTIONS.md
    - Sprint ID extracted from TOML filename (ACTIVE_SPRINT_17.1_BUGS.toml → 17.1-BUGS)
@@ -3526,11 +3526,11 @@ validation_criteria = [
 ]
 error_handling = """
 Validation script error messages:
-- "Orphaned document: {path} (NOT LINKED in TOML)"
-- "Broken link: {taskId}.{field} = '{path}' (FILE NOT FOUND)"
-- "Invalid naming: {path} (expected {SPRINT_ID}_{TASK_ID}_{TYPE}.md)"
-- "Sprint ID mismatch: {path} (document sprint={sprintId}, task belongs to sprint={taskSprintId})"
-- "Missing required field: {taskId}.enhanced_prompt (ALL TASKS MUST HAVE)"
+- "Orphaned document: <path> (NOT LINKED in TOML)"
+- "Broken link: {taskId}.<field> = '<path>' (FILE NOT FOUND)"
+- "Invalid naming: {path} (expected {SPRINT_ID}_{TASK_ID}_<TYPE>.md)"
+- "Sprint ID mismatch: {path} (document sprint={sprintId}, task belongs to sprint=<taskSprintId>)"
+- "Missing required field: <taskId>.enhanced_prompt (ALL TASKS MUST HAVE)"
 
 Clear fix instructions for each error type.
 
@@ -3570,7 +3570,7 @@ Implementation Summary:
 
 Phase 1: Validation Script (250 lines)
 File: scripts/validate-task-docs.js
-- Validates sprint-aware naming: {SPRINT_ID}_{TASK_ID}_{TYPE}.md
+- Validates sprint-aware naming: <SPRINT_ID>_<TASK_ID>_<TYPE>.md
 - Detects orphaned documents (files without TOML links)
 - Detects broken TOML links (references to non-existent files)
 - Detects sprint ID mismatches (doc sprint != task owner)
@@ -4571,30 +4571,30 @@ Example Enhanced Prompt:
 ```markdown
 <!--
 AETHERLIGHT_ENHANCEMENT_METADATA
-{
+<
   "version": "1.0",
   "enhancementType": "code_analyzer",
   "buttonType": "Code Analyzer",
   "confidence": {
     "score": 92,
     "level": "high"
-  },
-  "contextGathered": {
-    "workspace": {
+  >,
+  "contextGathered": <
+    "workspace": <
       "languages": ["TypeScript", "JavaScript"],
       "frameworks": ["VS Code Extension"],
       "filesAnalyzed": 23
-    },
-    "git": {
+    >,
+    "git": <
       "commitsAnalyzed": 15,
       "daysBack": 30
-    },
+    >,
     "patterns": ["Pattern-CODE-001", "Pattern-TDD-001"],
-    "validation": {
+    "validation": <
       "filesExist": true,
       "dependenciesMet": true
-    }
-  },
+    >
+  >,
   "templateVersion": "MVP-003 v1.4.3",
   "timestamp": "2025-01-13T10:30:00Z"
 }
@@ -4735,37 +4735,37 @@ Metadata Format (HTML Comment):
 ```html
 <!--
 AETHERLIGHT_ENHANCEMENT_METADATA
-{
+<
   "version": "1.0",
   "enhancementType": "bug",
   "buttonType": "Bug Report",
   "timestamp": "2025-11-13T10:30:00Z",
   "templateVersion": "MVP-003 v1.4.3",
-  "confidence": {"score": 85, "level": "high"},
-  "contextGathered": {
-    "workspace": {
+  "confidence": {"score": 85, "level": "high">,
+  "contextGathered": <
+    "workspace": <
       "rootPath": ".",
       "languages": ["TypeScript", "JavaScript"],
       "frameworks": ["VS Code Extension"],
       "filesAnalyzed": 2,
       "directoryCount": 12
-    },
-    "git": {
+    >,
+    "git": <
       "commitsAnalyzed": 2,
       "daysBack": 1,
       "branch": "feature/v0.17.2-bug-fixes"
-    },
+    >,
     "filesFound": [
-      {"path": "src/auth.ts", "relevance": 95, "reason": "Authentication logic"}
+      <"path": "src/auth.ts", "relevance": 95, "reason": "Authentication logic">
     ],
     "patterns": ["Pattern-CODE-001"],
-    "sops": {"claudeMd": true, "aetherlightMd": false}
-  },
-  "validation": {
+    "sops": <"claudeMd": true, "aetherlightMd": false>
+  >,
+  "validation": <
     "filesExist": true,
     "dependenciesMet": true,
     "taskDataCurrent": true
-  },
+  >,
   "agent": "developer-agent"
 }
 -->
@@ -5100,15 +5100,15 @@ modal.show(
         this.currentEnhancedPrompt = enhancedPrompt;
 
         // Step 5: Populate text area
-        webview.postMessage({ type: 'populateTextArea', text: enhancedPrompt });
+        webview.postMessage(< type: 'populateTextArea', text: enhancedPrompt >);
 
         // ENHANCE-001.7: Show refinement buttons
         webview.postMessage({ type: 'showRefinementButtons', ... });
     },
     // onCancel callback: User clicked [Cancel]
-    () => {
-        vscode.window.showInformationMessage(`${buttonType} enhancement cancelled`);
-    }
+    () => <
+        vscode.window.showInformationMessage(`$<buttonType> enhancement cancelled`);
+    >
 );
 ```
 
@@ -6214,7 +6214,7 @@ why = """
 UNDOCUMENTED ENHANCEMENTS:
 
 Sprint 17.1 Improvements Made:
-- Pattern-DOCS-002: Sprint-aware naming convention ({SPRINT_ID}_{TASK_ID}_{TYPE}.md)
+- Pattern-DOCS-002: Sprint-aware naming convention (<SPRINT_ID>_<TASK_ID>_<TYPE>.md)
 - Enhanced prompt generation for BUG-011, BUG-012, BUG-013, INFRA-003
 - ENHANCE mode validation improvements (agent validation, skill assignment)
 - Template task injection from SPRINT_TEMPLATE.toml
@@ -6263,7 +6263,7 @@ context = """
 Sprint 17.1 Enhancements Context:
 
 Pattern-DOCS-002 (created this sprint):
-- Sprint-aware naming: {SPRINT_ID}_{TASK_ID}_{TYPE}.md
+- Sprint-aware naming: {SPRINT_ID}_<TASK_ID>_<TYPE>.md
 - Prevents collisions across multiple sprints
 - 100% automated enforcement with pre-commit hook
 - Migration script for existing documents

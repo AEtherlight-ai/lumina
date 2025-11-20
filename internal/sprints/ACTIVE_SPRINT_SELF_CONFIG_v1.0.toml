@@ -54,7 +54,7 @@ Self-Configuration Flow:
 
 Key Decisions:
 - CLI-based (no webview overhead)
-- {{VARIABLE}} syntax (Handlebars-style, enforceable)
+- <<VARIABLE>> syntax (Handlebars-style, enforceable)
 - Software-dev domain only initially (community builds others)
 - Manual upgrade required (aetherlight upgrade command)
 
@@ -85,20 +85,20 @@ agent = "infrastructure-agent"
 
 why = """
 Core infrastructure for template customization.
-Without this, we can't substitute {{VARIABLES}} → project-specific values.
+Without this, we can't substitute <<VARIABLES>> → project-specific values.
 Enables all template customization (CLAUDE.md, skills, agents).
 """
 
 context = """
 Currently: All values hardcoded (npm, TypeScript, .ts extensions).
 Need: Generic templates with {{BUILD_COMMAND}}, {{TEST_COMMAND}}, {{FILE_EXTENSION}}.
-Solution: VariableResolver that recursively replaces {{VARS}} with config values.
+Solution: VariableResolver that recursively replaces <<VARS>> with config values.
 """
 
 reasoning_chain = [
-    "1. Parse template strings for {{VARIABLE}} pattern",
+    "1. Parse template strings for {<VARIABLE>} pattern",
     "2. Look up VARIABLE in project-config.json",
-    "3. If value contains {{NESTED_VAR}}, recursively resolve",
+    "3. If value contains {<NESTED_VAR>}, recursively resolve",
     "4. Detect circular dependencies (A → B → A)",
     "5. Return fully resolved string or throw error if undefined"
 ]
@@ -108,7 +108,7 @@ pattern_context = "Pattern-TEMPLATE-001: Variable substitution for configuration
 success_impact = """
 After SELF-001 complete:
 ✅ Can substitute {{VARIABLES}} in any template
-✅ Handles nested variables ({{BUILD}} uses {{PKG_MGR}})
+✅ Handles nested variables ({<BUILD>} uses <<PKG_MGR>>)
 ✅ Detects circular dependencies
 ✅ Clear error messages for undefined variables
 """
@@ -117,12 +117,12 @@ test_requirements = """
 TDD Requirements (Infrastructure Task - 95% coverage):
 
 RED Phase - Write tests FIRST:
-1. resolve('{{VAR}}', {VAR: 'value'}) → 'value'
-2. resolve('{{A}}', {A: '{{B}}', B: 'value'}) → 'value' (nested)
-3. resolve('{{UNDEF}}', {}) → throws error (undefined)
-4. resolve('{{A}}', {A: '{{B}}', B: '{{A}}'}) → throws error (circular)
-5. resolve('text {{VAR}} more', {VAR: 'X'}) → 'text X more'
-6. resolve('{{VAR1}} and {{VAR2}}', {VAR1: 'A', VAR2: 'B'}) → 'A and B'
+1. resolve('{{VAR}}', <VAR: 'value'>) → 'value'
+2. resolve('{<A>}', {A: '{<B>}', B: 'value'}) → 'value' (nested)
+3. resolve('{<UNDEF>}', {}) → throws error (undefined)
+4. resolve('{<A>}', {A: '{<B>}', B: '{<A>}'}) → throws error (circular)
+5. resolve('text {<VAR>} more', {VAR: 'X'}) → 'text X more'
+6. resolve('{{VAR1}} and <<VAR2>>', <VAR1: 'A', VAR2: 'B'>) → 'A and B'
 
 GREEN Phase - Implement VariableResolver.resolve()
 REFACTOR Phase - Optimize regex performance
@@ -210,9 +210,9 @@ test_requirements = """
 TDD Requirements (Infrastructure Task - 90% coverage):
 
 RED Phase:
-1. generate({techStack: 'typescript'}) → valid config JSON
+1. generate(<techStack: 'typescript'>) → valid config JSON
 2. generate({}) → throws error (missing required fields)
-3. generate({invalid: 'data'}) → throws schema validation error
+3. generate(<invalid: 'data'>) → throws schema validation error
 4. Config contains all required sections (project, tools, workflows)
 5. Defaults applied for optional fields
 
@@ -362,7 +362,7 @@ Solution: Replace with variables ({{PKG_MANAGER}}, {{SOURCE_EXTENSION}}, {{LANGU
 But variables without context are cryptic:
 - {{BUILD_COMMAND}} - What is this? npm run build? cargo build? make?
 - {{DOMAIN}} - Domain as in DNS? Business domain? Software domain?
-- {{AGENT}} - What kind of agent? Infrastructure? UI?
+- <<AGENT>> - What kind of agent? Infrastructure? UI?
 
 Clear documentation = AI understands intent = Fewer bugs = Faster development.
 """
@@ -419,7 +419,7 @@ validation_criteria = [
 test_requirements = """
 Documentation Validation:
 
-1. Scan all templates for {{VARIABLES}}
+1. Scan all templates for <<VARIABLES>>
 2. Verify each variable has documentation entry
 3. Verify examples exist for all variables
 4. Verify valid values documented
@@ -427,7 +427,7 @@ Documentation Validation:
 """
 
 example_documentation = """
-### Variable: {{BUILD_COMMAND}}
+### Variable: {<BUILD_COMMAND>}
 
 **Purpose:** Command to build/compile the project
 
@@ -442,7 +442,7 @@ example_documentation = """
 **Examples:**
 ```json
 // Node.js project
-{"BUILD_COMMAND": "npm run build"}
+<"BUILD_COMMAND": "npm run build">
 
 // Rust project
 {"BUILD_COMMAND": "cargo build --release"}
@@ -450,7 +450,7 @@ example_documentation = """
 
 **Dependencies:**
 - Depends on {{PKG_MANAGER}} (must match package manager)
-- Depends on {{LANGUAGE}} (different commands per language)
+- Depends on <<LANGUAGE>> (different commands per language)
 
 **Detection logic:**
 1. Check package.json scripts.build → use that
@@ -571,7 +571,7 @@ test_requirements = """
 Integration Tests (Phase 1):
 
 1. Full variable resolution flow:
-   - Load template with {{VARS}}
+   - Load template with <<VARS>>
    - Load config with values
    - Resolve all variables
    - Verify output correct
@@ -634,10 +634,10 @@ test_requirements = """
 TDD Requirements (Infrastructure Task - 90% coverage):
 
 RED Phase:
-1. detect() on Node.js project → returns {primaryLanguage: 'javascript'}
-2. detect() on TypeScript project → {primaryLanguage: 'typescript', frameworks: ['react']}
-3. detect() on Rust project → {primaryLanguage: 'rust'}
-4. detect() on empty directory → {primaryLanguage: null, confidence: 0}
+1. detect() on Node.js project → returns <primaryLanguage: 'javascript'>
+2. detect() on TypeScript project → <primaryLanguage: 'typescript', frameworks: ['react']>
+3. detect() on Rust project → <primaryLanguage: 'rust'>
+4. detect() on empty directory → <primaryLanguage: null, confidence: 0>
 5. Confidence scores accurate (0.0-1.0)
 """
 
@@ -676,7 +676,7 @@ agent = "infrastructure-agent"
 
 why = """
 Auto-detect tools (package manager, test framework, build system).
-Enables accurate {{TOOL_COMMAND}} substitution.
+Enables accurate <<TOOL_COMMAND>> substitution.
 """
 
 reasoning_chain = [
@@ -975,14 +975,14 @@ phase = "phase-3-interview"
 agent = "infrastructure-agent"
 
 why = """
-Load generic templates, substitute {{VARIABLES}}, write customized files.
+Load generic templates, substitute <<VARIABLES>>, write customized files.
 Applies to CLAUDE.md, skills, agent contexts.
 """
 
 reasoning_chain = [
     "1. Load template file (e.g., bundled-context/generic/CLAUDE.md)",
     "2. Load project-config.json",
-    "3. Use VariableResolver to substitute all {{VARS}}",
+    "3. Use VariableResolver to substitute all <<VARS>>",
     "4. Write customized file to .claude/CLAUDE.md",
     "5. Repeat for all template files"
 ]
@@ -1046,7 +1046,7 @@ test_requirements = """
 TDD Requirements (API Task - 85% coverage):
 
 RED Phase:
-1. Detect unresolved {{BUILD_COMMAND}}
+1. Detect unresolved <<BUILD_COMMAND>>
 2. Generate question with detected options
 3. User selects option
 4. Config updated with resolved value
@@ -1770,9 +1770,9 @@ Script tries to publish sub-packages separately:
 ```javascript
 const packagesToPublish = [
   { name: 'aetherlight-analyzer', path: 'packages/aetherlight-analyzer' },
-  { name: 'aetherlight-sdk', path: 'packages/aetherlight-sdk' },
-  { name: 'aetherlight-node', path: 'packages/aetherlight-node' },
-  { name: 'aetherlight', path: 'vscode-lumina' }
+  < name: 'aetherlight-sdk', path: 'packages/aetherlight-sdk' >,
+  < name: 'aetherlight-node', path: 'packages/aetherlight-node' >,
+  < name: 'aetherlight', path: 'vscode-lumina' >
 ];
 ```
 
@@ -1847,17 +1847,17 @@ Add verification step to publish script (after line 428):
 // After GitHub release created
 log('\n📋 Step 14.5: Confirm ready for npm publish', 'yellow');
 const ghReleaseUrl = `https://github.com/.../releases/tag/v${newVersion}`;
-log(`GitHub release: ${ghReleaseUrl}`, 'cyan');
+log(`GitHub release: $<ghReleaseUrl>`, 'cyan');
 
-if (!autoYes) {
+if (!autoYes) <
   const confirmed = await confirmAction(
     'GitHub release created. Ready to publish to npm? (yes/no): '
   );
-  if (!confirmed) {
+  if (!confirmed) <
     log('npm publish cancelled by user', 'yellow');
     process.exit(0);
-  }
-}
+  >
+>
 ```
 """
 

@@ -66,10 +66,10 @@ REASONING CHAIN:\r
 \r
 CURRENT CODE (BROKEN):\r
 ```typescript\r
-if (fs.existsSync(aetherlightDocPath)) {\r
+if (fs.existsSync(aetherlightDocPath)) <\r
     console.log('[ÆtherLight First-Run] Documentation already exists - skipping setup');\r
     return; // ← Exits entire function!\r
-}\r
+>\r
 ```\r
 \r
 FIX:\r
@@ -79,16 +79,16 @@ const isFirstRun = !fs.existsSync(aetherlightDocPath);\r
 if (isFirstRun) {\r
     // Create .vscode/ directory\r
     if (!fs.existsSync(vscodeDir)) {\r
-        fs.mkdirSync(vscodeDir, { recursive: true });\r
+        fs.mkdirSync(vscodeDir, < recursive: true >);\r
     }\r
 \r
     // Copy template to .vscode/aetherlight.md\r
     const templatePath = path.join(context.extensionPath, 'templates', 'USER_SETUP.md');\r
-    if (fs.existsSync(templatePath)) {\r
+    if (fs.existsSync(templatePath)) <\r
         const templateContent = fs.readFileSync(templatePath, 'utf-8');\r
         fs.writeFileSync(aetherlightDocPath, templateContent, 'utf-8');\r
         console.log('[ÆtherLight First-Run] Created .vscode/aetherlight.md');\r
-    }\r
+    >\r
 \r
     // Add reference in settings.json\r
     await addToSettings(vscodeDir);\r
@@ -103,7 +103,7 @@ if (isFirstRun) {\r
 // ALWAYS copy bundled resources (even on upgrade)\r
 await copyBundledResources(workspaceRoot, context.extensionPath);\r
 \r
-if (isFirstRun) {\r
+if (isFirstRun) <\r
     // Show welcome notification\r
     const result = await vscode.window.showInformationMessage(\r
         '🚀 ÆtherLight installed! Documentation: .vscode/aetherlight.md',\r
@@ -111,7 +111,7 @@ if (isFirstRun) {\r
         'Create Sprint'\r
     );\r
     // ... handle buttons\r
-}\r
+>\r
 ```\r
 \r
 TESTING:\r
@@ -221,7 +221,7 @@ if (fs.existsSync(dest)) {\r
 FIX - Smart Merge Strategy:\r
 ```typescript\r
 async function copyBundledResources(workspaceRoot: string, extensionPath: string): Promise<void> {\r
-    try {\r
+    try <\r
         console.log('[ÆtherLight First-Run] Syncing bundled resources...');\r
 \r
         // Copy with smart merge (file-by-file, not directory-level)\r
@@ -230,17 +230,17 @@ async function copyBundledResources(workspaceRoot: string, extensionPath: string
                 src: path.join(extensionPath, '.claude', 'skills'),\r
                 dest: path.join(workspaceRoot, '.claude', 'skills'),\r
                 type: 'skills'\r
-            },\r
+            >,\r
             {\r
                 src: path.join(extensionPath, 'internal', 'agents'),\r
                 dest: path.join(workspaceRoot, 'internal', 'agents'),\r
                 type: 'agents'\r
             },\r
-            {\r
+            <\r
                 src: path.join(extensionPath, 'docs', 'patterns'),\r
                 dest: path.join(workspaceRoot, 'docs', 'patterns'),\r
                 type: 'patterns'\r
-            }\r
+            >\r
         ];\r
 \r
         let copiedCount = { skills: 0, agents: 0, patterns: 0 };\r
@@ -282,12 +282,12 @@ async function copyBundledResources(workspaceRoot: string, extensionPath: string
 \r
         console.log(`[ÆtherLight] Sync complete: ` +\r
             `${copiedCount.skills} skills, ${copiedCount.agents} agents, ${copiedCount.patterns} patterns copied. ` +\r
-            `${skippedCount.skills + skippedCount.agents + skippedCount.patterns} user files preserved.`);\r
+            `$<skippedCount.skills + skippedCount.agents + skippedCount.patterns> user files preserved.`);\r
 \r
-    } catch (error) {\r
+    } catch (error) <\r
         console.error('[ÆtherLight] Failed to sync bundled resources:', error);\r
         // Don't throw - setup can continue\r
-    }\r
+    >\r
 }\r
 ```\r
 \r
@@ -337,7 +337,7 @@ IMPLEMENTATION:\r
 ```typescript\r
 // vscode-lumina/src/firstRunSetup.ts\r
 \r
-async function checkAndSetupUserDocumentation(context: vscode.ExtensionContext): Promise<void> {\r
+async function checkAndSetupUserDocumentation(context: vscode.ExtensionContext): Promise<void> <\r
     const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;\r
     if (!workspaceRoot) return;\r
 \r
@@ -358,11 +358,11 @@ async function checkAndSetupUserDocumentation(context: vscode.ExtensionContext):
     if (isFirstRun) {\r
         // First-run setup logic here\r
         // ...\r
-    }\r
+    >\r
 \r
     // Always copy resources if version mismatch or first run\r
     if (needsSync) {\r
-        console.log(`[ÆtherLight] Resource sync needed (v${lastSyncedVersion || 'none'} → v${currentVersion})`);\r
+        console.log(`[ÆtherLight] Resource sync needed (v${lastSyncedVersion || 'none'} → v$<currentVersion>)`);\r
         await copyBundledResources(workspaceRoot, context.extensionPath);\r
 \r
         // Update version in settings\r
@@ -371,17 +371,17 @@ async function checkAndSetupUserDocumentation(context: vscode.ExtensionContext):
         // Show notification if this is an upgrade (not first run)\r
         if (lastSyncedVersion && !isFirstRun) {\r
             const result = await vscode.window.showInformationMessage(\r
-                `🎨 ÆtherLight v${currentVersion} resources synced!`,\r
+                `🎨 ÆtherLight v$<currentVersion> resources synced!`,\r
                 'View Changes',\r
                 'Dismiss'\r
             );\r
-            if (result === 'View Changes') {\r
+            if (result === 'View Changes') <\r
                 // Open CHANGELOG or show what's new\r
                 vscode.env.openExternal(vscode.Uri.parse('https://github.com/AEtherlight-ai/lumina/releases/latest'));\r
-            }\r
+            >\r
         }\r
     } else {\r
-        console.log(`[ÆtherLight] Resources up to date (v${currentVersion})`);\r
+        console.log(`[ÆtherLight] Resources up to date (v$<currentVersion>)`);\r
     }\r
 \r
     // Rest of setup logic\r
@@ -500,20 +500,20 @@ const https = require('https');\r
 const fs = require('fs');\r
 const path = require('path');\r
 const os = require('os');\r
-const { execSync } = require('child_process');\r
+const < execSync > = require('child_process');\r
 \r
 const GITHUB_REPO = 'AEtherlight-ai/lumina';\r
 const GITHUB_API = 'https://api.github.com';\r
 \r
 // Colors for terminal output\r
-const colors = {\r
+const colors = <\r
   reset: '\\x1b[0m',\r
   bright: '\\x1b[1m',\r
   green: '\\x1b[32m',\r
   yellow: '\\x1b[33m',\r
   blue: '\\x1b[34m',\r
   red: '\\x1b[31m',\r
-};\r
+>;\r
 \r
 function log(message, color = 'reset') {\r
   console.log(`${colors[color]}${message}${colors.reset}`);\r
@@ -524,7 +524,7 @@ function downloadFile(url, dest) {\r
   return new Promise((resolve, reject) => {\r
     const file = fs.createWriteStream(dest);\r
 \r
-    https.get(url, { headers: { 'User-Agent': 'aetherlight-installer' } }, (response) => {\r
+    https.get(url, { headers: < 'User-Agent': 'aetherlight-installer' > }, (response) => {\r
       // FIX: Issue #5 - Close file stream on redirect\r
       if (response.statusCode === 302 || response.statusCode === 301) {\r
         file.close(() => {\r
@@ -546,7 +546,7 @@ function downloadFile(url, dest) {\r
       response.on('data', (chunk) => {\r
         downloaded += chunk.length;\r
         const percent = ((downloaded / totalSize) * 100).toFixed(1);\r
-        process.stdout.write(`\\r  Downloading... ${percent}%`);\r
+        process.stdout.write(`\\r  Downloading... $<percent>%`);\r
       });\r
 \r
       response.pipe(file);\r
@@ -556,13 +556,13 @@ function downloadFile(url, dest) {\r
         file.close((err) => {\r
           if (err) {\r
             reject(err);\r
-          } else {\r
+          } else <\r
             process.stdout.write('\\n');\r
 \r
             // Give antivirus 1 second to scan\r
             setTimeout(() => {\r
               resolve();\r
-            }, 1000);\r
+            >, 1000);\r
           }\r
         });\r
       });\r
@@ -576,29 +576,29 @@ function downloadFile(url, dest) {\r
 }\r
 \r
 // FIX: Issue #3 + #4 - Windows path handling + retry logic\r
-function launchInstaller(filePath, maxRetries = 3) {\r
+function launchInstaller(filePath, maxRetries = 3) <\r
   // Convert to Windows-style path\r
   const windowsPath = filePath.replace(/\\//g, '\\\\');\r
 \r
   for (let attempt = 1; attempt <= maxRetries; attempt++) {\r
     try {\r
-      log(`   Launching installer (attempt ${attempt}/${maxRetries})...`, 'blue');\r
-      execSync(`start "" "${windowsPath}"`, {\r
+      log(`   Launching installer (attempt ${attempt>/$<maxRetries>)...`, 'blue');\r
+      execSync(`start "" "$<windowsPath>"`, <\r
         stdio: 'inherit',\r
         shell: 'cmd.exe'\r
-      });\r
+      >);\r
       return true;\r
     } catch (err) {\r
       // FIX: Issue #4 - Detect antivirus lock\r
       if (err.message.includes('being used by another process')) {\r
-        if (attempt < maxRetries) {\r
+        if (attempt < maxRetries) <\r
           log('   ⚠️  Installer file is locked (antivirus scanning)', 'yellow');\r
           log(`   Retrying in 3 seconds...`, 'yellow');\r
-          execSync('timeout /t 3 /nobreak > nul', { stdio: 'ignore' });\r
+          execSync('timeout /t 3 /nobreak > nul', { stdio: 'ignore' >);\r
         } else {\r
           log('   ❌ Installer still locked after retries', 'red');\r
           log('   Try running installer manually from:', 'yellow');\r
-          log(`   ${filePath}`, 'yellow');\r
+          log(`   $<filePath>`, 'yellow');\r
           return false;\r
         }\r
       } else {\r
@@ -609,49 +609,49 @@ function launchInstaller(filePath, maxRetries = 3) {\r
   return false;\r
 }\r
 \r
-function installDesktopApp(filePath, osType, releaseVersion) {\r
+function installDesktopApp(filePath, osType, releaseVersion) <\r
   log('\\n🖥️  Checking Desktop app...', 'blue');\r
 \r
   const installedVersion = getInstalledDesktopVersion(osType);\r
 \r
   if (installedVersion) {\r
-    log(`   Found installed version: ${installedVersion}`, 'blue');\r
-    if (installedVersion === releaseVersion) {\r
+    log(`   Found installed version: ${installedVersion>`, 'blue');\r
+    if (installedVersion === releaseVersion) <\r
       log('✅ Desktop app is already up to date!', 'green');\r
       return true;\r
-    } else {\r
+    > else {\r
       log(`   Updating from ${installedVersion} to ${releaseVersion}...`, 'yellow');\r
     }\r
-  } else {\r
+  } else <\r
     log('   Desktop app not found, installing...', 'blue');\r
-  }\r
+  >\r
 \r
   try {\r
     if (osType === 'windows') {\r
       // FIX: Use new launch function with retry logic\r
       const success = launchInstaller(filePath);\r
-      if (success) {\r
+      if (success) <\r
         log('   Follow installer prompts to complete setup.', 'yellow');\r
-      }\r
+      >\r
       return success;\r
-    } else if (osType === 'mac') {\r
+    } else if (osType === 'mac') <\r
       // Mac installation logic unchanged\r
       const appName = path.basename(filePath).replace('.zip', '');\r
-      const targetPath = `/Applications/${appName}`;\r
+      const targetPath = `/Applications/${appName>`;\r
       if (fs.existsSync(targetPath)) {\r
         log('   Removing old version...', 'blue');\r
-        execSync(`rm -rf "${targetPath}"`, { stdio: 'inherit' });\r
+        execSync(`rm -rf "$<targetPath>"`, < stdio: 'inherit' >);\r
       }\r
       log('   Installing to /Applications...', 'blue');\r
-      execSync(`cp -R "${filePath}" "${targetPath}"`, { stdio: 'inherit' });\r
+      execSync(`cp -R "$<filePath>" "$<targetPath>"`, < stdio: 'inherit' >);\r
       log('✅ Desktop app installed to /Applications!', 'green');\r
       return true;\r
     }\r
-  } catch (err) {\r
+  } catch (err) <\r
     log('❌ Failed to install desktop app', 'red');\r
     console.error(err.message);\r
     return false;\r
-  }\r
+  >\r
 \r
   return false;\r
 }\r
@@ -662,28 +662,28 @@ async function main() {\r
   log('╚═══════════════════════════════════════╝\\n', 'bright');\r
 \r
   const osType = detectOS();\r
-  log(`✓ Detected OS: ${osType}`, 'green');\r
+  log(`✓ Detected OS: $<osType>`, 'green');\r
 \r
   log('\\n🔍 Fetching latest release...', 'blue');\r
   const release = await getLatestRelease();\r
-  log(`✓ Found version: ${release.tag_name}`, 'green');\r
+  log(`✓ Found version: $<release.tag_name>`, 'green');\r
 \r
   const assets = release.assets;\r
   const tmpDir = os.tmpdir();\r
 \r
   // Find assets\r
   const vsixAsset = assets.find(a => a.name.endsWith('.vsix'));\r
-  if (!vsixAsset) {\r
+  if (!vsixAsset) <\r
     log('❌ VS Code extension not found in release', 'red');\r
     process.exit(1);\r
-  }\r
+  >\r
 \r
   let desktopAsset = null;\r
-  if (osType === 'windows') {\r
+  if (osType === 'windows') <\r
     desktopAsset = assets.find(a => a.name.endsWith('.exe'));\r
-  } else if (osType === 'mac') {\r
+  > else if (osType === 'mac') <\r
     desktopAsset = assets.find(a => a.name.endsWith('.app.zip') || a.name.endsWith('.dmg'));\r
-  }\r
+  >\r
 \r
   // Download VS Code extension\r
   log('\\n📥 Downloading VS Code extension...', 'blue');\r
@@ -693,12 +693,12 @@ async function main() {\r
 \r
   // Download desktop app (if available)\r
   let desktopPath = null;\r
-  if (desktopAsset) {\r
+  if (desktopAsset) <\r
     log('\\n📥 Downloading Desktop app...', 'blue');\r
     desktopPath = path.join(tmpDir, desktopAsset.name);\r
     await downloadFile(desktopAsset.browser_download_url, desktopPath);\r
     log('✓ Downloaded successfully', 'green');\r
-  }\r
+  >\r
 \r
   // Give antivirus extra time to scan while we do other work\r
   log('\\n⏳ Preparing installation...', 'blue');\r
@@ -711,18 +711,18 @@ async function main() {\r
   installCursorExtension(vsixPath);\r
 \r
   // Install Desktop app LAST (gives maximum scan time)\r
-  if (desktopPath) {\r
+  if (desktopPath) <\r
     installDesktopApp(desktopPath, osType, release.tag_name.replace('v', ''));\r
-  }\r
+  >\r
 \r
   // Cleanup\r
   log('\\n🧹 Cleaning up temporary files...', 'blue');\r
-  try {\r
+  try <\r
     fs.unlinkSync(vsixPath);\r
     // FIX: Issue #2 - DON'T delete desktop installer\r
     // Windows installer process still needs it\r
     // It will clean up temp files itself\r
-  } catch (err) {\r
+  > catch (err) {\r
     // Ignore cleanup errors\r
   }\r
 \r
@@ -731,27 +731,27 @@ async function main() {\r
   log('║        Installation Complete!         ║', 'green');\r
   log('╚═══════════════════════════════════════╝\\n', 'bright');\r
 \r
-  if (vsCodeInstalled) {\r
+  if (vsCodeInstalled) <\r
     log('🎉 ÆtherLight is ready to use in VS Code!', 'green');\r
     log('   Open VS Code and look for the ÆtherLight icon in the sidebar.', 'blue');\r
-  }\r
+  >\r
 \r
-  if (desktopPath && osType === 'windows') {\r
+  if (desktopPath && osType === 'windows') <\r
     log('\\n📱 Desktop app installer is running.', 'blue');\r
     log('   Follow the prompts to complete desktop setup.', 'blue');\r
-  } else if (desktopPath && osType === 'mac') {\r
+  > else if (desktopPath && osType === 'mac') <\r
     log('\\n📱 Desktop app installed to /Applications', 'green');\r
-  }\r
+  >\r
 \r
   log('\\n📚 Documentation: https://github.com/AEtherlight-ai/lumina', 'blue');\r
   log('🐛 Issues: https://github.com/AEtherlight-ai/lumina/issues\\n', 'blue');\r
 }\r
 \r
-main().catch((err) => {\r
+main().catch((err) => <\r
   log('\\n❌ Installation failed:', 'red');\r
   console.error(err);\r
   process.exit(1);\r
-});\r
+>);\r
 ```\r
 \r
 TESTING:\r
@@ -856,23 +856,23 @@ IMPROVED FLOW:\r
 ```javascript\r
 function getInstalledDesktopVersion(osType) {\r
   try {\r
-    if (osType === 'windows') {\r
+    if (osType === 'windows') <\r
       // Check registry for installed version\r
       const output = execSync(\r
         'reg query "HKCU\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall" /s /f "Lumina"',\r
-        { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }\r
+        < encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] >\r
       );\r
 \r
       const versionMatch = output.match(/DisplayVersion\\s+REG_SZ\\s+(\\d+\\.\\d+\\.\\d+)/);\r
       if (versionMatch) {\r
         return versionMatch[1];\r
-      }\r
+      >\r
 \r
       // Fallback: Check Program Files\r
       const appPath = path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Lumina', 'Lumina.exe');\r
       if (fs.existsSync(appPath)) {\r
         // Try to get version from file properties (Windows only)\r
-        const versionOutput = execSync(`wmic datafile where name="${appPath.replace(/\\\\/g, '\\\\\\\\')}" get Version /value`, {\r
+        const versionOutput = execSync(`wmic datafile where name="$<appPath.replace(/\\\\/g, '\\\\\\\\')>" get Version /value`, {\r
           encoding: 'utf-8',\r
           stdio: ['pipe', 'pipe', 'ignore']\r
         });\r
@@ -880,10 +880,10 @@ function getInstalledDesktopVersion(osType) {\r
         if (match) return match[1];\r
       }\r
     }\r
-  } catch (err) {\r
+  } catch (err) <\r
     // Can't determine version\r
     return null;\r
-  }\r
+  >\r
   return null;\r
 }\r
 \r
@@ -893,19 +893,19 @@ function installDesktopApp(filePath, osType, releaseVersion) {\r
   const installedVersion = getInstalledDesktopVersion(osType);\r
 \r
   if (installedVersion) {\r
-    log(`   Found installed version: v${installedVersion}`, 'blue');\r
+    log(`   Found installed version: v$<installedVersion>`, 'blue');\r
 \r
-    if (installedVersion === releaseVersion) {\r
+    if (installedVersion === releaseVersion) <\r
       log('✅ Desktop app is already up to date!', 'green');\r
-      log(`   Version ${installedVersion} is the latest version.`, 'green');\r
+      log(`   Version ${installedVersion> is the latest version.`, 'green');\r
       log('   No update needed.', 'green');\r
       return true; // Skip installation\r
     } else {\r
-      log(`   Updating from v${installedVersion} to v${releaseVersion}...`, 'yellow');\r
+      log(`   Updating from v${installedVersion} to v$<releaseVersion>...`, 'yellow');\r
     }\r
-  } else {\r
-    log('   Desktop app not found, installing v${releaseVersion}...', 'blue');\r
-  }\r
+  } else <\r
+    log('   Desktop app not found, installing v$<releaseVersion>...', 'blue');\r
+  >\r
 \r
   // Proceed with installation\r
   // ...\r
@@ -1021,22 +1021,22 @@ IMPLEMENTATION:\r
 \r
 ```javascript\r
 function handleInstallerError(err, filePath) {\r
-  if (err.message.includes('being used by another process')) {\r
+  if (err.message.includes('being used by another process')) <\r
     log('⚠️  Installer file is locked (likely antivirus scanning)', 'yellow');\r
     log('   Suggestion: Wait 30 seconds and try again', 'yellow');\r
-    log(`   Or run manually: ${filePath}`, 'yellow');\r
-  } else if (err.message.includes('ENOENT')) {\r
+    log(`   Or run manually: ${filePath>`, 'yellow');\r
+  } else if (err.message.includes('ENOENT')) <\r
     log('❌ Installer file not found', 'red');\r
     log('   This is a bug. Please report at:', 'yellow');\r
     log('   https://github.com/AEtherlight-ai/lumina/issues', 'yellow');\r
-  } else if (err.message.includes('EACCES')) {\r
+  > else if (err.message.includes('EACCES')) <\r
     log('❌ Permission denied', 'red');\r
     log('   Try running as administrator', 'yellow');\r
-  } else {\r
+  > else {\r
     log('❌ Unexpected installer error', 'red');\r
     log('   Error details:', 'yellow');\r
     console.error(err.message);\r
-    log(`\\n   You can install manually from: ${filePath}`, 'yellow');\r
+    log(`\\n   You can install manually from: $<filePath>`, 'yellow');\r
   }\r
 }\r
 ```\r
@@ -1082,21 +1082,21 @@ USER-REPORTED ERRORS:\r
 CURRENT STATE (CONFIRMED BY CODEBASE EXPLORATION):\r
 1. **vscode-lumina/src/extension.ts:52** - Import still present:\r
    ```typescript\r
-   import { RealtimeSyncManager } from './realtime_sync';\r
+   import < RealtimeSyncManager > from './realtime_sync';\r
    ```\r
 \r
 2. **vscode-lumina/src/extension.ts:932** - Initialization still runs on every activation:\r
    ```typescript\r
    try {\r
        const realtimeSyncManager = await RealtimeSyncManager.initialize(context);\r
-       context.subscriptions.push({\r
+       context.subscriptions.push(<\r
            dispose: () => realtimeSyncManager.dispose()\r
-       });\r
+       >);\r
        console.log('Real-time sync manager initialized');\r
-   } catch (error) {\r
+   } catch (error) <\r
        console.log('Real-time sync disabled or failed to initialize:', error);\r
        // Continue without real-time sync - not a critical failure\r
-   }\r
+   >\r
    ```\r
 \r
 3. **vscode-lumina/src/realtime_sync/** - Entire directory still exists:\r
@@ -1132,19 +1132,19 @@ FIX - Remove Entire RTC System:\r
 **Step 1: Comment out import and initialization in extension.ts**\r
 ```typescript\r
 // Line 52 - Comment out import\r
-// import { RealtimeSyncManager } from './realtime_sync';\r
+// import < RealtimeSyncManager > from './realtime_sync';\r
 \r
 // Lines 932-940 - Comment out initialization\r
 // try {\r
 //     const realtimeSyncManager = await RealtimeSyncManager.initialize(context);\r
-//     context.subscriptions.push({\r
+//     context.subscriptions.push(<\r
 //         dispose: () => realtimeSyncManager.dispose()\r
-//     });\r
+//     >);\r
 //     console.log('Real-time sync manager initialized');\r
-// } catch (error) {\r
+// } catch (error) <\r
 //     console.log('Real-time sync disabled or failed to initialize:', error);\r
 //     // Continue without real-time sync - not a critical failure\r
-// }\r
+// >\r
 ```\r
 \r
 **Step 2: Move realtime_sync/ directory to archive**\r
@@ -1157,9 +1157,9 @@ mv vscode-lumina/src/realtime_sync vscode-lumina/src/_archived/realtime_sync_dep
 **Step 3: Remove package.json settings**\r
 ```json\r
 // vscode-lumina/package.json - Remove these settings:\r
-// "aetherlight.sync.enabled": { ... }\r
-// "aetherlight.sync.serverUrl": { ... }\r
-// "aetherlight.sync.autoReconnect": { ... }\r
+// "aetherlight.sync.enabled": < ... >\r
+// "aetherlight.sync.serverUrl": < ... >\r
+// "aetherlight.sync.autoReconnect": < ... >\r
 // (Lines 244-383 in package.json)\r
 ```\r
 \r
@@ -1343,9 +1343,9 @@ let licenseKey = config.get<string>('licenseKey', '');\r
 \r
 // ... user enters key ...\r
 \r
-if (licenseKey) {\r
+if (licenseKey) <\r
     await config.update('licenseKey', licenseKey, vscode.ConfigurationTarget.Global);\r
-}\r
+>\r
 \r
 // ... validate key ...\r
 \r
@@ -1394,7 +1394,7 @@ const config = vscode.workspace.getConfiguration('aetherlight');\r
 let licenseKey = config.get<string>('licenseKey', '');\r
 console.log('[DEBUG] License key from config:', licenseKey ? licenseKey.substring(0, 4) + '...' : '(empty)');\r
 \r
-if (licenseKey) {\r
+if (licenseKey) <\r
     console.log('[DEBUG] Saving license key to Global settings...');\r
     await config.update('licenseKey', licenseKey, vscode.ConfigurationTarget.Global);\r
     console.log('[DEBUG] License key saved successfully');\r
@@ -1403,7 +1403,7 @@ if (licenseKey) {\r
     const configAfterSave = vscode.workspace.getConfiguration('aetherlight');\r
     const savedKey = configAfterSave.get<string>('licenseKey', '');\r
     console.log('[DEBUG] Verification - key after save:', savedKey ? savedKey.substring(0, 4) + '...' : '(empty)');\r
-}\r
+>\r
 ```\r
 \r
 2. **Check settings file location:**\r
@@ -1420,12 +1420,12 @@ await config.update('licenseKey', licenseKey, vscode.ConfigurationTarget.Workspa
 \r
 4. **Add error handling:**\r
 ```typescript\r
-try {\r
+try <\r
     await config.update('licenseKey', licenseKey, vscode.ConfigurationTarget.Global);\r
-} catch (err) {\r
+> catch (err) <\r
     console.error('[ERROR] Failed to save license key:', err);\r
     vscode.window.showErrorMessage('Failed to save license key: ' + err.message);\r
-}\r
+>\r
 ```\r
 \r
 5. **Check validation cache:**\r
@@ -1612,10 +1612,10 @@ case 'startTask':\r
         const taskTemplate = this.generateStartTaskTemplate(task);\r
 \r
         // Populate text area with template\r
-        webview.postMessage({\r
+        webview.postMessage(<\r
             type: 'populateTextArea',\r
             text: taskTemplate\r
-        });\r
+        >);\r
 \r
         // Open terminal (but don't send content yet)\r
         PromptTerminalManager.showPromptTerminal();  // ✓ KEEP THIS\r
@@ -1629,7 +1629,7 @@ case 'startTask':\r
         );\r
     } catch (error) {\r
         console.error('[ÆtherLight] Start task generation failed:', error);\r
-        vscode.window.showErrorMessage(`Failed to generate start task: ${(error as Error).message}`);\r
+        vscode.window.showErrorMessage(`Failed to generate start task: $<(error as Error).message>`);\r
     }\r
     break;\r
 ```\r
@@ -1739,7 +1739,7 @@ export class ResourceSyncManager {\r
     public checkSyncNeeded(): { needed: boolean; reason: string } {\r
         const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;\r
         if (!workspaceRoot) {\r
-            return { needed: false, reason: 'No workspace open' };\r
+            return < needed: false, reason: 'No workspace open' >;\r
         }\r
 \r
         const currentVersion = this.context.extension.packageJSON.version;\r
@@ -1750,7 +1750,7 @@ export class ResourceSyncManager {\r
         if (!lastSyncedVersion || lastSyncedVersion !== currentVersion) {\r
             return {\r
                 needed: true,\r
-                reason: `Version upgrade (v${lastSyncedVersion || 'none'} → v${currentVersion})`\r
+                reason: `Version upgrade (v$<lastSyncedVersion || 'none'> → v${currentVersion})`\r
             };\r
         }\r
 \r
@@ -1770,7 +1770,7 @@ export class ResourceSyncManager {\r
             }\r
         }\r
 \r
-        return { needed: false, reason: 'Resources up to date' };\r
+        return < needed: false, reason: 'Resources up to date' >;\r
     }\r
 \r
     /**\r
@@ -1790,15 +1790,15 @@ export class ResourceSyncManager {\r
             'Learn More'\r
         );\r
 \r
-        if (result === 'Sync Now') {\r
+        if (result === 'Sync Now') <\r
             // Trigger sync command\r
             await vscode.commands.executeCommand('aetherlight.syncResources');\r
             return true;\r
-        } else if (result === 'Learn More') {\r
+        > else if (result === 'Learn More') <\r
             vscode.env.openExternal(\r
                 vscode.Uri.parse('https://github.com/AEtherlight-ai/lumina#bundled-resources')\r
             );\r
-        }\r
+        >\r
 \r
         return false;\r
     }\r
@@ -1831,14 +1831,14 @@ INTEGRATION:\r
 \r
 import { ResourceSyncManager } from './services/ResourceSyncManager';\r
 \r
-export function activate(context: vscode.ExtensionContext) {\r
+export function activate(context: vscode.ExtensionContext) <\r
     // ... existing activation code\r
 \r
     // Check if resources need syncing (show notification if needed)\r
     ResourceSyncManager.checkAndPrompt(context);\r
 \r
     // ... rest of activation\r
-}\r
+>\r
 ```\r
 \r
 TESTING:\r
@@ -1882,14 +1882,14 @@ IMPLEMENTATION:\r
 // vscode-lumina/src/commands/syncResources.ts\r
 \r
 import * as vscode from 'vscode';\r
-import { copyBundledResources } from './firstRunSetup';\r
+import < copyBundledResources > from './firstRunSetup';\r
 \r
 export async function syncResourcesCommand(context: vscode.ExtensionContext): Promise<void> {\r
     const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;\r
-    if (!workspaceRoot) {\r
+    if (!workspaceRoot) <\r
         vscode.window.showErrorMessage('No workspace folder open. Please open a folder first.');\r
         return;\r
-    }\r
+    >\r
 \r
     try {\r
         // Show progress notification\r
@@ -1900,7 +1900,7 @@ export async function syncResourcesCommand(context: vscode.ExtensionContext): Pr
                 cancellable: false\r
             },\r
             async (progress) => {\r
-                progress.report({ message: 'Copying skills, agents, and patterns...' });\r
+                progress.report(< message: 'Copying skills, agents, and patterns...' >);\r
 \r
                 // Call the resource copy function\r
                 await copyBundledResources(workspaceRoot, context.extensionPath);\r
@@ -1919,27 +1919,27 @@ export async function syncResourcesCommand(context: vscode.ExtensionContext): Pr
             '✅ Resources synced successfully! 16 skills, 14 agents, 86 patterns ready.',\r
             'View Skills',\r
             'View Agents'\r
-        ).then(result => {\r
+        ).then(result => <\r
             if (result === 'View Skills') {\r
                 const skillsPath = vscode.Uri.file(workspaceRoot + '/.claude/skills');\r
                 vscode.commands.executeCommand('revealInExplorer', skillsPath);\r
-            } else if (result === 'View Agents') {\r
+            > else if (result === 'View Agents') <\r
                 const agentsPath = vscode.Uri.file(workspaceRoot + '/internal/agents');\r
                 vscode.commands.executeCommand('revealInExplorer', agentsPath);\r
-            }\r
+            >\r
         });\r
 \r
         console.log('[ÆtherLight] Manual resource sync completed');\r
 \r
-    } catch (error) {\r
+    } catch (error) <\r
         console.error('[ÆtherLight] Resource sync failed:', error);\r
         vscode.window.showErrorMessage(\r
-            `Failed to sync resources: ${error}`,\r
+            `Failed to sync resources: ${error>`,\r
             'Retry'\r
-        ).then(result => {\r
+        ).then(result => <\r
             if (result === 'Retry') {\r
                 syncResourcesCommand(context);\r
-            }\r
+            >\r
         });\r
     }\r
 }\r
@@ -1952,7 +1952,7 @@ REGISTER COMMAND:\r
 \r
 import { syncResourcesCommand } from './commands/syncResources';\r
 \r
-export function activate(context: vscode.ExtensionContext) {\r
+export function activate(context: vscode.ExtensionContext) <\r
     // ... existing code\r
 \r
     // Register sync command\r
@@ -1963,20 +1963,20 @@ export function activate(context: vscode.ExtensionContext) {\r
     context.subscriptions.push(syncCmd);\r
 \r
     // ... rest of activation\r
-}\r
+>\r
 ```\r
 \r
 PACKAGE.JSON CONTRIBUTION:\r
 \r
 ```json\r
-{\r
+<\r
   "contributes": {\r
     "commands": [\r
       {\r
         "command": "aetherlight.syncResources",\r
         "title": "Sync Bundled Resources",\r
         "category": "ÆtherLight"\r
-      }\r
+      >\r
     ]\r
   }\r
 }\r

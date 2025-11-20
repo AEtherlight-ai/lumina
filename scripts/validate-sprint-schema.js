@@ -53,6 +53,26 @@ class SprintSchemaValidator {
 
     validate(tomlContent) {
         try {
+            // Rule 0: Check for deprecated {text} placeholder syntax (BUG-001)
+            // WHY: {text} conflicts with TOML table headers, causes parse errors
+            // FIX: Use <text> instead
+            const deprecatedPlaceholders = this.detectDeprecatedPlaceholders(tomlContent);
+            if (deprecatedPlaceholders.length > 0) {
+                return new ValidationResult(
+                    false,
+                    `Deprecated {text} placeholder syntax detected (conflicts with TOML table headers)`,
+                    [
+                        'Replace {text} with <text> in all placeholders',
+                        `Found ${deprecatedPlaceholders.length} instances:`,
+                        ...deprecatedPlaceholders.slice(0, 3).map(loc => `  Line ${loc.line}: ${loc.text}`),
+                        deprecatedPlaceholders.length > 3 ? `  ... and ${deprecatedPlaceholders.length - 3} more` : '',
+                        '',
+                        'Quick fix: Run migration script:',
+                        '  node scripts/migrate-sprint-syntax.js --apply'
+                    ].filter(s => s !== '')
+                );
+            }
+
             const data = toml.parse(tomlContent);
 
             // Rule 1: Tasks section exists
@@ -129,6 +149,42 @@ class SprintSchemaValidator {
                 ]
             );
         }
+    }
+
+    detectDeprecatedPlaceholders(content) {
+        const lines = content.split('\n');
+        const locations = [];
+
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+
+            // Skip comments
+            if (line.trim().startsWith('#')) {
+                continue;
+            }
+
+            // Detect {text} inside quoted strings only
+            // Pattern: Matches {anything} inside double/single/triple quotes
+            const inQuotesRegex = /["']([^"']*\{[^}]+\}[^"']*)["']|"""([^"]*\{[^}]+\}[^"]*)"""/g;
+            let match;
+
+            while ((match = inQuotesRegex.exec(line)) !== null) {
+                const matchedText = match[1] || match[2];
+                const placeholders = matchedText.match(/\{[^}]+\}/g);
+
+                if (placeholders) {
+                    placeholders.forEach(placeholder => {
+                        locations.push({
+                            line: i + 1,
+                            text: line.trim().substring(0, 80) + (line.length > 80 ? '...' : ''),
+                            placeholder: placeholder
+                        });
+                    });
+                }
+            }
+        }
+
+        return locations;
     }
 
     detectCircularDeps(tasks) {

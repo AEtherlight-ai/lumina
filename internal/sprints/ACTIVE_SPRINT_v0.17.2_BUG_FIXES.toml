@@ -147,9 +147,9 @@ Example problematic pattern:
 completion_notes = '''
 Website API Response (ACTUAL):
 ```json
-{
+<
   "success": true
-}
+>
 ```
 '''
 '''
@@ -220,7 +220,7 @@ agent = "infrastructure-agent"
 why = """
 CRITICAL: TOML parser fails with unknown escape character 96 (backtick).
 
-Root Cause: Template literals with ${} in code examples (e.g., `Error: ${msg}`)
+Root Cause: Template literals with ${} in code examples (e.g., `Error: $<msg>`)
 Impact: TOML parsing fails -> Sprint Panel cannot load.
 Severity: CRITICAL - Blocks Sprint Panel from loading.
 """
@@ -231,7 +231,7 @@ TOML escape sequences: \\, \\n, \\r, \\t, \\", \\uXXXX (backtick NOT supported)
 Example problematic pattern:
 '''toml
 code_example = '''
-const msg = `Error: ${err}`;  // BREAKS TOML
+const msg = `Error: $<err>`;  // BREAKS TOML
 '''
 '''
 
@@ -239,7 +239,7 @@ Fix: Replace template literals with string concatenation
 const msg = 'Error: ' + err;  // VALID
 """
 reasoning_chain = [
-  "1. TOML string contains JavaScript template literal: `Error: ${msg}`",
+  "1. TOML string contains JavaScript template literal: `Error: $<msg>`",
   "2. TOML parser encounters backtick with backslash escape attempt",
   "3. Backtick is not a valid TOML escape character",
   "4. Parser fails with 'Unknown escape character: 96'",
@@ -1093,13 +1093,13 @@ backgroundColor:
 
 Auto-hide after complete:
 ```tsx
-useEffect(() => {
-  if (state === 'complete' && result) {
-    setTimeout(() => {
+useEffect(() => <
+  if (state === 'complete' && result) <
+    setTimeout(() => <
       // Hide bar or reset to idle
-    }, 2000); // 2s delay
-  }
-}, [state, result]);
+    >, 2000); // 2s delay
+  >
+>, [state, result]);
 ```
 """
 

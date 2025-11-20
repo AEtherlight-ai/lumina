@@ -53,6 +53,7 @@ export interface SprintTask {
     status: TaskStatus;
     agent: string;
     skill?: string;  // MVP-001: Optional automated workflow to use (publish, code-analyze, protect, etc.)
+    condition?: string;  // Conditional task execution flag (e.g., "sprint_includes_publishing_v0.18.5")
     assigned_engineer: string;
     required_expertise: string[];
     performance_target?: string;
@@ -82,6 +83,8 @@ export interface SprintTask {
     test_requirements?: string;
     test_files?: string[];
     test_coverage_requirement?: number;
+    // Index signature for future-proof field passthrough
+    [key: string]: any;  // ✨ FUTURE-PROOF: Allow unknown fields from TOML to pass through
 }
 
 export interface SprintMetadata {
@@ -154,7 +157,23 @@ export class SprintLoader {
             }
 
             // 3. Read and parse TOML file
-            const tomlContent = fs.readFileSync(sprintPath, 'utf-8');
+            let tomlContent = fs.readFileSync(sprintPath, 'utf-8');
+
+            // BACKWARDS COMPATIBILITY: Auto-convert old {text} syntax to new <text> syntax
+            // WHY: {text} conflicts with TOML table headers, causes parse errors
+            // Users upgrading from v0.18.4 → v0.18.5 with old sprint files will have seamless experience
+            const hasOldSyntax = tomlContent.match(/\{[^}]+\}/);
+            if (hasOldSyntax) {
+                console.warn('[ÆtherLight] Sprint file uses deprecated {text} placeholder syntax.');
+                console.warn('[ÆtherLight] Auto-converting to <text> syntax for compatibility.');
+                console.warn('[ÆtherLight] Please run: node scripts/migrate-sprint-syntax.js to update files permanently.');
+
+                // Replace {text} with <text> in string values only (not in TOML table headers)
+                // Pattern: Matches {anything} inside quoted strings
+                tomlContent = tomlContent.replace(/"([^"]*)\{([^}]+)\}([^"]*)"/g, '"$1<$2>$3"');
+                tomlContent = tomlContent.replace(/'([^']*)\{([^}]+)\}([^']*)'/g, "'$1<$2>$3'");
+                tomlContent = tomlContent.replace(/"""([^"]*)\{([^}]+)\}([^"]*)"""/gs, '"""$1<$2>$3"""');
+            }
 
             // Try to parse TOML - if it fails, help user fix the syntax error
             let data: any;
@@ -520,7 +539,13 @@ required_expertise = []
         for (const [taskKey, taskData] of Object.entries(tasksObj)) {
             const task = taskData as any;
 
+            // FLEXIBLE TOML PASSTHROUGH: Spread all fields from TOML automatically
+            // WHY: Future-proof - new fields added to TOML are automatically parsed
+            // HISTORY: Previously, manual field assignment caused 10 fields to be silently dropped
+            // IMPACT: Document links (enhanced_prompt, questions_doc, etc.) now work
             tasks.push({
+                ...task,  // ✨ FUTURE-PROOF: All TOML fields automatically included
+                // Override only critical fields with defaults (preserve TOML values if present)
                 id: task.id || taskKey,
                 name: task.name || 'Unnamed Task',
                 phase: task.phase || 'Current Sprint',
@@ -531,25 +556,7 @@ required_expertise = []
                 status: task.status || 'pending',
                 agent: task.agent || 'general-purpose',
                 assigned_engineer: task.assigned_engineer || this.currentEngineer,
-                required_expertise: task.required_expertise || [],
-                performance_target: task.performance_target,
-                patterns: task.patterns,
-                deliverables: task.deliverables,
-                completed_date: task.completed_date,
-                files_to_create: task.files_to_create,
-                files_to_modify: task.files_to_modify,
-                validation_criteria: task.validation_criteria,
-                // Enhanced prompt fields (rich task display)
-                why: task.why,
-                context: task.context,
-                reasoning_chain: task.reasoning_chain,
-                pattern_context: task.pattern_context,
-                success_impact: task.success_impact,
-                // Test-related fields (TDD enforcement)
-                error_handling: task.error_handling,
-                test_requirements: task.test_requirements,
-                test_files: task.test_files,
-                test_coverage_requirement: task.test_coverage_requirement
+                required_expertise: task.required_expertise || []
             });
         }
 

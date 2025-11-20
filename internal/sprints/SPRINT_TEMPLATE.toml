@@ -1445,7 +1445,7 @@ Sprint retrospective format:
    - Owner assigned
    - Target completion date
 
-Save to: internal/sprints/retrospectives/SPRINT-{NUMBER}-retrospective.md
+Save to: internal/sprints/retrospectives/SPRINT-<NUMBER>-retrospective.md
 """
 
 [template.retrospective.RETRO-002]

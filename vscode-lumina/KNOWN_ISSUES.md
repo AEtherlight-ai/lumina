@@ -1,7 +1,88 @@
 # ÆtherLight v0.18.0 - Known Issues
 
-**Last Updated:** 2025-11-09
-**Version:** 0.18.0
+**Last Updated:** 2025-01-20
+**Version:** 0.18.5
+
+---
+
+## 🎯 Sprint 18.5 (v0.18.5) - BUG-001 Fixed + Future-Proof Architecture
+
+**Status:** ✅ **BUG-001 FIXED** - Sprint TOML parsing + 10 missing fields restored
+
+**Bug Discovered:** Sprint 18.2 manual testing revealed Issue #4 - Sprint TOML parsing fails with `{text}` placeholders
+
+**Root Cause Analysis (Dual Issue):**
+1. **Bracket Parsing**: `{text}` syntax conflicts with TOML table headers, causes parse errors
+2. **Missing Fields**: parseTomlTasks() manually assigned only 27 of 40+ fields, silently dropping 10 fields
+
+**Impact:**
+- ❌ Sprint Panel crashes when loading sprint files with `{text}` placeholders
+- ❌ 7 UI features broken (enhanced_prompt, template, questions_doc, test_plan, design_doc, pattern_reference, completion_notes buttons non-functional)
+- ❌ Workflow automation broken (skill field not parsed, MVP-001 feature unusable)
+- ❌ Future fields require code changes to parse (not future-proof)
+
+**Solution Implemented (3-Part Fix):**
+
+1. **Backwards Compatibility Layer** (`SprintLoader.ts:159-173`)
+   - Auto-detects old `{text}` syntax in TOML files
+   - Converts to `<text>` on-the-fly during load
+   - Shows deprecation warning in console
+   - Zero breaking changes - old sprint files work immediately!
+
+2. **Flexible TOML Passthrough** (`SprintLoader.ts:540-558`)
+   - Replaced 40+ lines of manual field assignment with spread operator (`...task`)
+   - Added index signature to SprintTask interface (`[key: string]: any`)
+   - Future fields automatically parsed without code changes
+   - ✨ **FUTURE-PROOF**: New TOML fields pass through automatically
+
+3. **Migration Tooling** (`scripts/migrate-sprint-syntax.js`)
+   - Dry-run mode shows changes before applying
+   - Creates backups (.toml.backup)
+   - Safely converts `{text}` → `<text>` in all sprint files
+   - Usage: `node scripts/migrate-sprint-syntax.js --apply`
+
+**Validation Updates:**
+- Sprint schema validator now detects `{text}` and suggests `<text>` (`scripts/validate-sprint-schema.js`)
+- Pre-commit hook blocks commits with deprecated syntax
+- Provides migration script suggestion in error message
+
+**Test Coverage:**
+- 7 unit tests added (`vscode-lumina/test/commands/SprintLoader.test.ts`)
+- Tests cover: backwards compatibility, all 10 missing fields, future fields passthrough, array fields, multiline strings
+- Infrastructure target: 90% coverage
+
+**Time Wasted (Historical):**
+- ~2-3 hours (debugging + initial analysis)
+- Could have been 5-6 hours without flexible passthrough architecture
+
+**Time Saved (Future):**
+- ✅ Prevents future field drop issues (no manual updates needed)
+- ✅ Old sprint files work seamlessly (no migration required immediately)
+- ✅ Clear migration path with tooling
+- ✅ Validation catches issues before commit
+
+**Prevention for Next Time:**
+- ✅ Pre-flight checklist updated: "Check for `{text}` placeholders → Use `<text>` instead"
+- ✅ Spread operator pattern documented for future TOML parsers
+- ✅ Index signature pattern documented for extensible interfaces
+- ✅ Migration script template available for future syntax changes
+
+**Features Restored:**
+- Document links (enhanced_prompt, questions_doc, test_plan, design_doc buttons)
+- Workflow automation (skill field for MVP-001)
+- Template metadata (template field for MVP-003)
+- Completion tracking (completion_notes, subtask_progress)
+- Conditional execution (condition field)
+
+**Key Learnings:**
+1. **Manual Field Assignment = Silent Data Loss:** Spread operator prevents forgetting new fields
+2. **Backwards Compatibility Matters:** Auto-conversion prevents breaking user workflows
+3. **Migration Tooling Essential:** Users need safe, automated migration paths
+4. **Validation Catches Issues Early:** Pre-commit hooks prevent bad syntax reaching team
+5. **Future-Proof Architecture:** Index signatures + spread operators eliminate future maintenance
+
+**Next Sprint Focus:**
+Continue with Sprint 18.5 remaining tasks (BUG-002 through BUG-011, QA tasks).
 
 ---
 

@@ -73,8 +73,8 @@ Implement Dewey decimal-style knowledge map for codebase navigation.
 System knows WHERE to find information (not storing everything):
 - Task definitions: ${config.structure.sprintDir}/ACTIVE_SPRINT.toml
 - Project rules: .claude/CLAUDE.md
-- Patterns: ${config.workflows.patternsDir}
-- Historical issues: ${config.workflows.knownIssuesPath}
+- Patterns: $<config.workflows.patternsDir>
+- Historical issues: $<config.workflows.knownIssuesPath>
 - Current state: git commands
 - Dependencies: TOML task scanning
 
@@ -342,7 +342,7 @@ estimated_lines = 300
 dependencies = ["INTEL-001"]
 
 deliverables = [
-    "Pattern loader (reads from ${config.workflows.patternsDir})",
+    "Pattern loader (reads from $<config.workflows.patternsDir>)",
     "Violation detector (matches task → required patterns)",
     "Blocker generator",
     "Integration with gap detection"

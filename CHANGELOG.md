@@ -19,6 +19,76 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.18.5] - 2025-01-20 - Sprint 18.5: TOML Parsing Bug Fixes + Future-Proof Architecture
+
+### Fixed
+
+#### **BUG-001: Sprint TOML Parsing Error + 10 Missing Fields** (Critical)
+
+**Issue:** Two related problems discovered during Sprint 18.2 manual testing:
+1. Sprint TOML parsing fails with `{text}` placeholder syntax (conflicts with TOML table headers)
+2. SprintLoader silently drops 10 fields (parseTomlTasks manually assigned only 27 of 40+ fields)
+
+**Impact:**
+- Sprint Panel crashes when loading sprint files with `{text}` placeholders
+- 7 UI features broken (enhanced_prompt, template, questions_doc, test_plan, design_doc, pattern_reference, completion_notes buttons non-functional)
+- Workflow automation broken (skill field not parsed, MVP-001 feature unusable)
+- Future fields require code changes to parse (not future-proof)
+
+**Solution (3-Part Fix):**
+
+1. **Backwards Compatibility Layer** (`vscode-lumina/src/commands/SprintLoader.ts:159-173`)
+   - Auto-detects old `{text}` syntax in TOML files
+   - Converts to `<text>` on-the-fly during load
+   - Shows deprecation warning in console
+   - **Zero breaking changes** - old sprint files work immediately!
+   - Migration path: `node scripts/migrate-sprint-syntax.js --apply`
+
+2. **Flexible TOML Passthrough** (`vscode-lumina/src/commands/SprintLoader.ts:540-558`)
+   - Replaced 40+ lines of manual field assignment with spread operator (`...task`)
+   - Added index signature to SprintTask interface (`[key: string]: any`)
+   - **Future-proof**: New TOML fields automatically parsed without code changes
+   - All 10 missing fields now parsed correctly
+
+3. **Migration Tooling** (`scripts/migrate-sprint-syntax.js`)
+   - Dry-run mode shows changes before applying
+   - Creates backups (.toml.backup)
+   - Safely converts `{text}` → `<text>` in all sprint files
+   - Usage: `node scripts/migrate-sprint-syntax.js --apply`
+
+**Validation Updates:**
+- Sprint schema validator detects `{text}` and suggests `<text>` (`scripts/validate-sprint-schema.js`)
+- Pre-commit hook blocks commits with deprecated syntax
+- Provides migration script suggestion in error messages
+
+**Test Coverage:**
+- 7 unit tests added (`vscode-lumina/test/commands/SprintLoader.test.ts`)
+- Tests: backwards compatibility, all 10 missing fields, future fields passthrough, array fields, multiline strings
+- Target: 90% coverage (Infrastructure)
+
+**Fields Restored:**
+- `skill` (MVP-001 workflow automation)
+- `enhanced_prompt` (MVP-003 document path)
+- `template` (MVP-003 template version)
+- `questions_doc`, `test_plan`, `design_doc` (UI-001 document links)
+- `pattern_reference` (pattern doc path)
+- `completion_notes` (completion details)
+- `subtask_progress` (progress tracking)
+- `condition` (conditional execution)
+
+**Time Impact:**
+- Time wasted: ~2-3 hours (debugging + initial analysis)
+- Time saved (future): Prevents future field drop issues, automated migration path
+
+**Key Learnings:**
+- Manual field assignment = silent data loss → Spread operator prevents forgetting new fields
+- Backwards compatibility matters → Auto-conversion prevents breaking user workflows
+- Migration tooling essential → Users need safe, automated migration paths
+- Validation catches issues early → Pre-commit hooks prevent bad syntax reaching team
+- Future-proof architecture → Index signatures + spread operators eliminate future maintenance
+
+---
+
 ## [0.18.3] - 2025-11-19 - Sprint 18.2: Resource Bundling & Desktop Installer Fixes
 
 ### Fixed

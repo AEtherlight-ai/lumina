@@ -231,7 +231,7 @@ Extension: Capture and display\r
 When I receive "export prompt for PROTECT-001":\r
 1. Read TOML from ACTIVE_SPRINT.toml\r
 2. Extract task.created_date or estimate from git log\r
-3. Run: git diff {created_date}..HEAD\r
+3. Run: git diff <created_date>..HEAD\r
 4. Scan completed tasks: grep status = "completed"\r
 5. Check files_to_modify: git status on each file\r
 6. Run tests if mentioned: npm test\r
@@ -384,7 +384,7 @@ Quality of prompts depends on intelligence here.
 
 Architecture:
 1. Load .aetherlight/config.json (project variables)
-2. Read task from ${config.structure.sprintDir}/ACTIVE_SPRINT.toml
+2. Read task from $<config.structure.sprintDir>/ACTIVE_SPRINT.toml
 3. Detect gaps (missing files, dependencies, violations)
 4. Generate questions if gaps found
 5. After user answers → generate final prompt with variables
@@ -397,7 +397,7 @@ Generic design:
 
 reasoning_chain = [
     "1. Load project config (.aetherlight/config.json)",
-    "2. Read task baseline (${config.structure.sprintDir}/ACTIVE_SPRINT.toml)",
+    "2. Read task baseline ($<config.structure.sprintDir>/ACTIVE_SPRINT.toml)",
     "3. Run gap detection:",
     "   - Check task.files_to_modify exist",
     "   - Check task.dependencies completed",
@@ -405,13 +405,13 @@ reasoning_chain = [
     "   - Check pre-flight checklist if editing TOML/config",
     "4. If gaps found:",
     "   - Generate questions (JSON format for 000D modal)",
-    "   - Return: { status: 'needs_clarification', questions: [...] }",
+    "   - Return: < status: 'needs_clarification', questions: [...] >",
     "5. If user provides answers:",
     "   - Incorporate into context",
     "   - Generate final prompt with variables populated",
     "6. If no gaps:",
     "   - Generate prompt immediately",
-    "   - Return: { status: 'ready', prompt: '...' }",
+    "   - Return: < status: 'ready', prompt: '...' >",
     "7. Prompt includes:",
     "   - Task overview (from TOML)",
     "   - Current project state (git diff, completed tasks)",
@@ -510,7 +510,7 @@ Similar pattern to: Sprint Planner, Bug Report, Code Analyzer modals.
 """
 
 reasoning_chain = [
-    "1. Receive message: { type: 'showQuestions', questions: [...] }",
+    "1. Receive message: < type: 'showQuestions', questions: [...] >",
     "2. Create webview panel (modal style)",
     "3. Render first question:",
     "   - Display question text",
@@ -520,7 +520,7 @@ reasoning_chain = [
     "4. User answers → Store answer",
     "5. Click Next → Show next question",
     "6. After all answered → Click 'Generate Prompt'",
-    "7. Send answers back: { type: 'answersComplete', answers: {...} }",
+    "7. Send answers back: < type: 'answersComplete', answers: <...> >",
     "8. Extension calls 000A again with answers",
     "9. Analyzer generates final prompt",
     "10. Close modal, insert prompt to text area"
@@ -890,19 +890,19 @@ Add generateEnhancedPromptFromTemplate(templateTask) method that:
 5. Returns to text area for user review
 
 Template task structure:
-{
+<
   id: 'CODE-ANALYZER-TEMPLATE',
   name: 'Analyze workspace structure',
-  description: 'Analyze ${workspaceRoot} for patterns and recommendations',
+  description: 'Analyze $<workspaceRoot> for patterns and recommendations',
   files_to_modify: ['detected from workspace'],
   patterns: ['Pattern-CODE-001'],
   agent: 'infrastructure-agent',
-  variables: {
+  variables: <
     workspaceRoot: '/path/to/workspace',
     languages: 'TypeScript, Rust',
     frameworks: 'VS Code, Tauri'
-  }
-}
+  >
+>
 
 Buttons that will use this:
 1. Code Analyzer → CODE-ANALYZER-TEMPLATE
@@ -3186,7 +3186,7 @@ Implementation:\r
 6. Fix individual play buttons → same as #5\r
 \r
 All buttons MUST end with:\r
-  webview.postMessage({ type: 'populateTextArea', text: enhancedPrompt });\r
+  webview.postMessage(< type: 'populateTextArea', text: enhancedPrompt >);\r
 \r
 No exceptions. No dialogs. No automatic execution.\r
 """
@@ -3497,7 +3497,7 @@ Implement VariableResolver service with recursive variable substitution:\r
    - Regex pattern for variable matching\r
 \r
 2. Nested variable support:\r
-   - {{A}} resolves to {{B}}, which resolves to "value"\r
+   - {{A}} resolves to <<B>>, which resolves to "value"\r
    - Maximum recursion depth: 10 levels\r
    - Prevents infinite loops\r
 \r
@@ -3532,11 +3532,11 @@ files_to_modify = [
 validation_criteria = [
   "Run: npm test -- VariableResolver.test.ts",
   "Output: All 7 test cases pass",
-  "Test: resolve('{{VAR}}', {VAR: 'test'})",
+  "Test: resolve('{{VAR}}', <VAR: 'test'>)",
   "Output: 'test'",
-  "Test: resolve('{{A}}', {A: '{{B}}', B: 'final'})",
+  "Test: resolve('{<A>}', {A: '<<B>>', B: 'final'})",
   "Output: 'final' (nested resolution)",
-  "Test: resolve('{{UNDEF}}', {})",
+  "Test: resolve('<<UNDEF>>', {})",
   "Output: VariableNotFoundError thrown",
   "Check: Test coverage report",
   "Output: ≥95% coverage (lines, branches, functions)",
@@ -3549,27 +3549,27 @@ validation_criteria = [
 ]
 why = """
 Core infrastructure for template customization.\r
-Without this, we can't substitute {{VARIABLES}} → project-specific values.\r
+Without this, we can't substitute <<VARIABLES>> → project-specific values.\r
 Foundation for making ÆtherLight work with ANY language/framework.\r
 """
 context = """
 Currently: All values hardcoded (npm, TypeScript, .ts extensions).\r
 Need: Generic templates with {{BUILD_COMMAND}}, {{TEST_COMMAND}}, {{FILE_EXTENSION}}.\r
-Solution: VariableResolver that recursively replaces {{VARS}} with config values.\r
+Solution: VariableResolver that recursively replaces {<VARS>} with config values.\r
 \r
 Example transformation:\r
 - Input: "Run {{BUILD_COMMAND}} to build {{FILE_EXTENSION}} files"\r
-- Config: {BUILD_COMMAND: "cargo build", FILE_EXTENSION: ".rs"}\r
+- Config: <BUILD_COMMAND: "cargo build", FILE_EXTENSION: ".rs">\r
 - Output: "Run cargo build to build .rs files"\r
 \r
-Supports nested variables: {{A}} → {{B}} → "final value"\r
-Detects circular references: {{A}} → {{B}} → {{A}} → ERROR\r
+Supports nested variables: {{A}} → {<B>} → "final value"\r
+Detects circular references: {{A}} → {{B}} → <<A>> → ERROR\r
 """
 reasoning_chain = [
-  "1. User generates config: {BUILD_COMMAND: 'npm run build'}",
-  "2. Template has: 'Run {{BUILD_COMMAND}} to compile'",
+  "1. User generates config: <BUILD_COMMAND: 'npm run build'>",
+  "2. Template has: 'Run <<BUILD_COMMAND>> to compile'",
   "3. VariableResolver.resolve(template, config) called",
-  "4. Regex finds {{BUILD_COMMAND}} match",
+  "4. Regex finds {<BUILD_COMMAND>} match",
   "5. Lookup in config: BUILD_COMMAND = 'npm run build'",
   "6. Replace match: 'Run npm run build to compile'",
   "7. Check for nested variables in replacement",
@@ -3580,7 +3580,7 @@ reasoning_chain = [
 success_impact = """
 After SELF-001 complete:\r
 ✅ Variable substitution works ({{VAR}} → value)\r
-✅ Nested variables work ({{A}} → {{B}} → value)\r
+✅ Nested variables work ({<A>} → <<B>> → value)\r
 ✅ Circular references detected (prevents infinite loops)\r
 ✅ Error messages clear and actionable\r
 ✅ 95% test coverage (infrastructure standard)\r
@@ -3618,11 +3618,11 @@ files_to_modify = [
 validation_criteria = [
   "Run: npm test -- ProjectConfigGenerator.test.ts",
   "Output: All 7 test cases pass",
-  "Test: generate({language: 'typescript'}, {})",
+  "Test: generate(<language: 'typescript'>, {})",
   "Output: Valid config with defaults applied",
   "Test: generate({}, {})",
   "Output: MissingRequiredFieldError thrown",
-  "Test: generate({language: 'rust'}, {buildCommand: 'cargo build'})",
+  "Test: generate(<language: 'rust'>, <buildCommand: 'cargo build'>)",
   "Output: Interview override wins (BUILD_COMMAND: 'cargo build')",
   "Check: Test coverage report",
   "Output: ≥90% coverage"
@@ -3643,17 +3643,17 @@ Input sources:\r
 \r
 Output: project-config.json\r
 - Validated against schema (SELF-003)\r
-- Contains all {{VARIABLES}} for templates\r
+- Contains all <<VARIABLES>> for templates\r
 - Drives VariableResolver (SELF-001)\r
 \r
 Example flow:\r
 - Detected: TypeScript + Jest + npm\r
 - Interview: user prefers 'npm run build:prod' over 'npm run build'\r
-- Generated: {BUILD_COMMAND: 'npm run build:prod', TEST_COMMAND: 'npm test', FILE_EXTENSION: '.ts'}\r
+- Generated: <BUILD_COMMAND: 'npm run build:prod', TEST_COMMAND: 'npm test', FILE_EXTENSION: '.ts'>\r
 """
 reasoning_chain = [
-  "1. Detection phase completes: {language: 'typescript', packageManager: 'npm'}",
-  "2. Interview phase completes: {buildCommand: 'npm run build:prod'}",
+  "1. Detection phase completes: <language: 'typescript', packageManager: 'npm'>",
+  "2. Interview phase completes: <buildCommand: 'npm run build:prod'>",
   "3. ProjectConfigGenerator.generate(detection, interview) called",
   "4. Merge detection + interview:",
   "   - language: 'typescript' (detected)",
@@ -3747,7 +3747,7 @@ Schema references:\r
 - json-schema-to-typescript for TypeScript generation\r
 """
 reasoning_chain = [
-  "1. Review all variables used in templates (grep {{VAR}} across codebase)",
+  "1. Review all variables used in templates (grep <<VAR>> across codebase)",
   "2. Categorize variables: language config, build/test commands, paths, framework-specific",
   "3. Define schema structure:",
   "   - required: [language, packageManager]",
@@ -3969,20 +3969,20 @@ Interview flow:\r
 \r
 Example interview template:\r
 ```json\r
-{\r
+<\r
   "questions": [\r
     {\r
       "type": "input",\r
       "name": "BUILD_COMMAND",\r
       "message": "What command builds your project?",\r
       "default": "npm run build"\r
-    },\r
-    {\r
+    >,\r
+    <\r
       "type": "list",\r
       "name": "packageManager",\r
       "message": "Which package manager?",\r
       "choices": ["npm", "yarn", "pnpm"]\r
-    }\r
+    >\r
   ]\r
 }\r
 ```\r
@@ -4096,7 +4096,7 @@ Test scenarios:\r
    - Error message is clear and actionable\r
 \r
 3. **Error case: Missing variable**\r
-   - Template contains {{UNKNOWN_VAR}}\r
+   - Template contains <<UNKNOWN_VAR>>\r
    - VariableResolver throws MissingVariableError\r
    - Error message shows available variables\r
 \r
@@ -4120,21 +4120,21 @@ reasoning_chain = [
   "2. Setup test fixtures:",
   "   - Sample detection results (TypeScript + npm)",
   "   - Sample interview answers (BUILD_COMMAND: 'npm run build:prod')",
-  "   - Sample template with {{variables}}",
+  "   - Sample template with {<variables>}",
   "3. Test 1: Happy path (full workflow)",
   "   - Mock TechStackDetector.detect() → detectionResults",
   "   - Mock InterviewEngine.run() → interviewAnswers",
   "   - Call ProjectConfigGenerator.generate(detection, interview) → config",
   "   - Validate config against schema → passes",
   "   - Call VariableResolver.resolve(template, config) → resolved",
-  "   - Assert: {{BUILD_COMMAND}} replaced with 'npm run build:prod'",
+  "   - Assert: <<BUILD_COMMAND>> replaced with 'npm run build:prod'",
   "4. Test 2: Invalid schema",
   "   - Mock detection with missing 'language' field",
   "   - Call ProjectConfigGenerator.generate()",
   "   - Assert: ValidationError thrown",
   "   - Assert: Error message mentions 'language' field required",
   "5. Test 3: Missing variable",
-  "   - Template contains {{UNKNOWN_VAR}}",
+  "   - Template contains <<UNKNOWN_VAR>>",
   "   - Call VariableResolver.resolve()",
   "   - Assert: MissingVariableError thrown",
   "   - Assert: Error message lists available variables",
@@ -4193,13 +4193,13 @@ validation_criteria = [
   "Run: npm test -- TechStackDetector.test.ts",
   "Output: All tests pass (90% coverage)",
   "Test: Detect Node.js project (package.json present)",
-  "Output: {language: 'javascript', packageManager: 'npm'}",
+  "Output: <language: 'javascript', packageManager: 'npm'>",
   "Test: Detect TypeScript project (tsconfig.json present)",
-  "Output: {language: 'typescript', packageManager: 'npm'}",
+  "Output: <language: 'typescript', packageManager: 'npm'>",
   "Test: Detect Rust project (Cargo.toml present)",
-  "Output: {language: 'rust', packageManager: 'cargo'}",
+  "Output: <language: 'rust', packageManager: 'cargo'>",
   "Test: Detect React framework (react in dependencies)",
-  "Output: {framework: 'react'}",
+  "Output: <framework: 'react'>",
   "Test: Performance benchmark",
   "Output: Detection completes in <200ms"
 ]
@@ -4248,7 +4248,7 @@ reasoning_chain = [
   "1. Create TechStackDetector.ts service",
   "2. Implement detect() method:",
   "   - Input: workspace root path",
-  "   - Output: DetectionResults {language, framework, packageManager, confidence}",
+  "   - Output: DetectionResults <language, framework, packageManager, confidence>",
   "3. Scan workspace for indicator files:",
   "   - fs.existsSync('package.json')",
   "   - fs.existsSync('Cargo.toml')",
@@ -4318,11 +4318,11 @@ validation_criteria = [
   "Run: npm test -- ToolDetector.test.ts",
   "Output: All tests pass (90% coverage)",
   "Test: Detect Jest (jest in devDependencies)",
-  "Output: {testFramework: 'jest', TEST_COMMAND: 'npm test'}",
+  "Output: <testFramework: 'jest', TEST_COMMAND: 'npm test'>",
   "Test: Detect webpack (webpack in devDependencies)",
-  "Output: {buildTool: 'webpack', BUILD_COMMAND: 'npm run build'}",
+  "Output: <buildTool: 'webpack', BUILD_COMMAND: 'npm run build'>",
   "Test: Detect ESLint (eslint in devDependencies)",
-  "Output: {linter: 'eslint', LINT_COMMAND: 'npm run lint'}",
+  "Output: <linter: 'eslint', LINT_COMMAND: 'npm run lint'>",
   "Test: Extract custom script from package.json",
   "Output: BUILD_COMMAND = 'npm run build:prod' (from scripts.build:prod)",
   "Test: Performance benchmark",
@@ -4330,7 +4330,7 @@ validation_criteria = [
 ]
 why = """
 Auto-detect tools (package manager, test framework, build system).\r
-Enables accurate {{TOOL_COMMAND}} substitution.\r
+Enables accurate <<TOOL_COMMAND>> substitution.\r
 \r
 Without ToolDetector: Templates use generic commands ("npm test").\r
 With ToolDetector: Templates use project-specific commands ("npm run test:unit").\r
@@ -4373,7 +4373,7 @@ reasoning_chain = [
   "1. Create ToolDetector.ts service",
   "2. Implement detect() method:",
   "   - Input: workspace root path",
-  "   - Output: ToolDetectionResults {buildTool, testFramework, linter, commands}",
+  "   - Output: ToolDetectionResults <buildTool, testFramework, linter, commands>",
   "3. Detect build tools:",
   "   - Check package.json devDependencies for 'webpack', 'vite', 'rollup'",
   "   - Check for config files (webpack.config.js, vite.config.ts)",
@@ -4410,7 +4410,7 @@ After SELF-007 complete:\r
 ✅ Extract commands from package.json scripts\r
 ✅ Performance target met (<150ms)\r
 ✅ 90% test coverage (infrastructure standard)\r
-✅ Accurate {{BUILD_COMMAND}}, {{TEST_COMMAND}} substitution\r
+✅ Accurate {<BUILD_COMMAND>}, <<TEST_COMMAND>> substitution\r
 ✅ Ready for ProjectConfigGenerator integration\r
 """
 
@@ -4444,13 +4444,13 @@ validation_criteria = [
   "Run: npm test -- WorkflowDetector.test.ts",
   "Output: All tests pass (85% coverage)",
   "Test: Detect TDD (test directory + test command present)",
-  "Output: {tdd: true, testDirectory: 'test/'}",
+  "Output: <tdd: true, testDirectory: 'test/'>",
   "Test: Detect GitHub Actions (.github/workflows/*.yml)",
-  "Output: {cicd: 'github-actions', workflows: ['ci.yml', 'deploy.yml']}",
+  "Output: <cicd: 'github-actions', workflows: ['ci.yml', 'deploy.yml']>",
   "Test: Detect pre-commit hooks (husky in devDeps)",
-  "Output: {preCommitHooks: true, hookTool: 'husky'}",
+  "Output: <preCommitHooks: true, hookTool: 'husky'>",
   "Test: Detect Git Flow (.git/config has gitflow)",
-  "Output: {gitWorkflow: 'git-flow'}",
+  "Output: <gitWorkflow: 'git-flow'>",
   "Test: Performance benchmark",
   "Output: Detection completes in <100ms"
 ]
@@ -4497,7 +4497,7 @@ reasoning_chain = [
   "1. Create WorkflowDetector.ts service",
   "2. Implement detect() method:",
   "   - Input: workspace root path",
-  "   - Output: WorkflowDetectionResults {tdd, gitWorkflow, cicd, preCommitHooks}",
+  "   - Output: WorkflowDetectionResults <tdd, gitWorkflow, cicd, preCommitHooks>",
   "3. Detect TDD workflow:",
   "   - Check for test/ or spec/ or __tests__ directory",
   "   - Check package.json scripts.test",
@@ -4571,13 +4571,13 @@ validation_criteria = [
   "Run: npm test -- DomainDetector.test.ts",
   "Output: All tests pass (85% coverage)",
   "Test: Detect CLI domain (bin field in package.json)",
-  "Output: {domain: 'software-dev', subType: 'cli'}",
+  "Output: <domain: 'software-dev', subType: 'cli'>",
   "Test: Detect web app (react in dependencies)",
-  "Output: {domain: 'software-dev', subType: 'web'}",
+  "Output: <domain: 'software-dev', subType: 'web'>",
   "Test: Detect desktop app (tauri in dependencies)",
-  "Output: {domain: 'software-dev', subType: 'desktop'}",
+  "Output: <domain: 'software-dev', subType: 'desktop'>",
   "Test: Detect library (no dependencies, only devDependencies)",
-  "Output: {domain: 'software-dev', subType: 'library'}",
+  "Output: <domain: 'software-dev', subType: 'library'>",
   "Test: Performance benchmark",
   "Output: Detection completes in <100ms"
 ]
@@ -4626,7 +4626,7 @@ reasoning_chain = [
   "1. Create DomainDetector.ts service",
   "2. Implement detect() method:",
   "   - Input: workspace root path",
-  "   - Output: DomainDetectionResults {domain, subType, confidence}",
+  "   - Output: DomainDetectionResults <domain, subType, confidence>",
   "3. Analyze package.json:",
   "   - Check 'bin' field → CLI domain",
   "   - Check dependencies for web frameworks → Web domain",
@@ -4757,19 +4757,19 @@ reasoning_chain = [
   "   - Mock Rust project (Cargo.toml, src/, tests/)",
   "   - Mock Python project (setup.py, requirements.txt, tests/)",
   "3. Test 1: Node.js detection pipeline",
-  "   - Run TechStackDetector → {language: 'typescript', packageManager: 'npm'}",
-  "   - Run ToolDetector → {buildTool: 'webpack', testFramework: 'jest'}",
-  "   - Run WorkflowDetector → {tdd: true, cicd: 'github-actions'}",
-  "   - Run DomainDetector → {domain: 'software-dev', subType: 'web'}",
+  "   - Run TechStackDetector → <language: 'typescript', packageManager: 'npm'>",
+  "   - Run ToolDetector → <buildTool: 'webpack', testFramework: 'jest'>",
+  "   - Run WorkflowDetector → <tdd: true, cicd: 'github-actions'>",
+  "   - Run DomainDetector → <domain: 'software-dev', subType: 'web'>",
   "   - Assert: All results correct and complete",
   "4. Test 2: Rust detection pipeline",
   "   - Similar to Test 1 but for Rust project",
   "5. Test 3: Python detection pipeline",
   "   - Similar to Test 1 but for Python project",
   "6. Test 4: Error cases",
-  "   - Missing package.json → TechStackDetector returns {confidence: 0.0}",
+  "   - Missing package.json → TechStackDetector returns <confidence: 0.0>",
   "   - Invalid Cargo.toml → ToolDetector handles error gracefully",
-  "   - No test directory → WorkflowDetector returns {tdd: false}",
+  "   - No test directory → WorkflowDetector returns <tdd: false>",
   "7. Test 5: Performance",
   "   - Run full pipeline 100 times",
   "   - Calculate average time",
@@ -4865,7 +4865,7 @@ Interview strategy:\r
 \r
 Example interview template (project-initialization.json):\r
 ```json\r
-{\r
+<\r
   "questions": [\r
     {\r
       "name": "language",\r
@@ -4873,14 +4873,14 @@ Example interview template (project-initialization.json):\r
       "message": "Which language?",\r
       "choices": ["typescript", "javascript", "rust", "python"],\r
       "when": "detection.language.confidence < 0.8"\r
-    },\r
-    {\r
+    >,\r
+    <\r
       "name": "BUILD_COMMAND",\r
       "type": "input",\r
       "message": "Build command?",\r
       "default": "npm run build",\r
       "when": "!detection.toolDetection.BUILD_COMMAND"\r
-    }\r
+    >\r
   ]\r
 }\r
 ```\r
@@ -5052,7 +5052,7 @@ reasoning_chain = [
   "   - Check if .aetherlight/ exists, create if not",
   "   - Write JSON.stringify(config, null, 2) to .aetherlight/project-config.json",
   "8. Step 6: Show success message",
-  "   - Log: 'ÆtherLight configured for {language} + {testFramework}'",
+  "   - Log: 'ÆtherLight configured for <language> + <testFramework>'",
   "   - Log: 'Config saved to .aetherlight/project-config.json'",
   "9. Error handling:",
   "   - Detection fails → Show warning, continue with interview",
@@ -5084,7 +5084,7 @@ phase = "phase-4-interview"
 assigned_engineer = "engineer_1"
 status = "completed"
 completed_date = "2025-11-07"
-description = "Implement TemplateCustomizer service: load generic templates from .aetherlight/templates/, substitute {{VARIABLES}} using VariableResolver (SELF-001), write customized files to workspace. Applies to CLAUDE.md, skills, agent contexts. Batch processing for multiple templates. 90% coverage."
+description = "Implement TemplateCustomizer service: load generic templates from .aetherlight/templates/, substitute {<VARIABLES>} using VariableResolver (SELF-001), write customized files to workspace. Applies to CLAUDE.md, skills, agent contexts. Batch processing for multiple templates. 90% coverage."
 estimated_lines = 500
 estimated_time = "8-10 hours"
 dependencies = [ "SELF-001" ]
@@ -5108,22 +5108,22 @@ validation_criteria = [
   "Run: npm test -- TemplateCustomizer.test.ts",
   "Output: All tests pass (90% coverage)",
   "Test: Customize single template (CLAUDE.md)",
-  "Output: {{BUILD_COMMAND}} replaced with 'npm run build'",
+  "Output: <<BUILD_COMMAND>> replaced with 'npm run build'",
   "Test: Customize multiple templates (batch)",
   "Output: All templates customized successfully",
   "Test: Missing variable in template",
   "Output: MissingVariableError thrown with variable name",
-  "Test: Invalid template (malformed {{VAR)",
+  "Test: Invalid template (malformed {<VAR)",
   "Output: TemplateError thrown with clear message",
   "Test: Performance benchmark",
   "Output: Customization completes in <50ms per template"
 ]
 why = """
-Load generic templates, substitute {{VARIABLES}}, write customized files.\r
+Load generic templates, substitute {{VARIABLES>}, write customized files.\r
 Applies to CLAUDE.md, skills, agent contexts.\r
 \r
 Without TemplateCustomizer: Templates are generic, not project-specific.\r
-With TemplateCustomizer: Templates adapt to project ({{BUILD_COMMAND}} becomes 'cargo build' for Rust).\r
+With TemplateCustomizer: Templates adapt to project (<<BUILD_COMMAND>> becomes 'cargo build' for Rust).\r
 """
 context = """
 TemplateCustomizer applies self-configuration to template files.\r
@@ -5154,7 +5154,7 @@ Example template (CLAUDE.md.template):\r
 \r
 **Build Command:** {{BUILD_COMMAND}}\r
 **Test Command:** {{TEST_COMMAND}}\r
-**Language:** {{LANGUAGE}}\r
+**Language:** <<LANGUAGE>>\r
 ```\r
 \r
 After customization (CLAUDE.md):\r
@@ -5180,7 +5180,7 @@ reasoning_chain = [
   "   - Handle missing file error",
   "4. Step 2: Resolve variables",
   "   - Call VariableResolver.resolve(templateContent, projectConfig)",
-  "   - Get resolved content with {{VAR}} replaced",
+  "   - Get resolved content with {<VAR>} replaced",
   "   - Handle MissingVariableError",
   "5. Step 3: Write customized file",
   "   - Determine output path (.claude/CLAUDE.md)",
@@ -5199,7 +5199,7 @@ reasoning_chain = [
   "   - Missing variable → MissingVariableError with helpful message",
   "   - Invalid template syntax → TemplateError with line number",
   "8. Write tests (TDD):",
-  "   - Mock template with {{VAR}} → resolves correctly",
+  "   - Mock template with {<VAR>} → resolves correctly",
   "   - Mock multiple templates → batch customization works",
   "   - Mock missing variable → error with variable name",
   "   - Mock invalid syntax → error with line number",
@@ -5249,7 +5249,7 @@ files_to_modify = [
 validation_criteria = [
   "Run: npm test -- variableResolution.test.ts",
   "Output: All tests pass (85% coverage)",
-  "Test: Detect missing variable {{DEPLOY_TARGET}}",
+  "Test: Detect missing variable <<DEPLOY_TARGET>>",
   "Output: Interview question generated dynamically",
   "Test: User provides value 'production'",
   "Output: Config updated with DEPLOY_TARGET: 'production'",
@@ -5297,12 +5297,12 @@ Workflow:\r
    - Templates now complete (all variables resolved)\r
 \r
 Example:\r
-- Template contains {{DEPLOY_TARGET}}\r
+- Template contains <<DEPLOY_TARGET>>\r
 - VariableResolver throws MissingVariableError(['DEPLOY_TARGET'])\r
 - Generate question: "What is your deploy target? (staging, production, dev)"\r
 - User answers: "production"\r
-- Update config: {DEPLOY_TARGET: 'production'}\r
-- Re-run customization: {{DEPLOY_TARGET}} → 'production'\r
+- Update config: <DEPLOY_TARGET: 'production'>\r
+- Re-run customization: {<DEPLOY_TARGET>} → 'production'\r
 \r
 Related services:\r
 - VariableResolver (SELF-001) - Detects missing variables\r
@@ -5423,7 +5423,7 @@ Test scenarios:\r
    - Validation: Existing config preserved\r
 \r
 3. **Missing Variable Resolution**\r
-   - Template contains {{CUSTOM_VAR}}\r
+   - Template contains <<CUSTOM_VAR>>\r
    - Init flow runs\r
    - VariableResolver throws MissingVariableError\r
    - Dynamic interview triggered\r
@@ -5468,7 +5468,7 @@ reasoning_chain = [
   "   - Assert: Config merges detection + interview",
   "   - Assert: Existing files preserved",
   "5. Test 3: Missing variable resolution",
-  "   - Template contains {{DEPLOY_TARGET}}",
+  "   - Template contains <<DEPLOY_TARGET>>",
   "   - Run init command",
   "   - MissingVariableError thrown",
   "   - Mock dynamic interview",
@@ -5610,7 +5610,7 @@ reasoning_chain = [
   "   - Show files to be modified",
   "4. Implement confirmUpgrade() method:",
   "   - Use inquirer.confirm()",
-  "   - Prompt user: 'Upgrade to v{version}? [Y/n]'",
+  "   - Prompt user: 'Upgrade to v<version>? [Y/n]'",
   "   - Return user confirmation",
   "5. Implement runUpgrade() method:",
   "   - Step 1: Create backup (BackupRollback.backup())",
@@ -5674,11 +5674,11 @@ validation_criteria = [
   "Run: npm test -- VersionTracker.test.ts",
   "Output: All tests pass (90% coverage)",
   "Test: Get current version from version.json",
-  "Output: {version: '1.0.0', installed: '2025-01-15'}",
+  "Output: <version: '1.0.0', installed: '2025-01-15'>",
   "Test: Get latest version from npm registry",
-  "Output: {version: '2.0.0', publishedAt: '2025-02-01'}",
+  "Output: <version: '2.0.0', publishedAt: '2025-02-01'>",
   "Test: Compare versions (1.0.0 vs 2.0.0)",
-  "Output: {updateAvailable: true, changeType: 'major'}",
+  "Output: <updateAvailable: true, changeType: 'major'>",
   "Test: Set version (update version.json)",
   "Output: version.json updated with new version",
   "Test: Performance (local check)",
@@ -5696,12 +5696,12 @@ VersionTracker manages ÆtherLight version in user projects.\r
 \r
 version.json format (.aetherlight/version.json):\r
 ```json\r
-{\r
+<\r
   "version": "1.0.0",\r
   "installedAt": "2025-01-15T10:30:00Z",\r
   "configVersion": "1",\r
   "schemaVersion": "v1"\r
-}\r
+>\r
 ```\r
 \r
 Methods:\r
@@ -5725,17 +5725,17 @@ reasoning_chain = [
   "2. Implement getCurrentVersion() method:",
   "   - Read .aetherlight/version.json",
   "   - Parse JSON",
-  "   - Return {version, installedAt, configVersion}",
+  "   - Return <version, installedAt, configVersion>",
   "   - If file missing, return null",
   "3. Implement getLatestVersion() method:",
   "   - Fetch from npm registry: npm view aetherlight version",
   "   - Or: Fetch from GitHub releases API",
   "   - Parse version",
-  "   - Return {version, publishedAt}",
+  "   - Return <version, publishedAt>",
   "4. Implement compareVersions() method:",
   "   - Use semver library: semver.compare(v1, v2)",
   "   - Determine change type: major/minor/patch",
-  "   - Return {updateAvailable, changeType, currentVersion, latestVersion}",
+  "   - Return <updateAvailable, changeType, currentVersion, latestVersion>",
   "5. Implement setVersion() method:",
   "   - Create version.json object",
   "   - Write to .aetherlight/version.json",
@@ -5801,7 +5801,7 @@ validation_criteria = [
   "Run: npm test -- ConfigMigration.test.ts",
   "Output: All tests pass (90% coverage)",
   "Test: Detect old config format (v1)",
-  "Output: {version: 'v1', path: '.claude/config.json'}",
+  "Output: <version: 'v1', path: '.claude/config.json'>",
   "Test: Migrate v1 → v2",
   "Output: project-config.json created, customizations preserved",
   "Test: Preserve user customizations",
@@ -5834,23 +5834,23 @@ Migration paths:\r
 \r
 Example v1 config (.claude/config.json):\r
 ```json\r
-{\r
+<\r
   "buildCommand": "npm run build:prod",\r
   "testCommand": "npm run test:unit",\r
   "language": "typescript"\r
-}\r
+>\r
 ```\r
 \r
 Example v2 config (.aetherlight/project-config.json):\r
 ```json\r
-{\r
+<\r
   "language": "typescript",\r
   "BUILD_COMMAND": "npm run build:prod",\r
   "TEST_COMMAND": "npm run test:unit",\r
   "packageManager": "npm",\r
   "configVersion": "2",\r
   "schemaVersion": "v1"\r
-}\r
+>\r
 ```\r
 \r
 Migration process:\r
@@ -5873,7 +5873,7 @@ reasoning_chain = [
   "2. Implement detectOldConfig() method:",
   "   - Check for .claude/config.json (v1)",
   "   - Check for other old formats",
-  "   - Return {version, path, config}",
+  "   - Return <version, path, config>",
   "3. Implement migrate() method:",
   "   - Input: oldConfig, oldVersion",
   "   - Output: newConfig (project-config.json format)",
@@ -6013,7 +6013,7 @@ reasoning_chain = [
   "2. Implement backup() method:",
   "   - Input: backupName (e.g., 'pre-upgrade-v2.0.0')",
   "   - Output: backupPath",
-  "   - Create backup directory: .aetherlight/backups/{backupName}/",
+  "   - Create backup directory: .aetherlight/backups/<backupName>/",
   "   - Copy project-config.json",
   "   - Copy version.json",
   "   - Copy customized templates (CLAUDE.md, skills, agents)",
@@ -6652,7 +6652,7 @@ Self-configuration documentation covers 3 main areas:\r
      - Default value\r
      - Example (realistic usage)\r
      - Related variables (cross-references)\r
-   - Variable resolution rules ({{VAR}} syntax, fallbacks)\r
+   - Variable resolution rules (<<VAR>> syntax, fallbacks)\r
 \r
 3. **Domain Creation Guide** (docs/creating-domains-guide.md):\r
    - What are domains? (language/framework-specific configs)\r
