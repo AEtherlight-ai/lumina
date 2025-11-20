@@ -549,6 +549,74 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 this._handleMessage({ type: 'startRecording', target }, webviewView.webview);
             }, 500); // 500ms delay for webview render
         }
+
+        /**
+         * BUG-003 FIX: Show welcome message on FIRST Voice Panel open
+         * WHY: Old logic sent message 3s after extension activation, before panel opened
+         * ROOT CAUSE: Welcome sent when this._view was undefined → message lost
+         * SOLUTION: Send welcome when panel actually opens (webview exists)
+         *
+         * REASONING CHAIN:
+         * 1. User opens Voice Panel for first time → resolveWebviewView() called
+         * 2. Check hasSeenWelcome flag (workspace config)
+         * 3. If false → Build welcome message, wait for webview render
+         * 4. Send welcome message after 500ms (same pattern as startRecording)
+         * 5. Mark as seen so welcome only shows once
+         *
+         * PATTERN: Pattern-UX-001 (Non-intrusive, one-time guidance)
+         */
+        const config = vscode.workspace.getConfiguration('aetherlight');
+        const hasSeenWelcome = config.get<boolean>('hasSeenWelcome', false);
+
+        if (!hasSeenWelcome) {
+            // Get current extension version
+            const currentVersion = this._context.extension.packageJSON.version;
+
+            // Build welcome message template (same as ResourceSyncManager)
+            const welcomeContent = `# 🚀 Welcome to ÆtherLight v${currentVersion}!
+
+## ✨ What's New
+- 16 reusable skills (protect, publish, sprint-plan, etc.)
+- 14 agent contexts (planning, infrastructure, docs, etc.)
+- 86 patterns for consistent development
+
+## 📥 Getting Started
+Your workspace needs these resources to work properly.
+
+**👉 Run this command now:**
+1. Open Command Palette (Cmd+Shift+P / Ctrl+Shift+P)
+2. Type: "ÆtherLight: Sync Bundled Resources"
+3. Press Enter
+
+Or click the "Sync Now" button in the notification above.
+
+## 🔍 Verify Installation
+After syncing, you should see:
+- \`.claude/skills/\` - 16 skill directories
+- \`internal/agents/\` - 14 agent markdown files
+- \`docs/patterns/\` - 86 pattern markdown files
+`;
+
+            // Wait for webview to fully render (same 500ms as startRecording)
+            setTimeout(async () => {
+                try {
+                    // BUG-003 DEBUG: Log welcome message attempt
+                    console.log('[ÆtherLight] BUG-003: Sending welcome message to webview');
+
+                    // Send welcome message directly to webview
+                    this.postWelcomeMessage(welcomeContent);
+
+                    // Mark as seen (only after successful send)
+                    await config.update('hasSeenWelcome', true, vscode.ConfigurationTarget.Workspace);
+                    console.log('[ÆtherLight] BUG-003: Welcome message sent, flag set to true');
+                } catch (error) {
+                    console.error('[ÆtherLight] BUG-003: Failed to send welcome message:', error);
+                    // Don't set flag if message wasn't sent successfully
+                }
+            }, 500); // 500ms delay for webview render
+        } else {
+            console.log('[ÆtherLight] BUG-003: Skipped welcome message (hasSeenWelcome=true)');
+        }
     }
 
     /**
@@ -1065,14 +1133,10 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 // Ensure ÆtherLight terminal exists and show in main editor view
                 let aetherlightTerminal = vscode.window.terminals.find(t => t.name === 'ÆtherLight Claude');
                 if (!aetherlightTerminal) {
+                    // MAC-001: Use VS Code's default shell instead of hardcoding PowerShell
+                    // This enables cross-platform compatibility (Windows/Mac/Linux)
                     aetherlightTerminal = vscode.window.createTerminal({
                         name: 'ÆtherLight Claude',
-                        shellPath: 'powershell.exe',
-                        shellArgs: [
-                            '-NoExit',
-                            '-Command',
-                            '& { Write-Host "ÆtherLight Terminal Ready 🎤" -ForegroundColor Cyan }'
-                        ],
                         location: vscode.TerminalLocation.Editor // Show in main editor area
                     });
                     // Show the terminal to make it visible

@@ -141,56 +141,28 @@ export class ResourceSyncManager {
      * Pattern-UX-001: Non-modal, one-time guidance
      */
     public static async showFirstLaunchWelcome(context: vscode.ExtensionContext): Promise<void> {
-        const config = vscode.workspace.getConfiguration('aetherlight');
-        const hasSeenWelcome = config.get<boolean>('hasSeenWelcome', false);
-
-        // Check: Already seen welcome message
-        if (hasSeenWelcome) {
-            console.log('[ÆtherLight] Skipped welcome message (already seen)');
-            return;
-        }
-
-        // Get current extension version
-        const currentVersion = context.extension.packageJSON.version;
-
-        // Build welcome message template
-        const welcomeContent = `# 🚀 Welcome to ÆtherLight v${currentVersion}!
-
-## ✨ What's New
-- 16 reusable skills (protect, publish, sprint-plan, etc.)
-- 14 agent contexts (planning, infrastructure, docs, etc.)
-- 86 patterns for consistent development
-
-## 📥 Getting Started
-Your workspace needs these resources to work properly.
-
-**👉 Run this command now:**
-1. Open Command Palette (Cmd+Shift+P / Ctrl+Shift+P)
-2. Type: "ÆtherLight: Sync Bundled Resources"
-3. Press Enter
-
-Or click the "Sync Now" button in the notification above.
-
-## 🔍 Verify Installation
-After syncing, you should see:
-- \`.claude/skills/\` - 16 skill directories
-- \`internal/agents/\` - 14 agent markdown files
-- \`docs/patterns/\` - 86 pattern markdown files
-`;
-
-        // Execute command to insert welcome text (voice panel will handle)
-        // Wait 3 seconds after activation to ensure voice panel is ready
-        setTimeout(async () => {
-            try {
-                await vscode.commands.executeCommand('aetherlight.insertWelcomeText', welcomeContent);
-
-                // Mark as seen (only after successful execution)
-                await config.update('hasSeenWelcome', true, vscode.ConfigurationTarget.Workspace);
-                console.log('[ÆtherLight] First-launch welcome message sent');
-            } catch (error) {
-                console.log('[ÆtherLight] Could not send welcome message (voice panel not ready):', error);
-                // Don't set flag if message wasn't sent successfully
-            }
-        }, 3000);
+        /**
+         * BUG-003 FIX: Welcome message logic moved to VoiceViewProvider.resolveWebviewView()
+         *
+         * OLD BEHAVIOR (BROKEN):
+         * - Timer sent message 3 seconds after extension activation
+         * - If user didn't open Voice Panel within 3s → this._view undefined → message lost
+         * - hasSeenWelcome flag set to true even though message was never shown
+         * - Result: Welcome message never appears for users
+         *
+         * ROOT CAUSE:
+         * - Welcome sent before Voice Panel webview existed
+         * - postWelcomeMessage() silently failed (if !this._view)
+         * - Flag incorrectly marked as seen
+         *
+         * NEW BEHAVIOR (FIXED):
+         * - Welcome message sent when Voice Panel is FIRST OPENED
+         * - Logic in VoiceViewProvider.resolveWebviewView() (voicePanel.ts:553-619)
+         * - Webview guaranteed to exist when message is sent
+         * - Flag only set after successful message display
+         *
+         * This method is now a no-op. Keeping for backwards compatibility.
+         */
+        console.log('[ÆtherLight] BUG-003: showFirstLaunchWelcome called (logic moved to VoiceViewProvider)');
     }
 }
