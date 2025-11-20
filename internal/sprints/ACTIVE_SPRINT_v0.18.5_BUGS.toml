@@ -66,10 +66,10 @@ daily_capacity_hours = 8
 
 [progress]
 total_tasks = 38
-completed_tasks = 0
+completed_tasks = 5
 in_progress_tasks = 0
-pending_tasks = 38
-completion_percentage = 0
+pending_tasks = 33
+completion_percentage = 13.2
 
 # ==============================================================================
 # FEATURE TASKS - Critical Bug Fixes from Sprint 18.2 Testing
@@ -78,7 +78,7 @@ completion_percentage = 0
 [tasks.BUG-001]
 id = "BUG-001"
 name = "Fix Sprint TOML parsing error (brackets in templates)"
-status = "pending"
+status = "completed"
 phase = "critical-bugfix"
 agent = "infrastructure-agent"
 
@@ -235,7 +235,7 @@ dependencies = []
 [tasks.BUG-002]
 id = "BUG-002"
 name = "Fix 'Start This Task' template loading (text area empty)"
-status = "pending"
+status = "completed"
 phase = "critical-bugfix"
 agent = "ui-agent"
 
@@ -363,7 +363,7 @@ dependencies = []
 [tasks.BUG-003]
 id = "BUG-003"
 name = "Fix welcome message not appearing (FEATURE-004)"
-status = "pending"
+status = "completed"
 phase = "ux-bugfix"
 agent = "ui-agent"
 
@@ -481,7 +481,7 @@ dependencies = ["BUG-001"]
 [tasks.BUG-004]
 id = "BUG-004"
 name = "Investigate and resolve console warnings"
-status = "pending"
+status = "completed"
 phase = "ux-bugfix"
 agent = "general-purpose"
 
@@ -1901,7 +1901,7 @@ dependencies = ["JEPA-001"]
 [tasks.MAC-001]
 id = "MAC-001"
 name = "Fix terminal creation - Remove PowerShell hardcoding for Mac compatibility"
-status = "pending"
+status = "completed"
 phase = "mac-compatibility"
 agent = "ui-agent"
 
