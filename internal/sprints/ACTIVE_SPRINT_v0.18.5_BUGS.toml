@@ -14,9 +14,10 @@ created = "2025-11-19"
 
 [metadata.focus]
 primary = "Fix critical bugs blocking Sprint 18.2 features"
-secondary = "Fix UX issues affecting user experience"
-tertiary = "Update documentation for accuracy"
-quaternary = "Research JEPA for pattern prediction (PoC)"
+secondary = "Complete Mac support - Terminal fix + Desktop app binaries (.dmg)"
+tertiary = "Fix UX issues affecting user experience"
+quaternary = "Update documentation for accuracy"
+quinary = "Research JEPA for pattern prediction (PoC)"
 
 [metadata.priority_order]
 phase_1 = "Critical Bug Fixes - BUG-001, BUG-002 (blocks features)"
@@ -39,6 +40,17 @@ test_document = "internal/sprints/SPRINT_18.2_MANUAL_TEST_CHECKLIST.md"
 critical_bugs_found = 2
 medium_bugs_found = 2
 low_issues_found = 3
+mac_compatibility_issues = 2
+mac_issue_1 = "PowerShell hardcoded in terminal creation (voicePanel.ts:1063) - Breaks on Mac"
+mac_issue_2 = "No Mac desktop app binaries (.dmg) - Voice capture unavailable on Mac"
+
+[metadata.mac_support_strategy]
+goal = "Achieve full feature parity between Windows and Mac platforms"
+status = "In Progress"
+phase_1_quick_fix = "MAC-001: Remove PowerShell hardcoding (15-30 min) - Extension works on Mac"
+phase_2_voice_capture = "BUILD-001: Build Mac desktop .dmg (4-6 hours) - Voice features work on Mac"
+expected_completion = "2-3 days (includes setup, build, testing)"
+impact = "Mac users gain full ÆtherLight functionality (terminal + voice capture)"
 
 [metadata.team]
 team_size = 1
@@ -47,7 +59,7 @@ default_engineer = "BB_Aelor"
 [[metadata.team.engineers]]
 id = "engineer_1"
 name = "BB_Aelor"
-expertise = ["typescript", "vscode-extensions", "ui-ux", "toml", "testing"]
+expertise = ["typescript", "vscode-extensions", "ui-ux", "toml", "testing", "rust", "tauri", "macos"]
 available_agents = ["infrastructure-agent", "ui-agent", "documentation-agent", "testing-agent"]
 max_parallel_tasks = 2
 daily_capacity_hours = 8
