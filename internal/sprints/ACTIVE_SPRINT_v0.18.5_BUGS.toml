@@ -1,0 +1,1302 @@
+# ÆtherLight Sprint 18.2_Sprint_2_Bugs (v0.18.5)
+# Created: 2025-11-19
+# Purpose: Fix critical bugs found during Sprint 18.2 manual testing
+# Status: Active
+
+[metadata]
+version = "0.18.5"
+sprint_number = "18.2.2"
+sprint_name = "Sprint 18.2_Sprint_2_Bugs - Critical Bug Fixes"
+start_date = "2025-11-19"
+target_completion = "2025-11-20"
+status = "active"
+created = "2025-11-19"
+
+[metadata.focus]
+primary = "Fix critical bugs blocking Sprint 18.2 features"
+secondary = "Fix UX issues affecting user experience"
+tertiary = "Update documentation for accuracy"
+
+[metadata.priority_order]
+phase_1 = "Critical Bug Fixes - BUG-001, BUG-002 (blocks features)"
+phase_2 = "UX Bug Fixes - BUG-003, BUG-004 (improves experience)"
+phase_3 = "Quality Assurance - QA tasks (stability)"
+phase_4 = "Documentation - DOC tasks (completeness)"
+phase_5 = "Publishing - PUB tasks (release v0.18.5)"
+phase_6 = "Retrospective - RETRO tasks (learning)"
+
+[metadata.progression]
+previous_sprint = "internal/sprints/SPRINT_18.2_MANUAL_TEST_CHECKLIST.md"
+triggers_patch_release = true
+git_branch = "fix/sprint-18.2-critical-bugs"
+
+[metadata.audit_context]
+test_document = "internal/sprints/SPRINT_18.2_MANUAL_TEST_CHECKLIST.md"
+critical_bugs_found = 2
+medium_bugs_found = 2
+low_issues_found = 3
+
+[metadata.team]
+team_size = 1
+default_engineer = "BB_Aelor"
+
+[[metadata.team.engineers]]
+id = "engineer_1"
+name = "BB_Aelor"
+expertise = ["typescript", "vscode-extensions", "ui-ux", "toml", "testing"]
+available_agents = ["infrastructure-agent", "ui-agent", "documentation-agent", "testing-agent"]
+max_parallel_tasks = 2
+daily_capacity_hours = 8
+
+[progress]
+total_tasks = 32
+completed_tasks = 0
+in_progress_tasks = 0
+pending_tasks = 32
+completion_percentage = 0
+
+# ==============================================================================
+# FEATURE TASKS - Critical Bug Fixes from Sprint 18.2 Testing
+# ==============================================================================
+
+[tasks.BUG-001]
+id = "BUG-001"
+name = "Fix Sprint TOML parsing error (brackets in templates)"
+status = "pending"
+phase = "critical-bugfix"
+agent = "infrastructure-agent"
+
+why = """
+Issue 4 from Sprint 18.2 testing: Sprint TOML parsing fails with brackets in prompt templates.
+User expectation: Sprint panel shows task list, enhanced prompts load correctly.
+Current state: Extension crashes when loading sprint, Sprint panel broken.
+Root cause: Brackets like {Your text here} in prompt strings interpreted as TOML table headers.
+Users cannot use Sprint features until fixed.
+"""
+
+context = """
+TOML parser (@iarna/toml) interprets {text} as table header definition.
+Sprint files use enhanced prompt templates with placeholder text.
+Example causing crash: prompt = "Enter {Your task details here}"
+Parser sees {Your task details here} as new table section.
+
+Integration points:
+- SprintLoader.ts:292-333 (TOML parsing logic)
+- All sprint TOML files with {text} placeholders
+- scripts/validate-sprint-schema.js (needs validation rule)
+
+Historical: 2025-11-03 bug (2 hours) - Wrong TOML format broke sprint panel
+Prevention: Add validation before commit (VAL-001)
+"""
+
+reasoning_chain = [
+    "1. User opens workspace with ÆtherLight installed",
+    "2. Extension activates, loads ACTIVE_SPRINT.toml",
+    "3. SprintLoader.parse() calls @iarna/toml parser",
+    "4. Parser encounters {Your text} in prompt field",
+    "5. Parser throws error: unexpected table header at row X",
+    "6. Extension catches error, logs to console",
+    "7. Sprint Panel shows empty or error state",
+    "8. User cannot access Sprint features"
+]
+
+pattern_context = "Pattern-SPRINT-PLAN-001: Sprint file format, Pattern-TASK-ANALYSIS-001: Pre-task analysis"
+
+success_impact = """
+After BUG-001 complete:
+✅ Sprint TOML files parse without errors
+✅ Sprint Panel loads task list correctly
+✅ Enhanced prompts display properly
+✅ Validation prevents future bracket issues
+✅ Users can use Sprint features
+"""
+
+test_requirements = """
+TDD Requirements (Infrastructure Task - 90% coverage):
+
+RED Phase - Write tests FIRST:
+1. Sprint with {text} placeholder causes parse error → Document current failure
+2. Sprint with escaped placeholders passes validation
+3. Sprint with alternative delimiter passes (e.g., {{text}}, <text>)
+4. Validation script detects invalid placeholders
+5. Pre-commit hook blocks commits with invalid placeholders
+
+GREEN Phase - Implement fix:
+Option A: Escape brackets (\\{text\\})
+Option B: Change delimiter ({text} → {{text}} or <text>)
+Option C: Use different TOML structure (multi-line strings)
+
+REFACTOR Phase - Optimize performance, add comprehensive tests
+"""
+
+test_files = [
+    "vscode-lumina/test/services/SprintLoader.test.ts",
+    "scripts/test/validate-sprint-schema.test.js"
+]
+
+test_coverage_requirement = 0.9
+
+validation_criteria = [
+    "TOML parser handles template placeholders without errors",
+    "SprintLoader.parse() completes successfully",
+    "Sprint Panel displays task list",
+    "Validation script detects invalid placeholders",
+    "Pre-commit hook blocks invalid sprint files",
+    "All existing sprint files parse correctly after fix"
+]
+
+estimated_lines = 150
+estimated_time = "2-3 hours"
+
+files_to_modify = [
+    "vscode-lumina/src/services/SprintLoader.ts (lines 292-333 - TOML parsing)",
+    "scripts/validate-sprint-schema.js (add placeholder validation)",
+    "internal/sprints/*.toml (update all sprint files with placeholders)"
+]
+
+deliverables = [
+    "Fix TOML parsing to handle template placeholders",
+    "Update all sprint files with safe placeholder syntax",
+    "Add validation rule to prevent future issues",
+    "Test all existing sprint files parse correctly",
+    "Document safe placeholder syntax in SPRINT_TEMPLATE_GUIDE.md"
+]
+
+error_handling = """
+- Wrap TOML parse() in try-catch with clear error messages
+- Handle parse errors gracefully (don't crash extension)
+- Log parse errors with file path and row number
+- Show user-friendly error in Sprint Panel if parse fails
+- Provide recovery: Skip invalid sprint, show default state
+- Add validation before commit to prevent bad TOML reaching users
+"""
+
+performance_target = "Sprint file parsing < 100ms"
+patterns = ["Pattern-SPRINT-PLAN-001", "Pattern-TASK-ANALYSIS-001", "Pattern-CODE-001"]
+dependencies = []
+
+[tasks.BUG-002]
+id = "BUG-002"
+name = "Fix 'Start This Task' template loading (text area empty)"
+status = "pending"
+phase = "critical-bugfix"
+agent = "ui-agent"
+
+why = """
+Issue 8 from Sprint 18.2 testing: "Start This Task" button shows toast but text area remains empty.
+User expectation: Click button → Template loads in text area → User reviews → Ctrl+Enter sends.
+Current state: Toast appears, terminal opens, but text area empty (template not loaded).
+Users cannot use task workflow feature - core functionality broken.
+"""
+
+context = """
+BUG-009 fix (Sprint 18.2) partially working:
+✅ Toast notification appears correctly
+✅ Terminal opens automatically
+✅ Auto-send prevented (main BUG-009 fix goal achieved)
+❌ Template insertion into text area fails (critical regression)
+
+Message flow:
+1. Sprint Panel webview: User clicks "Start This Task" button
+2. Sprint Panel sends message to Voice Panel: {type: "loadTaskTemplate", taskId: "TASK-001", template: "..."}
+3. Voice Panel webview receives message
+4. Voice Panel should call insertTaskTemplate(template) to populate text area
+5. FAILURE POINT: Text area remains empty
+
+Debugging clues:
+- Toast says "template loaded" → Message received by handler
+- Text area empty → insertTaskTemplate() not executing or failing silently
+- Check: voicePanel.ts:877 (BUG-009 fix location)
+- Check: Webview message handler for "loadTaskTemplate" event
+"""
+
+reasoning_chain = [
+    "1. User opens Sprint Panel, selects task",
+    "2. Clicks 'Start This Task' button",
+    "3. Sprint Panel webview posts message to Voice Panel",
+    "4. Voice Panel receives message, shows toast notification",
+    "5. Voice Panel opens terminal (working)",
+    "6. Voice Panel should call insertTaskTemplate(template)",
+    "7. FAILURE: insertTaskTemplate() not called or fails silently",
+    "8. Text area remains empty, user cannot review template",
+    "9. User cannot send template (nothing to send)"
+]
+
+pattern_context = "Pattern-UX-001: Real-time feedback, Pattern-CODE-001: Code workflow"
+
+success_impact = """
+After BUG-002 complete:
+✅ "Start This Task" button fully functional
+✅ Template loads into Voice Panel text area
+✅ User can review template before sending
+✅ Ctrl+Enter sends template to terminal
+✅ Task workflow feature restored
+✅ User satisfaction improved (core feature working)
+"""
+
+test_requirements = """
+TDD Requirements (UI Task - 70% coverage):
+
+RED Phase - Write tests FIRST:
+1. Click "Start This Task" → Toast notification appears
+2. Click "Start This Task" → Text area contains task template
+3. Template text matches task enhanced prompt
+4. Terminal opens automatically
+5. Ctrl+Enter sends template to terminal
+6. Error handling: Missing template shows friendly error
+
+GREEN Phase - Implement fix:
+1. Debug message passing Sprint Panel → Voice Panel
+2. Verify insertTaskTemplate() function exists and is called
+3. Fix function call if missing or broken
+4. Test with multiple task types
+
+REFACTOR Phase - Improve error handling, add logging
+"""
+
+test_files = [
+    "vscode-lumina/test/commands/voicePanel.test.ts",
+    "vscode-lumina/test/webview/sprintPanel.test.ts"
+]
+
+test_coverage_requirement = 0.7
+
+validation_criteria = [
+    "✨ 'Start This Task' button enabled and clickable",
+    "Click triggers template load into text area",
+    "Text area contains enhanced prompt template",
+    "Toast notification shows success message",
+    "Terminal opens automatically",
+    "Ctrl+Enter sends template to terminal",
+    "Error handling: Missing template shows error message"
+]
+
+estimated_lines = 100
+estimated_time = "3-4 hours"
+
+files_to_modify = [
+    "vscode-lumina/src/commands/voicePanel.ts (lines 877+ - BUG-009 fix, message handler)",
+    "vscode-lumina/src/webview/sprintPanel.html (button click handler)",
+    "vscode-lumina/src/webview/voicePanel.html (message receiver, insertTaskTemplate function)"
+]
+
+deliverables = [
+    "Fix message passing Sprint Panel → Voice Panel",
+    "Implement or fix insertTaskTemplate() function",
+    "Text area populates with task template",
+    "Add error handling for missing templates",
+    "Add console logging for debugging",
+    "Test with multiple tasks to ensure consistency"
+]
+
+error_handling = """
+- Wrap insertTaskTemplate() in try-catch
+- Handle missing template data gracefully
+- Handle webview not ready (timing issue)
+- Log template loading steps for debugging
+- Show user-friendly error if template load fails
+- Provide retry mechanism if initial load fails
+- Preserve any existing text in text area (don't overwrite user input)
+"""
+
+performance_target = "Template insertion < 500ms"
+patterns = ["Pattern-UX-001", "Pattern-CODE-001", "Pattern-TDD-001"]
+dependencies = []
+
+[tasks.BUG-003]
+id = "BUG-003"
+name = "Fix welcome message not appearing (FEATURE-004)"
+status = "pending"
+phase = "ux-bugfix"
+agent = "ui-agent"
+
+why = """
+Issue 5 from Sprint 18.2 testing: Welcome message doesn't appear on fresh workspace install.
+User expectation: First time opening Voice Panel → See welcome message with getting started guide.
+Current state: Text area empty, no welcome message, users confused about how to start.
+FEATURE-004 marked as implemented but not working.
+"""
+
+context = """
+FEATURE-004 implementation: Welcome message on first launch.
+Expected: "# 🚀 Welcome to ÆtherLight v0.18.3!" in Voice Panel text area.
+Actual: Text area empty on fresh install.
+
+Potential causes (from testing):
+1. 3-second delay too short (voice panel webview not ready)
+2. hasSeenWelcome flag incorrectly set to true on first run
+3. TOML parsing error (BUG-001) crashing extension before welcome message
+4. postWelcomeMessage() function not being called
+
+Debugging needs:
+- Check Output panel (View → Output → ÆtherLight Extension) for welcome logs
+- Check .vscode/settings.json for hasSeenWelcome flag value
+- Verify voice panel webview initialized before welcome attempt
+- Test with BUG-001 fixed (TOML parsing) to rule out crash blocking welcome
+"""
+
+reasoning_chain = [
+    "1. User opens brand new workspace (no prior ÆtherLight)",
+    "2. Extension activates, initializes resources",
+    "3. Extension sets hasSeenWelcome = false (default for new workspace)",
+    "4. User opens Voice Panel for first time",
+    "5. Voice Panel webview initializes (takes 1-2 seconds)",
+    "6. Extension waits 3 seconds, calls postWelcomeMessage()",
+    "7. FAILURE: Welcome message not appearing in text area",
+    "8. Possible: postWelcomeMessage() not called, or message lost, or timing wrong"
+]
+
+pattern_context = "Pattern-UX-001: Real-time feedback improves user experience"
+
+success_impact = """
+After BUG-003 complete:
+✅ Welcome message appears on fresh workspace install
+✅ Users see getting started guide
+✅ Users understand how to use ÆtherLight
+✅ Improved first-time user experience
+✅ Reduced support questions about "how to start"
+"""
+
+test_requirements = """
+TDD Requirements (UI Task - 70% coverage):
+
+RED Phase - Write tests FIRST:
+1. Fresh workspace (hasSeenWelcome = false) → Welcome message appears
+2. Existing workspace (hasSeenWelcome = true) → No welcome message
+3. Welcome message contains expected content
+4. hasSeenWelcome flag set to true after showing welcome
+5. Timing: Welcome appears after webview ready (not before)
+
+GREEN Phase - Implement fix:
+1. Debug postWelcomeMessage() function
+2. Fix timing issues (wait for webview ready)
+3. Verify hasSeenWelcome flag logic
+4. Test on fresh workspace multiple times
+
+REFACTOR Phase - Improve timing reliability, add logging
+"""
+
+test_files = [
+    "vscode-lumina/test/commands/voicePanel.test.ts",
+    "vscode-lumina/test/features/welcomeMessage.test.ts"
+]
+
+test_coverage_requirement = 0.7
+
+validation_criteria = [
+    "Fresh workspace: Welcome message appears in text area",
+    "Welcome message contains: '# 🚀 Welcome to ÆtherLight'",
+    "hasSeenWelcome flag set to true after display",
+    "Existing workspace: No welcome message (hasSeenWelcome = true)",
+    "Timing: Welcome appears after webview fully loaded",
+    "No race conditions or timing issues"
+]
+
+estimated_lines = 50
+estimated_time = "1-2 hours"
+
+files_to_modify = [
+    "vscode-lumina/src/commands/voicePanel.ts (postWelcomeMessage function)",
+    "vscode-lumina/src/extension.ts (welcome message timing logic)"
+]
+
+deliverables = [
+    "Fix welcome message timing or initialization",
+    "Ensure hasSeenWelcome defaults to false correctly",
+    "Add logging for welcome message debugging",
+    "Test on fresh workspace to verify welcome appears",
+    "Verify BUG-001 fix doesn't block welcome (TOML parsing)"
+]
+
+error_handling = """
+- Wrap postWelcomeMessage() in try-catch
+- Handle webview not ready (timing issue)
+- Handle settings read errors (hasSeenWelcome flag)
+- Log welcome message flow for debugging
+- Gracefully handle welcome message failures (don't crash)
+- Retry welcome message if initial attempt fails (with max retries)
+"""
+
+performance_target = "Welcome message appears within 5 seconds of opening Voice Panel"
+patterns = ["Pattern-UX-001", "Pattern-CODE-001"]
+dependencies = ["BUG-001"]
+
+[tasks.BUG-004]
+id = "BUG-004"
+name = "Investigate and resolve console warnings"
+status = "pending"
+phase = "ux-bugfix"
+agent = "general-purpose"
+
+why = """
+Issue 2 from Sprint 18.2 testing: Platform-specific console warnings on extension launch.
+User expectation: Clean extension activation, no scary warnings in console.
+Current state: Multiple warnings on launch, looks unprofessional.
+Impact: Non-blocking but affects user confidence, creates support questions.
+"""
+
+context = """
+Console warnings observed during testing:
+- VS Code/Cursor platform warnings (not ÆtherLight-specific)
+- Some warnings benign, some may indicate actual issues
+- Need to differentiate: ÆtherLight bugs vs platform quirks
+
+Investigation needed:
+1. Capture full console output from fresh launch
+2. Identify which warnings from ÆtherLight vs VS Code/Cursor
+3. Determine if warnings indicate problems or are cosmetic
+4. Suppress benign warnings, fix actual issues
+5. Document expected platform warnings in troubleshooting guide
+"""
+
+reasoning_chain = [
+    "1. User launches Extension Development Host (F5)",
+    "2. Extension activates, initializes services",
+    "3. Console shows various warnings",
+    "4. User sees warnings, becomes concerned",
+    "5. Investigation: Which warnings are actionable?",
+    "6. Fix actual issues, suppress cosmetic warnings",
+    "7. Document expected platform warnings"
+]
+
+pattern_context = "Pattern-CODE-001: Code workflow, Pattern-IMPROVEMENT-001: Gap detection"
+
+success_impact = """
+After BUG-004 complete:
+✅ Identify and fix actual issues causing warnings
+✅ Suppress benign/cosmetic warnings
+✅ Clean console output on activation
+✅ Improved user confidence
+✅ Reduced support questions about warnings
+"""
+
+test_requirements = """
+Testing Requirements (Investigation task):
+
+1. Capture console output:
+   - Fresh workspace launch
+   - Existing workspace launch
+   - Different platforms (Windows, Mac, Linux if available)
+
+2. Categorize warnings:
+   - ÆtherLight-caused warnings (our code)
+   - VS Code platform warnings (not our fault)
+   - Benign warnings (safe to ignore/suppress)
+   - Critical warnings (need fixing)
+
+3. Fix or document:
+   - Fix ÆtherLight-caused warnings
+   - Suppress benign warnings where possible
+   - Document expected platform warnings
+"""
+
+validation_criteria = [
+    "Console output captured and analyzed",
+    "All ÆtherLight-caused warnings fixed or documented",
+    "Benign warnings suppressed where possible",
+    "Expected platform warnings documented in troubleshooting guide",
+    "No critical warnings on extension activation"
+]
+
+estimated_lines = 50
+estimated_time = "1-2 hours"
+
+files_to_modify = [
+    "vscode-lumina/src/extension.ts (activation logging)",
+    "docs/TROUBLESHOOTING.md (expected warnings documentation)"
+]
+
+deliverables = [
+    "Console output analysis report",
+    "Fix actual issues causing warnings",
+    "Suppress cosmetic warnings",
+    "Document expected platform warnings",
+    "Update troubleshooting guide"
+]
+
+error_handling = """
+- Identify warnings that indicate actual problems
+- Fix root causes of problematic warnings
+- Add error boundaries to prevent future warnings
+- Log only actionable issues (reduce noise)
+"""
+
+performance_target = "Investigation complete within 2 hours"
+patterns = ["Pattern-CODE-001", "Pattern-IMPROVEMENT-001"]
+dependencies = []
+
+# ==============================================================================
+# TEMPLATE TASKS - Quality Assurance & Documentation
+# Injected from SPRINT_TEMPLATE.toml v1.1.0
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Documentation Tasks (5 tasks)
+# ------------------------------------------------------------------------------
+
+[tasks.DOC-001]
+id = "DOC-001"
+name = "Update CHANGELOG.md with sprint changes"
+phase = "documentation"
+status = "pending"
+description = "Document all changes made during sprint in CHANGELOG.md following Keep a Changelog format. Include Fixed section for bug fixes."
+estimated_lines = 50
+estimated_time = "30 minutes"
+dependencies = []
+agent = "documentation-agent"
+deliverables = [
+  "CHANGELOG.md updated with v0.18.5 section",
+  "All bug fixes documented in Fixed section",
+  "Issue numbers referenced (#Issue 4, #Issue 8, etc.)",
+  "Breaking changes clearly marked (if any)"
+]
+performance_target = "Complete within 30 minutes"
+patterns = ["Pattern-DOCS-001"]
+files_to_modify = ["CHANGELOG.md"]
+validation_criteria = [
+  "CHANGELOG.md has v0.18.5 section",
+  "All 4 bug fixes documented",
+  "Issue numbers from SPRINT_18.2_MANUAL_TEST_CHECKLIST.md referenced",
+  "Follows Keep a Changelog format"
+]
+
+[tasks.DOC-002]
+id = "DOC-002"
+name = "Update README.md if user-facing changes"
+phase = "documentation"
+status = "pending"
+description = "Update README.md to reflect bug fixes. Add troubleshooting section for desktop app connection, update agent/skills counts."
+estimated_lines = 100
+estimated_time = "45 minutes"
+dependencies = []
+agent = "documentation-agent"
+deliverables = [
+  "README.md updated with bug fix notes",
+  "Troubleshooting section added for desktop app",
+  "Agent count corrected (14 → 13 agents)",
+  "Skills count expectations clarified (14-16 depending on version)"
+]
+performance_target = "Complete within 45 minutes"
+patterns = ["Pattern-DOCS-001"]
+files_to_modify = ["README.md"]
+validation_criteria = [
+  "Bug fixes mentioned in README",
+  "Troubleshooting section covers desktop app manual start",
+  "Resource counts accurate",
+  "Links to documentation valid"
+]
+
+[tasks.DOC-003]
+id = "DOC-003"
+name = "Extract reusable patterns to docs/patterns/"
+phase = "documentation"
+status = "pending"
+description = "Identify reusable patterns from bug fixes. Consider: TOML placeholder escaping pattern, webview message passing debugging pattern."
+estimated_lines = 200
+estimated_time = "1-2 hours"
+dependencies = []
+agent = "documentation-agent"
+deliverables = [
+  "New patterns extracted if high reusability (score 8+/10)",
+  "Existing patterns updated if modified",
+  "docs/patterns/INDEX.md updated",
+  "CLAUDE.md references new patterns"
+]
+performance_target = "Complete within 2 hours"
+patterns = ["Pattern-DOCS-001", "Pattern-IMPROVEMENT-001"]
+files_to_modify = ["docs/patterns/*.md", "docs/patterns/INDEX.md", ".claude/CLAUDE.md"]
+validation_criteria = [
+  "High reusability patterns extracted",
+  "Pattern files follow standard format",
+  "INDEX.md updated",
+  "CLAUDE.md references accurate"
+]
+
+[tasks.DOC-004]
+id = "DOC-004"
+name = "Update CLAUDE.md if workflow changes"
+phase = "documentation"
+status = "pending"
+description = "Update .claude/CLAUDE.md pre-flight checklist with TOML placeholder validation rule. Keep concise."
+estimated_lines = 50
+estimated_time = "30 minutes"
+dependencies = ["DOC-003"]
+agent = "documentation-agent"
+deliverables = [
+  "CLAUDE.md pre-flight checklist updated",
+  "Add: 'Check for template literals in TOML strings'",
+  "Pattern references added",
+  "File size remains under 600 lines"
+]
+performance_target = "Complete within 30 minutes"
+patterns = ["Pattern-DOCS-001"]
+files_to_modify = [".claude/CLAUDE.md"]
+validation_criteria = [
+  "Pre-flight checklist includes TOML placeholder check",
+  "CLAUDE.md under 600 lines",
+  "Pattern references accurate"
+]
+
+[tasks.DOC-005]
+id = "DOC-005"
+name = "Refactor documentation for context optimization"
+phase = "documentation"
+status = "pending"
+description = "CRITICAL: Refactor documentation to reduce bloat. Target: 10-20% context reduction while improving clarity. NOT additive."
+estimated_lines = -500
+estimated_time = "3-4 hours"
+dependencies = ["DOC-003", "DOC-004"]
+agent = "documentation-agent"
+deliverables = [
+  "Context reduction report (BEFORE/AFTER line counts)",
+  "All docs refactored for AI consumption",
+  "Verbose sections extracted to patterns",
+  "Redundant content removed",
+  "10-20% context reduction achieved"
+]
+performance_target = "Complete within 4 hours"
+patterns = ["Pattern-DOCS-001"]
+files_to_modify = [".claude/CLAUDE.md", "README.md", "internal/agents/*-agent-context.md"]
+validation_criteria = [
+  "BEFORE line counts documented",
+  "AFTER line counts documented",
+  "10-20% context reduction achieved",
+  "No information lost (moved to patterns)",
+  "AI can still find information (test queries)"
+]
+
+# ------------------------------------------------------------------------------
+# Quality Assurance Tasks (4 tasks)
+# ------------------------------------------------------------------------------
+
+[tasks.QA-001]
+id = "QA-001"
+name = "Run ripple analysis for breaking changes"
+phase = "quality-assurance"
+status = "pending"
+description = "Analyze code changes for ripple effects. Verify TOML format changes don't break existing sprint files."
+estimated_lines = 0
+estimated_time = "1 hour"
+dependencies = []
+agent = "testing-agent"
+deliverables = [
+  "Ripple analysis report",
+  "Breaking changes documented (if any)",
+  "All existing sprint files tested with fix",
+  "Migration guide if breaking"
+]
+performance_target = "Complete within 1 hour"
+patterns = ["Pattern-TDD-001", "Pattern-CODE-001"]
+files_to_modify = ["CHANGELOG.md"]
+validation_criteria = [
+  "All breaking changes identified",
+  "Affected systems documented",
+  "Existing sprint files parse correctly",
+  "Migration path provided if needed"
+]
+
+[tasks.QA-002]
+id = "QA-002"
+name = "Verify test coverage meets targets"
+phase = "quality-assurance"
+status = "pending"
+description = "Run test coverage analysis. Verify meets targets: Infrastructure 90%, UI 70%."
+estimated_lines = 200
+estimated_time = "2-3 hours"
+dependencies = []
+agent = "testing-agent"
+deliverables = [
+  "Test coverage report generated",
+  "Coverage meets targets",
+  "New tests added for bug fixes",
+  "Coverage report saved"
+]
+performance_target = "Complete within 3 hours"
+patterns = ["Pattern-TDD-001"]
+files_to_modify = ["vscode-lumina/test/**/*.test.ts"]
+validation_criteria = [
+  "Run: npm test -- --coverage",
+  "Infrastructure coverage >= 90%",
+  "UI coverage >= 70%",
+  "Bug fixes have tests"
+]
+
+[tasks.QA-003]
+id = "QA-003"
+name = "Run dependency audit for vulnerabilities"
+phase = "quality-assurance"
+status = "pending"
+description = "Run npm audit on all packages. Fix critical/high vulnerabilities."
+estimated_lines = 0
+estimated_time = "1 hour"
+dependencies = []
+agent = "infrastructure-agent"
+deliverables = [
+  "npm audit run on all packages",
+  "Critical/high vulnerabilities fixed",
+  "Audit report saved",
+  "Medium/low documented with rationale"
+]
+performance_target = "Complete within 1 hour"
+patterns = ["Pattern-PUBLISH-004"]
+files_to_modify = ["package.json", "packages/*/package.json"]
+validation_criteria = [
+  "Run: npm audit --workspaces",
+  "No critical or high vulnerabilities",
+  "Medium/low documented",
+  "All packages audited"
+]
+
+[tasks.QA-004]
+id = "QA-004"
+name = "Validate TypeScript compilation (zero errors)"
+phase = "quality-assurance"
+status = "pending"
+description = "Run TypeScript compiler on all packages. Fix all errors."
+estimated_lines = 100
+estimated_time = "1-2 hours"
+dependencies = []
+agent = "infrastructure-agent"
+deliverables = [
+  "TypeScript compiles with zero errors",
+  "No @ts-ignore suppressions",
+  "Type definitions current",
+  "All packages compile"
+]
+performance_target = "Complete within 2 hours"
+patterns = ["Pattern-CODE-001"]
+files_to_modify = ["vscode-lumina/src/**/*.ts", "packages/*/src/**/*.ts"]
+validation_criteria = [
+  "Run: npm run compile (vscode-lumina)",
+  "Run: npm run build --workspaces",
+  "Zero TypeScript errors",
+  "All packages compile"
+]
+
+# ------------------------------------------------------------------------------
+# Agent Synchronization Tasks (2 tasks)
+# ------------------------------------------------------------------------------
+
+[tasks.AGENT-001]
+id = "AGENT-001"
+name = "Update agent context files with learnings"
+phase = "agent-sync"
+status = "pending"
+description = "Update agent context files with bug fix learnings. Add pitfalls for TOML placeholders, webview message passing."
+estimated_lines = 100
+estimated_time = "1 hour"
+dependencies = ["DOC-003"]
+agent = "documentation-agent"
+deliverables = [
+  "Agent context files updated",
+  "New pitfalls added (TOML placeholders, webview messages)",
+  "Example task executions updated",
+  "Pattern references added"
+]
+performance_target = "Complete within 1 hour"
+patterns = ["Pattern-IMPROVEMENT-001"]
+files_to_modify = ["internal/agents/*-agent-context.md"]
+validation_criteria = [
+  "Agent contexts current",
+  "New pitfalls documented",
+  "Examples reflect best practices",
+  "Pattern references accurate"
+]
+
+[tasks.AGENT-002]
+id = "AGENT-002"
+name = "Update KNOWN_ISSUES.md with pitfalls"
+phase = "agent-sync"
+status = "pending"
+description = "Document bugs from Sprint 18.2 testing in KNOWN_ISSUES.md with prevention strategies."
+estimated_lines = 50
+estimated_time = "30 minutes"
+dependencies = []
+agent = "documentation-agent"
+deliverables = [
+  "KNOWN_ISSUES.md updated",
+  "Issue 4 and Issue 8 documented",
+  "Prevention strategies included",
+  "Time-wasted estimates added"
+]
+performance_target = "Complete within 30 minutes"
+patterns = ["Pattern-IMPROVEMENT-001"]
+files_to_modify = ["docs/KNOWN_ISSUES.md"]
+validation_criteria = [
+  "New issues documented",
+  "Prevention strategies clear",
+  "Issues categorized",
+  "Time estimates included"
+]
+
+# ------------------------------------------------------------------------------
+# Infrastructure Validation Tasks (2 tasks)
+# ------------------------------------------------------------------------------
+
+[tasks.INFRA-001]
+id = "INFRA-001"
+name = "Verify git hooks functioning"
+phase = "infrastructure"
+status = "pending"
+description = "Test pre-commit hooks. Verify sprint schema validation blocks invalid TOML."
+estimated_lines = 0
+estimated_time = "30 minutes"
+dependencies = []
+agent = "infrastructure-agent"
+deliverables = [
+  "Pre-commit hooks tested",
+  "Invalid TOML commits blocked",
+  "Hook scripts current",
+  "Documentation updated"
+]
+performance_target = "Complete within 30 minutes"
+patterns = ["Pattern-GIT-001"]
+files_to_modify = [".git/hooks/pre-commit", "scripts/validate-sprint-schema.js"]
+validation_criteria = [
+  "Test: Invalid TOML → Commit blocked",
+  "All hooks installed and executable",
+  "Hook documentation current"
+]
+
+[tasks.INFRA-002]
+id = "INFRA-002"
+name = "Run sprint schema validation script"
+phase = "infrastructure"
+status = "pending"
+description = "Run scripts/validate-sprint-schema.js on all sprint files. Fix validation errors."
+estimated_lines = 0
+estimated_time = "15 minutes"
+dependencies = []
+agent = "infrastructure-agent"
+deliverables = [
+  "Validation script run successfully",
+  "All validation errors fixed",
+  "All sprint files validate",
+  "Validation report clean"
+]
+performance_target = "Complete within 15 minutes"
+patterns = ["Pattern-SPRINT-PLAN-001"]
+files_to_modify = ["internal/sprints/*.toml"]
+validation_criteria = [
+  "Run: node scripts/validate-sprint-schema.js",
+  "Zero validation errors",
+  "All required fields present",
+  "No circular dependencies"
+]
+
+# ------------------------------------------------------------------------------
+# Configuration Validation Tasks (1 task)
+# ------------------------------------------------------------------------------
+
+[tasks.CONFIG-001]
+id = "CONFIG-001"
+name = "Validate settings schema if changed"
+phase = "infrastructure"
+status = "pending"
+description = "Verify settings schema if changed. Test settings UI in VS Code."
+estimated_lines = 50
+estimated_time = "30 minutes"
+dependencies = []
+agent = "infrastructure-agent"
+deliverables = [
+  "Settings schema validated",
+  "Settings UI tested",
+  "Default values appropriate",
+  "Settings documentation current"
+]
+performance_target = "Complete within 30 minutes"
+patterns = ["Pattern-CODE-001"]
+files_to_modify = ["vscode-lumina/package.json"]
+validation_criteria = [
+  "Settings schema valid JSON",
+  "Settings appear in VS Code preferences",
+  "Default values work",
+  "Descriptions clear"
+]
+
+# ------------------------------------------------------------------------------
+# Suggested Tasks (4 tasks - can skip with justification)
+# ------------------------------------------------------------------------------
+
+[tasks.PERF-001]
+id = "PERF-001"
+name = "Run performance regression tests"
+phase = "performance"
+status = "pending"
+description = "Run performance benchmarks. Flag regressions >10%."
+estimated_lines = 100
+estimated_time = "1-2 hours"
+dependencies = []
+agent = "testing-agent"
+deliverables = [
+  "Performance benchmarks run",
+  "Comparison to baseline",
+  "Regressions identified",
+  "Performance report saved"
+]
+performance_target = "Complete within 2 hours"
+patterns = ["Pattern-TDD-001"]
+validation_criteria = [
+  "Run: npm run test:performance",
+  "No regressions >10%",
+  "Report generated",
+  "Baseline updated if improvements"
+]
+
+[tasks.SEC-001]
+id = "SEC-001"
+name = "Security vulnerability scan"
+phase = "security"
+status = "pending"
+description = "Run security scanning beyond npm audit. Check for code vulnerabilities."
+estimated_lines = 0
+estimated_time = "1 hour"
+dependencies = ["QA-003"]
+agent = "infrastructure-agent"
+deliverables = [
+  "Security scan completed",
+  "Vulnerabilities documented",
+  "Critical issues fixed",
+  "Security report saved"
+]
+performance_target = "Complete within 1 hour"
+patterns = ["Pattern-PUBLISH-004"]
+validation_criteria = [
+  "Security tools run",
+  "No critical vulnerabilities",
+  "Report generated"
+]
+
+[tasks.COMPAT-001]
+id = "COMPAT-001"
+name = "Cross-platform testing (Windows/Mac/Linux)"
+phase = "compatibility"
+status = "pending"
+description = "Test extension on Windows, macOS, Linux. Verify bug fixes work on all platforms."
+estimated_lines = 0
+estimated_time = "2 hours"
+dependencies = []
+agent = "testing-agent"
+deliverables = [
+  "Extension tested on all platforms",
+  "Platform-specific issues documented",
+  "All features work on all platforms"
+]
+performance_target = "Complete within 2 hours"
+patterns = ["Pattern-TDD-001"]
+validation_criteria = [
+  "Test on Windows",
+  "Test on macOS",
+  "Test on Linux",
+  "All features work"
+]
+
+[tasks.COMPAT-002]
+id = "COMPAT-002"
+name = "Backwards compatibility check"
+phase = "compatibility"
+status = "pending"
+description = "Verify extension works with older VS Code versions. Test TOML format changes don't break old sprints."
+estimated_lines = 50
+estimated_time = "1 hour"
+dependencies = []
+agent = "testing-agent"
+deliverables = [
+  "Extension tested on minimum VS Code version",
+  "Old sprint files tested with fixes",
+  "Backwards incompatibilities documented",
+  "Migration guide if breaking"
+]
+performance_target = "Complete within 1 hour"
+patterns = ["Pattern-PUBLISH-004"]
+validation_criteria = [
+  "Extension activates on minimum version",
+  "Old sprint files parse correctly",
+  "No undocumented breaking changes"
+]
+
+# ------------------------------------------------------------------------------
+# Conditional Tasks - Publishing (5 tasks - Sprint includes v0.18.5 release)
+# ------------------------------------------------------------------------------
+
+[tasks.PUB-001]
+id = "PUB-001"
+name = "Run pre-publish validation checklist"
+phase = "publishing"
+status = "pending"
+description = "Run Pattern-PUBLISH-004 pre-publish validation. Verify all packages ready for v0.18.5 release."
+estimated_lines = 0
+estimated_time = "30 minutes"
+dependencies = []
+agent = "infrastructure-agent"
+skill = "publish"
+condition = "sprint_includes_publishing_v0.18.5"
+deliverables = [
+  "Pre-publish checklist completed",
+  "All validations passing",
+  "Version numbers synchronized to 0.18.5",
+  "Packages built successfully"
+]
+performance_target = "Complete within 30 minutes"
+patterns = ["Pattern-PUBLISH-004", "Pattern-PUBLISH-001"]
+validation_criteria = [
+  "All package versions = 0.18.5",
+  "CHANGELOG.md updated",
+  "All tests passing",
+  "TypeScript compiles (zero errors)",
+  "No runtime npm dependencies"
+]
+
+[tasks.PUB-002]
+id = "PUB-002"
+name = "Build and verify .vsix package"
+phase = "publishing"
+status = "pending"
+description = "Build .vsix extension package. Test installation and activation locally."
+estimated_lines = 0
+estimated_time = "30 minutes"
+dependencies = ["PUB-001"]
+agent = "infrastructure-agent"
+skill = "publish"
+condition = "sprint_includes_publishing_v0.18.5"
+deliverables = [
+  ".vsix package built successfully",
+  "Package installed locally",
+  "Extension activates without errors",
+  "Bug fixes verified in packaged extension"
+]
+performance_target = "Complete within 30 minutes"
+patterns = ["Pattern-PUBLISH-001"]
+validation_criteria = [
+  "Run: vsce package",
+  ".vsix file created",
+  "Install: code --install-extension",
+  "Extension activates (<200ms)",
+  "Bug fixes working in package"
+]
+
+[tasks.PUB-003]
+id = "PUB-003"
+name = "Verify no runtime npm dependencies"
+phase = "publishing"
+status = "pending"
+description = "Verify extension has zero runtime npm dependencies (Pattern-PUBLISH-003)."
+estimated_lines = 0
+estimated_time = "15 minutes"
+dependencies = []
+agent = "infrastructure-agent"
+skill = "publish"
+condition = "sprint_includes_publishing_v0.18.5"
+deliverables = [
+  "package.json dependencies audited",
+  "Only whitelisted runtime dependencies",
+  "Node.js built-ins used",
+  "Dependency audit clean"
+]
+performance_target = "Complete within 15 minutes"
+patterns = ["Pattern-PUBLISH-003"]
+validation_criteria = [
+  "Only whitelisted packages (aetherlight-*, @iarna/toml, form-data, node-fetch, ws)",
+  "No runtime packages like glob, lodash, moment",
+  "DevDependencies OK"
+]
+
+[tasks.PUB-004]
+id = "PUB-004"
+name = "Generate release artifacts"
+phase = "publishing"
+status = "pending"
+description = "Generate release artifacts: .vsix, CHANGELOG excerpt, GitHub release notes for v0.18.5."
+estimated_lines = 0
+estimated_time = "30 minutes"
+dependencies = ["PUB-002", "DOC-001"]
+agent = "documentation-agent"
+condition = "sprint_includes_publishing_v0.18.5"
+deliverables = [
+  ".vsix package ready",
+  "CHANGELOG excerpt for release notes",
+  "GitHub release notes drafted",
+  "Release artifacts validated"
+]
+performance_target = "Complete within 30 minutes"
+patterns = ["Pattern-PUBLISH-001"]
+validation_criteria = [
+  ".vsix file exists and tested",
+  "CHANGELOG.md has v0.18.5 section",
+  "Release notes drafted",
+  "All artifacts ready"
+]
+
+[tasks.PUB-005]
+id = "PUB-005"
+name = "Post-publish verification"
+phase = "publishing"
+status = "pending"
+description = "After publishing v0.18.5, verify extension in marketplace. Test clean installation."
+estimated_lines = 0
+estimated_time = "30 minutes"
+dependencies = ["PUB-004"]
+agent = "infrastructure-agent"
+skill = "publish"
+condition = "sprint_includes_publishing_v0.18.5"
+deliverables = [
+  "Extension visible in marketplace",
+  "Clean installation tested",
+  "Extension activates",
+  "npm packages published"
+]
+performance_target = "Complete within 30 minutes"
+patterns = ["Pattern-PUBLISH-001"]
+validation_criteria = [
+  "Search marketplace: 'aetherlight'",
+  "Version 0.18.5 appears",
+  "Fresh install from marketplace",
+  "Extension activates (<200ms)",
+  "Bug fixes working"
+]
+
+# ------------------------------------------------------------------------------
+# Conditional Tasks - User Experience (3 tasks - Sprint has UX/UI changes)
+# ------------------------------------------------------------------------------
+
+[tasks.UX-001]
+id = "UX-001"
+name = "Create upgrade documentation"
+phase = "user-experience"
+status = "pending"
+description = "Create upgrade guide for users migrating to v0.18.5 with bug fixes."
+estimated_lines = 200
+estimated_time = "1-2 hours"
+dependencies = ["DOC-001", "QA-001"]
+agent = "documentation-agent"
+condition = "sprint_has_user_facing_changes"
+deliverables = [
+  "Upgrade guide created",
+  "Bug fixes documented with examples",
+  "TOML format changes explained (if applicable)",
+  "Troubleshooting tips included"
+]
+performance_target = "Complete within 2 hours"
+patterns = ["Pattern-DOCS-001"]
+files_to_modify = ["docs/UPGRADE.md"]
+validation_criteria = [
+  "Bug fixes documented",
+  "Migration steps clear",
+  "Examples provided",
+  "Linked from CHANGELOG"
+]
+
+[tasks.UX-002]
+id = "UX-002"
+name = "Update screenshots and demos"
+phase = "user-experience"
+status = "pending"
+description = "Update screenshots if UI changed. Show Sprint Panel working, task template loading working."
+estimated_lines = 0
+estimated_time = "1-2 hours"
+dependencies = ["DOC-002"]
+agent = "documentation-agent"
+condition = "sprint_has_ui_changes"
+deliverables = [
+  "Screenshots updated in README",
+  "Sprint Panel screenshots current",
+  "Marketplace images updated",
+  "Visual documentation accurate"
+]
+performance_target = "Complete within 2 hours"
+patterns = ["Pattern-DOCS-001"]
+files_to_modify = ["README.md", "docs/images/"]
+validation_criteria = [
+  "Screenshots show current UI",
+  "Sprint Panel functionality visible",
+  "Image quality high",
+  "Marketplace images updated"
+]
+
+[tasks.UX-003]
+id = "UX-003"
+name = "Generate user-facing release notes"
+phase = "user-experience"
+status = "pending"
+description = "Generate user-friendly release notes for v0.18.5. Focus on benefits: 'Sprint Panel now works', 'Task templates load correctly'."
+estimated_lines = 100
+estimated_time = "1 hour"
+dependencies = ["DOC-001"]
+agent = "documentation-agent"
+condition = "sprint_has_user_facing_changes"
+deliverables = [
+  "User-facing release notes drafted",
+  "Benefits highlighted",
+  "Examples provided",
+  "Release notes reviewed"
+]
+performance_target = "Complete within 1 hour"
+patterns = ["Pattern-DOCS-001"]
+files_to_modify = ["CHANGELOG.md", "docs/RELEASE_NOTES.md"]
+validation_criteria = [
+  "Release notes focus on user benefits",
+  "Examples for bug fixes",
+  "Language accessible",
+  "Clear value proposition"
+]
+
+# ------------------------------------------------------------------------------
+# Retrospective Tasks (2 tasks - EVERY sprint)
+# ------------------------------------------------------------------------------
+
+[tasks.RETRO-001]
+id = "RETRO-001"
+name = "Sprint retrospective"
+phase = "retrospective"
+status = "pending"
+description = "Conduct sprint retrospective. Document what went well, what didn't, improvements for next sprint."
+estimated_lines = 100
+estimated_time = "1 hour"
+dependencies = []
+agent = "documentation-agent"
+deliverables = [
+  "Sprint retrospective document created",
+  "What went well documented",
+  "What didn't go well documented",
+  "Improvements for next sprint",
+  "Action items created"
+]
+performance_target = "Complete within 1 hour"
+patterns = ["Pattern-IMPROVEMENT-001"]
+files_to_modify = ["internal/sprints/retrospectives/SPRINT-18.2.2-retrospective.md"]
+validation_criteria = [
+  "Retrospective document created",
+  "All sections completed",
+  "Action items clear",
+  "Learnings captured"
+]
+
+[tasks.RETRO-002]
+id = "RETRO-002"
+name = "Extract patterns from sprint learnings"
+phase = "retrospective"
+status = "pending"
+description = "Review retrospective and extract high-value patterns (score 7+/10). Consider: TOML validation pattern, webview debugging pattern."
+estimated_lines = 200
+estimated_time = "1-2 hours"
+dependencies = ["RETRO-001"]
+agent = "documentation-agent"
+deliverables = [
+  "High-value patterns extracted",
+  "Pattern-*.md files created",
+  "INDEX.md updated",
+  "CLAUDE.md references patterns"
+]
+performance_target = "Complete within 2 hours"
+patterns = ["Pattern-DOCS-001", "Pattern-IMPROVEMENT-001"]
+files_to_modify = ["docs/patterns/*.md", "docs/patterns/INDEX.md", ".claude/CLAUDE.md"]
+validation_criteria = [
+  "Patterns assessed for reusability",
+  "High-value patterns (7+/10) extracted",
+  "Pattern files follow format",
+  "INDEX.md updated"
+]
+
+# ==============================================================================
+# END OF SPRINT
+# ==============================================================================
