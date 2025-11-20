@@ -882,6 +882,13 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                     // Generate start task template
                     const taskTemplate = this.generateStartTaskTemplate(task);
 
+                    // BUG-002: Add debug logging for template loading
+                    console.log('[ÆtherLight] Sending populateTextArea message:', {
+                        taskId: task.id,
+                        templateLength: taskTemplate.length,
+                        webviewActive: webview !== undefined
+                    });
+
                     // Populate text area with template
                     webview.postMessage({
                         type: 'populateTextArea',
@@ -2150,6 +2157,15 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                 case 'transcriptionError':
                 case 'enhancedText':
                     // Forward to voice-specific handler if it exists
+                    if (window.handleVoiceMessage) {
+                        window.handleVoiceMessage(message);
+                    }
+                    break;
+
+                case 'populateTextArea':
+                    // BUG-002 FIX: Forward 'Start This Task' template to voice-specific handler
+                    // WHY: handleVoiceMessage contains the actual implementation
+                    // PATTERN: Message routing - forward to specialized handler
                     if (window.handleVoiceMessage) {
                         window.handleVoiceMessage(message);
                     }
@@ -4586,10 +4602,28 @@ export class VoiceViewProvider implements vscode.WebviewViewProvider {
                         break;
                     case 'populateTextArea':
                         // UI-006 REFIX: Populate main text area from Bug/Feature forms
-                        document.getElementById('transcriptionText').value = message.text;
-                        autoResizeTextarea();
-                        updateSendButton();
-                        showStatus('✅ Review enhanced text and click Send to terminal', 'info');
+                        // BUG-002 FIX: Add error handling and debug logging
+                        try {
+                            console.log('[ÆtherLight Webview] Received populateTextArea:', {
+                                textLength: message.text?.length,
+                                hasText: !!message.text
+                            });
+
+                            const textArea = document.getElementById('transcriptionText');
+                            if (!textArea) {
+                                throw new Error('Text area element not found');
+                            }
+
+                            textArea.value = message.text || '';
+                            autoResizeTextarea();
+                            updateSendButton();
+                            showStatus('✅ Template loaded - Review and press Ctrl+Enter', 'info');
+
+                            console.log('[ÆtherLight Webview] Template loaded successfully');
+                        } catch (error) {
+                            console.error('[ÆtherLight Webview] populateTextArea failed:', error);
+                            showStatus('❌ Failed to load template', 'error');
+                        }
                         break;
                     case 'showRefinementButtons':
                         // ENHANCE-001.7: Show refinement buttons after enhancement
