@@ -16,6 +16,7 @@ created = "2025-11-19"
 primary = "Fix critical bugs blocking Sprint 18.2 features"
 secondary = "Fix UX issues affecting user experience"
 tertiary = "Update documentation for accuracy"
+quaternary = "Research JEPA for pattern prediction (PoC)"
 
 [metadata.priority_order]
 phase_1 = "Critical Bug Fixes - BUG-001, BUG-002 (blocks features)"
@@ -24,6 +25,7 @@ phase_3 = "Quality Assurance - QA tasks (stability)"
 phase_4 = "Documentation - DOC tasks (completeness)"
 phase_5 = "Publishing - PUB tasks (release v0.18.5)"
 phase_6 = "Retrospective - RETRO tasks (learning)"
+phase_7 = "Research - JEPA tasks (pattern prediction PoC, parallel work)"
 
 [metadata.progression]
 previous_sprint = "internal/sprints/SPRINT_18.2_MANUAL_TEST_CHECKLIST.md"
@@ -49,10 +51,10 @@ max_parallel_tasks = 2
 daily_capacity_hours = 8
 
 [progress]
-total_tasks = 32
+total_tasks = 35
 completed_tasks = 0
 in_progress_tasks = 0
-pending_tasks = 32
+pending_tasks = 35
 completion_percentage = 0
 
 # ==============================================================================
@@ -1296,6 +1298,329 @@ validation_criteria = [
   "Pattern files follow format",
   "INDEX.md updated"
 ]
+
+# ------------------------------------------------------------------------------
+# Research Tasks (3 tasks - JEPA Pattern Prediction)
+# ------------------------------------------------------------------------------
+
+[tasks.JEPA-001]
+id = "JEPA-001"
+name = "Run JEPA PoC - Validate pattern prediction hypothesis"
+status = "pending"
+phase = "research"
+agent = "infrastructure-agent"
+
+why = """
+User hypothesis: JEPA (Joint Embedding Predictive Architecture) is "TDD for embeddings" - it predicts abstract representations before generating outputs.
+Current state: Pattern selection is reactive (during coding), not predictive (before coding).
+Opportunity: Apply JEPA principles to predict which patterns will be needed before writing code.
+Research question: Can we predict patterns from task descriptions with >60% accuracy?
+Without this: Continue reactive pattern selection, miss self-improvement opportunities.
+With this: Proactive pattern recommendation, automated gap detection, self-improving system.
+"""
+
+context = """
+JEPA Background (Meta/Yann LeCun, Sep 2025):
+- Predicts abstract representations in embedding space (not pixel/token space)
+- LLM-JEPA learns approximately linear transformations: Enc(Code) ≈ W × Enc(Text)
+- Outperforms standard LLM training by significant margin
+- Paper: ArXiv 2509.14252
+
+ÆtherLight Application:
+- We have 77+ patterns in docs/patterns/
+- We have 12+ sprints with 200+ tasks (training data)
+- Pattern references in task descriptions (implicit labels)
+- Hypothesis: Task→Patterns might be approximately linear (like Text→Code in LLM-JEPA)
+
+PoC Scope:
+- Encode 10 most-used patterns (subset)
+- Test with 5 recent tasks (validation set)
+- Measure: Accuracy@3 (are correct patterns in top 3 predictions?)
+- Baseline: k-NN similarity search (no training required)
+
+Success Criteria: Accuracy@3 > 60%
+"""
+
+reasoning_chain = [
+    "1. Select 10 most-used patterns from pattern library",
+    "2. Generate embeddings for each pattern using LLM (Sonnet 4.5)",
+    "3. Select 5 recent tasks with known pattern usage",
+    "4. Generate task embeddings from task descriptions",
+    "5. For each task: Find k-nearest pattern embeddings (k=3)",
+    "6. Compare predicted patterns to actual patterns used",
+    "7. Calculate Accuracy@3: (correct predictions / total tasks)",
+    "8. If accuracy >60%: PoC succeeds, proceed to Phase 2",
+    "9. If accuracy <60%: Analyze failures, adjust approach"
+]
+
+pattern_context = "Pattern-IMPROVEMENT-001: Gap detection, Pattern-TDD-001: Predict-first methodology"
+
+success_impact = """
+After JEPA-001 complete:
+✅ Hypothesis validated (or invalidated) with empirical data
+✅ Understand feasibility of pattern prediction
+✅ Baseline accuracy established (k-NN similarity)
+✅ Decision point: Proceed to full implementation or adjust approach
+✅ Research document updated with findings
+"""
+
+test_requirements = """
+PoC Validation (Research task - No formal tests, but validation required):
+
+Validation Steps:
+1. Pattern Selection: 10 most-used patterns identified
+2. Task Selection: 5 recent tasks with clear pattern usage
+3. Embedding Quality: Verify patterns cluster meaningfully (visual check)
+4. Prediction Accuracy: Measure Accuracy@3
+5. Analysis: Understand what works, what doesn't
+6. Documentation: Record findings in research document
+"""
+
+validation_criteria = [
+    "10 patterns selected and encoded",
+    "5 tasks selected with known pattern usage",
+    "k-NN similarity search implemented",
+    "Accuracy@3 measured and documented",
+    "Findings recorded: what worked, what didn't",
+    "Decision made: proceed to Phase 2 or adjust approach",
+    "Research document updated with results"
+]
+
+estimated_lines = 200
+estimated_time = "4-6 hours"
+
+files_to_create = [
+    "services/PatternEmbedder.ts (PoC version)",
+    "services/TaskEmbedder.ts (PoC version)",
+    "scripts/jepa_poc.ts (PoC script)"
+]
+
+files_to_modify = [
+    "internal/research/JEPA_PATTERN_PREDICTION_RESEARCH.md (add results section)"
+]
+
+deliverables = [
+    "10 pattern embeddings generated",
+    "5 task embeddings generated",
+    "k-NN similarity search working",
+    "Accuracy@3 measurement: X%",
+    "Findings documented in research doc",
+    "Go/No-Go decision for Phase 2"
+]
+
+error_handling = """
+- Handle embedding generation failures gracefully
+- Validate embedding dimensions match
+- Handle edge cases: No similar patterns found
+- Log all intermediate results for debugging
+- Clear error messages if PoC fails
+"""
+
+performance_target = "PoC execution < 5 minutes (embedding generation + prediction)"
+patterns = ["Pattern-IMPROVEMENT-001", "Pattern-TDD-001"]
+dependencies = []
+
+[tasks.JEPA-002]
+id = "JEPA-002"
+name = "Build embedding infrastructure (if PoC succeeds)"
+status = "pending"
+phase = "research"
+agent = "infrastructure-agent"
+
+why = """
+CONDITIONAL on JEPA-001 success (Accuracy@3 >60%).
+Current state: PoC validated hypothesis, but limited to 10 patterns.
+Gap: Need production-ready infrastructure for all 77+ patterns.
+Solution: Build scalable embedding infrastructure.
+Without this: Can't use JEPA in production, stuck with reactive patterns.
+With this: Foundation for proactive pattern prediction in sprint planning.
+"""
+
+context = """
+Requirements:
+1. Pattern Embedding Database: All 77+ patterns encoded
+2. Task Embedding Service: Real-time task encoding
+3. Similarity Search: Fast retrieval (cosine similarity)
+4. Caching: Pre-computed pattern embeddings
+5. API: Integration points for sprint-plan skill
+
+Architecture:
+- PatternEmbedder service: Encodes patterns, caches embeddings
+- TaskEmbedder service: Encodes tasks on-demand
+- EmbeddingMatcher service: Similarity search + ranking
+- Storage: pattern_embeddings.json (77+ pattern vectors)
+
+Integration: Sprint-plan skill calls EmbeddingMatcher for pattern recommendations
+"""
+
+reasoning_chain = [
+    "1. Expand PoC code to handle all 77+ patterns",
+    "2. Create production-ready services (error handling, logging)",
+    "3. Generate embeddings for all patterns (one-time batch)",
+    "4. Implement caching layer (avoid re-encoding)",
+    "5. Build similarity search API",
+    "6. Test with multiple tasks (validation)",
+    "7. Integrate with sprint-plan skill (optional for this sprint)",
+    "8. Document API and usage"
+]
+
+success_impact = """
+After JEPA-002 complete:
+✅ Production-ready embedding infrastructure
+✅ All 77+ patterns encoded and cached
+✅ Fast similarity search (<100ms per query)
+✅ Foundation for sprint integration (Phase 3)
+✅ Reusable for future ML features
+"""
+
+test_requirements = """
+TDD Requirements (Infrastructure Task - 90% coverage):
+
+RED Phase:
+1. PatternEmbedder.embedPattern(patternId) returns embedding
+2. EmbeddingMatcher.findSimilar(taskEmb, topK) returns ranked patterns
+3. Caching: Second call faster than first (cache hit)
+4. All 77 patterns encoded successfully
+5. Similarity search returns valid results
+
+GREEN Phase: Implement services
+REFACTOR Phase: Optimize performance, add caching
+"""
+
+test_files = [
+    "vscode-lumina/test/services/PatternEmbedder.test.ts",
+    "vscode-lumina/test/services/EmbeddingMatcher.test.ts"
+]
+
+test_coverage_requirement = 0.9
+
+validation_criteria = [
+    "All 77+ patterns encoded",
+    "Embeddings cached (pattern_embeddings.json exists)",
+    "Similarity search works (<100ms per query)",
+    "API documented with examples",
+    "Tests pass with 90% coverage",
+    "Integration points identified for sprint-plan"
+]
+
+estimated_lines = 300
+estimated_time = "1-2 days"
+
+files_to_create = [
+    "vscode-lumina/src/services/PatternEmbedder.ts",
+    "vscode-lumina/src/services/TaskEmbedder.ts",
+    "vscode-lumina/src/services/EmbeddingMatcher.ts",
+    "vscode-lumina/data/pattern_embeddings.json"
+]
+
+deliverables = [
+    "PatternEmbedder service (production)",
+    "TaskEmbedder service (production)",
+    "EmbeddingMatcher service (similarity search)",
+    "pattern_embeddings.json (77+ embeddings)",
+    "Unit tests (90% coverage)",
+    "API documentation"
+]
+
+error_handling = """
+- Wrap embedding generation in try-catch
+- Handle missing patterns gracefully
+- Handle embedding dimension mismatches
+- Validate embeddings before caching
+- Provide fallback: keyword matching if embeddings fail
+- Log all errors with context
+"""
+
+performance_target = "Pattern embedding: <200ms, Task embedding: <100ms, Similarity search: <50ms"
+patterns = ["Pattern-CODE-001", "Pattern-TDD-001"]
+dependencies = ["JEPA-001"]
+
+[tasks.JEPA-003]
+id = "JEPA-003"
+name = "Document findings and create implementation sprint"
+status = "pending"
+phase = "research"
+agent = "documentation-agent"
+
+why = """
+ALWAYS required (regardless of PoC success/failure).
+Current state: Research complete, findings exist but not formally documented.
+Gap: Learnings not captured for future reference.
+Solution: Document findings, update research doc, create next sprint if needed.
+Without this: Lose research insights, can't build on this work.
+With this: Clear record of what was learned, next steps defined.
+"""
+
+context = """
+Documentation Tasks:
+1. Update JEPA_PATTERN_PREDICTION_RESEARCH.md with results
+2. Add "Results" section with PoC findings
+3. Document accuracy metrics (Accuracy@3, what worked, what didn't)
+4. Record lessons learned
+5. If PoC succeeded: Create implementation sprint for Phase 3 (integration)
+6. If PoC failed: Document why, recommend adjustments or alternative approaches
+
+Integration: Results feed into Pattern-IMPROVEMENT-001 (gap detection)
+"""
+
+reasoning_chain = [
+    "1. Read JEPA-001 results (accuracy, findings)",
+    "2. Update research document with Results section",
+    "3. Document accuracy metrics and analysis",
+    "4. Record lessons learned (what worked, what didn't)",
+    "5. Decision: If PoC succeeded (>60%), create Phase 3 sprint",
+    "6. Decision: If PoC failed (<60%), recommend adjustments",
+    "7. Update Pattern-IMPROVEMENT-001 if new patterns identified",
+    "8. Share findings with team"
+]
+
+success_impact = """
+After JEPA-003 complete:
+✅ Research findings formally documented
+✅ Learnings captured for future work
+✅ Next steps clearly defined
+✅ Implementation sprint created (if applicable)
+✅ Team understands JEPA feasibility for ÆtherLight
+"""
+
+validation_criteria = [
+    "Research document updated with Results section",
+    "Accuracy metrics documented",
+    "Lessons learned recorded",
+    "Next steps clearly defined",
+    "Implementation sprint created (if PoC succeeded)",
+    "Findings shared with team"
+]
+
+estimated_lines = 200
+estimated_time = "1-2 hours"
+
+files_to_modify = [
+    "internal/research/JEPA_PATTERN_PREDICTION_RESEARCH.md (add Results section)"
+]
+
+files_to_create = [
+    "internal/sprints/ACTIVE_SPRINT_JEPA_IMPLEMENTATION.toml (if PoC succeeds)"
+]
+
+deliverables = [
+    "Research document updated with findings",
+    "Accuracy metrics documented",
+    "Lessons learned captured",
+    "Next steps defined",
+    "Implementation sprint created (if applicable)"
+]
+
+error_handling = """
+- Handle case where PoC didn't run (document why)
+- Handle inconclusive results (partial success)
+- Document both successes and failures
+- Clear recommendations regardless of outcome
+"""
+
+performance_target = "Complete within 2 hours"
+patterns = ["Pattern-DOCS-001", "Pattern-IMPROVEMENT-001"]
+dependencies = ["JEPA-001"]
 
 # ==============================================================================
 # END OF SPRINT
