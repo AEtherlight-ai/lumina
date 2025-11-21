@@ -588,6 +588,7 @@ name = "Build Mac desktop app binaries (.dmg for Intel and Apple Silicon)"
 status = "pending"
 phase = "build"
 agent = "infrastructure-agent"
+enhanced_prompt = "internal/sprints/enhanced_prompts/v0.18.5-BUGS_BUILD-001_ENHANCED_PROMPT.md"
 
 why = """
 Current state: Only Windows desktop app binaries exist in releases (.exe and .msi).
@@ -1581,6 +1582,8 @@ name = "Run JEPA PoC - Validate pattern prediction hypothesis"
 status = "pending"
 phase = "research"
 agent = "infrastructure-agent"
+enhanced_prompt = "internal/sprints/enhanced_prompts/v0.18.5-BUGS_JEPA-001_ENHANCED_PROMPT.md"
+template = "MVP-003-PromptEnhancer-TaskTemplate-v1.4.3"
 
 why = """
 User hypothesis: JEPA (Joint Embedding Predictive Architecture) is "TDD for embeddings" - it predicts abstract representations before generating outputs.

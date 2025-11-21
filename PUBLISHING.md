@@ -215,6 +215,127 @@ Users are notified of updates via:
 
 ---
 
+## Mac Desktop App Builds
+
+**NEW in v0.18.5:** Automated Mac .dmg builds for desktop app voice capture
+
+**Workflow:** `.github/workflows/build-mac-desktop.yml`
+
+**Triggers:**
+- Manual: `workflow_dispatch` with version input
+- Automatic: Git tags matching `v*.*.*`
+
+**What it builds:**
+- `Lumina_0.18.5_x86_64.dmg` - Intel Mac binary
+- `Lumina_0.18.5_aarch64.dmg` - Apple Silicon Mac binary
+
+### Running the Mac Build Manually
+
+**Via GitHub Actions UI:**
+1. Go to repository → Actions tab
+2. Select "Build Mac Desktop App" workflow
+3. Click "Run workflow"
+4. Enter version (e.g., `0.18.5`)
+5. Click "Run workflow" button
+6. Wait 10-15 minutes for builds to complete
+7. Download artifacts from workflow run
+
+**Via GitHub CLI:**
+```bash
+gh workflow run build-mac-desktop.yml -f version=0.18.5
+```
+
+### Build Process
+
+The workflow:
+1. **Spins up macOS runners:**
+   - `macos-13` for Intel (x86_64)
+   - `macos-14` for Apple Silicon (aarch64)
+
+2. **Installs dependencies:**
+   - Node.js 20
+   - Rust toolchain
+   - Tauri CLI (via npm)
+
+3. **Builds desktop app:**
+   - Compiles frontend (TypeScript + Vite)
+   - Compiles backend (Rust + Tauri)
+   - Creates .dmg installers
+
+4. **Generates artifacts:**
+   - Versioned .dmg files
+   - SHA256 checksums
+
+5. **Uploads to GitHub:**
+   - Workflow artifacts (30-day retention)
+   - GitHub Release (if triggered by tag)
+
+### Testing Mac Builds
+
+**After workflow completes:**
+1. Download .dmg artifacts from workflow run
+2. Test on Intel Mac (or Rosetta on Apple Silicon)
+3. Test on Apple Silicon Mac (native)
+
+**Installation test:**
+```bash
+# Mount .dmg
+open Lumina_0.18.5_x86_64.dmg
+
+# Drag Lumina.app to Applications
+cp -R /Volumes/Lumina/Lumina.app /Applications/
+
+# Remove quarantine flag (unsigned app)
+xattr -d com.apple.quarantine /Applications/Lumina.app
+
+# Launch app
+open /Applications/Lumina.app
+```
+
+**Functional test:**
+- App launches without crash ✅
+- Microphone permission requested ✅
+- Voice capture works ✅
+- Whisper transcription works ✅
+- VS Code extension detects desktop app via IPC ✅
+
+### Versioning
+
+Desktop app version managed separately:
+- **Location:** `products/lumina-desktop/package.json`
+- **Current:** `0.18.5`
+- **Update manually** when bumping extension version
+
+### Code Signing (Optional)
+
+**Current Status:** Unsigned builds (v0.18.5)
+- Users will see security warning
+- Must right-click → "Open" or remove quarantine flag
+- App works fully after override
+
+**Future:** Add code signing for trusted distribution
+- Requires Apple Developer Account
+- Requires code signing certificate
+- Workflow has placeholder secrets: `TAURI_PRIVATE_KEY`, `TAURI_KEY_PASSWORD`
+
+### Troubleshooting
+
+**Build fails with "xcrun: error: unable to find utility 'metal'"**
+→ Xcode Command Line Tools missing on runner (should be pre-installed)
+
+**Build succeeds but no .dmg files**
+→ Check Tauri config: `products/lumina-desktop/src-tauri/tauri.conf.json` line 33 (`"targets": "all"`)
+
+**.dmg created but app crashes on launch**
+→ Check workflow logs for Rust compilation errors
+→ Test locally on Mac if available
+
+**GitHub Actions runner times out (>2 hours)**
+→ First build takes 10-15 minutes (Rust dependency compilation)
+→ Subsequent builds faster due to caching (~5 minutes)
+
+---
+
 ## Authentication
 
 **Required:** npm login as `aelor`

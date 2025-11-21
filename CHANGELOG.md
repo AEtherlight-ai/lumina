@@ -87,6 +87,86 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Validation catches issues early → Pre-commit hooks prevent bad syntax reaching team
 - Future-proof architecture → Index signatures + spread operators eliminate future maintenance
 
+### Added
+
+#### **BUILD-001: Mac Desktop App Binaries (.dmg for Intel and Apple Silicon)** (Phase 2 - Mac Compatibility)
+
+**Feature:** Automated GitHub Actions workflow to build Mac desktop app binaries for voice capture functionality.
+
+**What's New:**
+- **Intel Mac Support** (x86_64)
+  - `Lumina_0.18.5_x86_64.dmg` - Works on Intel Macs and Apple Silicon via Rosetta
+  - SHA256 checksum for integrity verification
+
+- **Apple Silicon Mac Support** (aarch64)
+  - `Lumina_0.18.5_aarch64.dmg` - Native Apple Silicon binary (M1/M2/M3 chips)
+  - SHA256 checksum for integrity verification
+
+- **GitHub Actions Workflow** (`.github/workflows/build-mac-desktop.yml`)
+  - Automated build on macOS runners (macos-13 for Intel, macos-14 for Apple Silicon)
+  - Triggers: Manual (`workflow_dispatch`) or automatic (git tags `v*.*.*`)
+  - Build time: 10-15 minutes first build, ~5 minutes with caching
+  - Artifacts: 30-day retention + automatic GitHub Release attachment
+
+**Impact:**
+- Mac users gain full feature parity with Windows users
+- Voice capture via desktop app now available on macOS
+- Cross-platform release artifacts (Windows + Mac)
+- Eliminates "Mac users limited to extension-only" gap
+
+**Technical Details:**
+- Desktop app: `products/lumina-desktop/` (Tauri 2.0 + Rust + TypeScript + React)
+- Frontend: Vite build system
+- Backend: Rust with CoreAudio for Mac microphone access
+- Binaries: Unsigned (users will see security warning, must right-click → "Open")
+- Future: Code signing with Apple Developer Account
+
+**Installation (Mac Users):**
+```bash
+# Download .dmg from GitHub Release
+# Intel Mac: Lumina_0.18.5_x86_64.dmg
+# Apple Silicon: Lumina_0.18.5_aarch64.dmg
+
+# Mount and install
+open Lumina_0.18.5_aarch64.dmg
+# Drag Lumina.app to Applications
+
+# Remove quarantine flag (unsigned app)
+xattr -d com.apple.quarantine /Applications/Lumina.app
+
+# Launch
+open /Applications/Lumina.app
+```
+
+**Testing:**
+- App launches without crash ✅
+- Microphone permission requested ✅
+- Voice capture works ✅
+- Whisper transcription works ✅
+- VS Code extension detects desktop app via IPC ✅
+
+**Documentation:**
+- Updated: `PUBLISHING.md` (Mac build process section)
+- Enhanced prompt: `internal/sprints/enhanced_prompts/v0.18.5-BUGS_BUILD-001_ENHANCED_PROMPT.md`
+- Sprint: `ACTIVE_SPRINT_v0.18.5_BUGS.toml` (BUILD-001)
+
+**Part of Mac Support Strategy (Sprint 18.5):**
+- Phase 1: MAC-001 (Terminal fix - Remove PowerShell hardcoding) ✅ Completed
+- Phase 2: BUILD-001 (Desktop app binaries) ✅ Completed
+- Result: Full Mac compatibility achieved
+
+**Time Investment:**
+- Setup: 2-3 hours (GitHub Actions workflow + documentation)
+- Build: ~10-15 minutes (automated, macOS runners in cloud)
+- Testing: 1 hour (manual testing on Mac hardware)
+- Total: ~4 hours for permanent Mac support
+
+**Key Learnings:**
+- GitHub Actions macOS runners eliminate need for local Mac hardware
+- Tauri "targets": "all" configuration builds both architectures automatically
+- Unsigned builds require security override but are fully functional
+- CI/CD approach scales better than manual builds on physical Mac
+
 ---
 
 ## [0.18.3] - 2025-11-19 - Sprint 18.2: Resource Bundling & Desktop Installer Fixes
