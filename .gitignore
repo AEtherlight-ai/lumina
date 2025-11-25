@@ -49,3 +49,4 @@ products/lumina-web/
 # NOTE: website/ is a GIT SUBMODULE - DO NOT add to gitignore
 # It contains .integration/ directory with API specs from private repo
 .env.local
+desktop.ini
