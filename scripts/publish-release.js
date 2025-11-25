@@ -478,6 +478,39 @@ async function main() {
   exec('git push origin master --tags');
   log('✓ Pushed to GitHub', 'green');
 
+  // Step 10.5: Check for Mac .dmg files and provide guidance
+  log('\n📋 Step 10.5: Check for Mac desktop installers', 'yellow');
+  const macDmgTempPaths = [
+    path.join('/tmp', 'mac-build-artifacts', 'macos-x86_64-dmg', `Lumina_${newVersion}_x86_64.dmg`),
+    path.join('/tmp', 'mac-build-artifacts', 'macos-aarch64-dmg', `Lumina_${newVersion}_aarch64.dmg`)
+  ];
+
+  const macDmgsFound = macDmgTempPaths.some(p => fs.existsSync(p));
+
+  if (!macDmgsFound) {
+    log('⚠️  Mac .dmg files not found in /tmp/mac-build-artifacts/', 'yellow');
+    log('\n📦 To include Mac installers in this release:', 'cyan');
+    log('   1. Mac builds are created via GitHub Actions workflow', 'cyan');
+    log('   2. Trigger build: gh workflow run build-mac-desktop.yml -f version=' + newVersion, 'cyan');
+    log('   3. Wait ~10-15 minutes for build to complete', 'cyan');
+    log('   4. Download artifacts: gh run download <run-id> -D /tmp/mac-build-artifacts', 'cyan');
+    log('   5. Re-run this publish script', 'cyan');
+    log('\n   Or continue without Mac installers (Mac users won\'t have desktop app)', 'yellow');
+
+    const continueWithoutMac = autoYes || await confirmAction('\nContinue without Mac installers? (yes/no): ');
+    if (!continueWithoutMac) {
+      log('\n✗ Publish cancelled - build Mac installers first', 'yellow');
+      log('See: .github/workflows/build-mac-desktop.yml', 'cyan');
+      process.exit(0);
+    }
+    if (autoYes) {
+      log('✓ Auto-confirmed (--yes flag)', 'green');
+    }
+    log('⚠️  Continuing without Mac installers', 'yellow');
+  } else {
+    log('✓ Mac .dmg files found - will include in release', 'green');
+  }
+
   // Step 11: Create GitHub Release (BEFORE npm publish)
   log('\n📋 Step 11: Create GitHub Release', 'yellow');
   const ghInstalled = execSilent('gh --version');
@@ -520,9 +553,11 @@ Then reload VS Code to see the update.
 
   fs.writeFileSync('.release-notes.tmp', releaseNotes);
 
-  // Find desktop app installers (built in Step 5.5)
+  // Find desktop app installers (built in Step 5.5 for Windows, via GitHub Actions for Mac)
   // Note: vscodeLuminaPath already declared in Step 5.5
   const desktopFiles = [];
+
+  // Windows installers
   const exeFile = path.join(vscodeLuminaPath, `Lumina_${newVersion}_x64-setup.exe`);
   const msiFile = path.join(vscodeLuminaPath, `Lumina_${newVersion}_x64_en-US.msi`);
 
@@ -535,9 +570,26 @@ Then reload VS Code to see the update.
     log(`   Found desktop installer: Lumina_${newVersion}_x64_en-US.msi`, 'blue');
   }
 
+  // Mac installers (.dmg files from GitHub Actions or local /tmp)
+  const macDmgLocations = [
+    path.join('/tmp', 'mac-build-artifacts', 'macos-x86_64-dmg', `Lumina_${newVersion}_x86_64.dmg`),
+    path.join('/tmp', 'mac-build-artifacts', 'macos-aarch64-dmg', `Lumina_${newVersion}_aarch64.dmg`),
+    path.join(vscodeLuminaPath, `Lumina_${newVersion}_x86_64.dmg`),
+    path.join(vscodeLuminaPath, `Lumina_${newVersion}_aarch64.dmg`)
+  ];
+
+  for (const dmgPath of macDmgLocations) {
+    if (fs.existsSync(dmgPath)) {
+      desktopFiles.push(`"${dmgPath}"`);
+      const fileName = path.basename(dmgPath);
+      log(`   Found Mac installer: ${fileName}`, 'blue');
+    }
+  }
+
   if (desktopFiles.length === 0) {
     log('⚠️  Warning: No desktop installers found', 'yellow');
-    log('   This should not happen - Step 5.5 should have built them', 'yellow');
+    log('   Windows installers should be built in Step 5.5', 'yellow');
+    log('   Mac installers should be built via GitHub Actions workflow', 'yellow');
     log('   Desktop app will not be available for this release', 'yellow');
   } else {
     log(`✓ Found ${desktopFiles.length} desktop installer(s)`, 'green');
@@ -585,8 +637,9 @@ Then reload VS Code to see the update.
   }
   log(`✓ Verified: ${vsixAsset.name} exists on GitHub`, 'green');
 
-  // Check for desktop installers
+  // Check for desktop installers (Windows + Mac)
   if (assetNames.length > 0) {
+    // Windows installers
     const hasExe = assetNames.includes(`Lumina_${newVersion}_x64-setup.exe`);
     const hasMsi = assetNames.includes(`Lumina_${newVersion}_x64_en-US.msi`);
 
@@ -602,8 +655,27 @@ Then reload VS Code to see the update.
       log(`⚠️  Warning: Lumina_${newVersion}_x64_en-US.msi not found in release`, 'yellow');
     }
 
-    if (!hasExe && !hasMsi) {
+    // Mac installers
+    const hasMacIntel = assetNames.includes(`Lumina_${newVersion}_x86_64.dmg`);
+    const hasMacArm = assetNames.includes(`Lumina_${newVersion}_aarch64.dmg`);
+
+    if (hasMacIntel) {
+      log(`✓ Verified: Lumina_${newVersion}_x86_64.dmg exists on GitHub`, 'green');
+    } else {
+      log(`⚠️  Warning: Lumina_${newVersion}_x86_64.dmg not found in release (Mac Intel users won't have desktop app)`, 'yellow');
+    }
+
+    if (hasMacArm) {
+      log(`✓ Verified: Lumina_${newVersion}_aarch64.dmg exists on GitHub`, 'green');
+    } else {
+      log(`⚠️  Warning: Lumina_${newVersion}_aarch64.dmg not found in release (Mac Apple Silicon users won't have desktop app)`, 'yellow');
+    }
+
+    const totalInstallers = [hasExe, hasMsi, hasMacIntel, hasMacArm].filter(Boolean).length;
+    if (totalInstallers === 0) {
       log('⚠️  Warning: No desktop installers found - desktop app will not be available', 'yellow');
+    } else {
+      log(`✓ Total desktop installers in release: ${totalInstallers}`, 'green');
     }
   }
 
