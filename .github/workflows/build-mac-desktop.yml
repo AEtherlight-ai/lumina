@@ -11,6 +11,9 @@ on:
     tags:
       - 'v*.*.*'
 
+permissions:
+  contents: write
+
 jobs:
   build-mac-dmg:
     name: Build macOS .dmg (${{ matrix.settings.arch }})
