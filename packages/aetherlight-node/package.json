@@ -1,6 +1,6 @@
 {
   "name": "aetherlight-node",
-  "version": "0.18.11",
+  "version": "0.18.12",
   "description": "Node.js bindings for ÆtherLight Core pattern matching engine",
   "main": "index.js",
   "types": "index.d.ts",
@@ -56,10 +56,10 @@
     "registry": "https://registry.npmjs.org/"
   },
   "optionalDependencies": {
-    "aetherlight-node-win32-x64-msvc": "0.18.4",
-    "aetherlight-node-darwin-x64": "0.18.4",
-    "aetherlight-node-linux-x64-gnu": "0.18.4",
-    "aetherlight-node-darwin-arm64": "0.18.4",
-    "aetherlight-node-linux-arm64-gnu": "0.18.4"
+    "aetherlight-node-win32-x64-msvc": "0.18.12",
+    "aetherlight-node-darwin-x64": "0.18.12",
+    "aetherlight-node-linux-x64-gnu": "0.18.12",
+    "aetherlight-node-darwin-arm64": "0.18.12",
+    "aetherlight-node-linux-arm64-gnu": "0.18.12"
   }
 }
