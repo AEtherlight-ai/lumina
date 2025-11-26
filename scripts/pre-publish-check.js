@@ -224,6 +224,9 @@ function checkGitState() {
       const nonPackageJsonChanges = lines.filter(line => {
         // Allow modified package.json files (version bumps)
         if (line.match(/^\s*M.*package\.json$/)) return false;
+        // Allow modified desktop app version files (Cargo.toml, tauri.conf.json)
+        if (line.match(/^\s*M.*Cargo\.toml$/)) return false;
+        if (line.match(/^\s*M.*tauri\.conf\.json$/)) return false;
         // Allow untracked test files
         if (line.match(/^\?\?.*\.(test|spec)\./)) return false;
         if (line.match(/^\?\?.*test\//)) return false;
