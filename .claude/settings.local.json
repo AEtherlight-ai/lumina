@@ -36,7 +36,9 @@
       "Bash(done)",
       "Bash(cargo clean:*)",
       "Bash(cargo test:*)",
-      "Bash(git mv:*)"
+      "Bash(git mv:*)",
+      "Bash(powershell -Command:*)",
+      "Bash(dir:*)"
     ],
     "deny": [],
     "ask": []

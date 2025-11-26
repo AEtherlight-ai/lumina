@@ -50,6 +50,7 @@ Thumbs.db
 # These files are essential for ÆtherLight functionality
 !.claude/**
 !internal/agents/**
+!internal/sprints/enhanced_prompts/**
 !docs/patterns/**
 
 # Desktop installers - only include current version

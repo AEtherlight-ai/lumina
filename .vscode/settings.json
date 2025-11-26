@@ -12,5 +12,6 @@
   // "aetherlight.sprintFile": "custom/path/to/sprint.toml",
 
   "aetherlight.enforcementEnabled": true,
-  "aetherlight.sprint.filePath": "internal/sprints/ACTIVE_SPRINT.toml"
+  "aetherlight.sprint.filePath": "internal/sprints/ACTIVE_SPRINT.toml",
+  "aetherlight.lastSyncedVersion": "0.18.4"
 }

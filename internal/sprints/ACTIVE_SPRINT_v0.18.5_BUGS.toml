@@ -65,11 +65,11 @@ max_parallel_tasks = 2
 daily_capacity_hours = 8
 
 [progress]
-total_tasks = 38
+total_tasks = 39
 completed_tasks = 5
 in_progress_tasks = 0
-pending_tasks = 33
-completion_percentage = 13.2
+pending_tasks = 34
+completion_percentage = 12.8
 
 # ==============================================================================
 # FEATURE TASKS - Critical Bug Fixes from Sprint 18.2 Testing
@@ -2035,6 +2035,148 @@ error_handling = """
 
 performance_target = "Terminal creation < 100ms (no change from current)"
 patterns = ["Pattern-CODE-001", "Pattern-COMPAT-001"]
+dependencies = []
+
+# ------------------------------------------------------------------------------
+# v1.0 Release Cleanup Tasks (Remove internal ÆtherLight-specific content)
+# ------------------------------------------------------------------------------
+
+[tasks.CLEAN-001]
+id = "CLEAN-001"
+name = "Remove internal ÆtherLight-specific documentation from bundled extension"
+status = "pending"
+phase = "v1.0-cleanup"
+agent = "infrastructure-agent"
+
+why = """
+User concern: Extension bundles internal development files not meant for end users.
+Current state: .vscodeignore includes internal/agents/**, .claude/**, docs/patterns/**
+Impact: Published extension contains ÆtherLight-specific agent contexts, skills, patterns
+Root cause: Development files marked for inclusion during development phase
+Without this: v1.0 ships with internal development documentation (confusing for users)
+With this: Clean v1.0 release with only user-relevant content
+"""
+
+context = """
+Problem Location: vscode-lumina/.vscodeignore (lines 49-53)
+
+Current .vscodeignore:
+```
+# INCLUDE bundled skills, agents, and patterns (generic/reusable)
+!.claude/**
+!internal/agents/**
+!docs/patterns/**
+```
+
+Files Currently Bundled (Should NOT be shipped):
+- internal/agents/database-agent-context.md (ÆtherLight internal)
+- internal/agents/api-agent-context.md (ÆtherLight internal)
+- internal/agents/ui-agent-context.md (ÆtherLight internal)
+- internal/agents/infrastructure-agent-context.md (ÆtherLight internal)
+- internal/agents/test-agent-context.md (ÆtherLight internal)
+- internal/agents/review-agent-context.md (ÆtherLight internal)
+- internal/agents/planning-agent-context.md (ÆtherLight internal)
+- internal/agents/commit-agent-context.md (ÆtherLight internal)
+- internal/agents/docs-agent-context.md (ÆtherLight internal)
+- internal/agents/documentation-agent-context.md (ÆtherLight internal)
+- internal/agents/project-manager-context.md (ÆtherLight internal)
+
+Review Required:
+- .claude/** - Which commands/skills are user-useful vs internal?
+- docs/patterns/** - Which patterns are generic vs ÆtherLight-specific?
+
+Solution:
+1. Remove !internal/agents/** from .vscodeignore (don't ship agents)
+2. Review .claude/** - keep only user-relevant commands/skills
+3. Review docs/patterns/** - keep only generic patterns OR remove entirely
+4. Verify extension still works without bundled context
+5. Update any code that references bundled files
+"""
+
+reasoning_chain = [
+    "1. User installs ÆtherLight extension from marketplace",
+    "2. Extension includes internal/agents/* files (ÆtherLight dev docs)",
+    "3. User sees database-agent-context.md, api-agent-context.md in extension",
+    "4. These files reference ÆtherLight-specific code, patterns, workflows",
+    "5. User confused - these aren't relevant to their project",
+    "6. Fix: Update .vscodeignore to exclude internal development files",
+    "7. Keep only user-relevant content (if any) or remove all bundled context",
+    "8. v1.0 ships clean without internal documentation"
+]
+
+pattern_context = "Pattern-PUBLISH-001: Release pipeline, Pattern-DOCS-001: Documentation philosophy"
+
+success_impact = """
+After CLEAN-001 complete:
+- Extension ships without internal agent context files
+- No ÆtherLight-specific development documentation in published extension
+- .vscodeignore properly excludes internal/* content
+- .claude/** reviewed - only user-relevant content included (or none)
+- docs/patterns/** reviewed - only generic patterns (or none)
+- Extension still functions correctly without bundled context
+- Clean v1.0 release ready for public distribution
+"""
+
+test_requirements = """
+Verification Steps:
+
+1. Update .vscodeignore:
+   - Remove or comment out: !internal/agents/**
+   - Review and update: !.claude/**
+   - Review and update: !docs/patterns/**
+
+2. Build .vsix package:
+   - Run: cd vscode-lumina && npm run package
+   - Extract .vsix (it's a zip file)
+   - Verify internal/agents/ NOT present
+   - Verify only user-relevant content in .claude/ (if any)
+
+3. Test extension functionality:
+   - Install .vsix in clean VS Code instance
+   - Verify all features work without bundled context
+   - Voice panel, sprint tab, terminal creation all functional
+
+4. Size verification:
+   - Compare .vsix size before/after cleanup
+   - Should be smaller (removed ~15 .md files)
+"""
+
+test_files = []
+test_coverage_requirement = 0.0
+
+validation_criteria = [
+    ".vscodeignore updated to exclude internal/agents/**",
+    ".vsix package does not contain internal/agents/ directory",
+    "Extension functions correctly without bundled agent contexts",
+    ".claude/** reviewed - only user-relevant content (or removed)",
+    "docs/patterns/** reviewed - only generic patterns (or removed)",
+    "Package size reduced (removed internal documentation)",
+    "No broken references to removed files"
+]
+
+estimated_lines = -20
+estimated_time = "30-60 minutes"
+
+files_to_modify = [
+    "vscode-lumina/.vscodeignore (remove internal/agents, review .claude and docs/patterns)"
+]
+
+deliverables = [
+    "Updated .vscodeignore excluding internal development files",
+    "Verified .vsix package is clean",
+    "Extension tested without bundled context",
+    "Ready for v1.0 public release"
+]
+
+error_handling = """
+- If extension requires bundled context: Identify which files and keep only those
+- If code references bundled files: Update code to not require them
+- If patterns are needed: Create user-facing patterns (not ÆtherLight-specific)
+- Fallback: Keep minimal bundled content with clear user-facing purpose
+"""
+
+performance_target = "No performance impact (removing unused files)"
+patterns = ["Pattern-PUBLISH-001", "Pattern-DOCS-001"]
 dependencies = []
 
 # ==============================================================================
