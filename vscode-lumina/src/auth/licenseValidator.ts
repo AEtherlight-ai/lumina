@@ -133,7 +133,7 @@ export class LicenseValidator {
 
         const result: LicenseValidationResult = {
           valid: true,
-          tier: data.tier || 'free',
+          tier: data.subscription_tier || data.tier || 'free',  // API returns subscription_tier, not tier
           user_id: data.user_id,
           balance: data.tokens_balance || data.balance,
           message: data.message

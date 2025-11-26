@@ -116,15 +116,23 @@ export function VoiceCapture() {
     }, 300000);
 
     // Listen for insufficient-tokens events from backend
-    const unlistenPromise = listen<TokenBalance>('insufficient-tokens', (event) => {
+    const unlistenInsufficientPromise = listen<TokenBalance>('insufficient-tokens', (event) => {
       console.warn('Insufficient tokens:', event.payload);
       setTokenBalance(event.payload);
       setShowInsufficientTokens(true);
     });
 
+    // Listen for recording-stopped events (hotkey-triggered recordings)
+    // This ensures balance refreshes after hotkey transcription completes
+    const unlistenRecordingPromise = listen('recording-stopped', () => {
+      console.log('Recording stopped via hotkey, refreshing balance...');
+      loadBalance();
+    });
+
     return () => {
       clearInterval(intervalId);
-      unlistenPromise.then(unlisten => unlisten());
+      unlistenInsufficientPromise.then(unlisten => unlisten());
+      unlistenRecordingPromise.then(unlisten => unlisten());
     };
   }, [lastWarningThreshold]);
 

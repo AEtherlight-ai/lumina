@@ -392,7 +392,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 			console.log('[BUG-008 DEBUG] Validating license key with server...');
 			const result = await validator.validateLicenseKey(licenseKey, {
 				allowOffline: true,
-				timeout: 2000
+				timeout: 5000  // 5 seconds to allow for Vercel cold starts
 			});
 			console.log('[BUG-008 DEBUG] Validation result:', { tier: result.tier, valid: result.valid, user_id: result.user_id });
 
