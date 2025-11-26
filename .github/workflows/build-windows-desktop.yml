@@ -107,19 +107,27 @@ jobs:
         run: |
           $version = "${{ steps.version.outputs.VERSION }}"
 
-          # Rename MSI files
+          # Rename MSI files (remove existing target first to avoid conflict)
           $msiFiles = Get-ChildItem -Path "msi/*.msi" -ErrorAction SilentlyContinue
           foreach ($file in $msiFiles) {
             $newName = "Lumina_${version}_x64.msi"
-            Rename-Item -Path $file.FullName -NewName $newName
+            $targetPath = Join-Path $file.DirectoryName $newName
+            if (Test-Path $targetPath) {
+              Remove-Item -Path $targetPath -Force
+            }
+            Rename-Item -Path $file.FullName -NewName $newName -Force
             Write-Host "Renamed: $($file.Name) -> $newName"
           }
 
-          # Rename NSIS EXE files
+          # Rename NSIS EXE files (remove existing target first to avoid conflict)
           $exeFiles = Get-ChildItem -Path "nsis/*.exe" -ErrorAction SilentlyContinue
           foreach ($file in $exeFiles) {
             $newName = "Lumina_${version}_x64-setup.exe"
-            Rename-Item -Path $file.FullName -NewName $newName
+            $targetPath = Join-Path $file.DirectoryName $newName
+            if (Test-Path $targetPath) {
+              Remove-Item -Path $targetPath -Force
+            }
+            Rename-Item -Path $file.FullName -NewName $newName -Force
             Write-Host "Renamed: $($file.Name) -> $newName"
           }
 
