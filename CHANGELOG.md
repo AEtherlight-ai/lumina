@@ -19,6 +19,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.18.7] - 2025-11-25 - Bulletproof Installer Update
+
+### Fixed
+
+#### **CLI Installer - Bulletproof File Lock Handling** (Critical)
+
+**Issue:** Users getting "file is being used by another process" when running `npx aetherlight` or `aetherlight` on Windows. Antivirus scanners and running Lumina processes would block the installer.
+
+**Solution:**
+
+1. **Running Process Detection** - Automatically detects if Lumina.exe is running and closes it gracefully before updating (Windows and Mac)
+
+2. **5-Retry Exponential Backoff** - If file is locked (antivirus scanning), retries with delays of 2s, 4s, 6s, 8s, 10s
+
+3. **File Copy Fallback** - On attempt 3+, if original file is locked, copies to new location with random suffix and launches from there
+
+4. **File Accessibility Check** - Checks if file can be opened before attempting launch
+
+5. **3-Second Post-Download Delay** - Gives antivirus scanners time to finish before attempting to use downloaded file
+
+6. **Proper Update vs Install Messaging** - Shows "Updating from X to Y" when upgrading existing install, "Installing" for fresh installs
+
+**Files Modified:**
+- `vscode-lumina/bin/aetherlight.js` - Complete installer rewrite
+
+**Platforms:** Windows and Mac
+
+---
+
 ## [0.18.5] - 2025-01-20 - Sprint 18.5: TOML Parsing Bug Fixes + Future-Proof Architecture
 
 ### Fixed
