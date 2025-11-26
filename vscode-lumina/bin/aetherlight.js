@@ -287,6 +287,81 @@ function getInstalledDesktopVersion(osType) {
   return null;
 }
 
+/**
+ * Check if Lumina desktop app is currently running
+ * Returns true if running, false otherwise
+ */
+function isLuminaRunning() {
+  try {
+    if (os.platform() === 'win32') {
+      const result = execSync('tasklist /FI "IMAGENAME eq Lumina.exe" /NH', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] });
+      return result.toLowerCase().includes('lumina.exe');
+    } else if (os.platform() === 'darwin') {
+      execSync('pgrep -x Lumina', { stdio: ['pipe', 'pipe', 'ignore'] });
+      return true; // pgrep succeeds = process found
+    }
+  } catch {
+    return false;
+  }
+  return false;
+}
+
+/**
+ * Close running Lumina app gracefully
+ * Returns true if closed successfully or wasn't running
+ */
+function closeLuminaApp() {
+  try {
+    if (os.platform() === 'win32') {
+      execSync('taskkill /IM Lumina.exe /F', { stdio: 'ignore' });
+    } else if (os.platform() === 'darwin') {
+      execSync('pkill -x Lumina', { stdio: 'ignore' });
+    }
+    return true;
+  } catch {
+    return false; // Process might not exist - that's fine
+  }
+}
+
+/**
+ * Get path to installed Lumina app
+ * Returns full path or null if not found
+ */
+function getLuminaInstallPath() {
+  if (os.platform() === 'win32') {
+    const paths = [
+      path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Lumina', 'Lumina.exe'),
+      path.join(process.env.PROGRAMFILES || 'C:\\Program Files', 'Lumina', 'Lumina.exe'),
+      path.join(process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)', 'Lumina', 'Lumina.exe'),
+    ];
+    for (const p of paths) {
+      if (fs.existsSync(p)) return p;
+    }
+  } else if (os.platform() === 'darwin') {
+    if (fs.existsSync('/Applications/Lumina.app')) {
+      return '/Applications/Lumina.app';
+    }
+  }
+  return null;
+}
+
+/**
+ * Start/restart Lumina app
+ * Returns true if started successfully
+ */
+function startLuminaApp(installPath) {
+  try {
+    if (os.platform() === 'win32') {
+      execSync(`start "" "${installPath}"`, { stdio: 'ignore', shell: 'cmd.exe' });
+    } else if (os.platform() === 'darwin') {
+      execSync(`open "${installPath}"`, { stdio: 'ignore' });
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // FIX: Issue #3 + #4 - Windows path handling + retry logic
 function launchInstaller(filePath, maxRetries = 3) {
   // Convert to Windows-style path
@@ -469,6 +544,7 @@ async function installDesktopApp(filePath, osType, releaseVersion) {
 
   // BUG-004: Check installed version FIRST
   const installedVersion = getInstalledDesktopVersion(osType);
+  const wasRunning = isLuminaRunning();
 
   if (installedVersion) {
     log(`   Found installed version: ${installedVersion}`, 'blue');
@@ -489,6 +565,14 @@ async function installDesktopApp(filePath, osType, releaseVersion) {
     log(`   Desktop app not found, installing ${releaseVersion}...`, 'blue');
   }
 
+  // Close running app before update (prevents file lock issues)
+  if (wasRunning) {
+    log('   Closing running Lumina app...', 'yellow');
+    closeLuminaApp();
+    // Give it time to close
+    await new Promise(resolve => setTimeout(resolve, 1500));
+  }
+
   // Proceed with installation only if needed
   log('   Installing Desktop app...', 'blue');
 
@@ -498,16 +582,60 @@ async function installDesktopApp(filePath, osType, releaseVersion) {
       const success = launchInstaller(filePath);
       if (success) {
         log('   Follow installer prompts to complete setup.', 'yellow');
+        // Note: Can't restart automatically on Windows - installer handles it
       }
       return success;
     } else if (osType === 'mac') {
-      // Install Mac app to /Applications
-      const appName = path.basename(filePath);
-      const targetPath = `/Applications/${appName}`;
+      const targetPath = '/Applications/Lumina.app';
 
-      log('   Installing to /Applications...', 'blue');
-      execSync(`cp -R "${filePath}" "${targetPath}"`, { stdio: 'inherit' });
+      // Handle DMG files (need to mount first)
+      if (filePath && filePath.endsWith('.dmg')) {
+        log('   Mounting DMG...', 'blue');
+        execSync(`hdiutil attach "${filePath}" -nobrowse -quiet`, { stdio: 'ignore' });
+
+        // Find mounted volume (usually /Volumes/Lumina)
+        let appPath = '/Volumes/Lumina/Lumina.app';
+        if (!fs.existsSync(appPath)) {
+          // Try to find the app in any Lumina-related volume
+          try {
+            const volumes = fs.readdirSync('/Volumes').filter(v => v.toLowerCase().includes('lumina'));
+            for (const vol of volumes) {
+              const apps = fs.readdirSync('/Volumes/' + vol).filter(f => f.endsWith('.app'));
+              if (apps.length > 0) {
+                appPath = '/Volumes/' + vol + '/' + apps[0];
+                break;
+              }
+            }
+          } catch (e) {
+            // Ignore read errors
+          }
+        }
+
+        // Copy app to /Applications
+        log('   Copying to /Applications...', 'blue');
+        execSync(`rm -rf "${targetPath}" 2>/dev/null || true`, { stdio: 'ignore' });
+        execSync(`cp -R "${appPath}" "${targetPath}"`, { stdio: 'inherit' });
+
+        // Unmount DMG
+        log('   Unmounting DMG...', 'blue');
+        execSync(`hdiutil detach "/Volumes/Lumina" -quiet 2>/dev/null || true`, { stdio: 'ignore' });
+
+      } else {
+        // Direct .app bundle (from .app.zip)
+        log('   Copying to /Applications...', 'blue');
+        execSync(`rm -rf "${targetPath}" 2>/dev/null || true`, { stdio: 'ignore' });
+        execSync(`cp -R "${filePath}" "${targetPath}"`, { stdio: 'inherit' });
+      }
+
       log('✅ Desktop app installed to /Applications!', 'green');
+
+      // Restart app if it was running before update
+      if (wasRunning) {
+        log('   Restarting Lumina...', 'blue');
+        if (startLuminaApp(targetPath)) {
+          log('✅ Lumina restarted!', 'green');
+        }
+      }
       return true;
     }
   } catch (err) {
