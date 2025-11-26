@@ -53,9 +53,13 @@ Thumbs.db
 !internal/sprints/enhanced_prompts/**
 !docs/patterns/**
 
-# Desktop installers - only include current version
-# Pattern: Keep Lumina_*.exe and Lumina_*.msi (current version only)
-# Old versions should be cleaned up before packaging
+# Desktop installers - EXCLUDE from VSIX
+# These are distributed via GitHub releases, not bundled in the extension
+# Marketplace limit is 50MB, binaries would make package ~90MB
+*.exe
+*.msi
+binaries/**
+Lumina_*
 
 # Test and development
 *.test.js
