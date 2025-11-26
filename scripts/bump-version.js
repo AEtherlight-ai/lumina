@@ -24,6 +24,10 @@ const PACKAGES = [
 
 const MAIN_PACKAGE = 'vscode-lumina';
 
+// Desktop app files that need version sync
+const DESKTOP_TAURI_CONF = 'products/lumina-desktop/src-tauri/tauri.conf.json';
+const DESKTOP_CARGO_TOML = 'products/lumina-desktop/src-tauri/Cargo.toml';
+
 function getVersion(packagePath) {
   const pkgPath = path.join(process.cwd(), packagePath, 'package.json');
   const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
@@ -67,6 +71,47 @@ function bumpSemver(version, type) {
   }
 }
 
+/**
+ * Update tauri.conf.json version
+ */
+function updateTauriConf(newVersion) {
+  const confPath = path.join(process.cwd(), DESKTOP_TAURI_CONF);
+  if (!fs.existsSync(confPath)) {
+    console.log(`⚠️  Skipping ${DESKTOP_TAURI_CONF} (file not found)`);
+    return;
+  }
+
+  const conf = JSON.parse(fs.readFileSync(confPath, 'utf8'));
+  const oldVersion = conf.version;
+  conf.version = newVersion;
+  fs.writeFileSync(confPath, JSON.stringify(conf, null, 2) + '\n');
+  console.log(`✅ tauri.conf.json: ${oldVersion} -> ${newVersion}`);
+}
+
+/**
+ * Update Cargo.toml version using regex (preserves formatting)
+ */
+function updateCargoToml(newVersion) {
+  const cargoPath = path.join(process.cwd(), DESKTOP_CARGO_TOML);
+  if (!fs.existsSync(cargoPath)) {
+    console.log(`⚠️  Skipping ${DESKTOP_CARGO_TOML} (file not found)`);
+    return;
+  }
+
+  let content = fs.readFileSync(cargoPath, 'utf8');
+  const versionMatch = content.match(/^version\s*=\s*"([^"]+)"/m);
+  const oldVersion = versionMatch ? versionMatch[1] : 'unknown';
+
+  // Replace version in [package] section
+  content = content.replace(
+    /^(version\s*=\s*)"[^"]+"/m,
+    `$1"${newVersion}"`
+  );
+
+  fs.writeFileSync(cargoPath, content);
+  console.log(`✅ Cargo.toml: ${oldVersion} -> ${newVersion}`);
+}
+
 function main() {
   const arg = process.argv[2];
 
@@ -92,10 +137,15 @@ function main() {
 
   console.log(`🚀 New version: ${newVersion}\n`);
 
-  // Update all packages
+  // Update all npm packages
   PACKAGES.forEach(pkg => {
     setVersion(pkg, newVersion);
   });
+
+  // Update desktop app versions
+  console.log('\n📱 Updating desktop app versions...');
+  updateTauriConf(newVersion);
+  updateCargoToml(newVersion);
 
   console.log('\n✅ All packages updated!');
   console.log('\n📝 Next steps:');

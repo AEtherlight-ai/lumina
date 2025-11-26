@@ -41,11 +41,16 @@ export function useLicenseActivation(
   const [showDialog, setShowDialog] = useState(false);
   const [hasActivated, setHasActivated] = useState(false);
 
-  // Check if license_key is empty on mount
+  // Check if license_key is empty - show dialog if empty, close if loaded
   useEffect(() => {
     if (!licenseKey || licenseKey.trim() === '') {
       console.log('[useLicenseActivation] License key is empty, showing activation dialog');
       setShowDialog(true);
+    } else {
+      // License key is loaded (either from settings file or just activated)
+      // Close dialog if it was open
+      console.log('[useLicenseActivation] License key loaded, closing dialog if open');
+      setShowDialog(false);
     }
   }, [licenseKey]);
 
