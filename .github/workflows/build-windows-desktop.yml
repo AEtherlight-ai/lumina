@@ -52,6 +52,21 @@ jobs:
         working-directory: products/lumina-desktop
         run: npm install
 
+      - name: Clean old bundle artifacts (prevent cache conflicts)
+        working-directory: products/lumina-desktop
+        shell: pwsh
+        run: |
+          # Remove old bundle files to prevent version conflicts from cache
+          $bundlePath = "src-tauri/target/release/bundle"
+          if (Test-Path $bundlePath) {
+            Write-Host "Cleaning old bundle artifacts..."
+            Remove-Item -Path "$bundlePath/msi/*" -Force -ErrorAction SilentlyContinue
+            Remove-Item -Path "$bundlePath/nsis/*" -Force -ErrorAction SilentlyContinue
+            Write-Host "Bundle directory cleaned"
+          } else {
+            Write-Host "No existing bundle directory to clean"
+          }
+
       - name: Build desktop app with Tauri
         working-directory: products/lumina-desktop
         run: npm run tauri build
@@ -106,29 +121,47 @@ jobs:
         shell: pwsh
         run: |
           $version = "${{ steps.version.outputs.VERSION }}"
+          $targetMsiName = "Lumina_${version}_x64.msi"
+          $targetExeName = "Lumina_${version}_x64-setup.exe"
 
-          # Rename MSI files (remove existing target first to avoid conflict)
-          $msiFiles = Get-ChildItem -Path "msi/*.msi" -ErrorAction SilentlyContinue
-          foreach ($file in $msiFiles) {
-            $newName = "Lumina_${version}_x64.msi"
-            $targetPath = Join-Path $file.DirectoryName $newName
-            if (Test-Path $targetPath) {
-              Remove-Item -Path $targetPath -Force
+          # Delete any old/duplicate MSI files, keep only newest
+          $msiFiles = Get-ChildItem -Path "msi/*.msi" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending
+          if ($msiFiles.Count -gt 0) {
+            $newestMsi = $msiFiles[0]
+            # Remove all other MSI files
+            foreach ($file in $msiFiles | Select-Object -Skip 1) {
+              Write-Host "Removing duplicate: $($file.Name)"
+              Remove-Item -Path $file.FullName -Force
             }
-            Rename-Item -Path $file.FullName -NewName $newName -Force
-            Write-Host "Renamed: $($file.Name) -> $newName"
+            # Rename the newest one if not already correct
+            if ($newestMsi.Name -ne $targetMsiName) {
+              $targetPath = Join-Path $newestMsi.DirectoryName $targetMsiName
+              if (Test-Path $targetPath) { Remove-Item -Path $targetPath -Force }
+              Rename-Item -Path $newestMsi.FullName -NewName $targetMsiName -Force
+              Write-Host "Renamed: $($newestMsi.Name) -> $targetMsiName"
+            } else {
+              Write-Host "MSI already named correctly: $targetMsiName"
+            }
           }
 
-          # Rename NSIS EXE files (remove existing target first to avoid conflict)
-          $exeFiles = Get-ChildItem -Path "nsis/*.exe" -ErrorAction SilentlyContinue
-          foreach ($file in $exeFiles) {
-            $newName = "Lumina_${version}_x64-setup.exe"
-            $targetPath = Join-Path $file.DirectoryName $newName
-            if (Test-Path $targetPath) {
-              Remove-Item -Path $targetPath -Force
+          # Delete any old/duplicate EXE files, keep only newest
+          $exeFiles = Get-ChildItem -Path "nsis/*.exe" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending
+          if ($exeFiles.Count -gt 0) {
+            $newestExe = $exeFiles[0]
+            # Remove all other EXE files
+            foreach ($file in $exeFiles | Select-Object -Skip 1) {
+              Write-Host "Removing duplicate: $($file.Name)"
+              Remove-Item -Path $file.FullName -Force
             }
-            Rename-Item -Path $file.FullName -NewName $newName -Force
-            Write-Host "Renamed: $($file.Name) -> $newName"
+            # Rename the newest one if not already correct
+            if ($newestExe.Name -ne $targetExeName) {
+              $targetPath = Join-Path $newestExe.DirectoryName $targetExeName
+              if (Test-Path $targetPath) { Remove-Item -Path $targetPath -Force }
+              Rename-Item -Path $newestExe.FullName -NewName $targetExeName -Force
+              Write-Host "Renamed: $($newestExe.Name) -> $targetExeName"
+            } else {
+              Write-Host "EXE already named correctly: $targetExeName"
+            }
           }
 
       - name: Generate SHA256 checksums
