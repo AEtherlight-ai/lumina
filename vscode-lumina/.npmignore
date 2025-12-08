@@ -3,12 +3,22 @@
 *.vsix
 
 # Desktop app installers (also distributed via GitHub releases)
+# IMPORTANT: All platform binaries must be excluded - distributed via GitHub releases only
 *.exe
 *.msi
+*.dmg
+*.deb
+*.AppImage
+*.zip
+
+# VS Code test artifacts
+# CRITICAL: .vscode-test-user-data/ contains 50MB+ cache files - MUST exclude
+.vscode-test/
+.vscode-test-user-data/
 
 # Development files
 .vscode/
-.vscode-test/
+.claude/
 src/
 *.ts
 !*.d.ts
@@ -28,3 +38,6 @@ tests/
 # Editor files
 .DS_Store
 Thumbs.db
+
+# Log files
+*.log
