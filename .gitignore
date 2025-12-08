@@ -28,6 +28,9 @@ Thumbs.db
 .vscode/launch.json
 .vscode/tasks.json
 
+# VS Code test artifacts
+**/.vscode-test-user-data/
+
 # Logs
 *.log
 npm-debug.log*

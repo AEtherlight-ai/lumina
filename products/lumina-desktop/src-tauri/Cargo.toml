@@ -1,6 +1,6 @@
 [package]
 name = "lumina-desktop"
-version = "0.18.12"
+version = "0.18.13"
 edition = "2021"
 authors = ["ÆtherLight Team"]
 description = "Lumina Desktop - Voice-to-intelligence desktop application"
